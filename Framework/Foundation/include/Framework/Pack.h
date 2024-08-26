@@ -39,7 +39,6 @@ struct pack_element<I, pack<Ts...>> {
   using type = __type_pack_element<I, Ts...>;
 };
 #else
-
 // recursive case
 template <std::size_t I, typename Head, typename... Tail>
 struct pack_element<I, pack<Head, Tail...>>

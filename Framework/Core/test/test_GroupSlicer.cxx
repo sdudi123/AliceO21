@@ -65,13 +65,13 @@ DECLARE_SOA_TABLE(TrksU, "AOD", "TRKSU",
                   test::Y,
                   test::Z);
 
-DECLARE_SOA_TABLE(TrksXU, "AOD", "TRKSX",
+DECLARE_SOA_TABLE(TrksXU, "AOD", "TRKSXU",
                   unsorted::EventId,
                   test::X);
-DECLARE_SOA_TABLE(TrksYU, "AOD", "TRKSY",
+DECLARE_SOA_TABLE(TrksYU, "AOD", "TRKSYU",
                   unsorted::EventId,
                   test::Y);
-DECLARE_SOA_TABLE(TrksZU, "AOD", "TRKSZ",
+DECLARE_SOA_TABLE(TrksZU, "AOD", "TRKSZU",
                   unsorted::EventId,
                   test::Z);
 

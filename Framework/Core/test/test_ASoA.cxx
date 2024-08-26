@@ -9,6 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <cstdio>
 #include "Framework/ASoA.h"
 #include "Framework/Expressions.h"
 #include "Framework/AnalysisHelpers.h"
@@ -37,9 +38,9 @@ DECLARE_SOA_EXPRESSION_COLUMN(ESum, esum, int, test::x + test::y);
 DECLARE_SOA_TABLE(Points, "TEST", "POINTS", test::X, test::Y);
 DECLARE_SOA_TABLE(Points3Ds, "TEST", "PTS3D", o2::soa::Index<>, test::X, test::Y, test::Z);
 
-DECLARE_SOA_TABLE(Points3DsMk1, "TEST", "PTS3D_1", o2::soa::Index<>, o2::soa::Marker<1>, test::X, test::Y, test::Z);
-DECLARE_SOA_TABLE(Points3DsMk2, "TEST", "PTS3D_2", o2::soa::Index<>, o2::soa::Marker<2>, test::X, test::Y, test::Z);
-DECLARE_SOA_TABLE(Points3DsMk3, "TEST", "PTS3D_3", o2::soa::Index<>, o2::soa::Marker<3>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk1s, "TEST", "PTS3D", 1, o2::soa::Index<>, o2::soa::Marker<1>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk2s, "TEST", "PTS3D", 2, o2::soa::Index<>, o2::soa::Marker<2>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk3s, "TEST", "PTS3D", 3, o2::soa::Index<>, o2::soa::Marker<3>, test::X, test::Y, test::Z);
 
 namespace test
 {
@@ -59,7 +60,7 @@ DECLARE_SOA_COLUMN_FULL(Thickness, thickness, int, "thickness");
 } // namespace test
 
 DECLARE_SOA_TABLE(Segments, "TEST", "SEGMENTS", test::N, test::PointAId, test::PointBId, test::InfoId);
-DECLARE_SOA_TABLE(SegmentsExtras, "TEST", "SEGMENTSEX", test::Thickness);
+DECLARE_SOA_TABLE(SegmentsExtras, "TEST", "SEGMENTSPLUS", test::Thickness);
 
 namespace test
 {
@@ -80,9 +81,9 @@ TEST_CASE("TestMarkers")
   auto t1 = b1.finalize();
 
   auto pt = o2::aod::Points3Ds{t1};
-  auto pt1 = o2::aod::Points3DsMk1{t1};
-  auto pt2 = o2::aod::Points3DsMk2{t1};
-  auto pt3 = o2::aod::Points3DsMk3{t1};
+  auto pt1 = o2::aod::Points3DMk1s{t1};
+  auto pt2 = o2::aod::Points3DMk2s{t1};
+  auto pt3 = o2::aod::Points3DMk3s{t1};
   REQUIRE(pt1.begin().mark() == (size_t)1);
   REQUIRE(pt2.begin().mark() == (size_t)2);
   REQUIRE(pt3.begin().mark() == (size_t)3);
@@ -130,7 +131,7 @@ TEST_CASE("TestTableIteration")
   ++tests;
   REQUIRE(tests.x() == 0);
   REQUIRE(tests.y() == 1);
-  using Test = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::X, o2::aod::test::Y>;
+  using Test = InPlaceTable<"T/0"_h, o2::aod::test::X, o2::aod::test::Y>;
   Test tests2{table};
   size_t value = 0;
   auto b = tests2.begin();
@@ -180,18 +181,18 @@ TEST_CASE("TestDynamicColumns")
   rowWriter(0, 1, 7);
   auto table = builder.finalize();
 
-  using Test = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::X, o2::aod::test::Y>>;
+  using Test1 = InPlaceTable<"A"_h, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::X, o2::aod::test::Y>>;
 
-  Test tests{table};
-  for (auto& test : tests) {
-    REQUIRE(test.sum() == test.x() + test.y());
+  Test1 tests1{table};
+  for (auto& test : tests1) {
+    REQUIRE(test.sum() == (test.x() + test.y()));
   }
 
-  using Test2 = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::Y, o2::aod::test::Y>>;
+  using Test2 = InPlaceTable<"B"_h, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::Y, o2::aod::test::Y>>;
 
   Test2 tests2{table};
   for (auto& test : tests2) {
-    REQUIRE(test.sum() == test.y() + test.y());
+    CHECK(test.sum() == (test.y() + test.y()));
   }
 }
 
@@ -267,9 +268,9 @@ TEST_CASE("TestJoinedTables")
   rowWriterZ(0, 8);
   auto tableZ = builderZ.finalize();
 
-  using TestX = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::X>;
-  using TestY = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::Y>;
-  using TestZ = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::Z>;
+  using TestX = InPlaceTable<"A0"_h, o2::aod::test::X>;
+  using TestY = InPlaceTable<"A1"_h, o2::aod::test::Y>;
+  using TestZ = InPlaceTable<"A2"_h, o2::aod::test::Z>;
   using Test = Join<TestX, TestY>;
 
   REQUIRE(Test::contains<TestX>());
@@ -286,14 +287,13 @@ TEST_CASE("TestJoinedTables")
     REQUIRE(7 == test.x() + test.y());
   }
 
-  auto tests2 = join<o2::framework::OriginEnc{"JOIN"}>(TestX{tableX}, TestY{tableY});
-  static_assert(std::is_same_v<Test::table_t, decltype(tests2)>,
-                "Joined tables should have the same type, regardless how we construct them");
+  auto tests2 = join(TestX{tableX}, TestY{tableY});
+  static_assert(std::is_same_v<Test::self_t, decltype(tests2)>, "Joined tables should have the same type, regardless how we construct them");
   for (auto& test : tests2) {
     REQUIRE(7 == test.x() + test.y());
   }
 
-  auto tests3 = join<o2::framework::OriginEnc{"JOIN"}>(TestX{tableX}, TestY{tableY}, TestZ{tableZ});
+  auto tests3 = join(TestX{tableX}, TestY{tableY}, TestZ{tableZ});
 
   for (auto& test : tests3) {
     REQUIRE(15 == test.x() + test.y() + test.z());
@@ -356,25 +356,25 @@ TEST_CASE("TestConcatTables")
   rowWriterD(0, 23, 15);
   auto tableD = builderD.finalize();
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
-  using TestB = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X>;
-  using TestC = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::Z>;
-  using TestD = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::aod::test::X, o2::aod::test::Z>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>; // o2::aod::TestA;
+  using TestB = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X>;                   // o2::aod::TestB;
+  using TestC = InPlaceTable<0, o2::aod::test::Z>;                                     // o2::aod::TestC;
+  using TestD = InPlaceTable<0, o2::aod::test::X, o2::aod::test::Z>;                   // o2::aod::TestD;
   using ConcatTest = Concat<TestA, TestB>;
   using JoinedTest = Join<TestA, TestC>;
   using NestedJoinTest = Join<JoinedTest, TestD>;
   using NestedConcatTest = Concat<Join<TestA, TestB>, TestD>;
 
-  static_assert(std::is_same_v<NestedJoinTest::table_t, o2::soa::Table<o2::framework::OriginEnc{"JOIN"}, o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
+  static_assert(std::is_same_v<NestedJoinTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
 
-  static_assert(std::is_same_v<ConcatTest::table_t, o2::soa::Table<o2::framework::OriginEnc{"CONC"}, o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
+  static_assert(std::is_same_v<ConcatTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
   ConcatTest tests{tableA, tableB};
   REQUIRE(16 == tests.size());
   for (auto& test : tests) {
     REQUIRE(test.index() == test.x());
   }
 
-  static_assert(std::is_same_v<NestedConcatTest::table_t, o2::soa::Table<o2::framework::OriginEnc{"CONC"}, o2::aod::test::X>>, "Bad nested concat");
+  static_assert(std::is_same_v<NestedConcatTest::columns_t, o2::framework::pack<o2::aod::test::X>>, "Bad nested concat");
 
   // Hardcode a selection for the first 5 odd numbers
   using FilteredTest = Filtered<TestA>;
@@ -539,7 +539,7 @@ TEST_CASE("TestDereference")
   REQUIRE(j.pointB().x() == 3);
   REQUIRE(j.pointB().y() == 4);
 
-  auto joined = join<o2::framework::OriginEnc{"JOIN"}>(segments, segmentsExtras);
+  auto joined = join(segments, segmentsExtras);
   joined.bindExternalIndices(&points, &infos);
   auto se = joined.begin();
   REQUIRE(se.n() == 10);
@@ -574,9 +574,8 @@ TEST_CASE("TestFilteredOperators")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>; // o2::soa::Table<OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
   using FilteredTest = Filtered<TestA>;
-  using NestedFilteredTest = Filtered<Filtered<TestA>>;
   using namespace o2::framework;
 
   expressions::Filter f1 = o2::aod::test::x < 4;
@@ -596,8 +595,7 @@ TEST_CASE("TestFilteredOperators")
   FilteredTest filteredUnion = filtered1 + filtered2;
   REQUIRE(6 == filteredUnion.size());
 
-  std::vector<std::tuple<int32_t, int32_t>> expectedUnion{
-    {0, 8}, {1, 9}, {2, 10}, {3, 11}, {6, 14}, {7, 15}};
+  std::vector<std::tuple<int32_t, int32_t>> expectedUnion{{0, 8}, {1, 9}, {2, 10}, {3, 11}, {6, 14}, {7, 15}};
   auto i = 0;
   for (auto& f : filteredUnion) {
     REQUIRE(std::get<0>(expectedUnion[i]) == f.x());
@@ -650,7 +648,7 @@ TEST_CASE("TestNestedFiltering")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
   using FilteredTest = Filtered<TestA>;
   using NestedFilteredTest = Filtered<Filtered<TestA>>;
   using TripleNestedFilteredTest = Filtered<Filtered<Filtered<TestA>>>;
@@ -694,11 +692,11 @@ TEST_CASE("TestNestedFiltering")
 TEST_CASE("TestEmptyTables")
 {
   TableBuilder bPoints;
-  auto pwriter = bPoints.cursor<o2::aod::Points>();
+  [[maybe_unused]] auto pwriter = bPoints.cursor<o2::aod::Points>();
   auto pempty = bPoints.finalize();
 
   TableBuilder bInfos;
-  auto iwriter = bInfos.cursor<o2::aod::Infos>();
+  [[maybe_unused]] auto iwriter = bInfos.cursor<o2::aod::Infos>();
   auto iempty = bInfos.finalize();
 
   o2::aod::Points p{pempty};
@@ -720,10 +718,12 @@ DECLARE_SOA_INDEX_COLUMN(Origint, origint);
 DECLARE_SOA_INDEX_COLUMN_FULL(AltOrigint, altOrigint, int, Origints, "_alt");
 DECLARE_SOA_ARRAY_INDEX_COLUMN(Origint, origints);
 } // namespace test
+
 DECLARE_SOA_TABLE(References, "TEST", "REFS", o2::soa::Index<>, test::OrigintId);
 DECLARE_SOA_TABLE(OtherReferences, "TEST", "OREFS", o2::soa::Index<>, test::AltOrigintId);
 DECLARE_SOA_TABLE(ManyReferences, "TEST", "MREFS", o2::soa::Index<>, test::OrigintIds);
 } // namespace o2::aod
+
 TEST_CASE("TestIndexToFiltered")
 {
   TableBuilder b;
@@ -947,7 +947,7 @@ TEST_CASE("TestAdvancedIndices")
 namespace o2::aod
 {
 DECLARE_SOA_TABLE(PointsSelfRef, "TEST", "PTSSR", test::OtherPointId, test::PointSeqIdSlice, test::PointSetIds);
-}
+} // namespace o2::aod
 
 TEST_CASE("TestSelfIndexRecursion")
 {
@@ -1075,6 +1075,7 @@ TEST_CASE("TestSelfIndexRecursion")
   // Filter should not interfere with self-index and the binding should stay the same
   for (auto& p : ffp) {
     REQUIRE(std::is_same_v<std::decay_t<decltype(p)>, FilteredPoints::iterator>);
+    REQUIRE(std::is_same_v<std::decay_t<decltype(p)>::parent_t, FilteredPoints>);
     auto ops = p.pointSeq_as<typename std::decay_t<decltype(p)>::parent_t>();
     for (auto& pp : ops) {
       REQUIRE(std::is_same_v<std::decay_t<decltype(pp)>::parent_t, FilteredPoints>);
@@ -1318,10 +1319,12 @@ DECLARE_SOA_COLUMN(Three, three, double);
 DECLARE_SOA_COLUMN(Four, four, int[2]);
 DECLARE_SOA_DYNAMIC_COLUMN(Five, five, [](const int in[2]) -> float { return (float)in[0] / (float)in[1]; });
 } // namespace table
+
 DECLARE_SOA_TABLE(MixTest, "AOD", "MIXTST",
                   table::One, table::Two, table::Three, table::Four,
                   table::Five<table::Four>);
 } // namespace o2::aod
+
 TEST_CASE("TestCombinedGetter")
 {
   TableBuilder b;

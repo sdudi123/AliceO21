@@ -42,7 +42,7 @@ TEST_CASE("IteratorTuple")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
 
   TestA tests{tableA};
 
@@ -113,8 +113,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
   auto tableB = builderB.finalize();
   REQUIRE(tableB->num_rows() == 4);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
-  using TestB = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
+  using TestB = InPlaceTable<0, o2::soa::Index<>, test::X>;
   using ConcatTest = Concat<TestA, TestB>;
 
   TestA testsA{tableA};
@@ -344,9 +344,9 @@ TEST_CASE("Combinations")
   auto tableC = builderC.finalize();
   REQUIRE(tableC->num_rows() == 4);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
-  using TestB = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X>;
-  using TestC = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y, test::Z>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
+  using TestB = InPlaceTable<0, o2::soa::Index<>, test::X>;
+  using TestC = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y, test::Z>;
   using ConcatTest = Concat<TestA, TestB>;
 
   TestA testsA{tableA};
@@ -799,7 +799,7 @@ TEST_CASE("BreakingCombinations")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
 
   TestA testsA{tableA};
 
@@ -864,16 +864,16 @@ TEST_CASE("SmallTableCombinations")
   auto tableB = builderB.finalize();
   REQUIRE(tableB->num_rows() == 3);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
-  using TestB = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
+  using TestB = InPlaceTable<0, o2::soa::Index<>, test::X>;
 
   TestA testsA{tableA};
   TestB testsB{tableB};
 
   REQUIRE(2 == testsA.size());
   REQUIRE(3 == testsB.size());
-  int nA = testsA.size();
-  int nB = testsB.size();
+  [[maybe_unused]] int nA = testsA.size();
+  [[maybe_unused]] int nB = testsB.size();
 
   int count = 0;
   int i = 0;
@@ -921,7 +921,7 @@ TEST_CASE("BlockCombinations")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 10);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
   TestA testA{tableA};
   REQUIRE(10 == testA.size());
 
@@ -950,7 +950,7 @@ TEST_CASE("BlockCombinations")
   // 2, 3, 5, 8, 9 have overflows in testA
   std::vector<std::tuple<int32_t, int32_t>> expectedFullPairsNoOverflows{
     {0, 0}, {0, 4}, {4, 0}, {4, 4}, {4, 7}, {7, 4}, {7, 7}, {1, 1}, {1, 6}, {6, 1}, {6, 6}};
-  int count = 0;
+  size_t count = 0;
   for (auto& [c0, c1] : combinations(CombinationsBlockFullIndexPolicy(pairBinningNoOverflows, 1, -1, testA, testA))) {
     REQUIRE(c0.x() == std::get<0>(expectedFullPairsNoOverflows[count]));
     REQUIRE(c1.x() == std::get<1>(expectedFullPairsNoOverflows[count]));
@@ -1204,14 +1204,14 @@ TEST_CASE("CombinationsHelpers")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
 
   TestA testsA{tableA};
 
   REQUIRE(8 == testsA.size());
   int nA = testsA.size();
 
-  int count = 0;
+  size_t count = 0;
   int i = 0;
   int j = 1;
   for (auto& [t0, t1] : pairCombinations(testsA)) {
@@ -1262,7 +1262,7 @@ TEST_CASE("CombinationsHelpers")
   auto tableB = builderB.finalize();
   REQUIRE(tableB->num_rows() == 10);
 
-  using TestB = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
+  using TestB = o2::soa::InPlaceTable<0, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
   TestB testB{tableB};
   REQUIRE(10 == testB.size());
 
@@ -1298,10 +1298,10 @@ TEST_CASE("CombinationsHelpers")
 
 TEST_CASE("ConstructorsWithoutTables")
 {
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y>;
   NoBinningPolicy<test::Y> noBinning;
 
-  int count = 0;
+  size_t count = 0;
   for (auto& [t0, t1] : pairCombinations<TestA>()) {
     count++;
   }
@@ -1343,7 +1343,7 @@ TEST_CASE("BlockCombinationsCounters")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 10);
 
-  using TestA = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, test::X, test::Y, test::FloatZ>;
   TestA testA{tableA};
   REQUIRE(10 == testA.size());
 

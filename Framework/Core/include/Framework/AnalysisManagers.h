@@ -24,12 +24,8 @@
 #include "Framework/ConfigurableHelpers.h"
 #include "Framework/Condition.h"
 #include "Framework/InitContext.h"
-#include "Framework/ConfigContext.h"
 #include "Framework/RootConfigParamHelpers.h"
-#include "Framework/ExpressionHelpers.h"
-#include "Framework/CommonServices.h"
 #include "Framework/PluginManager.h"
-#include "Framework/RootMessageContext.h"
 #include "Framework/DeviceSpec.h"
 
 namespace o2::framework
@@ -243,25 +239,25 @@ struct OutputManager {
 };
 
 /// Produces specialization
-template <typename TABLE>
-struct OutputManager<Produces<TABLE>> {
-  static bool appendOutput(std::vector<OutputSpec>& outputs, Produces<TABLE>& /*what*/, uint32_t)
+template <producable T>
+struct OutputManager<Produces<T>> {
+  static bool appendOutput(std::vector<OutputSpec>& outputs, Produces<T>& /*what*/, uint32_t)
   {
-    outputs.emplace_back(OutputForTable<TABLE>::spec());
+    outputs.emplace_back(OutputForTable<typename Produces<T>::persistent_table_t>::spec());
     return true;
   }
-  static bool prepare(ProcessingContext& context, Produces<TABLE>& what)
+  static bool prepare(ProcessingContext& context, Produces<T>& what)
   {
-    what.resetCursor(std::move(context.outputs().make<TableBuilder>(OutputForTable<TABLE>::ref())));
+    what.resetCursor(std::move(context.outputs().make<TableBuilder>(OutputForTable<typename Produces<T>::persistent_table_t>::ref())));
     return true;
   }
-  static bool finalize(ProcessingContext&, Produces<TABLE>& what)
+  static bool finalize(ProcessingContext&, Produces<T>& what)
   {
-    what.setLabel(o2::aod::MetadataTrait<TABLE>::metadata::tableLabel());
+    what.setLabel(o2::aod::Hash<Produces<T>::persistent_table_t::ref.label_hash>::str);
     what.release();
     return true;
   }
-  static bool postRun(EndOfStreamContext&, Produces<TABLE>&)
+  static bool postRun(EndOfStreamContext&, Produces<T>&)
   {
     return true;
   }
@@ -335,6 +331,14 @@ static inline std::vector<std::shared_ptr<arrow::Table>> extractOriginals(framew
   return {extractOriginal<Os>(pc)...};
 }
 
+template <size_t N, std::array<soa::TableRef, N> refs>
+static inline auto extractOriginals(ProcessingContext& pc)
+{
+  return [&]<size_t... Is>(std::index_sequence<Is...>) -> std::vector<std::shared_ptr<arrow::Table>> {
+    return {pc.inputs().get<TableConsumer>(o2::aod::Hash<refs[Is].label_hash>::str)->asArrowTable()...};
+  }(std::make_index_sequence<refs.size()>());
+}
+
 template <typename T>
 struct OutputManager<Spawns<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Spawns<T>& what, uint32_t)
@@ -345,13 +349,14 @@ struct OutputManager<Spawns<T>> {
 
   static bool prepare(ProcessingContext& pc, Spawns<T>& what)
   {
-    auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals(what.sources_pack(), pc));
+    using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+    auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(pc));
     if (originalTable->schema()->fields().empty() == true) {
       using base_table_t = typename Spawns<T>::base_table_t::table_t;
-      originalTable = makeEmptyTable<base_table_t>(aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::tableLabel());
+      originalTable = makeEmptyTable<base_table_t>(o2::aod::Hash<metadata::extension_table_t::ref.label_hash>::str);
     }
 
-    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::origin()>(what.pack(), extractOriginals(what.sources_pack(), pc), aod::MetadataTrait<typename Spawns<T>::extension_t>::metadata::tableLabel()));
+    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::Hash<metadata::extension_table_t::ref.label_hash>::str));
     what.table = std::make_shared<typename T::table_t>(soa::ArrowHelpers::joinTables({what.extension->asArrowTable(), originalTable}));
     return true;
   }
@@ -379,12 +384,6 @@ static inline auto doExtractOriginal(framework::pack<Ts...>, ProcessingContext& 
   }
 }
 
-template <typename O>
-static inline auto extractOriginalJoined(ProcessingContext& pc)
-{
-  return o2::soa::ArrowHelpers::joinTables({doExtractOriginal(soa::make_originals_from_type<O>(), pc)});
-}
-
 template <typename... Os>
 static inline auto extractOriginalsVector(framework::pack<Os...>, ProcessingContext& pc)
 {
@@ -401,8 +400,8 @@ struct OutputManager<Builds<T>> {
 
   static bool prepare(ProcessingContext& pc, Builds<T>& what)
   {
-    return what.template build<typename T::indexing_t>(what.pack(), what.originals_pack(),
-                                                       extractOriginalsVector(what.originals_pack(), pc));
+    using metadata = o2::aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+    return what.template build<typename T::indexing_t>(what.pack(), extractOriginals<metadata::sources.size(), metadata::sources>(pc));
   }
 
   static bool finalize(ProcessingContext& pc, Builds<T>& what)
@@ -420,7 +419,7 @@ struct OutputManager<Builds<T>> {
 template <typename T>
 struct ServiceManager {
   template <typename ANY>
-  static bool add(std::vector<ServiceSpec>& specs, ANY& any)
+  static bool add(std::vector<ServiceSpec>& /*specs*/, ANY& /*any*/)
   {
     return false;
   }
