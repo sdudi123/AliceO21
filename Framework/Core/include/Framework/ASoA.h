@@ -2155,7 +2155,7 @@ typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = s
   if (globalIndex != std::numeric_limits<uint64_t>::max() && globalIndex != *std::get<0>(rowIterator.getIndices())) {
     rowIterator.setCursor(globalIndex);
   }
-  return rowIterator.template getDynamicColumn<C>();
+  return static_cast<C>(rowIterator).get();
 }
 
 template <typename T, soa::is_index_column C>
@@ -2168,9 +2168,9 @@ typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = s
 }
 
 template <typename T, typename... Cs>
-std::tuple<typename Cs::type...> getRowData(arrow::Table* table, T rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
+std::tuple<typename Cs::type...> getRowData(T rowIterator, uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
 {
-  return std::make_tuple(getSingleRowData<T, Cs>(table, rowIterator, ci, ai, globalIndex)...);
+  return std::make_tuple(getSingleRowData<T, Cs>(rowIterator, globalIndex)...);
 }
 } // namespace row_helpers
 } // namespace o2::soa
