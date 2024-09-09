@@ -2172,6 +2172,47 @@ std::tuple<typename Cs::type...> getRowData(T rowIterator, uint64_t globalIndex 
 {
   return std::make_tuple(getSingleRowData<T, Cs>(rowIterator, globalIndex)...);
 }
+
+template <typename R, typename T, typename... Cs>
+std::optional<R> getColumnValueByLabel(o2::framework::pack<Cs...>, const T& rowIterator, const std::string& columnLabel)
+{
+  std::optional<R> value = std::nullopt;
+
+  ([&]() {
+    if (value) {
+      return;
+    }
+
+    if constexpr (std::is_arithmetic_v<typename Cs::type> && std::is_convertible_v<typename Cs::type, R>) {
+      if constexpr (o2::soa::is_dynamic_v<Cs>) {
+        // check if bindings have the same size as lambda parameters (getter do not have additional parameters)
+        if constexpr (o2::framework::pack_size(typename Cs::bindings_t{}) == o2::framework::pack_size(typename Cs::callable_t::args{})) {
+          std::string label = Cs::columnLabel();
+
+          // dynamic columns do not have "f" prefix in columnLabel() return string
+          if (std::strcmp(&columnLabel[1], label.data()) == 0 || columnLabel == label) {
+            value = static_cast<R>(static_cast<Cs>(rowIterator).get());
+          }
+
+        }
+      } else if constexpr (o2::soa::is_persistent_v<Cs> && !o2::soa::is_index_column_v<Cs>) {
+        if (columnLabel == Cs::columnLabel()) {
+          value = static_cast<R>(static_cast<Cs>(rowIterator).get());
+        }
+
+      }
+    }
+  }(),
+   ...);
+
+  return value;
+}
+
+template <typename R, typename T>
+std::optional<R> getColumnValueByLabel(const T& rowIterator, const std::string& columnLabel)
+{
+  return getColumnValueByLabel<R>(typename T::parent_t::table_t::columns{}, rowIterator, columnLabel);
+}
 } // namespace row_helpers
 } // namespace o2::soa
 
