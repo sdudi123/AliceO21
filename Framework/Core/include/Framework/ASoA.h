@@ -2187,7 +2187,7 @@ ColumnGetterFunction<R, T> createGetterPtr(const std::string_view& columnLabel, 
 {
   using Col = Column;
 
-  if(found) {
+  if (found) {
     return nullptr;
   }
 
