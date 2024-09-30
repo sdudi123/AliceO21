@@ -75,6 +75,12 @@ inline bool diffCategory(BinningIndex const& a, BinningIndex const& b)
 template <template <typename... Cs> typename BP, typename T, typename... Cs>
 std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPolicy, int minCatSize, int outsider)
 {
+  arrow::Table* arrowTable = table.asArrowTable().get();
+  auto rowIterator = table.begin();
+
+  uint64_t ind = 0;
+  uint64_t selInd = 0;
+  gsl::span<int64_t const> selectedRows;
   std::vector<BinningIndex> groupedIndices;
 
   // Separate check to account for Filtered size different from arrow table
