@@ -2168,9 +2168,9 @@ typename C::type getSingleRowData(arrow::Table*, T& rowIterator, uint64_t ci = s
 }
 
 template <typename T, typename... Cs>
-std::tuple<typename Cs::type...> getRowData(T rowIterator, uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
+std::tuple<typename Cs::type...> getRowData(arrow::Table* table, T rowIterator, uint64_t ci = std::numeric_limits<uint64_t>::max(), uint64_t ai = std::numeric_limits<uint64_t>::max(), uint64_t globalIndex = std::numeric_limits<uint64_t>::max())
 {
-  return std::make_tuple(getSingleRowData<T, Cs>(rowIterator, globalIndex)...);
+  return std::make_tuple(getSingleRowData<T, Cs>(table, rowIterator, ci, ai, globalIndex)...);
 }
 
 template <typename R, typename T, typename Column>
