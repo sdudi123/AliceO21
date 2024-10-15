@@ -15,6 +15,7 @@
 #ifndef GPUDISPLAYINTERFACE_H
 #define GPUDISPLAYINTERFACE_H
 
+#include <stdint.h>
 #include "GPUSettings.h"
 
 namespace GPUCA_NAMESPACE
