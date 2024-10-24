@@ -31,6 +31,7 @@ struct HeatMapHelper {
   template <typename RECORD, typename ITEM>
   static void draw(const char* name,
                    ImVec2 const& sizeHint,
+                   std::function<size_t()> const& getNumInputs,
                    std::function<size_t()> const& getNumRecords,
                    std::function<RECORD(size_t)> const& getRecord,
                    std::function<size_t(RECORD const&)> const& getNumItems,
@@ -48,12 +49,13 @@ struct HeatMapHelper {
     ImVec2 winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
     auto records = getNumRecords();
     auto boxSizeX = std::min(size.x / records, MAX_BOX_X_SIZE);
+    auto numInputs = getNumInputs();
 
     ImGui::InvisibleButton("sensible area", ImVec2(size.x, size.y));
     if (ImGui::IsItemHovered()) {
       auto pos = ImGui::GetMousePos() - winPos;
       auto slot = std::lround(std::trunc(pos.x / size.x * records));
-      auto row = std::lround(std::trunc(pos.y / size.y));
+      auto row = std::lround(std::trunc(pos.y / size.y * numInputs));
       describeCell(row, slot);
     }
 
@@ -99,6 +101,16 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
                         DataProcessingStates const& states,
                         ImVec2 const& size)
 {
+  auto getNumInputs = [&states]() -> size_t {
+    auto& inputsView = states.statesViews[(int)ProcessingStateId::DATA_QUERIES];
+    std::string_view inputs(states.statesBuffer.data() + inputsView.first, inputsView.size);
+    if (inputs.size() == 0) {
+      return 0;
+    }
+    // count the number of semi-colon separators to get number of inputs
+    int numInputs = std::count(inputs.begin(), inputs.end(), ';');
+    return numInputs;
+  };
   auto getNumRecords = [&states]() -> size_t {
     auto& view = states.statesViews[(int)ProcessingStateId::DATA_RELAYER_BASE];
     if (view.size == 0) {
@@ -154,8 +166,30 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
     }
     return SLOT_ERROR;
   };
-  auto describeCell = [&states](int input, int slot) -> void {
+  auto describeCell = [&states](int row, int slot) -> void {
     ImGui::BeginTooltip();
+
+    // display the input (origin/descr/subspec)
+    auto& inputsView = states.statesViews[(int)ProcessingStateId::DATA_QUERIES];
+    std::string_view inputs(states.statesBuffer.data() + inputsView.first, inputsView.size);
+    auto beginInputs = inputs.begin();
+    auto endInputs = beginInputs + inputsView.size;
+    char const* input = beginInputs;
+    size_t i = 0;
+    while (input != endInputs) {
+      auto end = std::find(input, endInputs, ';');
+      if ((end - input) == 0) {
+        continue;
+      }
+      if (i == row) {
+        ImGui::Text("%d %.*s", row, int(end - input), input);
+        break;
+      }
+      ++i;
+      input = end + 1;
+    }
+
+    // display context variables
     ImGui::Text("Input query matched values for slot: %d", slot);
     auto& view = states.statesViews[(short)ProcessingStateId::CONTEXT_VARIABLES_BASE + (short)slot];
     auto begin = view.first;
@@ -190,6 +224,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
   if (getNumRecords()) {
     HeatMapHelper::draw<int, int8_t>("DataRelayer",
                                      size,
+                                     getNumInputs,
                                      getNumRecords,
                                      getRecord,
                                      getNumItems,
