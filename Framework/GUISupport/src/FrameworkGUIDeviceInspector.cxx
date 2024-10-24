@@ -101,6 +101,7 @@ void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStat
         ImGui::EndTooltip();
       }
       input = end + 1;
+      ++i;
     }
   }
 }
