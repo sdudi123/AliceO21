@@ -48,7 +48,13 @@ class GeneratorHybrid : public Generator
   std::vector<std::unique_ptr<o2::eventgen::Generator>> gens;
   const std::vector<std::string> generatorNames = {"extkinO2", "boxgen", "external", "pythia8", "pythia8pp", "pythia8hi", "pythia8hf", "pythia8powheg"};
   std::vector<std::string> mGens;
-  int mIndex = -1;
+  std::vector<std::string> mConfigs;
+  std::vector<std::string> mConfsPythia8;
+  bool mRandomize = false;
+  std::vector<int> mFractions;
+  int mseqCounter = 0;
+  int mCurrentFraction = 0;
+  int mIndex = 0;
 };
 
 } // namespace eventgen

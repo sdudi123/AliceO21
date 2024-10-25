@@ -19,7 +19,50 @@ namespace o2
   {
   GeneratorHybrid::GeneratorHybrid(std::vector<std::string> inputgens)
   {
-    auto extname = GeneratorFromO2KineParam::Instance().fileName;
+    auto configs = GeneratorHybridParam::Instance().Configs;
+    mRandomize = GeneratorHybridParam::Instance().Randomize;
+    std::stringstream ss(configs);
+    std::string conf;
+    while (std::getline(ss, conf, ':')) {
+      mConfigs.push_back(conf);
+    }
+    if(mConfigs.size() != inputgens.size()){
+      LOG(fatal) << "Number of configurations does not match the number of generators";
+    }
+    if(mConfigs.size() == 0){
+      for(auto gen : inputgens){
+        mConfigs.push_back("");
+      }
+    }
+    int index = 0;
+    if (!mRandomize) {
+      std::string fractions = GeneratorHybridParam::Instance().Fractions;
+      if(fractions.compare("") == 0){
+        for (auto gen : inputgens) {
+          mFractions.push_back(1);
+        }
+      }
+      else{
+        std::stringstream streamfrac(fractions);
+        std::string frac;
+        while (std::getline(streamfrac, frac, ',')) {
+          if(frac.compare("") == 0)
+            mFractions.push_back(1);
+          else
+            mFractions.push_back(std::stoi(frac));
+        }
+        if(mFractions.size() != inputgens.size()){
+          LOG(fatal) << "Number of fractions does not match the number of generators";
+          return;
+        }
+        // Check if all elements of mFractions are 0
+        if (std::all_of(mFractions.begin(), mFractions.end(), [](int i){ return i == 0; })) {
+          LOG(fatal) << "All fractions provided are 0, no simulation will be performed";
+          return;
+        }
+        
+      }  
+    }
     for(auto gen : inputgens)
     {
       // Search if the generator name is inside generatorNames (which is a vector of strings)
@@ -27,19 +70,31 @@ namespace o2
       if (std::find(generatorNames.begin(), generatorNames.end(), gen) != generatorNames.end())
       {
         LOG(info) << "Found generator " << gen << " in the list of available generators \n";
-        if(gen.compare("boxgen") == 0){
-            gens.push_back(std::make_unique<o2::eventgen::BoxGenerator>(22, 10, -5, 5, 0, 10, 0, 360));
+        if (gen.compare("boxgen") == 0) {
+            if (mConfigs[index].compare("") == 0) {
+              gens.push_back(std::make_unique<o2::eventgen::BoxGenerator>());
+            } else {
+              std::stringstream ss(mConfigs[index]);
+              std::string pars;
+              std::vector<double> params;
+              while (std::getline(ss, pars, ',')) {
+                params.push_back(std::stod(pars));
+              }
+              gens.push_back(std::make_unique<o2::eventgen::BoxGenerator>(int(params[0]), int(params[1]), params[2], params[3], params[4], params[5], params[6], params[7]));
+            }
             mGens.push_back(gen);
         } else if (gen.compare(0, 7, "pythia8") == 0) {
             gens.push_back(std::make_unique<o2::eventgen::GeneratorPythia8>());
+            mConfsPythia8.push_back(mConfigs[index]);
             mGens.push_back(gen);
         } else if(gen.compare("extkinO2") == 0){
-          gens.push_back(std::make_unique<o2::eventgen::GeneratorFromO2Kine>(extname.c_str()));
+          gens.push_back(std::make_unique<o2::eventgen::GeneratorFromO2Kine>(mConfigs[index].c_str()));
           mGens.push_back(gen);
         } else {
             LOG(info) << "Generator " << gen << " not found in the list of available generators \n";
         }
       }
+      index++;
     }  
   }
 
@@ -50,7 +105,7 @@ namespace o2
     for (auto& gen : gens)
     {
       if (mGens[count] == "pythia8"){
-        auto config = std::string();
+        auto config = std::string(std::getenv("O2_ROOT")) + mConfsPythia8[count];
         LOG(info) << "Setting \'Pythia8\' base configuration: " << config << std::endl;
         dynamic_cast<o2::eventgen::GeneratorPythia8*>(gen.get())->setConfig(config);
       } else if (mGens[count] == "pythia8pp"){
@@ -79,14 +134,24 @@ namespace o2
 
   Bool_t GeneratorHybrid::generateEvent()
   {
-      // here we call the individual gun generators in turn
-      // (but we could easily call all of them to have cocktails)
-      mIndex = gRandom->Integer(gens.size());
+      // Order randomisation or sequence of generators
+      // following provided fractions, if not generators are used in proper sequence
+      if (mRandomize) {
+        mIndex = gRandom->Integer(gens.size());
+      } else {
+        while (mFractions[mCurrentFraction] == 0 || mseqCounter == mFractions[mCurrentFraction]) {
+          if (mFractions[mCurrentFraction] != 0)
+            mseqCounter = 0;
+          mCurrentFraction = (mCurrentFraction + 1) % mFractions.size();
+        }
+        mIndex = mCurrentFraction;
+      }
       LOG(info) << "GeneratorHybrid: generating event with generator " << mGens[mIndex];
       gens[mIndex]->clearParticles(); // clear container of this class
       gens[mIndex]->generateEvent();
       // notify the sub event generator
       notifySubGenerator(mIndex);
+      mseqCounter++;
       return true;
   }      
 
