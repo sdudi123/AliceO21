@@ -620,14 +620,14 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
     }
   }
 
+  // collect ITS/TPC cluster info for selected MC particles
+  fillMCClusterInfo(recoData);
+
   // single tracks
   for (auto& entry : mSelMCTracks) {
     auto& trackFam = entry.second;
     (*mDBGOut) << "tracks" << "tr=" << trackFam << "\n";
   }
-
-  // collect ITS/TPC cluster info for selected MC particles
-  fillMCClusterInfo(recoData);
 
   // decays
   std::vector<TrackFamily> decFam;
@@ -749,6 +749,9 @@ void TrackMCStudy::fillMCClusterInfo(const o2::globaltracking::RecoContainer& re
           if (row > mctr.maxTPCRow) {
             mctr.maxTPCRow = row;
             mctr.maxTPCRowSect = sector;
+            mctr.nUsedPadRows++;
+          } else if (row == 0 && mctr.nUsedPadRows == 0) {
+            mctr.nUsedPadRows++;
           }
           if (row < mctr.minTPCRow) {
             mctr.minTPCRow = row;
