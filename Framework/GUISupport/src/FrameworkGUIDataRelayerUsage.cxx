@@ -12,8 +12,10 @@
 #include <functional>
 #include "Framework/DeviceMetricsInfo.h"
 #include "Framework/DeviceInfo.h"
+#include "Framework/DeviceSpec.h"
 #include "Framework/DataDescriptorMatcher.h"
 #include "Framework/DataProcessingStates.h"
+#include "InspectorHelpers.h"
 #include "PaletteHelpers.h"
 #include "Framework/Logger.h"
 #include <iostream>
@@ -98,6 +100,7 @@ struct HeatMapHelper {
 
 void displayDataRelayer(DeviceMetricsInfo const& metrics,
                         DeviceInfo const& info,
+                        DeviceSpec const& spec,
                         DataProcessingStates const& states,
                         ImVec2 const& size)
 {
@@ -166,7 +169,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
     }
     return SLOT_ERROR;
   };
-  auto describeCell = [&states](int row, int slot) -> void {
+  auto describeCell = [&states, &spec](int row, int slot) -> void {
     ImGui::BeginTooltip();
 
     // display the input (origin/descr/subspec)
@@ -182,7 +185,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
         continue;
       }
       if (i == row) {
-        ImGui::Text("%d %.*s", row, int(end - input), input);
+        ImGui::Text("%d %.*s (%s)", row, int(end - input), input, InspectorHelpers::getLifeTimeStr(spec.inputs[i].matcher.lifetime).c_str());
         break;
       }
       ++i;
