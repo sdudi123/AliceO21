@@ -45,7 +45,9 @@ struct Options {
   bool printContext = false;
   std::string bcpatternfile;
   int tfid = 0;          // tfid -> used to calculate start orbit for collisions
+  std::string firstIRString; // string to capture string specifying first orbit and bunch crossing
   uint32_t firstOrbit = 0; // first orbit in run (orbit offset)
+  uint32_t firstBC = 0;    // first bunch crossing (relative to firstOrbit) of the first interaction;
   int orbitsPerTF = 256; // number of orbits per timeframe --> used to calculate start orbit for collisions
   bool useexistingkinematics = false;
   bool noEmptyTF = false; // prevent empty timeframes; the first interaction will be shifted backwards to fall within the range given by Options.orbits
@@ -176,6 +178,38 @@ InteractionSpec parseInteractionSpec(std::string const& specifier, std::vector<I
   }
 }
 
+std::pair<uint32_t, uint32_t> parseOrbitAndBC(std::string const& IRstring)
+{
+  // Define the regular expression to match "Number[:Number]?"
+  std::regex pattern(R"(^(\d+)(?::(\d+))?$)");
+  std::smatch matches;
+
+  auto parseUnsignedInt = [](std::string const& str) {
+    long result = std::atol(str.c_str());
+
+    // Check for range errors: the result should be within uint32_t limits and non-negative
+    if (result < 0 || result > static_cast<long>(std::numeric_limits<uint32_t>::max())) {
+      throw std::out_of_range("Value is out of range for uint32_t");
+    }
+
+    return static_cast<uint32_t>(result);
+  };
+
+  // Perform regex matching
+  if (std::regex_match(IRstring, matches, pattern)) {
+    // matches[1] is the first "Number"
+    auto orbit = parseUnsignedInt(matches[1].str());
+    auto bc = 0;
+    if (matches[2].matched) {
+      bc = parseUnsignedInt(matches[2].str());
+    }
+    return std::make_pair(orbit, bc);
+  } else {
+    LOG(error) << "Wrong input string for firstOrbit-firstBC extraction";
+    return std::make_pair(std::numeric_limits<uint32_t>::max(), std::numeric_limits<uint32_t>::max());
+  }
+}
+
 bool parseOptions(int argc, char* argv[], Options& optvalues)
 {
   namespace bpo = boost::program_options;
@@ -196,7 +230,7 @@ bool parseOptions(int argc, char* argv[], Options& optvalues)
     "orbitsPerTF", bpo::value<int>(&optvalues.orbitsPerTF)->default_value(256), "Orbits per timeframes")(
     "use-existing-kine", "Read existing kinematics to adjust event counts")(
     "timeframeID", bpo::value<int>(&optvalues.tfid)->default_value(0), "Timeframe id of the first timeframe int this context. Allows to generate contexts for different start orbits")(
-    "first-orbit", bpo::value<uint32_t>(&optvalues.firstOrbit)->default_value(0), "First orbit in the run (HBFUtils.firstOrbit)")(
+    "first-orbit", bpo::value<std::string>(&optvalues.firstIRString)->default_value("0:0"), "First orbit in the run (HBFUtils.firstOrbit)")(
     "maxCollsPerTF", bpo::value<int>(&optvalues.maxCollsPerTF)->default_value(-1), "Maximal number of MC collisions to put into one timeframe. By default no constraint.")(
     "noEmptyTF", bpo::bool_switch(&optvalues.noEmptyTF), "Enforce to have at least one collision")("configKeyValues", bpo::value<std::string>(&optvalues.configKeyValues)->default_value(""), "Semicolon separated key=value strings (e.g.: 'TPC.gasDensity=1;...')")("with-vertices", "Assign vertices to collisions.")("timestamp", bpo::value<long>(&optvalues.timestamp)->default_value(-1L), "Timestamp for CCDB queries / anchoring");
 
@@ -221,6 +255,12 @@ bool parseOptions(int argc, char* argv[], Options& optvalues)
     if (vm.count("with-vertices")) {
       optvalues.genVertices = true;
     }
+
+    // fix the first orbit and bunch crossing
+    auto orbitbcpair = parseOrbitAndBC(optvalues.firstIRString);
+    optvalues.firstBC = orbitbcpair.second;
+    optvalues.firstOrbit = orbitbcpair.first;
+
   } catch (const bpo::error& e) {
     std::cerr << e.what() << "\n\n";
     std::cerr << "Error parsing options; Available options:\n";
@@ -285,7 +325,7 @@ int main(int argc, char* argv[])
       o2::InteractionTimeRecord record;
       // this loop makes sure that the first collision is within the range of orbits asked (if noEmptyTF is enabled)
       do {
-        sampler.setFirstIR(o2::InteractionRecord(0, orbitstart));
+        sampler.setFirstIR(o2::InteractionRecord(options.firstBC, orbitstart));
         sampler.init();
         record = sampler.generateCollisionTime();
       } while (options.noEmptyTF && usetimeframelength && record.orbit >= orbitstart + options.orbits);
