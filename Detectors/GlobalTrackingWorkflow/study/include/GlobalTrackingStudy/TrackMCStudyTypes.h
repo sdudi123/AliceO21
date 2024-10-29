@@ -128,6 +128,10 @@ struct ClResTPCCont {
 
   int getNExt() const { return (below[0] > 1.) + (above[0] > 1.); }
 
+  float getClX() const { return xyz[0]; }
+  float getClY() const { return xyz[1]; }
+  float getClZ() const { return xyz[2]; }
+
   float getDY() const { return xyz[1] - getYRef(); }
   float getDZ() const { return xyz[2] - getZRef(); }
 
@@ -196,9 +200,14 @@ struct ClResTPC {
   uint8_t row = 0;
   uint8_t ncont = 0;
   uint8_t flags = 0;
+  uint8_t sigmaTimePacked;
+  uint8_t sigmaPadPacked;
   float qmax = 0;
   float qtot = 0;
   float occ = 0;
+  float occBin = 0;
+  float getSigmaPad() const { return float(sigmaPadPacked) * (1.f / 32); }
+  float getSigmaTime() const { return float(sigmaTimePacked) * (1.f / 32); }
 
   std::vector<ClResTPCCont> contTracks;
   int getNCont() const { return contTracks.size(); }
