@@ -13,6 +13,7 @@
 #include <TStopwatch.h>
 #include "DataFormatsGlobalTracking/RecoContainer.h"
 #include "DataFormatsGlobalTracking/RecoContainerCreateTracksVariadic.h"
+#include "ReconstructionDataFormats/V0.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
 #include "TPCCalibration/VDriftHelper.h"
@@ -45,6 +46,8 @@
 #include "ReconstructionDataFormats/VtxTrackRef.h"
 #include "ReconstructionDataFormats/DCA.h"
 #include "Steer/MCKinematicsReader.h"
+#include "DCAFitter/DCAFitterN.h"
+#include "DetectorsVertexing/SVertexerParams.h"
 #include "CommonUtils/ConfigurableParam.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
 #include "GPUO2InterfaceRefit.h"
@@ -80,8 +83,8 @@ using timeEst = o2::dataformats::TimeStampWithError<float, float>;
 class TrackMCStudy : public Task
 {
  public:
-  TrackMCStudy(std::shared_ptr<DataRequest> dr, std::shared_ptr<o2::base::GRPGeomRequest> gr, GTrackID::mask_t src, const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts)
-    : mDataRequest(dr), mGGCCDBRequest(gr), mTracksSrc(src)
+  TrackMCStudy(std::shared_ptr<DataRequest> dr, std::shared_ptr<o2::base::GRPGeomRequest> gr, GTrackID::mask_t src, const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts, bool checkSV)
+    : mDataRequest(dr), mGGCCDBRequest(gr), mTracksSrc(src), mCheckSV(checkSV)
   {
     mTPCCorrMapsLoader.setLumiScaleType(sclOpts.lumiType);
     mTPCCorrMapsLoader.setLumiScaleMode(sclOpts.lumiMode);
@@ -102,6 +105,7 @@ class TrackMCStudy : public Task
   bool addMCParticle(const MCTrack& mctr, const o2::MCCompLabel& lb, TParticlePDG* pPDG = nullptr);
   bool acceptMCCharged(const MCTrack& tr, const o2::MCCompLabel& lb, int followDec = -1);
   bool propagateToRefX(o2::track::TrackParCov& trcTPC, o2::track::TrackParCov& trcITS);
+  bool refitV0(int i, o2::dataformats::V0& v0, const o2::globaltracking::RecoContainer& recoData);
   void updateTimeDependentParams(ProcessingContext& pc);
   float getDCAYCut(float pt) const;
 
@@ -116,6 +120,7 @@ class TrackMCStudy : public Task
   std::vector<long> mIntBC;      ///< interaction global BC wrt TF start
   std::vector<float> mTPCOcc;    ///< TPC occupancy for this interaction time
   std::vector<int> mITSOcc;      //< N ITS clusters in the ROF containing collision
+  bool mCheckSV = false;         //< check SV binding (apart from prongs availability)
   int mNTPCOccBinLength = 0;     ///< TPC occ. histo bin length in TBs
   float mNTPCOccBinLengthInv;
   int mVerbose = 0;
@@ -138,12 +143,13 @@ class TrackMCStudy : public Task
     int pdg = 0;
     int daughterFirst = -1;
     int daughterLast = -1;
+    int foundSVID = -1;
   };
-  std::vector<std::vector<DecayRef>> mDecaysMaps; // for every parent particle to watch store its label and entries of 1st/last decay product labels in mDecProdLblPool
+  std::vector<std::vector<DecayRef>> mDecaysMaps; // for every parent particle to watch, store its label and entries of 1st/last decay product labels in mDecProdLblPool
   std::unordered_map<o2::MCCompLabel, TrackFamily> mSelMCTracks;
   std::unordered_map<o2::MCCompLabel, std::pair<int, int>> mSelTRefIdx;
   std::vector<o2::track::TrackPar> mSelTRefs;
-
+  o2::vertexing::DCAFitterN<2> mFitterV0;
   static constexpr float MaxSnp = 0.9; // max snp of ITS or TPC track at xRef to be matched
 };
 
@@ -211,6 +217,25 @@ void TrackMCStudy::updateTimeDependentParams(ProcessingContext& pc)
 
     auto& elParam = o2::tpc::ParameterElectronics::Instance();
     mTPCTBinMUS = elParam.ZbinWidth;
+
+    if (mCheckSV) {
+      const auto& svparam = o2::vertexing::SVertexerParams::Instance();
+      mFitterV0.setBz(o2::base::Propagator::Instance()->getNominalBz());
+      mFitterV0.setUseAbsDCA(svparam.useAbsDCA);
+      mFitterV0.setPropagateToPCA(false);
+      mFitterV0.setMaxR(svparam.maxRIni);
+      mFitterV0.setMinParamChange(svparam.minParamChange);
+      mFitterV0.setMinRelChi2Change(svparam.minRelChi2Change);
+      mFitterV0.setMaxDZIni(svparam.maxDZIni);
+      mFitterV0.setMaxDXYIni(svparam.maxDXYIni);
+      mFitterV0.setMaxChi2(svparam.maxChi2);
+      mFitterV0.setMatCorrType(o2::base::Propagator::MatCorrType(svparam.matCorr));
+      mFitterV0.setUsePropagator(svparam.usePropagator);
+      mFitterV0.setRefitWithMatCorr(svparam.refitWithMatCorr);
+      mFitterV0.setMaxStep(svparam.maxStep);
+      mFitterV0.setMaxSnp(svparam.maxSnp);
+      mFitterV0.setMinXSeed(svparam.minXSeed);
+    }
   }
 }
 
@@ -261,6 +286,26 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
       return int(clRow);
     }
     return -1;
+  };
+
+  auto flagTPCClusters = [&recoData](const o2::tpc::TrackTPC& trc, o2::MCCompLabel lbTrc) {
+    if (recoData.inputsTPCclusters) {
+      const auto clRefs = recoData.getTPCTracksClusterRefs();
+      const auto* TPCClMClab = recoData.inputsTPCclusters->clusterIndex.clustersMCTruth;
+      const auto& TPCClusterIdxStruct = recoData.inputsTPCclusters->clusterIndex;
+      for (int ic = 0; ic < trc.getNClusterReferences(); ic++) {
+        uint8_t clSect = 0, clRow = 0;
+        uint32_t clIdx = 0;
+        trc.getClusterReference(clRefs, ic, clSect, clRow, clIdx);
+        auto labels = TPCClMClab->getLabels(clIdx + TPCClusterIdxStruct.clusterOffset[clSect][clRow]);
+        for (auto& lbl : labels) {
+          if (lbl == lbTrc) {
+            const_cast<o2::MCCompLabel&>(lbl).setFakeFlag(true); // actually, in this way we are flagging that this cluster was correctly attached
+            break;
+          }
+        }
+      }
+    }
   };
 
   {
@@ -421,13 +466,11 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
     }
   }
 
-  // collect ITS/TPC cluster info for selected MC particles
-  if (params.minTPCRefsToExtractClRes > 0) {
+  LOGP(info, "collected {} MC tracks", mSelMCTracks.size());
+  if (params.minTPCRefsToExtractClRes > 0) { // prepare MC trackrefs for TPC
     processTPCTrackRefs();
   }
-  fillMCClusterInfo(recoData);
 
-  LOGP(info, "collected {} MC tracks", mSelMCTracks.size());
   int mcnt = 0;
   for (auto& entry : mSelMCTracks) {
     auto& trackFam = entry.second;
@@ -489,6 +532,7 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
           const auto& trtpc = recoData.getTPCTrack(gidSet[GTrackID::TPC]);
           tref.nClTPC = trtpc.getNClusters();
           tref.lowestPadRow = getLowestPadrow(trtpc);
+          flagTPCClusters(trtpc, entry.first);
           if (trackFam.entTPC < 0) {
             trackFam.entTPC = tcnt;
             trackFam.tpcT0 = trtpc.getTime0();
@@ -528,11 +572,63 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
     }
   }
 
+  // SVertices (V0s)
+  if (mCheckSV) {
+    auto v0s = recoData.getV0sIdx();
+    auto prpr = [](o2::trackstudy::TrackFamily& f) {
+      std::string s;
+      s += fmt::format(" par {} Ntpccl={} Nitscl={} ", f.mcTrackInfo.pdgParent, f.mcTrackInfo.nTPCCl, f.mcTrackInfo.nITSCl);
+      for (auto& t : f.recTracks) {
+        s += t.gid.asString();
+        s += " ";
+      }
+      return s;
+    };
+    for (int svID; svID < (int)v0s.size(); svID++) {
+      const auto& v0idx = v0s[svID];
+      int nOKProngs = 0, realMCSVID = -1;
+      int8_t decTypeID = -1;
+      for (int ipr = 0; ipr < v0idx.getNProngs(); ipr++) {
+        auto mcl = recoData.getTrackMCLabel(v0idx.getProngID(ipr)); // was this MC particle selected?
+        auto itl = mSelMCTracks.find(mcl);
+        if (itl == mSelMCTracks.end()) {
+          nOKProngs = -1; // was not selected as interesting one, ignore
+          break;
+        }
+        auto& trackFamily = itl->second;
+        int decayParentIndex = trackFamily.mcTrackInfo.parentEntry;
+        if (decayParentIndex < 0) { // does not come from decay
+          break;
+        }
+        if (ipr == 0) {
+          realMCSVID = decayParentIndex;
+          decTypeID = trackFamily.mcTrackInfo.parentDecID;
+          nOKProngs = 1;
+          LOGP(debug, "Prong{} {} comes from {}/{}", ipr, prpr(trackFamily), decTypeID, realMCSVID);
+          continue;
+        }
+        if (realMCSVID != decayParentIndex || decTypeID != trackFamily.mcTrackInfo.parentDecID) {
+          break;
+        }
+        LOGP(debug, "Prong{} {} comes from {}/{}", ipr, prpr(trackFamily), decTypeID, realMCSVID);
+        nOKProngs++;
+      }
+      if (nOKProngs == v0idx.getNProngs()) { // all prongs are from the decay of MC parent which deemed to be interesting, flag it
+        LOGP(debug, "Decay {}/{} was found", decTypeID, realMCSVID);
+        mDecaysMaps[decTypeID][realMCSVID].foundSVID = svID;
+      }
+    }
+  }
+
   // single tracks
   for (auto& entry : mSelMCTracks) {
     auto& trackFam = entry.second;
     (*mDBGOut) << "tracks" << "tr=" << trackFam << "\n";
   }
+
+  // collect ITS/TPC cluster info for selected MC particles
+  fillMCClusterInfo(recoData);
+
   // decays
   std::vector<TrackFamily> decFam;
   for (int id = 0; id < mNCheckDecays; id++) {
@@ -551,7 +647,11 @@ void TrackMCStudy::process(const o2::globaltracking::RecoContainer& recoData)
         decFam.push_back(dtFamily);
       }
       if (!skip) {
-        (*mDBGOut) << decTreeName.c_str() << "pdgPar=" << dec.pdg << "trPar=" << dec.parent << "prod=" << decFam << "\n";
+        o2::dataformats::V0 v0;
+        if (dec.foundSVID >= 0 && !refitV0(dec.foundSVID, v0, recoData)) {
+          v0.invalidate();
+        }
+        (*mDBGOut) << decTreeName.c_str() << "pdgPar=" << dec.pdg << "trPar=" << dec.parent << "prod=" << decFam << "found=" << dec.foundSVID << "sv=" << v0 << "\n";
       }
     }
   }
@@ -620,6 +720,8 @@ void TrackMCStudy::fillMCClusterInfo(const o2::globaltracking::RecoContainer& re
   const auto& TPCClusterIdxStruct = recoData.inputsTPCclusters->clusterIndex;
   const auto* TPCClMClab = recoData.inputsTPCclusters->clusterIndex.clustersMCTruth;
   const auto& params = o2::trackstudy::TrackMCStudyConfig::Instance();
+
+  ClResTPC clRes{};
   for (uint8_t sector = 0; sector < 36; sector++) {
     for (uint8_t row = 0; row < 152; row++) {
       unsigned int offs = TPCClusterIdxStruct.clusterOffset[sector][row];
@@ -632,7 +734,12 @@ void TrackMCStudy::fillMCClusterInfo(const o2::globaltracking::RecoContainer& re
           }
           ncontLb++;
         }
-        for (const auto& lbl : labels) {
+        const auto& clus = TPCClusterIdxStruct.clusters[sector][row][icl0];
+        clRes.contTracks.clear();
+        bool doClusRes = (params.minTPCRefsToExtractClRes > 0) && (params.rejectClustersResStat <= 0. || gRandom->Rndm() < params.rejectClustersResStat);
+        for (auto lbl : labels) {
+          bool corrAttach = lbl.isFake(); // was this flagged in the flagTPCClusters called from process ?
+          lbl.setFakeFlag(false);
           auto entry = mSelMCTracks.find(lbl);
           if (entry == mSelMCTracks.end()) { // not selected
             continue;
@@ -654,29 +761,29 @@ void TrackMCStudy::fillMCClusterInfo(const o2::globaltracking::RecoContainer& re
             mctr.nTPCClShared++;
           }
           // try to extract ideal track position
-          if (params.minTPCRefsToExtractClRes > 0) {
+          if (doClusRes) {
             auto entTRefIDsIt = mSelTRefIdx.find(lbl);
             if (entTRefIDsIt == mSelTRefIdx.end()) {
               continue;
             }
+            float xc, yc, zc;
+            mTPCCorrMapsLoader.Transform(sector, row, clus.getPad(), clus.getTime(), xc, yc, zc, mctr.bcInTF / 8.); // nominal time of the track
+
             const auto& entTRefIDs = entTRefIDsIt->second;
             // find bracketing TRef params
             int entIDBelow = -1, entIDAbove = -1;
             float xBelow = -1e6, xAbove = 1e6;
-            const auto& clus = TPCClusterIdxStruct.clusters[sector][row][icl0];
-            float xc, yc, zc;
-            mTPCCorrMapsLoader.Transform(sector, row, clus.getPad(), clus.getTime(), xc, yc, zc, mctr.bcInTF / 8.); // nominal time of the track
 
             for (int entID = entTRefIDs.first; entID < entTRefIDs.second; entID++) {
               const auto& refTr = mSelTRefs[entID];
               if (refTr.getUserField() != sector % 18) {
                 continue;
               }
-              if (refTr.getX() < xc && refTr.getX() > xBelow && refTr.getX() > xc - params.maxTPCRefExtrap) {
+              if ((refTr.getX() < xc) && (refTr.getX() > xBelow) && (refTr.getX() > xc - params.maxTPCRefExtrap)) {
                 xBelow = refTr.getX();
                 entIDBelow = entID;
               }
-              if (refTr.getX() > xc && refTr.getX() < xAbove && refTr.getX() < xc + params.maxTPCRefExtrap) {
+              if ((refTr.getX() > xc) && (refTr.getX() < xAbove) && (refTr.getX() < xc + params.maxTPCRefExtrap)) {
                 xAbove = refTr.getX();
                 entIDAbove = entID;
               }
@@ -688,41 +795,52 @@ void TrackMCStudy::fillMCClusterInfo(const o2::globaltracking::RecoContainer& re
             o2::track::TrackPar tparAbove, tparBelow;
             bool okBelow = entIDBelow >= 0 && prop->PropagateToXBxByBz((tparBelow = mSelTRefs[entIDBelow]), xc, 0.99, 2.);
             bool okAbove = entIDAbove >= 0 && prop->PropagateToXBxByBz((tparAbove = mSelTRefs[entIDAbove]), xc, 0.99, 2.);
-            if ((!okBelow && !okAbove) || (params.requireTopBottomRefs && (!okBelow || !okAbove)) || (params.rejectClustersResStat > 0. && gRandom->Rndm() < params.rejectClustersResStat)) {
+            if ((!okBelow && !okAbove) || (params.requireTopBottomRefs && (!okBelow || !okAbove))) {
               continue;
             }
-            ClResTPC clRes{};
 
             int nmeas = 0;
+            auto& clCont = clRes.contTracks.emplace_back();
+            clCont.corrAttach = corrAttach;
             if (okBelow) {
-              clRes.below = {mSelTRefs[entIDBelow].getX(), tparBelow.getY(), tparBelow.getZ()};
-              clRes.snp += tparBelow.getSnp();
-              clRes.tgl += tparBelow.getTgl();
+              clCont.below = {mSelTRefs[entIDBelow].getX(), tparBelow.getY(), tparBelow.getZ()};
+              clCont.snp += tparBelow.getSnp();
+              clCont.tgl += tparBelow.getTgl();
+              clCont.q2pt += tparBelow.getQ2Pt();
               nmeas++;
             }
             if (okAbove) {
-              clRes.above = {mSelTRefs[entIDAbove].getX(), tparAbove.getY(), tparAbove.getZ()};
-              clRes.snp += tparAbove.getSnp();
-              clRes.tgl += tparBelow.getTgl();
+              clCont.above = {mSelTRefs[entIDAbove].getX(), tparAbove.getY(), tparAbove.getZ()};
+              clCont.snp += tparAbove.getSnp();
+              clCont.tgl += tparAbove.getTgl();
+              clCont.q2pt += tparAbove.getQ2Pt();
               nmeas++;
             }
             if (nmeas) {
-              if (nmeas > 1) {
-                clRes.snp *= 0.5;
-                clRes.tgl *= 0.5;
+              if (clRes.contTracks.size() == 1) {
+                int occBin = mctr.bcInTF / 8 * mNTPCOccBinLengthInv;
+                clRes.occ = occBin < 0 ? mTBinClOcc[0] : (occBin >= mTBinClOcc.size() ? mTBinClOcc.back() : mTBinClOcc[occBin]);
               }
-              clRes.clPos = {xc, yc, zc};
-              clRes.sect = sector;
-              clRes.row = row;
-              clRes.qtot = clus.getQtot();
-              clRes.qmax = clus.getQmax();
-              clRes.flags = clus.getFlags();
-              clRes.ncont = ncontLb;
-              int occBin = mctr.bcInTF / 8 * mNTPCOccBinLengthInv;
-              clRes.occ = occBin < 0 ? mTBinClOcc[0] : (occBin >= mTBinClOcc.size() ? mTBinClOcc.back() : mTBinClOcc[occBin]);
-              (*mDBGOut) << "clres" << "clr=" << clRes << "\n";
+              clCont.xyz = {xc, yc, zc};
+              if (nmeas > 1) {
+                clCont.snp *= 0.5;
+                clCont.tgl *= 0.5;
+                clCont.q2pt *= 0.5;
+              }
+            } else {
+              clRes.contTracks.pop_back();
             }
           }
+        }
+        if (clRes.getNCont()) {
+          clRes.sect = sector;
+          clRes.row = row;
+          clRes.qtot = clus.getQtot();
+          clRes.qmax = clus.getQmax();
+          clRes.flags = clus.getFlags();
+          clRes.ncont = ncontLb;
+          clRes.sortCont();
+          (*mDBGOut) << "clres" << "clr=" << clRes << "\n";
         }
       }
     }
@@ -850,6 +968,7 @@ bool TrackMCStudy::processMCParticle(int src, int ev, int trid)
         }
       }
       if (decay >= 0) {                                                                      // check if decay and kinematics is acceptable
+        auto& decayPool = mDecaysMaps[decay];
         int idd0 = mcPart.getFirstDaughterTrackId(), idd1 = mcPart.getLastDaughterTrackId(); // we want only charged and trackable daughters
         int dtStart = mDecProdLblPool.size(), dtEnd = -1;
         if (idd0 < 0) {
@@ -867,12 +986,17 @@ bool TrackMCStudy::processMCParticle(int src, int ev, int trid)
         }
         if (decay >= 0) {
           // account decay
-          dtEnd = mDecProdLblPool.size() - 1;
+          dtEnd = mDecProdLblPool.size();
+          for (int dtid = dtStart; dtid < dtEnd; dtid++) { // flag selected decay parent entry in the prongs MCs
+            mSelMCTracks[mDecProdLblPool[dtid]].mcTrackInfo.parentEntry = decayPool.size();
+            mSelMCTracks[mDecProdLblPool[dtid]].mcTrackInfo.parentDecID = int8_t(decay);
+          }
+          dtEnd--;
           std::array<float, 3> xyz{(float)mcPart.GetStartVertexCoordinatesX(), (float)mcPart.GetStartVertexCoordinatesY(), (float)mcPart.GetStartVertexCoordinatesZ()};
           std::array<float, 3> pxyz{(float)mcPart.GetStartVertexMomentumX(), (float)mcPart.GetStartVertexMomentumY(), (float)mcPart.GetStartVertexMomentumZ()};
-          mDecaysMaps[decay].emplace_back(DecayRef{lbl,
-                                                   o2::track::TrackPar(xyz, pxyz, TMath::Nint(O2DatabasePDG::Instance()->GetParticle(mcPart.GetPdgCode())->Charge() / 3), false),
-                                                   mcPart.GetPdgCode(), dtStart, dtEnd});
+          decayPool.emplace_back(DecayRef{lbl,
+                                          o2::track::TrackPar(xyz, pxyz, TMath::Nint(O2DatabasePDG::Instance()->GetParticle(mcPart.GetPdgCode())->Charge() / 3), false),
+                                          mcPart.GetPdgCode(), dtStart, dtEnd});
           if (mVerbose > 1) {
             LOGP(info, "Adding MC parent pdg={} {}, with prongs in {}:{} range", pdg, lbl.asString(), dtStart, dtEnd);
           }
@@ -964,6 +1088,51 @@ bool TrackMCStudy::addMCParticle(const MCTrack& mcPart, const o2::MCCompLabel& l
   return true;
 }
 
+bool TrackMCStudy::refitV0(int i, o2::dataformats::V0& v0, const o2::globaltracking::RecoContainer& recoData)
+{
+  const auto& id = recoData.getV0sIdx()[i];
+  auto seedP = recoData.getTrackParam(id.getProngID(0));
+  auto seedN = recoData.getTrackParam(id.getProngID(1));
+  bool isTPConly = (id.getProngID(0).getSource() == GTrackID::TPC) || (id.getProngID(1).getSource() == GTrackID::TPC);
+  const auto& svparam = o2::vertexing::SVertexerParams::Instance();
+  if (svparam.mTPCTrackPhotonTune && isTPConly) {
+    mFitterV0.setMaxDZIni(svparam.mTPCTrackMaxDZIni);
+    mFitterV0.setMaxDXYIni(svparam.mTPCTrackMaxDXYIni);
+    mFitterV0.setMaxChi2(svparam.mTPCTrackMaxChi2);
+    mFitterV0.setCollinear(true);
+  }
+  int nCand = mFitterV0.process(seedP, seedN);
+  if (svparam.mTPCTrackPhotonTune && isTPConly) { // restore
+    // Reset immediately to the defaults
+    mFitterV0.setMaxDZIni(svparam.maxDZIni);
+    mFitterV0.setMaxDXYIni(svparam.maxDXYIni);
+    mFitterV0.setMaxChi2(svparam.maxChi2);
+    mFitterV0.setCollinear(false);
+  }
+  if (nCand == 0) { // discard this pair
+    return false;
+  }
+  const int cand = 0;
+  if (!mFitterV0.isPropagateTracksToVertexDone(cand) && !mFitterV0.propagateTracksToVertex(cand)) {
+    return false;
+  }
+  const auto& trPProp = mFitterV0.getTrack(0, cand);
+  const auto& trNProp = mFitterV0.getTrack(1, cand);
+  std::array<float, 3> pP{}, pN{};
+  trPProp.getPxPyPzGlo(pP);
+  trNProp.getPxPyPzGlo(pN);
+  std::array<float, 3> pV0 = {pP[0] + pN[0], pP[1] + pN[1], pP[2] + pN[2]};
+  auto p2V0 = pV0[0] * pV0[0] + pV0[1] * pV0[1] + pV0[2] * pV0[2];
+  const auto& pv = recoData.getPrimaryVertex(id.getVertexID());
+  const auto v0XYZ = mFitterV0.getPCACandidatePos(cand);
+  float dx = v0XYZ[0] - pv.getX(), dy = v0XYZ[1] - pv.getY(), dz = v0XYZ[2] - pv.getZ(), prodXYZv0 = dx * pV0[0] + dy * pV0[1] + dz * pV0[2];
+  float cosPA = prodXYZv0 / std::sqrt((dx * dx + dy * dy + dz * dz) * p2V0);
+  new (&v0) o2::dataformats::V0(v0XYZ, pV0, mFitterV0.calcPCACovMatrixFlat(cand), trPProp, trNProp);
+  v0.setDCA(mFitterV0.getChi2AtPCACandidate(cand));
+  v0.setCosPA(cosPA);
+  return true;
+}
+
 void TrackMCStudy::loadTPCOccMap(const o2::globaltracking::RecoContainer& recoData)
 {
   auto NHBPerTF = o2::base::GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF();
@@ -996,7 +1165,7 @@ void TrackMCStudy::loadTPCOccMap(const o2::globaltracking::RecoContainer& recoDa
   }
 }
 
-DataProcessorSpec getTrackMCStudySpec(GTrackID::mask_t srcTracks, GTrackID::mask_t srcClusters, const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts)
+DataProcessorSpec getTrackMCStudySpec(GTrackID::mask_t srcTracks, GTrackID::mask_t srcClusters, const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts, bool checkSV)
 {
   std::vector<OutputSpec> outputs;
   Options opts{
@@ -1011,6 +1180,9 @@ DataProcessorSpec getTrackMCStudySpec(GTrackID::mask_t srcTracks, GTrackID::mask
   dataRequest->requestTracks(srcTracks, useMC);
   dataRequest->requestClusters(srcClusters, useMC);
   dataRequest->requestPrimaryVertices(useMC);
+  if (checkSV) {
+    dataRequest->requestSecondaryVertices(useMC);
+  }
   o2::tpc::VDriftHelper::requestCCDBInputs(dataRequest->inputs);
   o2::tpc::CorrectionMapsLoader::requestCCDBInputs(dataRequest->inputs, opts, sclOpts);
   auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                             // orbitResetTime
@@ -1026,7 +1198,7 @@ DataProcessorSpec getTrackMCStudySpec(GTrackID::mask_t srcTracks, GTrackID::mask
     "track-mc-study",
     dataRequest->inputs,
     outputs,
-    AlgorithmSpec{adaptFromTask<TrackMCStudy>(dataRequest, ggRequest, srcTracks, sclOpts)},
+    AlgorithmSpec{adaptFromTask<TrackMCStudy>(dataRequest, ggRequest, srcTracks, sclOpts, checkSV)},
     opts};
 }
 
