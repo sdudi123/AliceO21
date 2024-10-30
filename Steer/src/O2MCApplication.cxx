@@ -303,9 +303,9 @@ void addSpecialParticles()
   //Double Anti-Hyper hydrogen 4
   TVirtualMC::GetMC()->DefineParticle(-1020010040, "DoubleAntiHyperhydrogen4", kPTHadron, 4.106, 1.0, 2.632e-10, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
-  //Hyper helium 4 sigma
+  // Hyper helium 4 sigma
   TVirtualMC::GetMC()->DefineParticle(1110020040, "Hyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
-  //Anti-Hyper helium 4 sigma
+  // Anti-Hyper helium 4 sigma
   TVirtualMC::GetMC()->DefineParticle(-1110020040, "AntiHyperhelium4sigma", kPTHadron, 3.995, 2.0, 8.018e-11, "Ion", 0.0, 0, 1, 0, 0, 0, 0, 0, 4, kFALSE);
 
   //Lambda-Neutron
