@@ -59,6 +59,7 @@ class GeneratorFromFile : public FairGenerator
   int mEventsAvailable = 0;
   bool mSkipNonTrackable = true; //! whether to pass non-trackable (decayed particles) to the MC stack
   bool mFixOffShell = true;      // fix particles with M_assigned != M_calculated
+  TGrid* mAlienInstance = nullptr; // a cached connection to TGrid (needed for Alien locations)
   ClassDefOverride(GeneratorFromFile, 1);
 };
 
