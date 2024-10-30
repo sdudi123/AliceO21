@@ -86,7 +86,7 @@ class MatchInfoTOF
   bool mHitUpDown = false;    ///< hit pattern in TOF up-down
   bool mHitLeftRight = false; ///< hit pattern in TOF left-right
 
-  ClassDefNV(MatchInfoTOF, 6);
+  ClassDefNV(MatchInfoTOF, 7);
 };
 } // namespace dataformats
 } // namespace o2
