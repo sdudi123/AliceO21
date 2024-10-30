@@ -279,11 +279,13 @@ bool GeneratorFromO2Kine::importParticles()
       auto px = t.Px();
       auto py = t.Py();
       if (mRandomPhi) {
-        auto phi = TMath::ATan2(py, px);
-        auto pt = TMath::Sqrt(px * px + py * py);
-        phi += dPhi;
-        px = pt * TMath::Cos(phi);
-        py = pt * TMath::Sin(phi);
+        // transformation applied through rotation matrix
+        auto cos = TMath::Cos(dPhi);
+        auto sin = TMath::Sin(dPhi);
+        auto newPx = px * cos - py * sin;
+        auto newPy = px * sin + py * cos;
+        px = newPx;
+        py = newPy;
       }
       auto pz = t.Pz();
       auto vx = t.Vx();
