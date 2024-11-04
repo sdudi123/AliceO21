@@ -502,8 +502,16 @@ void Tracker::getGlobalConfiguration()
     if (tc.maxMemory) {
       params.MaxMemory = tc.maxMemory;
     }
-    if (tc.useTrackFollower >= 0) {
-      params.UseTrackFollower = tc.useTrackFollower;
+    if (tc.useTrackFollower > 0) {
+      params.UseTrackFollower = true;
+      // Bit 0: Allow for mixing of top&bot extension --> implies Bits 1&2 set
+      // Bit 1: Allow for top extension
+      // Bit 2: Allow for bot extension
+      params.UseTrackFollowerMix = ((tc.useTrackFollower & (1 << 0)) != 0);
+      params.UseTrackFollowerTop = ((tc.useTrackFollower & (1 << 1)) != 0);
+      params.UseTrackFollowerBot = ((tc.useTrackFollower & (1 << 2)) != 0);
+      params.TrackFollowerNSigmaCutZ = tc.trackFollowerNSigmaZ;
+      params.TrackFollowerNSigmaCutPhi = tc.trackFollowerNSigmaPhi;
     }
     if (tc.cellsPerClusterLimit >= 0) {
       params.CellsPerClusterLimit = tc.cellsPerClusterLimit;

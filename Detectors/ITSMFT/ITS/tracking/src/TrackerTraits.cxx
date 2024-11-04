@@ -679,10 +679,11 @@ void TrackerTraits::extendTracks(const int iteration)
     for (auto& track : mTimeFrame->getTracks(rof)) {
       auto backup{track};
       bool success{false};
-      if (track.getLastClusterLayer() != mTrkParams[iteration].NLayers - 1) {
+      // the order here biases towards top extension, tracks should probably be fitted separately in the directions and then compared.
+      if ((mTrkParams[iteration].UseTrackFollowerMix || mTrkParams[iteration].UseTrackFollowerTop) && track.getLastClusterLayer() != mTrkParams[iteration].NLayers - 1) {
         success = success || trackFollowing(&track, rof, true, iteration);
       }
-      if (track.getFirstClusterLayer() != 0) {
+      if ((mTrkParams[iteration].UseTrackFollowerMix || (mTrkParams[iteration].UseTrackFollowerBot && !success)) && track.getFirstClusterLayer() != 0) {
         success = success || trackFollowing(&track, rof, false, iteration);
       }
       if (success) {
@@ -888,7 +889,7 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
       const float ePhi{o2::gpu::CAMath::Sqrt(hypoParam.getSigmaSnp2() / hypoParam.getCsp2())};
       const float z{hypoParam.getZ()};
       const float eZ{o2::gpu::CAMath::Sqrt(hypoParam.getSigmaZ2())};
-      const int4 selectedBinsRect{getBinsRect(iLayer, phi, mTrkParams[iteration].NSigmaCut * ePhi, z, mTrkParams[iteration].NSigmaCut * eZ)};
+      const int4 selectedBinsRect{getBinsRect(iLayer, phi, mTrkParams[iteration].TrackFollowerNSigmaCutPhi * ePhi, z, mTrkParams[iteration].TrackFollowerNSigmaCutZ * eZ)};
       if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
         continue;
       }
@@ -905,7 +906,6 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
       }
 
       // check all clusters in search windows for possible new hypotheses
-#pragma omp parallel for num_threads(mNThreads) shared(hypotheses)
       for (int iPhiCount = 0; iPhiCount < phiBinsNum; iPhiCount++) {
         int iPhiBin = (selectedBinsRect.y + iPhiCount) % mTrkParams[iteration].PhiBins;
         const int firstBinIndex{mTimeFrame->mIndexTableUtils.getBinIndex(selectedBinsRect.x, iPhiBin)};
@@ -946,10 +946,7 @@ bool TrackerTraits::trackFollowing(TrackITSExt* track, int rof, bool outward, co
           }
           tbupdated.setChi2(tbupdated.getChi2() + predChi2); /// This is wrong for outward propagation as the chi2 refers to inward parameters
           tbupdated.setExternalClusterIndex(iLayer, nextCluster.clusterId, true);
-#pragma omp critical
-          {
-            hypotheses.emplace_back(tbupdated);
-          }
+          hypotheses.emplace_back(tbupdated);
         }
       }
     }
