@@ -138,24 +138,22 @@ inline const int4 TrackerTraits::getBinsRect(const Cluster& currentCluster, int 
   return getBinsRect(layerIndex, currentCluster.phi, maxdeltaphi, z1, z2, maxdeltaz);
 }
 
-inline const int4 TrackerTraits::getBinsRect(const int layerIndex, float phi, float maxdeltaphi,
-                                             float z1, float z2, float maxdeltaz) const noexcept
+inline const int4 TrackerTraits::getBinsRect(const int layerIndex, float phi, float maxdeltaphi, float z1, float z2, float maxdeltaz) const noexcept
 {
   const float zRangeMin = o2::gpu::GPUCommonMath::Min(z1, z2) - maxdeltaz;
   const float phiRangeMin = (maxdeltaphi > constants::math::Pi) ? 0.f : phi - maxdeltaphi;
   const float zRangeMax = o2::gpu::GPUCommonMath::Max(z1, z2) + maxdeltaz;
   const float phiRangeMax = (maxdeltaphi > constants::math::Pi) ? constants::math::TwoPi : phi + maxdeltaphi;
 
-  if (zRangeMax < -mTrkParams[0].LayerZ[layerIndex + 1] ||
-      zRangeMin > mTrkParams[0].LayerZ[layerIndex + 1] || zRangeMin > zRangeMax) {
-
+  if (zRangeMax < -mTrkParams[0].LayerZ[layerIndex] ||
+      zRangeMin > mTrkParams[0].LayerZ[layerIndex] || zRangeMin > zRangeMax) {
     return getEmptyBinsRect();
   }
 
   const IndexTableUtils& utils{mTimeFrame->mIndexTableUtils};
-  return int4{o2::gpu::GPUCommonMath::Max(0, utils.getZBinIndex(layerIndex + 1, zRangeMin)),
+  return int4{o2::gpu::GPUCommonMath::Max(0, utils.getZBinIndex(layerIndex, zRangeMin)),
               utils.getPhiBinIndex(math_utils::getNormalizedPhi(phiRangeMin)),
-              o2::gpu::GPUCommonMath::Min(mTrkParams[0].ZBins - 1, utils.getZBinIndex(layerIndex + 1, zRangeMax)), // /!\ trkParams can potentially change across iterations
+              o2::gpu::GPUCommonMath::Min(mTrkParams[0].ZBins - 1, utils.getZBinIndex(layerIndex, zRangeMax)), // /!\ trkParams can potentially change across iterations
               utils.getPhiBinIndex(math_utils::getNormalizedPhi(phiRangeMax))};
 }
 } // namespace its

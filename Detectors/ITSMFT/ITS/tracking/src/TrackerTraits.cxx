@@ -111,7 +111,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
           const float sqInverseDeltaZ0{1.f / (Sq(currentCluster.zCoordinate - primaryVertex.getZ()) + 2.e-8f)}; /// protecting from overflows adding the detector resolution
           const float sigmaZ{o2::gpu::CAMath::Sqrt(Sq(resolution) * Sq(tanLambda) * ((Sq(inverseR0) + sqInverseDeltaZ0) * Sq(meanDeltaR) + 1.f) + Sq(meanDeltaR * tf->getMSangle(iLayer)))};
 
-          const int4 selectedBinsRect{getBinsRect(currentCluster, iLayer, zAtRmin, zAtRmax,
+          const int4 selectedBinsRect{getBinsRect(currentCluster, iLayer + 1, zAtRmin, zAtRmax,
                                                   sigmaZ * mTrkParams[iteration].NSigmaCut, tf->getPhiCut(iLayer))};
           if (selectedBinsRect.x == 0 && selectedBinsRect.y == 0 && selectedBinsRect.z == 0 && selectedBinsRect.w == 0) {
             continue;
