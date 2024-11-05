@@ -50,6 +50,10 @@ GPUg() void fitTrackSeedsKernel(
 #endif
 } // namespace gpu
 
+template <int nLayers = 7>
+void computeTrackletsInRofsHandler(const int startROF,
+                                   const int endROF);
+
 void countCellsHandler(const Cluster** sortedClusters,
                        const Cluster** unsortedClusters,
                        const TrackingFrameInfo** tfInfo,

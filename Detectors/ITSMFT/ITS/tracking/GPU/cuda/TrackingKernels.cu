@@ -671,7 +671,6 @@ GPUg() void compileTrackletsLookupTableKernel(const Tracklet* tracklets,
 template <int nLayers = 7>
 GPUg() void computeLayerTrackletsKernelMultipleRof(
   const int layerIndex,
-  const int iteration,
   const unsigned int startRofId,
   const unsigned int rofSize,
   const int maxRofs,
@@ -802,6 +801,16 @@ GPUg() void removeDuplicateTrackletsEntriesLUTKernel(
 }
 
 } // namespace gpu
+
+template <int nLayers>
+void computeTrackletsInRofsHandler(const int startROF,
+                                   const int endROF)
+{
+  for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
+    std::cout << "start: " << startROF << " end: " << endROF << std::endl;
+    // gpu::computeLayerTrackletsKernelMultipleRof();
+  }
+}
 
 void countCellsHandler(
   const Cluster** sortedClusters,
@@ -1032,4 +1041,5 @@ void trackSeedHandler(CellSeed* trackSeeds,
   gpuCheckError(cudaPeekAtLastError());
   gpuCheckError(cudaDeviceSynchronize());
 }
+template void computeTrackletsInRofsHandler<7>(const int, const int);
 } // namespace o2::its
