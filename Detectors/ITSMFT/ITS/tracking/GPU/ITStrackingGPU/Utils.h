@@ -29,6 +29,24 @@ struct gpuPair {
   T2 second;
 };
 
+template <typename T>
+struct gpuSpan {
+  GPUd() gpuSpan() : _data(nullptr), _size(0) {}
+  GPUd() gpuSpan(T* data, size_t size) : _data(data), _size(size) {}
+  GPUd() gpuSpan(const T* data, size_t size) : _data(data), _size(size) {}
+  GPUd() T& operator[](size_t idx) const { return _data[idx]; }
+  GPUd() size_t size() const { return _size; }
+  GPUd() bool empty() const { return _size == 0; }
+  GPUd() T& front() const { return _data[0]; }
+  GPUd() T& back() const { return _data[_size - 1]; }
+  GPUd() T* begin() const { return _data; }
+  GPUd() T* end() const { return _data + _size; }
+
+ protected:
+  const T* _data;
+  size_t _size;
+};
+
 namespace gpu
 {
 

@@ -32,6 +32,7 @@
 #include "ITStracking/IndexTableUtils.h"
 #include "ITStracking/MathUtils.h"
 #include "DataFormatsITS/TrackITS.h"
+#include "ReconstructionDataFormats/Vertex.h"
 
 #include "ITStrackingGPU/TrackerTraitsGPU.h"
 #include "ITStrackingGPU/TrackingKernels.h"
@@ -70,10 +71,9 @@ inline void gpuAssert(cudaError_t code, const char* file, int line, bool abort =
 }
 
 namespace o2::its
-
 {
 using namespace constants::its2;
-
+using Vertex = o2::dataformats::Vertex<o2::dataformats::TimeStamp<int>>;
 namespace gpu
 {
 GPUd() bool fitTrack(TrackITSExt& track,
@@ -196,9 +196,17 @@ struct is_valid_pair {
   }
 };
 
-GPUd() void getPrimaryVertices(const int rof,
-                               const uint8_t* mask,
-                               const Vertex* vertices);
+GPUd() gpuSpan<Vertex> getPrimaryVertices(const int rof,
+                                          const int* roframesPV,
+                                          const int nRof,
+                                          const uint8_t* mask,
+                                          const Vertex* vertices)
+{
+  const int start = roframesPV[rof];
+  const int stop_idx = rof >= nRof - 1 ? nRof : rof + 1;
+  size_t delta = mask[rof] ? roframesPV[stop_idx] - start : 0; // return empty span if Rof is excluded
+  return gpuSpan<Vertex>(&vertices[start], delta);
+};
 
 template <int nLayers>
 GPUg() void fitTrackSeedsKernel(
