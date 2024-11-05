@@ -54,6 +54,8 @@ class TimeFrameGPU : public TimeFrame
   void loadTrackingFrameInfoDevice(const int);
   void loadUnsortedClustersDevice(const int);
   void loadClustersDevice(const int);
+  void loadMultiplicityCutMask(const int);
+  ///
   void loadTrackletsDevice();
   void loadTrackletsLUTDevice();
   void loadCellsDevice();
@@ -116,6 +118,7 @@ class TimeFrameGPU : public TimeFrame
   o2::track::TrackParCovF** getDeviceArrayTrackSeeds() { return mCellSeedsDeviceArray; }
   float** getDeviceArrayTrackSeedsChi2() { return mCellSeedsChi2DeviceArray; }
   int* getDeviceNeighboursIndexTables(const int layer) { return mNeighboursIndexTablesDevice[layer]; }
+  bool* getDevicemMultMask() { return mMultMaskDevice; }
 
   void setDevicePropagator(const o2::base::PropagatorImpl<float>*) override;
 
@@ -147,6 +150,7 @@ class TimeFrameGPU : public TimeFrame
   int* mROFramesPVDevice;
 
   // Hybrid pref
+  bool* mMultMaskDevice;
   std::array<Cluster*, nLayers> mClustersDevice;
   std::array<Cluster*, nLayers> mUnsortedClustersDevice;
   const Cluster** mClustersDeviceArray;
@@ -185,10 +189,6 @@ class TimeFrameGPU : public TimeFrame
   std::vector<std::vector<Vertex>> mVerticesInChunks;
   std::vector<std::vector<int>> mNVerticesInChunks;
   std::vector<std::vector<o2::MCCompLabel>> mLabelsInChunks;
-
-  // Host memory used only in GPU tracking
-  std::vector<int> mHostNTracklets;
-  std::vector<int> mHostNCells;
 
   // Temporary buffer for storing output tracks from GPU tracking
   std::vector<TrackITSExt> mTrackITSExt;

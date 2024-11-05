@@ -32,6 +32,7 @@ void TrackerTraitsGPU<nLayers>::initialiseTimeFrame(const int iteration)
   mTimeFrameGPU->loadClustersDevice(iteration);
   mTimeFrameGPU->loadUnsortedClustersDevice(iteration);
   mTimeFrameGPU->loadTrackingFrameInfoDevice(iteration);
+  mTimeFrameGPU->loadMultiplicityCutMask(iteration);
 }
 
 template <int nLayers>
@@ -84,13 +85,18 @@ int TrackerTraitsGPU<nLayers>::getTFNumberOfCells() const
 template <int nLayers>
 void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int iROFslice, int iVertex)
 {
+  auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   TrackerTraits::computeLayerTracklets(iteration, iROFslice, iVertex);
 
   const Vertex diamondVert({mTrkParams[iteration].Diamond[0], mTrkParams[iteration].Diamond[1], mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : mTimeFrameGPU->getNrof()};
-  computeTrackletsInRofsHandler<nLayers>(startROF, endROF);
+  computeTrackletsInRofsHandler<nLayers>(startROF,
+                                         endROF,
+                                         iVertex,
+                                         conf.nBlocks,
+                                         conf.nThreads);
 }
 
 template <int nLayers>

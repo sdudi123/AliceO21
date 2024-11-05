@@ -52,7 +52,10 @@ GPUg() void fitTrackSeedsKernel(
 
 template <int nLayers = 7>
 void computeTrackletsInRofsHandler(const int startROF,
-                                   const int endROF);
+                                   const int endROF,
+                                   const int vertexId,
+                                   const int nBlocks,
+                                   const int nThreads);
 
 void countCellsHandler(const Cluster** sortedClusters,
                        const Cluster** unsortedClusters,

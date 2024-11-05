@@ -209,8 +209,8 @@ class TimeFrame
   const unsigned long long& getRoadLabel(int i) const;
   bool isRoadFake(int i) const;
 
-  void setMultiplicityCutMask(const std::vector<bool>& cutMask) { mMultiplicityCutMask = cutMask; }
-  void setROFMask(const std::vector<bool>& rofMask) { mROFMask = rofMask; }
+  void setMultiplicityCutMask(const std::vector<uint8_t>& cutMask) { mMultiplicityCutMask = cutMask; }
+  void setROFMask(const std::vector<uint8_t>& rofMask) { mROFMask = rofMask; }
   void swapMasks() { mMultiplicityCutMask.swap(mROFMask); }
 
   int hasBogusClusters() const { return std::accumulate(mBogusClusters.begin(), mBogusClusters.end(), 0); }
@@ -289,6 +289,7 @@ class TimeFrame
   std::vector<std::vector<TrackITSExt>> mTracks;
   std::vector<std::vector<int>> mCellsNeighbours;
   std::vector<std::vector<int>> mCellsLookupTable;
+  std::vector<uint8_t> mMultiplicityCutMask;
 
   const o2::base::PropagatorImpl<float>* mPropagatorDevice = nullptr; // Needed only for GPU
  protected:
@@ -311,8 +312,8 @@ class TimeFrame
   std::vector<float> mPhiCuts;
   std::vector<float> mPositionResolution;
   std::vector<uint8_t> mClusterSize;
-  std::vector<bool> mMultiplicityCutMask;
-  std::vector<bool> mROFMask;
+
+  std::vector<uint8_t> mROFMask;
   std::vector<std::array<float, 2>> mPValphaX; /// PV x and alpha for track propagation
   std::vector<std::vector<MCCompLabel>> mTrackletLabels;
   std::vector<std::vector<MCCompLabel>> mCellLabels;
