@@ -57,7 +57,11 @@ Detector::Detector(bool active)
   auto& baseParam = FVDBaseParam::Instance();
   mNumberOfSectors = baseParam.nsect;
 
+<<<<<<< HEAD
   mDzScint = baseParam.dzscint/2;
+=======
+  mDzScint = baseParam.dzscint;
+>>>>>>> f77b1c2c94 (More flexible confgurable parameters)
 
   mRingRadiiA = baseParam.ringsA;
   mRingRadiiC = baseParam.ringsC;
@@ -346,6 +350,10 @@ void Detector::defineSensitiveVolumes()
 
   TGeoVolume* v;
   TString volumeName;
+<<<<<<< HEAD
+=======
+
+>>>>>>> f77b1c2c94 (More flexible confgurable parameters)
   int nCellA = mNumberOfRingsA * mNumberOfSectors;
   int nCellC = mNumberOfRingsC * mNumberOfSectors;
 
@@ -385,26 +393,27 @@ int Detector::getChannelId(TVector3 vec)
 
 int Detector::getChannelId(TVector3 vec)
 {
-   float phi = vec.Phi();
-   if (phi < 0) phi += TMath::TwoPi();
-   float r   = vec.Perp();
-   float z   = vec.Z();
+  float phi = vec.Phi();
+  if (phi < 0)
+    phi += TMath::TwoPi();
+  float r = vec.Perp();
+  float z = vec.Z();
 
-   int isect = int(phi/(TMath::Pi()/4));
+  int isect = int(phi / (TMath::Pi() / 4));
 
-   std::vector<float>rd = z > 0 ? mRingRadiiA : mRingRadiiC;
-   int noff = z > 0 ? 0 : mNumberOfRingsA*mNumberOfSectors;
+  std::vector<float> rd = z > 0 ? mRingRadiiA : mRingRadiiC;
+  int noff = z > 0 ? 0 : mNumberOfRingsA * mNumberOfSectors;
 
-   int ir = 0;
+  int ir = 0;
 
-   for (int i = 1; i < rd.size(); i++) {
-      if (r < rd[i]) 
-        break;
-      else
-	ir ++;
-   }
+  for (int i = 1; i < rd.size(); i++) {
+    if (r < rd[i])
+      break;
+    else
+      ir++;
+  }
 
-   return ir * mNumberOfSectors + isect + noff;
+  return ir * mNumberOfSectors + isect + noff;
 }
 
 ClassImp(o2::fvd::Detector);
