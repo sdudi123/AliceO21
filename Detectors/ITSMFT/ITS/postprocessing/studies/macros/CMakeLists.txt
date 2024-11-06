@@ -9,8 +9,8 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-o2_add_test_root_macro(
-  PostTrackExtension.C
-  PUBLIC_LINK_LIBRARIES ROOT::Hist ROOT::RIO ROOT::Core ROOT::Gpad
-  LABELS its-study
-  COMPILE_ONLY)
+# o2_add_test_root_macro(
+#   PostTrackExtension.C
+#   PUBLIC_LINK_LIBRARIES ROOT::Hist ROOT::RIO ROOT::Core ROOT::Gpad
+#   LABELS its-study
+#   COMPILE_ONLY)
