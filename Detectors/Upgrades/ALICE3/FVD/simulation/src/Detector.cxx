@@ -383,4 +383,28 @@ int Detector::getChannelId(TVector3 vec)
   return ir * mNumberOfSectors + isect + noff;
 }
 
+int Detector::getChannelId(TVector3 vec)
+{
+   float phi = vec.Phi();
+   if (phi < 0) phi += TMath::TwoPi();
+   float r   = vec.Perp();
+   float z   = vec.Z();
+
+   int isect = int(phi/(TMath::Pi()/4));
+
+   std::vector<float>rd = z > 0 ? mRingRadiiA : mRingRadiiC;
+   int noff = z > 0 ? 0 : mNumberOfRingsA*mNumberOfSectors;
+
+   int ir = 0;
+
+   for (int i = 1; i < rd.size(); i++) {
+      if (r < rd[i]) 
+        break;
+      else
+	ir ++;
+   }
+
+   return ir * mNumberOfSectors + isect + noff;
+}
+
 ClassImp(o2::fvd::Detector);
