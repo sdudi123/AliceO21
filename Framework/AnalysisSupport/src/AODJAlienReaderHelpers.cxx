@@ -131,10 +131,16 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const
   if (ctx.options().isSet("aod-parent-access-level")) {
     parentAccessLevel = ctx.options().get<int>("aod-parent-access-level");
   }
-  auto callback = AlgorithmSpec{adaptStateful([parentFileReplacement, parentAccessLevel](ConfigParamRegistry const& options,
-                                                                                         DeviceSpec const& spec,
-                                                                                         Monitoring& monitoring,
-                                                                                         DataProcessingStats& stats) {
+  if (ctx.options().isSet("aod-file")) {
+    LOGP(fatal, "No input file defined!");
+    throw std::runtime_error("Processing is stopped!");
+  }
+  auto filename = ctx.options().get<std::string>("aod-file");
+
+  auto callback = AlgorithmSpec{adaptStateful([parentFileReplacement, parentAccessLevel, filename](ConfigParamRegistry const& options,
+                                                                                                   DeviceSpec const& spec,
+                                                                                                   Monitoring& monitoring,
+                                                                                                   DataProcessingStats& stats) {
     // FIXME: not actually needed, since data processing stats can specify that we should
     // send the initial value.
     stats.updateStats({static_cast<short>(ProcessingStatsId::ARROW_BYTES_CREATED), DataProcessingStats::Op::Set, 0});
@@ -142,13 +148,6 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const
     stats.updateStats({static_cast<short>(ProcessingStatsId::ARROW_BYTES_DESTROYED), DataProcessingStats::Op::Set, 0});
     stats.updateStats({static_cast<short>(ProcessingStatsId::ARROW_MESSAGES_DESTROYED), DataProcessingStats::Op::Set, 0});
     stats.updateStats({static_cast<short>(ProcessingStatsId::ARROW_BYTES_EXPIRED), DataProcessingStats::Op::Set, 0});
-
-    if (!options.isSet("aod-file-private")) {
-      LOGP(fatal, "No input file defined!");
-      throw std::runtime_error("Processing is stopped!");
-    }
-
-    auto filename = options.get<std::string>("aod-file-private");
 
     auto maxRate = options.get<float>("aod-max-io-rate");
 
