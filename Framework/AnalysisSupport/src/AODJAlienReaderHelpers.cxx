@@ -131,7 +131,7 @@ AlgorithmSpec AODJAlienReaderHelpers::rootFileReaderCallback(ConfigContext const
   if (ctx.options().isSet("aod-parent-access-level")) {
     parentAccessLevel = ctx.options().get<int>("aod-parent-access-level");
   }
-  if (ctx.options().isSet("aod-file")) {
+  if (!ctx.options().isSet("aod-file")) {
     LOGP(fatal, "No input file defined!");
     throw std::runtime_error("Processing is stopped!");
   }
