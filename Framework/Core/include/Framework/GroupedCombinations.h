@@ -70,7 +70,7 @@ struct GroupedCombinationsGenerator {
         mIndexColumns{getMatchingIndexNode<G, As>()...},
         cache{cache_}
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});
@@ -88,7 +88,7 @@ struct GroupedCombinationsGenerator {
     template <typename... T2s>
     void setTables(const G& grouping, const std::tuple<T2s...>& associated)
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});

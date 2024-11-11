@@ -33,7 +33,7 @@ constexpr std::size_t pack_size(pack<Ts...> const&)
 template <std::size_t I, typename T>
 struct pack_element;
 
-#ifdef __clang__
+#if __has_builtin(__type_pack_element)
 template <std::size_t I, typename... Ts>
 struct pack_element<I, pack<Ts...>> {
   using type = __type_pack_element<I, Ts...>;
@@ -258,40 +258,30 @@ constexpr size_t has_type_at_conditional(pack<T1, Ts...>&&)
   return sizeof...(Ts) + 2;
 }
 
-namespace
+template <typename T, typename... Ts>
+consteval size_t has_type_at_v(pack<Ts...>)
 {
-template <std::size_t I, typename T>
-struct indexed {
-  using type = T;
-  constexpr static std::size_t index = I;
-};
-
-template <typename Is, typename... Ts>
-struct indexer;
-
-template <std::size_t... Is, typename... Ts>
-struct indexer<std::index_sequence<Is...>, Ts...>
-  : indexed<Is, Ts>... {
-};
-
-template <typename T, std::size_t I>
-indexed<I, T> select(indexed<I, T>);
-
-template <typename W, typename... Ts>
-constexpr std::size_t has_type_at_t = decltype(select<W>(
-  indexer<std::index_sequence_for<Ts...>, Ts...>{}))::index;
-} // namespace
-
-template <typename W>
-constexpr std::size_t has_type_at_v(o2::framework::pack<>)
-{
-  return -1;
+  constexpr size_t size = sizeof...(Ts);
+  constexpr bool found[size] = {std::same_as<T, Ts>...};
+  for (size_t i = 0; i < size; ++i) {
+    if (found[i]) {
+      return i;
+    }
+  }
+  return size + 1;
 }
 
-template <typename W, typename... Ts>
-constexpr std::size_t has_type_at_v(o2::framework::pack<Ts...>)
+template <template <typename, typename> typename Condition, typename T, typename... Ts>
+consteval size_t has_type_at_conditional_v(pack<Ts...>)
 {
-  return has_type_at_t<W, Ts...>;
+  constexpr size_t size = sizeof...(Ts);
+  constexpr bool found[size] = {Condition<T, Ts>::value...};
+  for (size_t i = 0; i < size; ++i) {
+    if (found[i]) {
+      return i;
+    }
+  }
+  return size + 1;
 }
 
 /// Intersect two packs
@@ -345,6 +335,12 @@ constexpr auto concatenate_pack_unique(pack<Args1...>, pack<Args2...>)
 {
   using p1 = typename subtract_pack<pack<Args1...>, pack<Args2...>>::type;
   return concatenate_pack(p1{}, pack<Args2...>{});
+}
+
+template <typename P1>
+constexpr auto concatenate_pack_unique(P1 p1)
+{
+  return p1;
 }
 
 template <typename P1, typename P2, typename... Ps>
