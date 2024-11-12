@@ -103,7 +103,8 @@ struct WritingCursor<soa::Table<ORIGIN, PC...>> {
 };
 
 /// Helper to define output for a Table
-template <soa::is_table T>
+template <typename T>
+  requires soa::is_table<T> || soa::is_iterator<T>
 struct OutputForTable {
   using table_t = T;
   using metadata = typename aod::MetadataTrait<table_t>::metadata;
