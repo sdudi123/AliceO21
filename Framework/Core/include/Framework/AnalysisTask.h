@@ -89,7 +89,8 @@ struct AnalysisDataProcessorBuilder {
   }
 
   template <typename T>
-  static inline auto getSources() requires soa::with_base_table<std::decay_t<T>>
+  static inline auto getSources()
+    requires soa::with_base_table<std::decay_t<T>>
   {
     return getInputSpecs(typename aod::MetadataTrait<T>::metadata::sources{});
   }
