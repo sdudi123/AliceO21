@@ -529,7 +529,7 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
   int nTwoI = 0;
   std::map<o2::InteractionRecord, CTPDigit> digitsMapShifted;
   auto L0shift = o2::ctp::TriggerOffsetsParam::Instance().LM_L0;
-  auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1+1;
+  auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1 + 1;
   for (auto const& dig : digitsMap) {
     auto inpmask = dig.second.CTPInputMask;
     auto inpmaskLM = inpmask & LMMASKInputs;
