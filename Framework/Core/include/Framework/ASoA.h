@@ -152,7 +152,7 @@ template <typename C>
 static constexpr bool is_persistent_v = is_persistent_column<C>;
 
 template <typename C>
-concept is_index_column = requires { typename C::binding_t{nullptr}; };
+concept is_index_column = not_void<typename C::binding_t>;//requires { typename C::binding_t{nullptr}; };
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
@@ -205,50 +205,14 @@ inline constexpr bool is_type_with_originals_v = false;
 template <typename T>
 inline constexpr bool is_type_with_originals_v<T, std::void_t<decltype(sizeof(typename T::originals))>> = true;
 
-template <typename T, typename = void>
-inline constexpr bool is_type_with_parent_v = false;
-
 template <typename T>
-inline constexpr bool is_type_with_parent_v<T, std::void_t<decltype(sizeof(typename T::parent_t))>> = true;
+concept has_parent_t = not_void<typename T::parent_t>;
 
 template <typename T>
 concept has_metadata = soa::not_void<typename aod::MetadataTrait<T>::metadata>;
 
 template <typename T>
-inline constexpr bool is_type_with_metadata_v = has_metadata<T>;
-
-template <typename, typename = void>
-inline constexpr bool is_type_spawnable_v = false;
-
-template <typename T>
-inline constexpr bool is_type_spawnable_v<T, std::void_t<decltype(sizeof(typename T::spawnable_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_soa_extension_table_v = false;
-
-template <typename T>
-inline constexpr bool is_soa_extension_table_v<T, std::void_t<decltype(sizeof(typename T::expression_pack_t))>> = true;
-
-template <typename T, typename = void>
-inline constexpr bool is_index_table_v = false;
-
-template <typename T>
-inline constexpr bool is_index_table_v<T, std::void_t<decltype(sizeof(typename T::indexing_t))>> = true;
-
-template <typename, typename = void>
-inline constexpr bool is_self_index_column_v = false;
-
-template <typename T>
-inline constexpr bool is_self_index_column_v<T, std::void_t<decltype(sizeof(typename T::self_index_t))>> = true;
-
-template <typename T>
 concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
-
-template <typename, typename = void>
-inline constexpr bool is_with_base_table_v = false;
-
-template <typename T>
-inline constexpr bool is_with_base_table_v<T, std::void_t<decltype(sizeof(typename T::base_table_t))>> = true;
 
 template <typename B, typename E>
 struct EquivalentIndex {
@@ -283,7 +247,7 @@ consteval decltype(auto) make_originals_from_type()
       return typename decayed::originals{};
     } else if constexpr (is_type_with_originals_v<typename decayed::table_t>) {
       return typename decayed::table_t::originals{};
-    } else if constexpr (is_type_with_parent_v<decayed>) {
+    } else if constexpr (soa::has_parent_t<decayed>) {
       return make_originals_from_type<typename decayed::parent_t>();
     } else {
       return framework::pack<decayed>{};
@@ -1730,8 +1694,8 @@ class Table
   inline arrow::ChunkedArray* getIndexToKey()
   {
     if constexpr (framework::has_type_conditional<is_binding_compatible, Key>(external_index_columns_t{})) {
-      using IC = framework::pack_element_t<framework::has_type_at_conditional<is_binding_compatible, Key>(external_index_columns_t{}), external_index_columns_t>;
-      return mColumnChunks[framework::has_type_at<IC>(persistent_columns_t{})];
+      using IC = framework::pack_element_t<framework::has_type_at_conditional_v<is_binding_compatible, Key>(external_index_columns_t{}), external_index_columns_t>;
+      return mColumnChunks[framework::has_type_at_v<IC>(persistent_columns_t{})];
     } else if constexpr (std::is_same_v<table_t, Key>) {
       return nullptr;
     } else {
@@ -2027,7 +1991,7 @@ DECLARE_SOA_ITERATOR_METADATA();
   template <typename T>                                                                             \
   consteval int getVersion()                                                                        \
   {                                                                                                 \
-    if constexpr (o2::soa::is_type_with_metadata_v<MetadataTrait<T>>) {                             \
+    if constexpr (o2::soa::has_metadata<MetadataTrait<T>>) {                                        \
       return MetadataTrait<T>::metadata::version();                                                 \
     } else if constexpr (o2::soa::is_type_with_originals_v<T>) {                                    \
       return MetadataTrait<o2::framework::pack_head_t<typename T::originals>>::metadata::version(); \

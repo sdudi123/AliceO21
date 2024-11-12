@@ -244,16 +244,15 @@ namespace
 template <typename T, typename Key>
 inline std::shared_ptr<arrow::ChunkedArray> getIndexToKey(arrow::Table* table)
 {
-  using IC = framework::pack_element_t<framework::has_type_at_conditional<soa::is_binding_compatible, Key>(typename T::external_index_columns_t{}), typename T::external_index_columns_t>;
-  return table->column(framework::has_type_at<IC>(typename T::persistent_columns_t{}));
+  using IC = framework::pack_element_t<framework::has_type_at_conditional_v<soa::is_binding_compatible, Key>(typename T::external_index_columns_t{}), typename T::external_index_columns_t>;
+  return table->column(framework::has_type_at_v<IC>(typename T::persistent_columns_t{}));
 }
 
-template <typename C>
+template <soa::is_column C>
 struct ColumnTrait {
-  static_assert(framework::is_base_of_template_v<o2::soa::Column, C>, "Not a column type!");
   using column_t = C;
 
-  static constexpr auto listSize()
+  static consteval auto listSize()
   {
     if constexpr (std::is_same_v<typename C::type, std::vector<int>>) {
       return -1;

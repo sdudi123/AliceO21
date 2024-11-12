@@ -224,40 +224,6 @@ bool consteval has_type_conditional(framework::pack<Us...>)
 template <template <typename, typename> typename Condition, typename T, typename P>
 inline constexpr bool has_type_conditional_v = has_type_conditional<Condition, T>(P{});
 
-template <typename T>
-constexpr size_t has_type_at(pack<> const&)
-{
-  return static_cast<size_t>(-1);
-}
-
-template <typename T, typename T1, typename... Ts>
-constexpr size_t has_type_at(pack<T1, Ts...> const&)
-{
-  if constexpr (std::is_same_v<T, T1>) {
-    return 0;
-  } else if constexpr (has_type<T>(pack<Ts...>{})) {
-    return 1 + has_type_at<T>(pack<Ts...>{});
-  }
-  return sizeof...(Ts) + 2;
-}
-
-template <template <typename, typename> typename Condition, typename T>
-constexpr size_t has_type_at_conditional(pack<>&&)
-{
-  return static_cast<size_t>(-1);
-}
-
-template <template <typename, typename> typename Condition, typename T, typename T1, typename... Ts>
-constexpr size_t has_type_at_conditional(pack<T1, Ts...>&&)
-{
-  if constexpr (Condition<T, T1>::value) {
-    return 0;
-  } else if constexpr (has_type_conditional_v<Condition, T, pack<Ts...>>) {
-    return 1 + has_type_at_conditional<Condition, T>(pack<Ts...>{});
-  }
-  return sizeof...(Ts) + 2;
-}
-
 template <typename T, typename... Ts>
 consteval size_t has_type_at_v(pack<Ts...>)
 {

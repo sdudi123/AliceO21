@@ -89,7 +89,7 @@ struct AnalysisDataProcessorBuilder {
   }
 
   template <typename T>
-  static inline auto getSources() requires soa::is_soa_extension_table_v<std::decay_t<T>>
+  static inline auto getSources() requires soa::with_base_table<std::decay_t<T>>
   {
     return getInputSpecs(typename aod::MetadataTrait<T>::metadata::sources{});
   }
@@ -132,7 +132,7 @@ struct AnalysisDataProcessorBuilder {
     using metadata = typename aod::MetadataTrait<std::decay_t<O>>::metadata;
     std::vector<ConfigParamSpec> inputMetadata;
     inputMetadata.emplace_back(ConfigParamSpec{std::string{"control:"} + name, VariantType::Bool, value, {"\"\""}});
-    if constexpr (soa::is_index_table<std::decay_t<O>> || soa::is_soa_extension_table_v<std::decay_t<O>>) {
+    if constexpr (soa::is_index_table<std::decay_t<O>> || soa::with_base_table<std::decay_t<O>>) {
       auto inputSources = getInputMetadata<std::decay_t<O>>();
       inputMetadata.insert(inputMetadata.end(), inputSources.begin(), inputSources.end());
     }
