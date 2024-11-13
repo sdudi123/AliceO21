@@ -136,6 +136,10 @@ class MatchITSTPCQC
   TH1D* getHisto1OverPtPhysPrimDen(matchType m) const { return m1OverPtPhysPrimDen[m]; }
   TEfficiency* getFractionITSTPCmatchPhysPrim1OverPt(matchType m) const { return mFractionITSTPCmatchPhysPrim1OverPt[m]; }
 
+  TH3F* getHistoEtaPhiPtNum(matchType m) const { return mEtaPhiPtNum[m]; }
+  TH3F* getHistoEtaPhiPtDen(matchType m) const { return mEtaPhiPtDen[m]; }
+  TEfficiency* getFractionITSTPCmatchEtaPhiPt(matchType m) const { return mFractionITSTPCmatchEtaPhiPt[m]; }
+
   TH3F* getHistoK0MassVsPtVsOccpp() const { return mK0MassVsPtVsOccpp; }
   TH3F* getHistoK0MassVsPtVsOccPbPb() const { return mK0MassVsPtVsOccPbPb; }
 
@@ -189,6 +193,11 @@ class MatchITSTPCQC
       publisher->startPublishing(m1OverPtNum[i]);
       publisher->startPublishing(m1OverPtDen[i]);
       publisher->startPublishing(mFractionITSTPCmatch1OverPt[i]);
+
+      // 3D eta/phi/pt
+      publisher->startPublishing(mEtaPhiPtNum[i]);
+      publisher->startPublishing(mEtaPhiPtDen[i]);
+      publisher->startPublishing(mFractionITSTPCmatchEtaPhiPt[i]);
 
       if (mUseTrkPID) { // Vs Tracking PID hypothesis
         for (int j = 0; j < o2::track::PID::NIDs; ++j) {
@@ -271,7 +280,8 @@ class MatchITSTPCQC
   // ITS-TPC kinematics
   void setPtCut(float v) { mPtCut = v; }
   void setMaxPtCut(float v) { mPtMaxCut = v; }
-  void setEtaCut(float v) { mEtaCut = v; } // TODO: define 2 different values for min and max (*)
+  void setEtaCut(float v) { mEtaCut = v; }
+  void setEtaNo0Cut(float v) { mEtaNo0Cut = v; }
 
   // K0
   void setMaxK0Eta(float v) { mMaxEtaK0 = v; }
@@ -406,8 +416,13 @@ class MatchITSTPCQC
   TH1D* m1OverPtPhysPrimNum[matchType::SIZE] = {};
   TH1D* m1OverPtPhysPrimDen[matchType::SIZE] = {};
   TEfficiency* mFractionITSTPCmatchPhysPrim1OverPt[matchType::SIZE] = {};
+  // 3D Efficiency in eta/phi/pt
+  TH3F* mEtaPhiPtNum[matchType::SIZE] = {};
+  TH3F* mEtaPhiPtDen[matchType::SIZE] = {};
+  TEfficiency* mFractionITSTPCmatchEtaPhiPt[matchType::SIZE] = {};
 
-  void setEfficiency(TEfficiency* eff, TH1* hnum, TH1* hden, bool is2D = false);
+  template <int DIM = 1, bool DEBUG = false>
+  void setEfficiency(TEfficiency* eff, TH1* hnum, TH1* hden);
 
   int mNTPCSelectedTracks = 0;
   int mNITSSelectedTracks = 0;
@@ -415,8 +430,8 @@ class MatchITSTPCQC
 
   // cut values
   // ITS track
-  float mPtITSCut = 0.f;                                                // min pT for ITS track
-  float mEtaITSCut = 1e10f;                                             // eta window for ITS track --> TODO: define 2 different values for min and max (**)
+  float mPtITSCut = 0.1f;                                               // min pT for ITS track
+  float mEtaITSCut = 1.4f;                                              // eta window for ITS track --> TODO: define 2 different values for min and max (**)
   int mMinNClustersITS = 0;                                             // min number of ITS clusters
   float mMaxChi2PerClusterITS{1e10f};                                   // max its fit chi2 per ITS cluster
   std::vector<std::pair<int8_t, std::set<uint8_t>>> mRequiredITSHits{}; // vector of ITS requirements (minNRequiredHits in specific requiredLayers)
@@ -429,8 +444,9 @@ class MatchITSTPCQC
   // ITS-TPC kinematics
   float mPtCut = 0.1f;
   float mPtMaxCut = 1e10f;
-  float mEtaCut = 1e10f; // 1e10f as defaults of Detectors/GlobalTracking/include/GlobalTracking/TrackCuts.h
-                         // TODO: define 2 different values for min and max (*)
+  float mEtaCut = 1.4f;
+  float mEtaNo0Cut = 0.05f;
+  // TODO: define 2 different values for min and max (*)
 
   // for V0s
   o2::vertexing::DCAFitterN<2> mFitterV0;
@@ -462,7 +478,7 @@ class MatchITSTPCQC
   float mK0MaxDCA = 0.01;      // max DCA to select the K0
   float mK0MinCosPA = 0.995;   // min cosPA to select the K0
 
-  ClassDefNV(MatchITSTPCQC, 3);
+  ClassDefNV(MatchITSTPCQC, 4);
 };
 } // namespace gloqc
 } // namespace o2

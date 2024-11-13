@@ -37,6 +37,7 @@ struct ITSTPCMatchingQCParams : public o2::conf::ConfigurableParamHelper<ITSTPCM
   float minPtCut = 0.f;
   float maxPtCut = 1e10f;
   float etaCut = 1.e10f;
+  float etaNo0Cut = 0.05;
   float cutK0Mass = 0.05f;
   float maxEtaK0 = 0.8f;
   float K0Scaling = 1.f;
