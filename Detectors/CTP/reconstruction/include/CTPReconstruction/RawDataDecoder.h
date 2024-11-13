@@ -44,7 +44,7 @@ class RawDataDecoder
   void setVerbose(bool v) { mVerbose = v; }
   void setMAXErrors(int m) { mErrorMax = m; }
   int setLumiInp(int lumiinp, std::string inp);
-  void setCTPConfig( CTPConfiguration cfg) { mCTPConfig = std::move(cfg); };
+  void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); };
   uint32_t getIRRejected() const { return mIRRejected; }
   uint32_t getTCRRejected() const { return mTCRRejected; }
   std::vector<uint32_t>& getTFOrbits() { return mTFOrbits; }

@@ -137,10 +137,10 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   if (fatal_flag) {
     ret = mDecoder.decodeRawFatal(inputs, filter);
   } else {
-    if(mDecodeinputs) {
-     const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
-     //ctpcfg->printStream(std::cout);
-     mDecoder.setCTPConfig(*ctpcfg);
+    if (mDecodeinputs) {
+      const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
+      // ctpcfg->printStream(std::cout);
+      mDecoder.setCTPConfig(*ctpcfg);
     }
     ret = mDecoder.decodeRaw(inputs, filter, mOutputDigits, lumiPointsHBF1);
   }
@@ -183,7 +183,6 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
       mOutputLumiInfo.orbit = lumiPointsHBF1[0].orbit;
     }
     mOutputLumiInfo.counts = mCountsT;
-
 
     mOutputLumiInfo.countsFV0 = mCountsV;
     mOutputLumiInfo.nHBFCounted = mNHBIntegratedT;

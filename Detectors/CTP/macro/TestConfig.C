@@ -21,7 +21,7 @@ void TestConfig(bool test = 1)
   if (test == 0) {
     return;
   }
-  uint64_t timestamp = 1660276134898+10000;
+  uint64_t timestamp = 1660276134898 + 10000;
   std::string run = "523186";
   o2::ctp::ctpCCDBManager::setCCDBHost("https://alice-ccdb.cern.ch");
   bool ok;
@@ -35,12 +35,12 @@ void TestConfig(bool test = 1)
   auto& triggerclasses = ctpconfig.getCTPClasses();
   std::cout << "Found " << triggerclasses.size() << " trigger classes" << std::endl;
   for (const auto& trg : triggerclasses) {
-      if (trg.cluster->maskCluster[o2::detectors::DetID::EMC]) {
-        // Class triggering EMCAL cluster
-        LOG(info) << "Found trigger class for EMCAL cluster: " << trg.name << " with input mask " << std::bitset<64>(trg.descriptor->getInputsMask());
-        trg.descriptor->getInputsMask();
-      }
+    if (trg.cluster->maskCluster[o2::detectors::DetID::EMC]) {
+      // Class triggering EMCAL cluster
+      LOG(info) << "Found trigger class for EMCAL cluster: " << trg.name << " with input mask " << std::bitset<64>(trg.descriptor->getInputsMask());
+      trg.descriptor->getInputsMask();
     }
+  }
   return;
   int indexInList = 0;
   for (const auto& trgclass : triggerclasses) {

@@ -25,7 +25,7 @@ void TestFetcher(int runNumber = 559456)
   // Opening run
   CTPRateFetcher fetcher;
   fetcher.setupRun(runNumber, &ccdb, ts, 0);
-  //ccdb.setURL("http://ali-qcdb-gpn.cern.ch:8083/");
+  // ccdb.setURL("http://ali-qcdb-gpn.cern.ch:8083/");
   ccdb.setURL("http://ccdb-test.cern.ch:8080/");
 
   std::string QCDBPathCTPScalers = "qc/CTP/Scalers";
