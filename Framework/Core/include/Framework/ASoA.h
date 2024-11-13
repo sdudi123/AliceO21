@@ -209,7 +209,7 @@ template <typename T>
 concept has_parent_t = not_void<typename T::parent_t>;
 
 template <typename T>
-concept has_metadata = not_void<typename aod::MetadataTrait<T>::metadata>;
+concept has_metadata = not_void<typename T::metadata>;
 
 template <typename T>
 concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
@@ -1991,7 +1991,7 @@ DECLARE_SOA_ITERATOR_METADATA();
   template <typename T>                                                                             \
   consteval int getVersion()                                                                        \
   {                                                                                                 \
-    if constexpr (o2::soa::has_metadata<T>) {                                                       \
+    if constexpr (o2::soa::has_metadata<o2::aod::MetadataTrait<T>>) {                               \
       return MetadataTrait<T>::metadata::version();                                                 \
     } else if constexpr (o2::soa::is_type_with_originals_v<T>) {                                    \
       return MetadataTrait<o2::framework::pack_head_t<typename T::originals>>::metadata::version(); \
