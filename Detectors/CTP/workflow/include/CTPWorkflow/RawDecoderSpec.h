@@ -68,6 +68,7 @@ class RawDecoderSpec : public framework::Task
   uint32_t mNTFToIntegrate = 1;
   uint32_t mNHBIntegratedT = 0;
   uint32_t mNHBIntegratedV = 0;
+  bool mDecodeinputs = 0;
   std::deque<size_t> mHistoryT;
   std::deque<size_t> mHistoryV;
   RawDataDecoder mDecoder;

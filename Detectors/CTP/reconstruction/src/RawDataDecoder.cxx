@@ -293,7 +293,9 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
     // std::cout << "last lumi:" << nhb  << std::endl;
   }
   if (mDoDigits & mDecodeInps) {
-    shiftInputs(digitsMap, digits, mTFOrbit);
+    uint64_t trgclassmask = mCTPConfig.getTriggerClassMask();
+    std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
+    shiftInputs(digitsMap, digits, mTFOrbit, trgclassmask);
   }
   if (mDoDigits && !mDecodeInps) {
     for (auto const& dig : digitsMap) {
@@ -519,7 +521,7 @@ int RawDataDecoder::shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit
 }
 //
 
-int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit)
+int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask)
 {
   // int nClasswoInp = 0; // counting classes without input which should never happen
   int nLM = 0;
@@ -594,7 +596,7 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
     if ((d.CTPInputMask & L1MASKInputs).count()) {
       nL1++;
     }
-    if (d.CTPClassMask.count()) {
+    if ((d.CTPClassMask).to_ulong() & trgclassmask) {
       if (d.CTPInputMask.count()) {
         nTwI++;
       } else {

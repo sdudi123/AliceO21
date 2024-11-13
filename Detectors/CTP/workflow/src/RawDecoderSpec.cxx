@@ -20,13 +20,15 @@
 #include "CommonUtils/VerbosityConfig.h"
 #include "Framework/InputRecord.h"
 #include "DataFormatsCTP/TriggerOffsetsParam.h"
+#include "Framework/CCDBParamSpec.h"
+#include "DataFormatsCTP/Configuration.h"
 
 using namespace o2::ctp::reco_workflow;
 
 void RawDecoderSpec::init(framework::InitContext& ctx)
 {
-  bool decodeinps = ctx.options().get<bool>("ctpinputs-decoding");
-  mDecoder.setDecodeInps(decodeinps);
+  mDecodeinputs = ctx.options().get<bool>("ctpinputs-decoding");
+  mDecoder.setDecodeInps(mDecodeinputs);
   mNTFToIntegrate = ctx.options().get<int>("ntf-to-average");
   mVerbose = ctx.options().get<bool>("use-verbose-mode");
   int maxerrors = ctx.options().get<int>("print-errors-num");
@@ -42,7 +44,7 @@ void RawDecoderSpec::init(framework::InitContext& ctx)
   mOutputLumiInfo.inp2 = inp2;
   mMaxInputSize = ctx.options().get<int>("max-input-size");
   mMaxInputSizeFatal = ctx.options().get<bool>("max-input-size-fatal");
-  LOG(info) << "CTP reco init done. Inputs decoding here:" << decodeinps << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal;
+  LOG(info) << "CTP reco init done. Inputs decoding here:" << mDecodeinputs << " DoLumi:" << mDoLumi << " DoDigits:" << mDoDigits << " NTF:" << mNTFToIntegrate << " Lumi inputs:" << lumiinp1 << ":" << inp1 << " " << lumiinp2 << ":" << inp2 << " Max errors:" << maxerrors << " Max input size:" << mMaxInputSize << " MaxInputSizeFatal:" << mMaxInputSizeFatal;
   // mOutputLumiInfo.printInputs();
 }
 void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
@@ -135,6 +137,11 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   if (fatal_flag) {
     ret = mDecoder.decodeRawFatal(inputs, filter);
   } else {
+    if(mDecodeinputs) {
+     const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
+     //ctpcfg->printStream(std::cout);
+     mDecoder.setCTPConfig(*ctpcfg);
+    }
     ret = mDecoder.decodeRaw(inputs, filter, mOutputDigits, lumiPointsHBF1);
   }
   if (ret == 1) {
@@ -176,6 +183,8 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
       mOutputLumiInfo.orbit = lumiPointsHBF1[0].orbit;
     }
     mOutputLumiInfo.counts = mCountsT;
+
+
     mOutputLumiInfo.countsFV0 = mCountsV;
     mOutputLumiInfo.nHBFCounted = mNHBIntegratedT;
     mOutputLumiInfo.nHBFCountedFV0 = mNHBIntegratedV;
@@ -199,6 +208,7 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
 
   std::vector<o2::framework::OutputSpec> outputs;
   if (digits) {
+    inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/Config", 1));
     outputs.emplace_back("CTP", "DIGITS", 0, o2::framework::Lifetime::Timeframe);
   }
   if (lumi) {

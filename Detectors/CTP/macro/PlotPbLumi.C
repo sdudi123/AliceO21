@@ -20,37 +20,56 @@
 #include "CCDB/BasicCCDBManager.h"
 #include "DataFormatsCTP/Scalers.h"
 #include "DataFormatsCTP/Configuration.h"
+#include <DataFormatsParameters/GRPLHCIFData.h>
+#include "TGraph.h"
+#include "TGraphErrors.h"
+#include "TCanvas.h"
+#include "TMath.h"
+#include "TStyle.h"
+#include "TF1.h"
 #include <string>
 #include <map>
 #include <iostream>
 #endif
 using namespace o2::ctp;
-void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-test.cern.ch:8080")
-{ //
-  // what = 1: znc rate
-  // what = 2: (TCE+TSC)/ZNC
-  // what = 3: TCE/ZNC
+using namespace std::chrono;
+//
+// if fillN = 0: pileup correction not done
+// QCDB =1 : use for ongoing run
+//
+void PlotPbLumi(int runNumber, int fillN = 0, int QCDB = 0,  std::string ccdbHost = "http://alice-ccdb.cern.ch" )
+{ // "http://ccdb-test.cern.ch:8080"
   std::string mCCDBPathCTPScalers = "CTP/Calib/Scalers";
+  std::string mQCDBPathCTPScalers = "qc/CTP/Scalers";
   std::string mCCDBPathCTPConfig = "CTP/Config/Config";
   auto& ccdbMgr = o2::ccdb::BasicCCDBManager::instance();
+  ccdbMgr.setURL(ccdbHost);
   // Timestamp
   auto soreor = ccdbMgr.getRunDuration(runNumber);
   uint64_t timeStamp = (soreor.second - soreor.first) / 2 + soreor.first;
   std::cout << "Timestamp:" << timeStamp << std::endl;
   // Filling
-  std::string sfill = std::to_string(fillN);
   std::map<string, string> metadata;
-  metadata["fillNumber"] = sfill;
-  auto lhcifdata = ccdbMgr.getSpecific<o2::parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF", timeStamp, metadata);
-  auto bfilling = lhcifdata->getBunchFilling();
-  std::vector<int> bcs = bfilling.getFilledBCs();
-  int nbc = bcs.size();
-  std::cout << "Number of interacting bc:" << nbc << std::endl;
+  int nbc = 0;
+  if(fillN) {
+    std::string sfill = std::to_string(fillN);
+    metadata["fillNumber"] = sfill;
+    auto lhcifdata = ccdbMgr.getSpecific<o2::parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF", timeStamp, metadata);
+    auto bfilling = lhcifdata->getBunchFilling();
+    std::vector<int> bcs = bfilling.getFilledBCs();
+    nbc = bcs.size();
+    std::cout << "Number of interacting bc:" << nbc << std::endl;
+  }
+   if(QCDB) {  // use this option for ongoing run
+    mCCDBPathCTPScalers = mQCDBPathCTPScalers;
+    ccdbMgr.setURL("http://ccdb-test.cern.ch:8080");
+    timeStamp = duration_cast< milliseconds >(system_clock::now().time_since_epoch()).count();
+    std::cout << "For scalers using Current time:" << timeStamp << std::endl;
+  }
   // Scalers
   std::string srun = std::to_string(runNumber);
   metadata.clear(); // can be empty
   metadata["runNumber"] = srun;
-  ccdbMgr.setURL("http://ccdb-test.cern.ch:8080");
   auto scl = ccdbMgr.getSpecific<CTPRunScalers>(mCCDBPathCTPScalers, timeStamp, metadata);
   if (scl == nullptr) {
     LOG(info) << "CTPRunScalers not in database, timestamp:" << timeStamp;
@@ -105,8 +124,6 @@ void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-te
     return;
   }
   //
-  // Anal
-  //
   // Times
   double_t frev = 11245;
   double_t time0 = recs[0].epochTime;
@@ -114,39 +131,65 @@ void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-te
   double_t Trun = timeL - time0;
   double_t orbit0 = recs[0].intRecord.orbit;
   int n = recs.size() - 1;
+  if(runNumber == 559143) {
+    n = 400;
+  }
+  if(runNumber == 559561 ) {
+    n = n - 3;  // rate drops at the end
+  }
+  if(runNumber == 559575){
+    n = n - 6;
+  }
+  if(runNumber == 559617) {
+    n = n - 5;
+  }
+  if(runNumber == 559632) {
+   n = n - 6;
+  }
   std::cout << " Run duration:" << Trun << " Scalers size:" << n + 1 << std::endl;
-  Double_t x[n], znc[n], zncpp[n];
+  Double_t x[n], znc[n], zncpp[n], ex[n], eznc[n];
   Double_t tcetsctoznc[n], tcetoznc[n], vchtoznc[n];
+  Double_t etcetsctoznc[n], etcetoznc[n], evchtoznc[n];
+
   for (int i = 0; i < n; i++) {
+    ex[i] = 0;
     x[i] = (double_t)(recs[i + 1].intRecord.orbit + recs[i].intRecord.orbit) / 2. - orbit0;
     x[i] *= 88e-6;
     // x[i] = (double_t)(recs[i+1].epochTime + recs[i].epochTime)/2.;
     double_t tt = (double_t)(recs[i + 1].intRecord.orbit - recs[i].intRecord.orbit);
     tt = tt * 88e-6;
     //
-    // std::cout << recs[i+1].scalersInps[25] << std::endl;
     double_t znci = (double_t)(recs[i + 1].scalersInps[25] - recs[i].scalersInps[25]);
-    double_t mu = -TMath::Log(1. - znci / tt / nbc / frev);
-    double_t zncipp = mu * nbc * frev;
+    double_t zncipp = znci;
+    double_t mu = 0;
+    if(fillN) {
+       mu = -TMath::Log(1. - znci / tt / nbc / frev);
+      zncipp = mu * nbc * frev * tt;
+    }
     zncpp[i] = zncipp / 28.;
-    znc[i] = znci / 28. / tt;
-    //
-    auto had = recs[i + 1].scalers[tce].lmBefore - recs[i].scalers[tce].lmBefore;
-    // std::cout << recs[i+1].scalers[tce].lmBefore << std::endl;
-    had += recs[i + 1].scalers[tsc].lmBefore - recs[i].scalers[tsc].lmBefore;
-    // rat = (double_t)(had)/double_t(recs[i+1].scalersInps[25] - recs[i].scalersInps[25])*28;
-    tcetsctoznc[i] = (double_t)(had) / zncpp[i] / tt;
-    had = recs[i + 1].scalers[tce].lmBefore - recs[i].scalers[tce].lmBefore;
-    // rat = (double_t)(had)/double_t(recs[i+1].scalersInps[25] - recs[i].scalersInps[25])*28;
-    tcetoznc[i] = (double_t)(had) / zncpp[i] / tt;
-    had = recs[i + 1].scalers[vch].lmBefore - recs[i].scalers[vch].lmBefore;
-    // rat = (double_t)(had)/double_t(recs[i+1].scalersInps[25] - recs[i].scalersInps[25])*28;
-    vchtoznc[i] = (double_t)(had) / zncpp[i] / tt;
+    znc[i] = zncipp / 28. / tt;
+    eznc[i] = TMath::Sqrt(zncipp) / 28. / tt;
+    if(1){
+      //
+      auto had = recs[i + 1].scalers[tsc].lmBefore - recs[i].scalers[tsc].lmBefore;
+      had += recs[i + 1].scalers[tce].lmBefore - recs[i].scalers[tce].lmBefore;
+      tcetsctoznc[i] = (double_t)(had) / zncpp[i];
+      etcetsctoznc[i] = TMath::Sqrt(tcetsctoznc[i]*(1-tcetsctoznc[i])/ zncpp[i]);
+      had = recs[i + 1].scalers[tce].lmBefore - recs[i].scalers[tce].lmBefore;
+      double_t tcec = had;
+      tcetoznc[i] = (double_t)(had) / zncpp[i];
+      had = recs[i + 1].scalers[vch].lmBefore - recs[i].scalers[vch].lmBefore;
+      vchtoznc[i] = (double_t)(had) / zncpp[i] ;
+      //std::cout << "mu:" << mu << " zncpp corr:" <<  zncipp << "  zncraw:" << znci << " tce:" << tcec << " tce/had" << tcec/zncpp[i] << std::endl;  
+  } 
   }
   //
+  TFile myfile("file.root","RECREATE");
   gStyle->SetMarkerSize(0.5);
-  TGraph* gr1 = new TGraph(n, x, znc);
+  //TGraph* gr1 = new TGraph(n, x, znc);
+  TGraphErrors* gr1 = new TGraphErrors(n, x, znc, ex, eznc);
   TGraph* gr2 = new TGraph(n, x, tcetsctoznc);
+  //TGraphErrors* gr2 = new TGraphErrors(n, x, tcetsctoznc, ex, etcetsctoznc); // nom and denom are strongly correlated
   TGraph* gr3 = new TGraph(n, x, tcetoznc);
   TGraph* gr4 = new TGraph(n, x, vchtoznc);
   gr1->SetMarkerStyle(20);
@@ -155,6 +198,7 @@ void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-te
   gr4->SetMarkerStyle(23);
   gr1->SetTitle("R=ZNC/28 rate [Hz]; time[sec]; R");
   gr2->SetTitle("R=(TSC+TCE)*TVTX*B*28/ZNC; time[sec]; R");
+  //gr2->SetTitle("R=TSC*TVTX*B*28/ZNC; time[sec]; R");
   // gr2->GetHistogram()->SetMaximum(1.1);
   // gr2->GetHistogram()->SetMinimum(0.9);
   gr3->SetTitle("R=(TCE)*TVTX*B*28/ZNC; time[sec]; R");
@@ -164,14 +208,20 @@ void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-te
   // gr4->GetHistogram()->SetMaximum(0.6);
   // gr4->GetHistogram()->SetMinimum(0.4);
   TCanvas* c1 = new TCanvas("c1", srun.c_str(), 200, 10, 800, 500);
+  TF1 *fun = new TF1("poly0","[0]+x*[1]");
   c1->Divide(2, 2);
   c1->cd(1);
   gr1->Draw("AP");
   c1->cd(2);
+  fun->SetParameter(0,1);
+  gr2->Fit("poly0","FM");
   gr2->Draw("AP");
   c1->cd(3);
+  fun->SetParameter(0,0.5);
+  gr3->Fit("poly0");
   gr3->Draw("AP");
   c1->cd(4);
+  gr4->Fit("poly0");
   gr4->Draw("AP");
   // getRate test:
   double tt = timeStamp / 1000.;
@@ -179,4 +229,8 @@ void PlotPbLumi(int runNumber, int fillN, std::string ccdbHost = "http://ccdb-te
   std::cout << "ZDC input getRateGivetT:" << r1.first / 28. << " " << r1.second / 28. << std::endl;
   std::pair<double, double> r2 = scl->getRateGivenT(tt, tce, 1);
   std::cout << "LM before TCE class getRateGivetT:" << r2.first << " " << r2.second << std::endl;
+  gr1->Write();
+  gr2->Write();
+  gr3->Write();
+  gr4->Write();
 }
