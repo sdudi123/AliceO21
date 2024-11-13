@@ -452,7 +452,7 @@ struct ServiceManager<Service<T>> {
 
   static bool prepare(InitContext& context, Service<T>& service)
   {
-    if constexpr (requires { T::instance(); }) {
+    if constexpr (requires { &T::instance; }) {
       service.service = &(T::instance()); // Sigh...
       return true;
     } else {
@@ -467,7 +467,7 @@ struct ServiceManager<Service<T>> {
   {
     // FIXME: for the moment we only need endOfStream to be
     // stateless. In the future we might want to pass it EndOfStreamContext
-    if constexpr (requires(T t) { t.endOfStream(); }) {
+    if constexpr (requires { &T::endOfStream; }) {
       service.service->endOfStream();
       return true;
     }
@@ -619,7 +619,7 @@ struct IndexManager {
   static bool requestInputs(std::vector<InputSpec>&, T const&) { return false; };
 };
 
-template <typename IDX>
+template <soa::is_index_table IDX>
 struct IndexManager<Builds<IDX>> {
   static bool requestInputs(std::vector<InputSpec>& inputs, Builds<IDX>& builds)
   {

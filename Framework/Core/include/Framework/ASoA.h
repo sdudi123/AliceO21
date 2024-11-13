@@ -139,7 +139,7 @@ template <template <o2::framework::OriginEnc, typename...> class base, typename 
 inline constexpr bool is_base_of_template_origin_v = is_base_of_template_origin<base, derived>::value;
 
 template <typename T>
-concept not_void = requires { !std::same_as<T, void>; };
+concept not_void = !std::same_as<T, void>;
 
 // column identification concepts
 template <typename C>
@@ -209,7 +209,7 @@ template <typename T>
 concept has_parent_t = not_void<typename T::parent_t>;
 
 template <typename T>
-concept has_metadata = soa::not_void<typename aod::MetadataTrait<T>::metadata>;
+concept has_metadata = not_void<typename aod::MetadataTrait<T>::metadata>;
 
 template <typename T>
 concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
