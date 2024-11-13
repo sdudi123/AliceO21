@@ -1991,7 +1991,7 @@ DECLARE_SOA_ITERATOR_METADATA();
   template <typename T>                                                                             \
   consteval int getVersion()                                                                        \
   {                                                                                                 \
-    if constexpr (o2::soa::has_metadata<MetadataTrait<T>>) {                                        \
+    if constexpr (o2::soa::has_metadata<T>) {                                                       \
       return MetadataTrait<T>::metadata::version();                                                 \
     } else if constexpr (o2::soa::is_type_with_originals_v<T>) {                                    \
       return MetadataTrait<o2::framework::pack_head_t<typename T::originals>>::metadata::version(); \
