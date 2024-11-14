@@ -121,7 +121,6 @@ void MatchITSTPCQC::deleteHistograms()
     // 3D eta/phi/pt
     delete mEtaPhiPtNum[i];
     delete mEtaPhiPtDen[i];
-    delete mFractionITSTPCmatchEtaPhiPt[i];
   }
 
   // Residuals
@@ -237,9 +236,9 @@ bool MatchITSTPCQC::init()
   std::array<std::string, 2> etaSel{Form(", |#eta| < %.1f", mEtaTPCCut), Form(", |#eta| < %.1f", mEtaCut)};
   std::array<int, 2> maxNCls{156, 7};
   // log binning for pT
-  const Int_t nbinsPt = 100;
-  const Double_t xminPt = 0.01;
-  const Double_t xmaxPt = 20;
+  const Int_t nbinsPt = mPtBins;
+  const Double_t xminPt = (mPtCut > 0) ? mPtCut : 0.01;
+  const Double_t xmaxPt = mPtMaxCut;
   Double_t* xbinsPt = new Double_t[nbinsPt + 1];
   Double_t xlogminPt = TMath::Log10(xminPt);
   Double_t xlogmaxPt = TMath::Log10(xmaxPt);
@@ -253,24 +252,24 @@ bool MatchITSTPCQC::init()
   // Data and MC
   for (int i = 0; i < matchType::SIZE; ++i) {
     // Pt
-    mPtNum[i] = new TH1D(Form("mPtNum_%s", title[i].c_str()), Form("Pt distribution of ITSTPC matched tracks, wrt %s tracks %s; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f);
+    mPtNum[i] = new TH1D(Form("mPtNum_%s", title[i].c_str()), Form("Pt distribution of ITSTPC matched tracks, wrt %s tracks %s; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
     mPtNum[i]->Sumw2();
     mPtNum[i]->SetOption("logy");
     mPtNum[i]->GetYaxis()->SetTitleOffset(1.4);
-    mPtDen[i] = new TH1D(Form("mPtDen_%s", title[i].c_str()), Form("Pt distribution of %s tracks %s; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f);
+    mPtDen[i] = new TH1D(Form("mPtDen_%s", title[i].c_str()), Form("Pt distribution of %s tracks %s; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
     mPtDen[i]->Sumw2();
     mPtDen[i]->SetOption("logy");
     mPtDen[i]->GetYaxis()->SetTitleOffset(1.4);
-    mFractionITSTPCmatch[i] = new TEfficiency(Form("mFractionITSTPCmatch_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt %s; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f);
-    mPtNum_noEta0[i] = new TH1D(Form("mPtNum_noEta0_%s", title[i].c_str()), Form("Pt distribution of ITSTPC matched tracks without |eta| < %.2f, wrt %s tracks %s; Pt [GeV/c]; dNdPt", mEtaNo0Cut, title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f);
+    mFractionITSTPCmatch[i] = new TEfficiency(Form("mFractionITSTPCmatch_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt %s; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
+    mPtNum_noEta0[i] = new TH1D(Form("mPtNum_noEta0_%s", title[i].c_str()), Form("Pt distribution of ITSTPC matched tracks without |eta| < %.2f, wrt %s tracks %s; Pt [GeV/c]; dNdPt", mEtaNo0Cut, title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
     mPtNum_noEta0[i]->Sumw2();
     mPtNum_noEta0[i]->SetOption("logy");
     mPtNum_noEta0[i]->GetYaxis()->SetTitleOffset(1.4);
-    mPtDen_noEta0[i] = new TH1D(Form("mPtDen_noEta0_%s", title[i].c_str()), Form("Pt distribution of %s tracks without |eta| < %.2f %s; Pt [GeV/c]; dNdPt", title[i].c_str(), mEtaNo0Cut, etaSel[i].c_str()), 100, 0.f, 20.f);
+    mPtDen_noEta0[i] = new TH1D(Form("mPtDen_noEta0_%s", title[i].c_str()), Form("Pt distribution of %s tracks without |eta| < %.2f %s; Pt [GeV/c]; dNdPt", title[i].c_str(), mEtaNo0Cut, etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
     mPtDen_noEta0[i]->Sumw2();
     mPtDen_noEta0[i]->SetOption("logy");
     mPtDen_noEta0[i]->GetYaxis()->SetTitleOffset(1.4);
-    mFractionITSTPCmatch_noEta0[i] = new TEfficiency(Form("mFractionITSTPCmatch_noEta0_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt without |eta| < %.2f %s; Pt [GeV/c]; Eff", title[i].c_str(), mEtaNo0Cut, etaSel[i].c_str()), 100, 0.f, 20.f);
+    mFractionITSTPCmatch_noEta0[i] = new TEfficiency(Form("mFractionITSTPCmatch_noEta0_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt without |eta| < %.2f %s; Pt [GeV/c]; Eff", title[i].c_str(), mEtaNo0Cut, etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut);
 
     // Phi
     mPhiNum[i] = new TH1F(Form("mPhiNum_%s", title[i].c_str()), Form("Phi distribution of ITSTPC matched tracks, wrt %s tracks %s; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 2 * TMath::Pi());
@@ -278,11 +277,11 @@ bool MatchITSTPCQC::init()
     mPhiDen[i] = new TH1F(Form("mPhiDen_%s", title[i].c_str()), Form("Phi distribution of %s tracks %s; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 2 * TMath::Pi());
     mPhiDen[i]->Sumw2();
     mFractionITSTPCmatchPhi[i] = new TEfficiency(Form("mFractionITSTPCmatchPhi_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs Phi wrt %s tracks %s; Phi [rad]; Eff", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 2 * TMath::Pi());
-    mPhiVsPtNum[i] = new TH2F(Form("mPhiVsPtNum_%s", title[i].c_str()), Form("Phi vs Pt distribution of ITSTPC matched tracks wrt %s %s; #it{p}_{T} [GeV#it{c}]; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f, 100, 0.f, 2 * TMath::Pi());
+    mPhiVsPtNum[i] = new TH2F(Form("mPhiVsPtNum_%s", title[i].c_str()), Form("Phi vs Pt distribution of ITSTPC matched tracks wrt %s %s; #it{p}_{T} [GeV#it{c}]; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, 0.f, 2 * TMath::Pi());
     mPhiVsPtNum[i]->Sumw2();
-    mPhiVsPtDen[i] = new TH2F(Form("mPhiVsPtDen_%s", title[i].c_str()), Form("Phi vs Pt distribution of %s tracks %s; #it{p}_{T} [GeV#it{c}]; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f, 100, 0.f, 2 * TMath::Pi());
+    mPhiVsPtDen[i] = new TH2F(Form("mPhiVsPtDen_%s", title[i].c_str()), Form("Phi vs Pt distribution of %s tracks %s; #it{p}_{T} [GeV#it{c}]; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, 0.f, 2 * TMath::Pi());
     mPhiVsPtDen[i]->Sumw2();
-    mFractionITSTPCmatchPhiVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhiVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks %s, Phi vs Pt; #it{p}_{T} [GeV#it{c}]; Phi [rad]; Eff", title[i].c_str(), etaSel[i].c_str()), 100, 0.f, 20.f, 100, 0.f, 2 * TMath::Pi());
+    mFractionITSTPCmatchPhiVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhiVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks wrt %s tracks %s, Phi vs Pt; #it{p}_{T} [GeV#it{c}]; Phi [rad]; Eff", title[i].c_str(), etaSel[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, 0.f, 2 * TMath::Pi());
 
     // Eta
     mEtaNum[i] = new TH1F(Form("mEtaNum_%s", title[i].c_str()), Form("Eta distribution of ITSTPC matched tracks, wrt %s tracks; Eta; dNdEta", title[i].c_str()), 100, -2.f, 2.f);
@@ -292,25 +291,25 @@ bool MatchITSTPCQC::init()
     mEtaDen[i]->Sumw2();
     mEtaDen[i]->GetYaxis()->SetTitleOffset(1.4);
     mFractionITSTPCmatchEta[i] = new TEfficiency(Form("mFractionITSTPCmatchEta_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks , wrt %s tracks, vs Eta; Eta; Eff", title[i].c_str()), 100, -2.f, 2.f);
-    mEtaVsPtNum[i] = new TH2F(Form("mEtaVsPtNum_%s", title[i].c_str()), Form("Eta vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; Eta", title[i].c_str()), 100, 0.f, 20.f, 100, -2.f, 2.f);
+    mEtaVsPtNum[i] = new TH2F(Form("mEtaVsPtNum_%s", title[i].c_str()), Form("Eta vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; Eta", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, -2.f, 2.f);
     mEtaVsPtNum[i]->Sumw2();
-    mEtaVsPtDen[i] = new TH2F(Form("mEtaVsPtDen_%s", title[i].c_str()), Form("Eta vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; Eta", title[i].c_str()), 100, 0.f, 20.f, 100, -2.f, 2.f);
+    mEtaVsPtDen[i] = new TH2F(Form("mEtaVsPtDen_%s", title[i].c_str()), Form("Eta vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; Eta", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, -2.f, 2.f);
     mEtaVsPtDen[i]->Sumw2();
-    mFractionITSTPCmatchEtaVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchEtaVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, Eta vs Pt; #it{p}_{T} [GeV#it{c}]; Eta; Eff", title[i].c_str()), 100, 0.f, 20.f, 100, -2.f, 2.f);
+    mFractionITSTPCmatchEtaVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchEtaVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, Eta vs Pt; #it{p}_{T} [GeV#it{c}]; Eta; Eff", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 100, -2.f, 2.f);
 
     // Clusters
-    mClsVsPtNum[i] = new TH2F(Form("mClsVsPtNum_%s", title[i].c_str()), Form("#Clusters vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; #Clusters", title[i].c_str()), 100, 0.f, 20.f, maxNCls[i], 0, maxNCls[i]);
+    mClsVsPtNum[i] = new TH2F(Form("mClsVsPtNum_%s", title[i].c_str()), Form("#Clusters vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; #Clusters", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, maxNCls[i], 0, maxNCls[i]);
     mClsVsPtNum[i]->Sumw2();
-    mClsVsPtDen[i] = new TH2F(Form("mClsVsPtDen_%s", title[i].c_str()), Form("#Clusters vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; #Clusters", title[i].c_str()), 100, 0.f, 20.f, maxNCls[i], 0, maxNCls[i]);
+    mClsVsPtDen[i] = new TH2F(Form("mClsVsPtDen_%s", title[i].c_str()), Form("#Clusters vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; #Clusters", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, maxNCls[i], 0, maxNCls[i]);
     mClsVsPtDen[i]->Sumw2();
-    mFractionITSTPCmatchClsVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchClsVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, #Clusters vs Pt; #it{p}_{T} [GeV#it{c}]; #Clusters; Eff", title[i].c_str()), 100, 0.f, 20.f, maxNCls[i], 0, maxNCls[i]);
+    mFractionITSTPCmatchClsVsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchClsVsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, #Clusters vs Pt; #it{p}_{T} [GeV#it{c}]; #Clusters; Eff", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, maxNCls[i], 0, maxNCls[i]);
 
     // Chi2
-    mChi2VsPtNum[i] = new TH2F(Form("mChi2VsPtNum_%s", title[i].c_str()), Form("Chi2 vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; Chi2", title[i].c_str()), 100, 0.f, 20.f, 200, 0, 300);
+    mChi2VsPtNum[i] = new TH2F(Form("mChi2VsPtNum_%s", title[i].c_str()), Form("Chi2 vs Pt distribution of ITSTPC matched tracks, wrt %s tracks; #it{p}_{T} [GeV#it{c}]; Chi2", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 200, 0, 300);
     mChi2VsPtNum[i]->Sumw2();
-    mChi2VsPtDen[i] = new TH2F(Form("mChi2VsPtDen_%s", title[i].c_str()), Form("Chi2 vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; Chi2", title[i].c_str()), 100, 0.f, 20.f, 200, 0, 300);
+    mChi2VsPtDen[i] = new TH2F(Form("mChi2VsPtDen_%s", title[i].c_str()), Form("Chi2 vs Pt distribution of %s tracks; #it{p}_{T} [GeV#it{c}]; Chi2", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 200, 0, 300);
     mChi2VsPtDen[i]->Sumw2();
-    mFractionITSTPCmatchChi2VsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchChi2VsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, Chi2 vs Pt; #it{p}_{T} [GeV#it{c}]; Chi2; Eff", title[i].c_str()), 100, 0.f, 20.f, 200, 0, 300);
+    mFractionITSTPCmatchChi2VsPt[i] = new TEfficiency(Form("mFractionITSTPCmatchChi2VsPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks, wrt %s tracks, Chi2 vs Pt; #it{p}_{T} [GeV#it{c}]; Chi2; Eff", title[i].c_str()), mPtBins, mPtCut, mPtMaxCut, 200, 0, 300);
 
     // 1/pt
     m1OverPtNum[i] = new TH1D(Form("m1OverPtNum_%s", title[i].c_str()), Form("1/Pt distribution of matched tracks, wrt %s tracks %s; 1/Pt [c/GeV]; dNdPt", title[i].c_str(), etaSel[i].c_str()), 100, -20.f, 20.f);
@@ -324,16 +323,15 @@ bool MatchITSTPCQC::init()
     mEtaPhiPtNum[i]->Sumw2();
     mEtaPhiPtDen[i] = new TH3F(Form("mEtaPhiPtDen_%s", title[i].c_str()), Form("Denominator #eta vs #varphi vs #it{p}_{T}, wrt %s;#eta %s;#varphi;#it{p}_{T} [GeV#it{c}];Entries", title[i].c_str(), etaSel[i].c_str()), 100, -2., 2., 100, 0., 2 * TMath::Pi(), 100, 0.01, 20.);
     mEtaPhiPtDen[i]->Sumw2();
-    mFractionITSTPCmatchEtaPhiPt[i] = new TEfficiency(Form("mEtaPhiPtDen_%s", title[i].c_str()), Form("Denominator #eta vs #varphi vs #it{p}_{T}, wrt %s;#eta %s;#varphi;#it{p}_{T} [GeV#it{c}];Efficiency", title[i].c_str(), etaSel[i].c_str()), 100, -2., 2., 100, 0., 2 * TMath::Pi(), 100, 0.01, 20.);
 
     if (mUseTrkPID) { // Vs Tracking PID hypothesis
       for (int j = 0; j < o2::track::PID::NIDs; ++j) {
         // Pt
-        mPtNumVsTrkPID[i][j] = new TH1D(Form("mPtNumVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Pt distribution of ITSTPC matched tracks, wrt %s tracks %s, TrkPID %i; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str(), j), 100, 0.f, 20.f);
+        mPtNumVsTrkPID[i][j] = new TH1D(Form("mPtNumVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Pt distribution of ITSTPC matched tracks, wrt %s tracks %s, TrkPID %i; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str(), j), mPtBins, mPtCut, mPtMaxCut);
         mPtNumVsTrkPID[i][j]->Sumw2();
-        mPtDenVsTrkPID[i][j] = new TH1D(Form("mPtDenVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Pt distribution of %s tracks %s, TrkPID %i; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str(), j), 100, 0.f, 20.f);
+        mPtDenVsTrkPID[i][j] = new TH1D(Form("mPtDenVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Pt distribution of %s tracks %s, TrkPID %i; Pt [GeV/c]; dNdPt", title[i].c_str(), etaSel[i].c_str(), j), mPtBins, mPtCut, mPtMaxCut);
         mPtDenVsTrkPID[i][j]->Sumw2();
-        mFractionITSTPCmatchPtVsTrkPID[i][j] = new TEfficiency(Form("mFractionITSTPCmatchPtVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt %s, TrkPID %i; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str(), j), 100, 0.f, 20.f);
+        mFractionITSTPCmatchPtVsTrkPID[i][j] = new TEfficiency(Form("mFractionITSTPCmatchPtVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Fraction of ITSTPC matched tracks wrt %s tracks vs Pt %s, TrkPID %i; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str(), j), mPtBins, mPtCut, mPtMaxCut);
 
         // Phi
         mPhiNumVsTrkPID[i][j] = new TH1D(Form("mPhiNumVsTrkPID_%s_PID%i", title[i].c_str(), j), Form("Phi distribution of ITSTPC matched tracks, wrt %s tracks %s, TrkPID %i; Phi [rad]; dNdPhi", title[i].c_str(), etaSel[i].c_str(), j), 100, 0.f, 2 * TMath::Pi());
@@ -352,7 +350,7 @@ bool MatchITSTPCQC::init()
     }
   }
 
-  mResidualPt = new TH2F("mResidualPt", "Residuals of ITS-TPC matching in #it{p}_{T}; #it{p}_{T}^{ITS-TPC} [GeV/c]; #it{p}_{T}^{ITS-TPC} - #it{p}_{T}^{TPC} [GeV/c]", 100, 0.f, 20.f, 100, -1.f, 1.f);
+  mResidualPt = new TH2F("mResidualPt", "Residuals of ITS-TPC matching in #it{p}_{T}; #it{p}_{T}^{ITS-TPC} [GeV/c]; #it{p}_{T}^{ITS-TPC} - #it{p}_{T}^{TPC} [GeV/c]", mPtBins, mPtCut, mPtMaxCut, 100, -1.f, 1.f);
   mResidualPhi = new TH2F("mResidualPhi", "Residuals of ITS-TPC matching in #it{#phi}; #it{#phi}^{ITS-TPC} [rad]; #it{#phi}^{ITS-TPC} - #it{#phi}^{TPC} [rad]", 100, 0.f, 2 * TMath::Pi(), 100, -1.f, 1.f);
   mResidualEta = new TH2F("mResidualEta", "Residuals of ITS-TPC matching in #it{#eta}; #it{#eta}^{ITS-TPC}; #it{#eta}^{ITS-TPC} - #it{#eta}^{TPC}", 100, -2.f, 2.f, 100, -1.f, 1.f);
   mChi2Matching = new TH1F("mChi2Matching", "Chi2 of matching; chi2", 200, 0, 300);
@@ -394,11 +392,11 @@ bool MatchITSTPCQC::init()
       mPhiPhysPrimDen[i]->Sumw2();
       mFractionITSTPCmatchPhysPrim[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs Pt (physical primary), wrt %s tracks %s; Pt [GeV/c]; Eff", title[i].c_str(), etaSel[i].c_str()), nbinsPt, xbinsPt);
 
-      m1OverPtPhysPrimNum[i] = new TH1D(Form("m1OverPtPhysPrimNum_%s", title[i].c_str()), Form("1/Pt distribution of matched tracks (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 100, -20.f, 20.f);
+      m1OverPtPhysPrimNum[i] = new TH1D(Form("m1OverPtPhysPrimNum_%s", title[i].c_str()), Form("1/Pt distribution of matched tracks (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
       m1OverPtPhysPrimNum[i]->Sumw2();
-      m1OverPtPhysPrimDen[i] = new TH1D(Form("m1OverPtPhysPrimDen_%s", title[i].c_str()), Form("1/PtPt distribution of %s tracks (physical primary) %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 100, -20.f, 20.f);
+      m1OverPtPhysPrimDen[i] = new TH1D(Form("m1OverPtPhysPrimDen_%s", title[i].c_str()), Form("1/PtPt distribution of %s tracks (physical primary) %s; 1/Pt [c/GeV]; dNd1/Pt", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
       m1OverPtPhysPrimDen[i]->Sumw2();
-      mFractionITSTPCmatchPhysPrim1OverPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim1OverPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs 1/Pt (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; Eff", title[i].c_str(), etaSel[i].c_str()), 100, -20.f, 20.f);
+      mFractionITSTPCmatchPhysPrim1OverPt[i] = new TEfficiency(Form("mFractionITSTPCmatchPhysPrim1OverPt_%s", title[i].c_str()), Form("Fraction of ITSTPC matched tracks vs 1/Pt (physical primary), wrt %s tracks %s; 1/Pt [c/GeV]; Eff", title[i].c_str(), etaSel[i].c_str()), 2 * mPtBins, -1. / mPtCut, 1. / mPtCut);
     }
   }
 
@@ -1213,30 +1211,8 @@ void MatchITSTPCQC::finalize()
 
   // first we use denominators and nominators to set the TEfficiency; later they are scaled
 
-  // some checks
+  // filling the efficiency
   for (int ti = 0; ti < matchType::SIZE; ++ti) {
-    for (int i = 0; i < mPtDen[ti]->GetNbinsX(); ++i) {
-      if (mPtDen[ti]->GetBinContent(i + 1) < mPtNum[ti]->GetBinContent(i + 1)) {
-        LOG(error) << title[ti] << ": bin " << i + 1 << " in [" << mPtNum[ti]->GetBinLowEdge(i + 1) << " , " << mPtNum[ti]->GetBinLowEdge(i + 1) + mPtNum[ti]->GetBinWidth(i + 1) << "]: mPtDen[i] = " << mPtDen[ti]->GetBinContent(i + 1) << ", mPtNum[i] = " << mPtNum[ti]->GetBinContent(i + 1);
-      }
-    }
-    for (int i = 0; i < mPtDen_noEta0[ti]->GetNbinsX(); ++i) {
-      if (mPtDen_noEta0[ti]->GetBinContent(i + 1) < mPtNum_noEta0[ti]->GetBinContent(i + 1)) {
-        LOG(error) << title[ti] << ": bin " << i + 1 << " in [" << mPtNum_noEta0[ti]->GetBinLowEdge(i + 1) << " , " << mPtNum_noEta0[ti]->GetBinLowEdge(i + 1) + mPtNum_noEta0[ti]->GetBinWidth(i + 1) << "]: mPtDen_noEta0[i] = " << mPtDen_noEta0[ti]->GetBinContent(i + 1) << ", mPtNum_noEta0[i] = " << mPtNum_noEta0[ti]->GetBinContent(i + 1);
-      }
-    }
-    for (int i = 0; i < mPhiDen[ti]->GetNbinsX(); ++i) {
-      if (mPhiDen[ti]->GetBinContent(i + 1) < mPhiNum[ti]->GetBinContent(i + 1)) {
-        LOG(error) << title[ti] << ": bin " << i + 1 << " in [" << mPhiNum[ti]->GetBinLowEdge(i + 1) << " , " << mPhiNum[ti]->GetBinLowEdge(i + 1) + mPhiNum[ti]->GetBinWidth(i + 1) << "]: mPhiDen[i] = " << mPhiDen[ti]->GetBinContent(i + 1) << ", mPhiNum[i] = " << mPhiNum[ti]->GetBinContent(i + 1);
-      }
-    }
-    for (int i = 0; i < mEtaDen[ti]->GetNbinsX(); ++i) {
-      if (mEtaDen[ti]->GetBinContent(i + 1) < mEtaNum[ti]->GetBinContent(i + 1)) {
-        LOG(error) << title[ti] << ": bin " << i + 1 << " in [" << mEtaNum[ti]->GetBinLowEdge(i + 1) << " , " << mEtaNum[ti]->GetBinLowEdge(i + 1) + mEtaNum[ti]->GetBinWidth(i + 1) << "]: mEtaDen[i] = " << mEtaDen[ti]->GetBinContent(i + 1) << ", mEtaNum[i] = " << mEtaNum[ti]->GetBinContent(i + 1);
-      }
-    }
-
-    // filling the efficiency
     setEfficiency(mFractionITSTPCmatch[ti], mPtNum[ti], mPtDen[ti]);
     setEfficiency(mFractionITSTPCmatch_noEta0[ti], mPtNum_noEta0[ti], mPtDen_noEta0[ti]);
     setEfficiency(mFractionITSTPCmatchPhi[ti], mPhiNum[ti], mPhiDen[ti]);
@@ -1246,7 +1222,6 @@ void MatchITSTPCQC::finalize()
     setEfficiency(mFractionITSTPCmatch1OverPt[ti], m1OverPtNum[ti], m1OverPtDen[ti]);
     setEfficiency<2>(mFractionITSTPCmatchClsVsPt[ti], mClsVsPtNum[ti], mClsVsPtDen[ti]);
     setEfficiency<2>(mFractionITSTPCmatchChi2VsPt[ti], mChi2VsPtNum[ti], mChi2VsPtDen[ti]);
-    setEfficiency<3>(mFractionITSTPCmatchEtaPhiPt[ti], mEtaPhiPtNum[ti], mEtaPhiPtDen[ti]);
     if (mUseTrkPID) { // Vs Tracking PID hypothesis
       for (int j = 0; j < o2::track::PID::NIDs; ++j) {
         setEfficiency(mFractionITSTPCmatchPtVsTrkPID[ti][j], mPtNumVsTrkPID[ti][j], mPtDenVsTrkPID[ti][j]);
@@ -1298,9 +1273,9 @@ void MatchITSTPCQC::setEfficiency(TEfficiency* eff, TH1* hnum, TH1* hden)
   // we need to force to replace the total histogram, otherwise it will compare it to the previous passed one, and it might get an error of inconsistency in the bin contents
   if constexpr (DEBUG) { // checking
     bool bad{false};
-    LOG(debug) << "Setting efficiency " << eff->GetName() << " from " << hnum->GetName() << " and " << hden->GetName();
-    LOG(debug) << "Num " << hnum->GetName() << " " << hnum->GetNbinsX() << " " << hnum->GetNbinsY() << " with " << hnum->GetEntries() << " entries";
-    LOG(debug) << "Den " << hden->GetName() << " " << hden->GetNbinsX() << " " << hden->GetNbinsY() << " with " << hden->GetEntries() << " entries";
+    LOG(info) << "Setting efficiency " << eff->GetName() << " from " << hnum->GetName() << " and " << hden->GetName();
+    LOG(info) << "Num " << hnum->GetName() << " " << hnum->GetNbinsX() << " " << hnum->GetNbinsY() << " with " << hnum->GetEntries() << " entries";
+    LOG(info) << "Den " << hden->GetName() << " " << hden->GetNbinsX() << " " << hden->GetNbinsY() << " with " << hden->GetEntries() << " entries";
     if (hnum->GetDimension() != hden->GetDimension()) {
       LOGP(warning, "Histograms have different dimensions (num={} to den={})", hnum->GetDimension(), hden->GetDimension());
       bad = true;
@@ -1338,7 +1313,10 @@ void MatchITSTPCQC::setEfficiency(TEfficiency* eff, TH1* hnum, TH1* hden)
       }
     }
     if (bad) {
+      LOG(info) << "   `--> Histogram is bad!";
       return;
+    } else {
+      LOG(info) << "   `--> Histogram is good!";
     }
   }
   // we need to force to replace the total histogram, otherwise it will compare it to the previous passed one, and it might get an error of inconsistency in the bin contents
@@ -1434,7 +1412,6 @@ void MatchITSTPCQC::getHistos(TObjArray& objar)
 
     objar.Add(mEtaPhiPtNum[i]);
     objar.Add(mEtaPhiPtDen[i]);
-    objar.Add(mFractionITSTPCmatchEtaPhiPt[i]);
   }
   objar.Add(mChi2Matching);
   objar.Add(mChi2Refit);

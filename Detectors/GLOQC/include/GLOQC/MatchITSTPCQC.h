@@ -138,7 +138,6 @@ class MatchITSTPCQC
 
   TH3F* getHistoEtaPhiPtNum(matchType m) const { return mEtaPhiPtNum[m]; }
   TH3F* getHistoEtaPhiPtDen(matchType m) const { return mEtaPhiPtDen[m]; }
-  TEfficiency* getFractionITSTPCmatchEtaPhiPt(matchType m) const { return mFractionITSTPCmatchEtaPhiPt[m]; }
 
   TH3F* getHistoK0MassVsPtVsOccpp() const { return mK0MassVsPtVsOccpp; }
   TH3F* getHistoK0MassVsPtVsOccPbPb() const { return mK0MassVsPtVsOccPbPb; }
@@ -197,7 +196,6 @@ class MatchITSTPCQC
       // 3D eta/phi/pt
       publisher->startPublishing(mEtaPhiPtNum[i]);
       publisher->startPublishing(mEtaPhiPtDen[i]);
-      publisher->startPublishing(mFractionITSTPCmatchEtaPhiPt[i]);
 
       if (mUseTrkPID) { // Vs Tracking PID hypothesis
         for (int j = 0; j < o2::track::PID::NIDs; ++j) {
@@ -278,6 +276,7 @@ class MatchITSTPCQC
   void setMinDCAtoBeamPipeDistanceCut(float v) { mDCATPCCut = v; }
   void setMinDCAtoBeamPipeYCut(float v) { mDCATPCCutY = v; }
   // ITS-TPC kinematics
+  void setNBinsPt(int v) { mPtBins = v; }
   void setPtCut(float v) { mPtCut = v; }
   void setMaxPtCut(float v) { mPtMaxCut = v; }
   void setEtaCut(float v) { mEtaCut = v; }
@@ -419,7 +418,6 @@ class MatchITSTPCQC
   // 3D Efficiency in eta/phi/pt
   TH3F* mEtaPhiPtNum[matchType::SIZE] = {};
   TH3F* mEtaPhiPtDen[matchType::SIZE] = {};
-  TEfficiency* mFractionITSTPCmatchEtaPhiPt[matchType::SIZE] = {};
 
   template <int DIM = 1, bool DEBUG = false>
   void setEfficiency(TEfficiency* eff, TH1* hnum, TH1* hden);
@@ -442,8 +440,9 @@ class MatchITSTPCQC
   float mDCATPCCut = 100.f;      // max DCA 3D to PV for TPC track
   float mDCATPCCutY = 10.f;      // max DCA xy to PV for TPC track
   // ITS-TPC kinematics
+  int mPtBins = 100;
   float mPtCut = 0.1f;
-  float mPtMaxCut = 1e10f;
+  float mPtMaxCut = 20;
   float mEtaCut = 1.4f;
   float mEtaNo0Cut = 0.05f;
   // TODO: define 2 different values for min and max (*)
