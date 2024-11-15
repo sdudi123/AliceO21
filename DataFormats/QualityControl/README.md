@@ -76,6 +76,12 @@ This section details the currently available Flag Types and provides a brief exp
 * **Bad Electron PID:** analyses relying on correct electron identification should not use this data.
 * **Bad Photon Calorimetry:** analyses relying on correct photon calorimetry should not use this data.
 * **Bad EMCalorimetry:** analyses relying on correct electromagnetic calorimetry should not use this data.
+* **Bad FT0 Data Consistency:** FT0 data incosistent, i.e. some modules haven't sent data, BC async among modules, etc.
+* **Bad FT0 Time Ofsset Calibration:** Bad FT0 time offset calibration, collected during online. Can be fixed.
+* **Bad FT0 Time Slewing Calibration:** Bad FT0 time slewing calibration, collected during offline. Can be fixed.
+* **Bad FT0 HW Settings:** Bad FT0 hardware settings, which corrupted data, but w/o data inconsistency, i.e. phase time shift at some channels, out-of-gate situation, etc
+* **Bad FT0 Reco Settings:** Bad FT0 reconstruction settings, i.e. if for some reason configuration for reconstruction was incorrect, including corrupted DeadChannelMap
+
 * **Unknown:** the exact impact of an issue on the data is unclear, but it's likely bad.
   Treat data with this flag with caution until further investigation.
 * **Unknown Quality:** the quality of data could not be determined definitively.
