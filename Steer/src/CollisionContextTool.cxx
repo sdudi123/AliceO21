@@ -27,6 +27,7 @@
 #include "CommonUtils/ConfigurableParam.h"
 #include <CCDB/BasicCCDBManager.h>
 #include "DataFormatsParameters/GRPLHCIFData.h"
+#include "SimConfig/SimConfig.h"
 
 //
 // Created by Sandro Wenzel on 13.07.21.
@@ -45,14 +46,19 @@ struct Options {
   bool printContext = false;
   std::string bcpatternfile;
   int tfid = 0;          // tfid -> used to calculate start orbit for collisions
+  double firstFractionalOrbit; // capture orbit and bunch crossing via decimal number
   uint32_t firstOrbit = 0; // first orbit in run (orbit offset)
+  uint32_t firstBC = 0;    // first bunch crossing (relative to firstOrbit) of the first interaction;
   int orbitsPerTF = 256; // number of orbits per timeframe --> used to calculate start orbit for collisions
   bool useexistingkinematics = false;
   bool noEmptyTF = false; // prevent empty timeframes; the first interaction will be shifted backwards to fall within the range given by Options.orbits
   int maxCollsPerTF = -1; // the maximal number of hadronic collisions per TF (can be used to constrain number of collisions per timeframe to some maximal value)
-  bool genVertices = false;         // whether to assign vertices to collisions
   std::string configKeyValues = ""; // string to init config key values
   long timestamp = -1;              // timestamp for CCDB queries
+  std::string individualTFextraction = ""; // triggers extraction of individuel timeframe components when non-null
+                                           // format is path prefix
+  std::string vertexModeString{"kNoVertex"}; // Vertex Mode; vertices will be assigned to collisions of mode != kNoVertex
+  o2::conf::VertexMode vertexMode = o2::conf::VertexMode::kNoVertex;
 };
 
 enum class InteractionLockMode {
@@ -196,9 +202,14 @@ bool parseOptions(int argc, char* argv[], Options& optvalues)
     "orbitsPerTF", bpo::value<int>(&optvalues.orbitsPerTF)->default_value(256), "Orbits per timeframes")(
     "use-existing-kine", "Read existing kinematics to adjust event counts")(
     "timeframeID", bpo::value<int>(&optvalues.tfid)->default_value(0), "Timeframe id of the first timeframe int this context. Allows to generate contexts for different start orbits")(
-    "first-orbit", bpo::value<uint32_t>(&optvalues.firstOrbit)->default_value(0), "First orbit in the run (HBFUtils.firstOrbit)")(
+    "first-orbit", bpo::value<double>(&optvalues.firstFractionalOrbit)->default_value(0), "First (fractional) orbit in the run (HBFUtils.firstOrbit + BC from decimal)")(
     "maxCollsPerTF", bpo::value<int>(&optvalues.maxCollsPerTF)->default_value(-1), "Maximal number of MC collisions to put into one timeframe. By default no constraint.")(
-    "noEmptyTF", bpo::bool_switch(&optvalues.noEmptyTF), "Enforce to have at least one collision")("configKeyValues", bpo::value<std::string>(&optvalues.configKeyValues)->default_value(""), "Semicolon separated key=value strings (e.g.: 'TPC.gasDensity=1;...')")("with-vertices", "Assign vertices to collisions.")("timestamp", bpo::value<long>(&optvalues.timestamp)->default_value(-1L), "Timestamp for CCDB queries / anchoring");
+    "noEmptyTF", bpo::bool_switch(&optvalues.noEmptyTF), "Enforce to have at least one collision")(
+    "configKeyValues", bpo::value<std::string>(&optvalues.configKeyValues)->default_value(""), "Semicolon separated key=value strings (e.g.: 'TPC.gasDensity=1;...')")(
+    "with-vertices", bpo::value<std::string>(&optvalues.vertexModeString)->default_value("kNoVertex"), "Assign vertices to collisions. Argument is the vertex mode. Defaults to no vertexing applied")(
+    "timestamp", bpo::value<long>(&optvalues.timestamp)->default_value(-1L), "Timestamp for CCDB queries / anchoring")(
+    "extract-per-timeframe", bpo::value<std::string>(&optvalues.individualTFextraction)->default_value(""),
+    "Extract individual timeframe contexts. Format required: time_frame_prefix[:comma_separated_list_of_signals_to_offset]");
 
   options.add_options()("help,h", "Produce help message.");
 
@@ -218,9 +229,16 @@ bool parseOptions(int argc, char* argv[], Options& optvalues)
     if (vm.count("use-existing-kine")) {
       optvalues.useexistingkinematics = true;
     }
-    if (vm.count("with-vertices")) {
-      optvalues.genVertices = true;
-    }
+
+    o2::conf::SimConfig::parseVertexModeString(optvalues.vertexModeString, optvalues.vertexMode);
+
+    // fix the first orbit and bunch crossing
+    // auto orbitbcpair = parseOrbitAndBC(optvalues.firstIRString);
+    optvalues.firstOrbit = (uint32_t)optvalues.firstFractionalOrbit;
+    optvalues.firstBC = (uint32_t)((optvalues.firstFractionalOrbit - 1. * optvalues.firstOrbit) * o2::constants::lhc::LHCMaxBunches);
+    LOG(info) << "First orbit " << optvalues.firstOrbit;
+    LOG(info) << "First BC " << optvalues.firstBC;
+
   } catch (const bpo::error& e) {
     std::cerr << e.what() << "\n\n";
     std::cerr << "Error parsing options; Available options:\n";
@@ -262,16 +280,17 @@ int main(int argc, char* argv[])
       LOG(info) << "Fetch bcPattern information from CCDB";
       // fetch the GRP Object
       auto& ccdb = o2::ccdb::BasicCCDBManager::instance();
-      ccdb.setTimestamp(options.timestamp);
       ccdb.setCaching(false);
       ccdb.setLocalObjectValidityChecking(true);
-      auto grpLHC = ccdb.get<o2::parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF");
+      auto grpLHC = ccdb.getForTimeStamp<o2::parameters::GRPLHCIFData>("GLO/Config/GRPLHCIF", options.timestamp);
       LOG(info) << "Fetched injection scheme " << grpLHC->getInjectionScheme() << " from CCDB";
       sampler.setBunchFilling(grpLHC->getBunchFilling());
     } else {
       sampler.setBunchFilling(bcPatternString);
     }
   };
+
+  auto orbitstart = options.firstOrbit + options.tfid * options.orbitsPerTF;
 
   for (int id = 0; id < ispecs.size(); ++id) {
     auto mode = ispecs[id].syncmode;
@@ -281,11 +300,10 @@ int main(int argc, char* argv[])
       if (!options.bcpatternfile.empty()) {
         setBCFillingHelper(sampler, options.bcpatternfile);
       }
-      auto orbitstart = options.firstOrbit + options.tfid * options.orbitsPerTF;
       o2::InteractionTimeRecord record;
       // this loop makes sure that the first collision is within the range of orbits asked (if noEmptyTF is enabled)
       do {
-        sampler.setFirstIR(o2::InteractionRecord(0, orbitstart));
+        sampler.setFirstIR(o2::InteractionRecord(options.firstBC, orbitstart));
         sampler.init();
         record = sampler.generateCollisionTime();
       } while (options.noEmptyTF && usetimeframelength && record.orbit >= orbitstart + options.orbits);
@@ -429,18 +447,36 @@ int main(int argc, char* argv[])
   digicontext.setSimPrefixes(prefixes);
 
   // apply max collision per timeframe filters + reindexing of event id (linearisation and compactification)
-  digicontext.applyMaxCollisionFilter(options.tfid * options.orbitsPerTF, options.orbitsPerTF, options.maxCollsPerTF);
+  digicontext.applyMaxCollisionFilter(orbitstart, options.orbitsPerTF, options.maxCollsPerTF);
 
-  digicontext.finalizeTimeframeStructure(options.tfid * options.orbitsPerTF, options.orbitsPerTF);
+  auto numTimeFrames = digicontext.finalizeTimeframeStructure(orbitstart, options.orbitsPerTF);
 
-  if (options.genVertices) {
-    // TODO: offer option taking meanVertex directly from CCDB ! "GLO/Calib/MeanVertex"
-    // sample interaction vertices
+  if (options.vertexMode != o2::conf::VertexMode::kNoVertex) {
+    switch (options.vertexMode) {
+      case o2::conf::VertexMode::kCCDB: {
+        // fetch mean vertex from CCDB
+        auto meanv = o2::ccdb::BasicCCDBManager::instance().getForTimeStamp<o2::dataformats::MeanVertexObject>("GLO/Calib/MeanVertex", options.timestamp);
+        if (meanv) {
+          LOG(info) << "Applying vertexing using CCDB mean vertex " << *meanv;
+          digicontext.sampleInteractionVertices(*meanv);
+        } else {
+          LOG(fatal) << "No vertex available";
+        }
+        break;
+      }
 
-    // init this vertex from CCDB or InteractionDiamond parameter
-    const auto& dparam = o2::eventgen::InteractionDiamondParam::Instance();
-    o2::dataformats::MeanVertexObject meanv(dparam.position[0], dparam.position[1], dparam.position[2], dparam.width[0], dparam.width[1], dparam.width[2], dparam.slopeX, dparam.slopeY);
-    digicontext.sampleInteractionVertices(meanv);
+      case o2::conf::VertexMode::kDiamondParam: {
+        // init this vertex from CCDB or InteractionDiamond parameter
+        const auto& dparam = o2::eventgen::InteractionDiamondParam::Instance();
+        o2::dataformats::MeanVertexObject meanv(dparam.position[0], dparam.position[1], dparam.position[2], dparam.width[0], dparam.width[1], dparam.width[2], dparam.slopeX, dparam.slopeY);
+        LOG(info) << "Applying vertexing using DiamondParam mean vertex " << meanv;
+        digicontext.sampleInteractionVertices(meanv);
+        break;
+      }
+      default: {
+        LOG(error) << "Unknown vertex mode ... Not generating vertices";
+      }
+    }
   }
 
   // we fill QED contributions to the context
@@ -455,6 +491,73 @@ int main(int argc, char* argv[])
     digicontext.printCollisionSummary(options.qedInteraction.size() > 0);
   }
   digicontext.saveToFile(options.outfilename);
+
+  // extract individual timeframes
+  if (options.individualTFextraction.size() > 0) {
+    // we are asked to extract individual timeframe components
+
+    LOG(info) << "Extracting individual timeframe collision contexts";
+    // extract prefix path to store these collision contexts
+    // Function to check the pattern and extract tokens from b
+    auto check_and_extract_tokens = [](const std::string& input, std::vector<std::string>& tokens) {
+      // the regular expression pattern for expected input format
+      const std::regex pattern(R"(^([a-zA-Z0-9]+)(:([a-zA-Z0-9]+(,[a-zA-Z0-9]+)*))?$)");
+      std::smatch matches;
+
+      // Check if the input matches the pattern
+      if (std::regex_match(input, matches, pattern)) {
+        // Clear any existing tokens in the vector
+        tokens.clear();
+
+        // matches[1] contains the part before the colon which we save first
+        tokens.push_back(matches[1].str());
+        // matches[2] contains the comma-separated list
+        std::string b = matches[2].str();
+        std::regex token_pattern(R"([a-zA-Z0-9]+)");
+        auto tokens_begin = std::sregex_iterator(b.begin(), b.end(), token_pattern);
+        auto tokens_end = std::sregex_iterator();
+
+        // Iterate over the tokens and add them to the vector
+        for (std::sregex_iterator i = tokens_begin; i != tokens_end; ++i) {
+          tokens.push_back((*i).str());
+        }
+        return true;
+      }
+      LOG(error) << "Argument for --extract-per-timeframe does not match specification";
+      return false;
+    };
+
+    std::vector<std::string> tokens;
+    if (check_and_extract_tokens(options.individualTFextraction, tokens)) {
+      auto path_prefix = tokens[0];
+      std::vector<int> sources_to_offset{};
+
+      LOG(info) << "PREFIX is " << path_prefix;
+
+      for (int i = 1; i < tokens.size(); ++i) {
+        LOG(info) << "Offsetting " << tokens[i];
+        sources_to_offset.push_back(digicontext.findSimPrefix(tokens[i]));
+      }
+
+      // now we are ready to loop over all timeframes
+      for (int tf_id = 0; tf_id < numTimeFrames; ++tf_id) {
+        auto copy = digicontext.extractSingleTimeframe(tf_id, sources_to_offset);
+
+        // each individual case gets QED interactions injected
+        // This should probably be done inside the extraction itself
+        if (digicontext.isQEDProvided()) {
+          auto qedSpec = parseInteractionSpec(options.qedInteraction, ispecs, options.useexistingkinematics);
+          copy.fillQED(qedSpec.name, qedSpec.mcnumberasked, qedSpec.interactionRate);
+        }
+
+        std::stringstream str;
+        str << path_prefix << (tf_id + 1) << "/collisioncontext.root";
+        copy.saveToFile(str.str());
+        LOG(info) << "----";
+        copy.printCollisionSummary(options.qedInteraction.size() > 0);
+      }
+    }
+  }
 
   return 0;
 }
