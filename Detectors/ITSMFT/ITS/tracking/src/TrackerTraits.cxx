@@ -75,9 +75,9 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
   for (int rof0{startROF}; rof0 < endROF; ++rof0) {
     gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : tf->getPrimaryVertices(rof0);
     const int startVtx{iVertex >= 0 ? iVertex : 0};
-    const int endVtx{iVertex >= 0 ? std::min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
-    int minRof = std::max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
-    int maxRof = std::min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
+    const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
+    int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
+    int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
 #pragma omp parallel for num_threads(mNThreads)
     for (int iLayer = 0; iLayer < mTrkParams[iteration].TrackletsPerRoad(); ++iLayer) {
       gsl::span<const Cluster> layer0 = tf->getClustersOnLayer(rof0, iLayer);
@@ -668,7 +668,7 @@ void TrackerTraits::findRoads(const int iteration)
       if (rofs[1] != INT_MAX) {
         track.setNextROFbit();
       }
-      mTimeFrame->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
+      mTimeFrame->getTracks(o2::gpu::CAMath::Min(rofs[0], rofs[1])).emplace_back(track);
     }
   }
 }

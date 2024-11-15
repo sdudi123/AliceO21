@@ -110,6 +110,7 @@ class TimeFrame
   float getMinR(int layer) const { return mMinR[layer]; }
   float getMaxR(int layer) const { return mMaxR[layer]; }
   float getMSangle(int layer) const { return mMSangles[layer]; }
+  std::vector<float>& getMSangles() { return mMSangles; }
   float getPhiCut(int layer) const { return mPhiCuts[layer]; }
   float getPositionResolution(int layer) const { return mPositionResolution[layer]; }
 
@@ -440,33 +441,33 @@ inline gsl::span<const Cluster> TimeFrame::getClustersPerROFrange(int rofMin, in
     return gsl::span<const Cluster>();
   }
   int startIdx{mROFramesClusters[layerId][rofMin]}; // First cluster of rofMin
-  int endIdx{mROFramesClusters[layerId][std::min(rofMin + range, mNrof)]};
+  int endIdx{mROFramesClusters[layerId][o2::gpu::CAMath::Min(rofMin + range, mNrof)]};
   return {&mClusters[layerId][startIdx], static_cast<gsl::span<Cluster>::size_type>(endIdx - startIdx)};
 }
 
 inline gsl::span<const int> TimeFrame::getROFramesClustersPerROFrange(int rofMin, int range, int layerId) const
 {
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mROFramesClusters[layerId][rofMin], static_cast<gsl::span<int>::size_type>(chkdRange)};
 }
 
 inline gsl::span<const int> TimeFrame::getNClustersROFrange(int rofMin, int range, int layerId) const
 {
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mNClustersPerROF[layerId][rofMin], static_cast<gsl::span<int>::size_type>(chkdRange)};
 }
 
 inline int TimeFrame::getTotalClustersPerROFrange(int rofMin, int range, int layerId) const
 {
   int startIdx{rofMin}; // First cluster of rofMin
-  int endIdx{std::min(rofMin + range, mNrof)};
+  int endIdx{o2::gpu::CAMath::Min(rofMin + range, mNrof)};
   return mROFramesClusters[layerId][endIdx] - mROFramesClusters[layerId][startIdx];
 }
 
 inline gsl::span<const int> TimeFrame::getIndexTablePerROFrange(int rofMin, int range, int layerId) const
 {
   const int iTableSize{mIndexTableUtils.getNphiBins() * mIndexTableUtils.getNzBins() + 1};
-  int chkdRange{std::min(range, mNrof - rofMin)};
+  int chkdRange{o2::gpu::CAMath::Min(range, mNrof - rofMin)};
   return {&mIndexTables[layerId][rofMin * iTableSize], static_cast<gsl::span<int>::size_type>(chkdRange * iTableSize)};
 }
 

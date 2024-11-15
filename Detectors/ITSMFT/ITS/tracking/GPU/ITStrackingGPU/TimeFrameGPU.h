@@ -54,7 +54,10 @@ class TimeFrameGPU : public TimeFrame
   void loadTrackingFrameInfoDevice(const int);
   void loadUnsortedClustersDevice(const int);
   void loadClustersDevice(const int);
+  void loadROframeClustersDevice(const int iteration);
   void loadMultiplicityCutMask(const int);
+  void loadVertices(const int);
+
   ///
   void loadTrackletsDevice();
   void loadTrackletsLUTDevice();
@@ -95,7 +98,7 @@ class TimeFrameGPU : public TimeFrame
   std::vector<std::vector<o2::MCCompLabel>>& getLabelsInChunks() { return mLabelsInChunks; }
   int getNAllocatedROFs() const { return mNrof; } // Allocated means maximum nROF for each chunk while populated is the number of loaded ones.
   StaticTrackingParameters<nLayers>* getDeviceTrackingParameters() { return mTrackingParamsDevice; }
-  Vertex* getDeviceVertices() { return mVerticesDevice; }
+  Vertex* getDeviceVertices() { return mPrimaryVerticesDevice; }
   int* getDeviceROFramesPV() { return mROFramesPVDevice; }
   unsigned char* getDeviceUsedClusters(const int);
   const o2::base::Propagator* getChainPropagator();
@@ -109,6 +112,7 @@ class TimeFrameGPU : public TimeFrame
   const TrackingFrameInfo** getDeviceArrayTrackingFrameInfo() const { return mTrackingFrameInfoDeviceArray; }
   const Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
   const Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
+  const int** getDeviceROframeClusters() const { return mROFrameClustersDeviceArray; }
   const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
   const int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
   int** getDeviceArrayCellsLUT() const { return mCellsLUTDeviceArray; }
@@ -118,7 +122,7 @@ class TimeFrameGPU : public TimeFrame
   o2::track::TrackParCovF** getDeviceArrayTrackSeeds() { return mCellSeedsDeviceArray; }
   float** getDeviceArrayTrackSeedsChi2() { return mCellSeedsChi2DeviceArray; }
   int* getDeviceNeighboursIndexTables(const int layer) { return mNeighboursIndexTablesDevice[layer]; }
-  bool* getDevicemMultMask() { return mMultMaskDevice; }
+  uint8_t* getDeviceMultCutMask() { return mMultMaskDevice; }
 
   void setDevicePropagator(const o2::base::PropagatorImpl<float>*) override;
 
@@ -144,17 +148,18 @@ class TimeFrameGPU : public TimeFrame
   // Device pointers
   StaticTrackingParameters<nLayers>* mTrackingParamsDevice;
   IndexTableUtils* mIndexTableUtilsDevice;
-  std::array<int*, nLayers> mROFramesClustersDevice;
   std::array<unsigned char*, nLayers> mUsedClustersDevice;
-  Vertex* mVerticesDevice;
-  int* mROFramesPVDevice;
 
   // Hybrid pref
-  bool* mMultMaskDevice;
+  uint8_t* mMultMaskDevice;
+  Vertex* mPrimaryVerticesDevice;
+  int* mROFramesPVDevice;
   std::array<Cluster*, nLayers> mClustersDevice;
   std::array<Cluster*, nLayers> mUnsortedClustersDevice;
+  std::array<int*, nLayers> mROFramesClustersDevice;
   const Cluster** mClustersDeviceArray;
   const Cluster** mUnsortedClustersDeviceArray;
+  const int** mROFrameClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
   const Tracklet** mTrackletsDeviceArray;
   const int** mTrackletsLUTDeviceArray;

@@ -29,26 +29,51 @@ struct gpuPair {
   T2 second;
 };
 
-template <typename T>
-struct gpuSpan {
-  GPUd() gpuSpan() : _data(nullptr), _size(0) {}
-  GPUd() gpuSpan(T* data, size_t size) : _data(data), _size(size) {}
-  GPUd() gpuSpan(const T* data, size_t size) : _data(data), _size(size) {}
-  GPUd() T& operator[](size_t idx) const { return _data[idx]; }
-  GPUd() size_t size() const { return _size; }
-  GPUd() bool empty() const { return _size == 0; }
-  GPUd() T& front() const { return _data[0]; }
-  GPUd() T& back() const { return _data[_size - 1]; }
-  GPUd() T* begin() const { return _data; }
-  GPUd() T* end() const { return _data + _size; }
-
- protected:
-  const T* _data;
-  size_t _size;
-};
-
 namespace gpu
 {
+// Poor man implementation of a span-like struct. It is very limited.
+template <typename T>
+struct gpuSpan {
+  using value_type = T;
+  using ptr = T*;
+  using ref = T&;
+
+  GPUd() gpuSpan() : _data(nullptr), _size(0) {}
+  GPUd() gpuSpan(ptr data, std::size_t dim) : _data(data), _size(dim) {}
+  GPUd() ref operator[](std::size_t idx) const { return _data[idx]; }
+  GPUd() std::size_t size() const { return _size; }
+  GPUd() bool empty() const { return _size == 0; }
+  GPUd() ref front() const { return _data[0]; }
+  GPUd() ref back() const { return _data[_size - 1]; }
+  GPUd() ptr begin() const { return _data; }
+  GPUd() ptr end() const { return _data + _size; }
+
+ protected:
+  ptr _data;
+  std::size_t _size;
+};
+
+template <typename T>
+struct gpuSpan<const T> {
+  using value_type = T;
+  using ptr = const T*;
+  using ref = const T&;
+
+  GPUd() gpuSpan() : _data(nullptr), _size(0) {}
+  GPUd() gpuSpan(ptr data, std::size_t dim) : _data(data), _size(dim) {}
+  GPUd() gpuSpan(const gpuSpan<T>& other) : _data(other._data), _size(other._size) {}
+  GPUd() ref operator[](std::size_t idx) const { return _data[idx]; }
+  GPUd() std::size_t size() const { return _size; }
+  GPUd() bool empty() const { return _size == 0; }
+  GPUd() ref front() const { return _data[0]; }
+  GPUd() ref back() const { return _data[_size - 1]; }
+  GPUd() ptr begin() const { return _data; }
+  GPUd() ptr end() const { return _data + _size; }
+
+ protected:
+  ptr _data;
+  std::size_t _size;
+};
 
 enum class Task {
   Tracker = 0,

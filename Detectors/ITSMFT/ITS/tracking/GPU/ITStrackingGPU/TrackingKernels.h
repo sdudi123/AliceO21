@@ -51,9 +51,19 @@ GPUg() void fitTrackSeedsKernel(
 } // namespace gpu
 
 template <int nLayers = 7>
-void computeTrackletsInRofsHandler(const int startROF,
+void computeTrackletsInRofsHandler(const uint8_t* multMask,
+                                   const int startROF,
                                    const int endROF,
+                                   const int maxROF,
+                                   const int deltaROF,
                                    const int vertexId,
+                                   const Vertex* vertices,
+                                   const int* rofPV,
+                                   const int nVertices,
+                                   const Cluster** clusters,
+                                   const int** ROFClusters,
+                                   std::vector<float>& radii,
+                                   std::vector<float>& mulScatAng,
                                    const int nBlocks,
                                    const int nThreads);
 

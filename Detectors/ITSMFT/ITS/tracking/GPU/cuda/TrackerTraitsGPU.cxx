@@ -33,6 +33,8 @@ void TrackerTraitsGPU<nLayers>::initialiseTimeFrame(const int iteration)
   mTimeFrameGPU->loadUnsortedClustersDevice(iteration);
   mTimeFrameGPU->loadTrackingFrameInfoDevice(iteration);
   mTimeFrameGPU->loadMultiplicityCutMask(iteration);
+  mTimeFrameGPU->loadVertices(iteration);
+  mTimeFrameGPU->loadROframeClustersDevice(iteration);
 }
 
 template <int nLayers>
@@ -92,9 +94,20 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : mTimeFrameGPU->getNrof()};
-  computeTrackletsInRofsHandler<nLayers>(startROF,
+
+  computeTrackletsInRofsHandler<nLayers>(mTimeFrameGPU->getDeviceMultCutMask(),
+                                         startROF,
                                          endROF,
+                                         mTimeFrameGPU->getNrof(),
+                                         mTrkParams[iteration].DeltaROF,
                                          iVertex,
+                                         mTimeFrameGPU->getDeviceVertices(),
+                                         mTimeFrameGPU->getDeviceROFramesPV(),
+                                         mTimeFrameGPU->getPrimaryVerticesNum(),
+                                         mTimeFrameGPU->getDeviceArrayClusters(),
+                                         mTimeFrameGPU->getDeviceROframeClusters(),
+                                         mTrkParams[iteration].LayerRadii,
+                                         mTimeFrameGPU->getMSangles(),
                                          conf.nBlocks,
                                          conf.nThreads);
 }

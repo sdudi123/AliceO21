@@ -129,6 +129,22 @@ void TimeFrameGPU<nLayers>::loadClustersDevice(const int iteration)
 }
 
 template <int nLayers>
+void TimeFrameGPU<nLayers>::loadROframeClustersDevice(const int iteration)
+{
+  if (!iteration) {
+    START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading ROframe clusters");
+    for (auto iLayer{0}; iLayer < nLayers; ++iLayer) {
+      LOGP(info, "gpu-transfer: loading {} ROframe clusters info on layer {}, for {} MB.", mROFramesClusters[iLayer].size(), iLayer, mROFramesClusters[iLayer].size() * sizeof(int) / MB);
+      allocMemAsync(reinterpret_cast<void**>(&mROFramesClustersDevice[iLayer]), mROFramesClusters[iLayer].size() * sizeof(int), nullptr, getExtAllocator());
+      checkGPUError(cudaMemcpyAsync(mROFramesClustersDevice[iLayer], mROFramesClusters[iLayer].data(), mROFramesClusters[iLayer].size() * sizeof(int), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    }
+    allocMemAsync(reinterpret_cast<void**>(&mROFrameClustersDeviceArray), nLayers * sizeof(int*), nullptr, getExtAllocator());
+    checkGPUError(cudaMemcpyAsync(mROFrameClustersDeviceArray, mROFramesClustersDevice.data(), nLayers * sizeof(int*), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+  }
+}
+
+template <int nLayers>
 void TimeFrameGPU<nLayers>::loadTrackingFrameInfoDevice(const int iteration)
 {
   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading trackingframeinfo");
@@ -149,14 +165,30 @@ void TimeFrameGPU<nLayers>::loadTrackingFrameInfoDevice(const int iteration)
 template <int nLayers>
 void TimeFrameGPU<nLayers>::loadMultiplicityCutMask(const int iteration)
 {
-  START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading multiplicity cut mask");
   if (!iteration) {
+    START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading multiplicity cut mask");
     LOGP(info, "gpu-transfer: loading multiplicity cut mask with {} elements, for {} MB.", mMultiplicityCutMask.size(), mMultiplicityCutMask.size() * sizeof(bool) / MB);
-    allocMemAsync(reinterpret_cast<void**>(&mMultMaskDevice), mMultiplicityCutMask.size() * sizeof(bool), nullptr, getExtAllocator());
+    allocMemAsync(reinterpret_cast<void**>(&mMultMaskDevice), mMultiplicityCutMask.size() * sizeof(uint8_t), nullptr, getExtAllocator());
     checkGPUError(cudaMemcpyAsync(mMultMaskDevice, mMultiplicityCutMask.data(), mMultiplicityCutMask.size() * sizeof(uint8_t), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
   }
-  STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
 }
+
+template <int nLayers>
+void TimeFrameGPU<nLayers>::loadVertices(const int iteration)
+{
+  if (!iteration) {
+    START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading seeding vertices");
+    LOGP(info, "gpu-transfer: loading {} ROframes vertices, for {} MB.", mROFramesPV.size(), mROFramesPV.size() * sizeof(int) / MB);
+    allocMemAsync(reinterpret_cast<void**>(&mROFramesPVDevice), mROFramesPV.size() * sizeof(int), nullptr, getExtAllocator());
+    checkGPUError(cudaMemcpyAsync(mROFramesPVDevice, mROFramesPV.data(), mROFramesPV.size() * sizeof(int), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    LOGP(info, "gpu-transfer: loading {} seeding vertices, for {} MB.", mPrimaryVertices.size(), mPrimaryVertices.size() * sizeof(Vertex) / MB);
+    allocMemAsync(reinterpret_cast<void**>(&mPrimaryVerticesDevice), mPrimaryVertices.size() * sizeof(Vertex), nullptr, getExtAllocator());
+    checkGPUError(cudaMemcpyAsync(mPrimaryVerticesDevice, mPrimaryVertices.data(), mPrimaryVertices.size() * sizeof(Vertex), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+  }
+}
+
 template <int nLayers>
 void TimeFrameGPU<nLayers>::loadTrackletsDevice()
 {
