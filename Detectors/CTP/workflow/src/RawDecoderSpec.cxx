@@ -139,8 +139,9 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   } else {
     if (mDecodeinputs) {
       const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      // ctpcfg->printStream(std::cout);
-      mDecoder.setCTPConfig(*ctpcfg);
+      if(ctpcfg != nullptr) {
+        mDecoder.setCTPConfig(*ctpcfg);
+      }
     }
     ret = mDecoder.decodeRaw(inputs, filter, mOutputDigits, lumiPointsHBF1);
   }
