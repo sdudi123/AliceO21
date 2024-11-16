@@ -139,7 +139,7 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   } else {
     if (mDecodeinputs) {
       const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      if(ctpcfg != nullptr) {
+      if (ctpcfg != nullptr) {
         mDecoder.setCTPConfig(*ctpcfg);
       }
     }

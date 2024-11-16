@@ -57,7 +57,7 @@ void EntropyDecoderSpec::run(ProcessingContext& pc)
 
   mCTFCoder.updateTimeDependentParams(pc, true);
   auto buff = pc.inputs().get<gsl::span<o2::ctf::BufferType>>("ctf_CTP");
-  
+
   const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
   auto& digits = pc.outputs().make<std::vector<CTPDigit>>(OutputRef{"digits"});
   auto& lumi = pc.outputs().make<LumiInfo>(OutputRef{"CTPLumi"});
@@ -65,9 +65,9 @@ void EntropyDecoderSpec::run(ProcessingContext& pc)
   // since the buff is const, we cannot use EncodedBlocks::relocate directly, instead we wrap its data to another flat object
   if (buff.size()) {
     const auto ctfImage = o2::ctp::CTF::getImage(buff.data());
-    if(mCTFCoder.getDecodeInps()){
+    if (mCTFCoder.getDecodeInps()) {
       const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      if(ctpcfg != nullptr) {
+      if (ctpcfg != nullptr) {
         mCTFCoder.setCTPConfig(*ctpcfg);
       }
     }

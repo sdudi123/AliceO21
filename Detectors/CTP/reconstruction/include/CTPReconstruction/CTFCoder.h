@@ -220,7 +220,7 @@ o2::ctf::CTFIOSize CTFCoder::decode(const CTF::base& ec, VTRG& data, LumiInfo& l
   }
   if (mDecodeInps) {
     uint64_t trgclassmask = 0xffffffffffffffff;
-    if(mCTPConfig.getRunNumber() != 0) {
+    if (mCTPConfig.getRunNumber() != 0) {
       trgclassmask = mCTPConfig.getTriggerClassMask();
     }
     std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;

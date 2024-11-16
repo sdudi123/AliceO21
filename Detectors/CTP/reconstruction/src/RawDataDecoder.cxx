@@ -294,7 +294,7 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
   }
   if (mDoDigits & mDecodeInps) {
     uint64_t trgclassmask = 0xffffffffffffffff;
-    if(mCTPConfig.getRunNumber() != 0) {
+    if (mCTPConfig.getRunNumber() != 0) {
       trgclassmask = mCTPConfig.getTriggerClassMask();
     }
     std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
@@ -604,11 +604,11 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
       if (d.CTPInputMask.count()) {
         nTwI++;
       } else {
-        if(d.intRecord.bc == (o2::constants::lhc::LHCMaxBunches - L1shift)) { // input can be lost because latency class-l1input = 1 
+        if (d.intRecord.bc == (o2::constants::lhc::LHCMaxBunches - L1shift)) { // input can be lost because latency class-l1input = 1
           nTwoIlost++;
         } else {
-          LOG(error) << d.intRecord << " " <<  d.CTPClassMask << " " << d.CTPInputMask;
-          //std::cout << std::hex << d.CTPClassMask << " " << d.CTPInputMask << std::dec << std::endl;
+          LOG(error) << d.intRecord << " " << d.CTPClassMask << " " << d.CTPInputMask;
+          // std::cout << std::hex << d.CTPClassMask << " " << d.CTPInputMask << std::dec << std::endl;
           nTwoI++;
         }
       }
