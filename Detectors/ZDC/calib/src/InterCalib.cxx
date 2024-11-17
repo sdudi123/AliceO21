@@ -496,6 +496,8 @@ void InterCalib::fcn(int& npar, double* gin, double& chi, double* par, int iflag
       chi += (i == 0 ? par[i] : -par[i]) * (j == 0 ? par[j] : -par[j]) * mAdd[i][j];
     }
   }
+  // Following line modifies the chisquare computation to perform orthogonal
+  // least squares instead of ordinary least squares minimization
   chi = chi / (1 + par[1] * par[1] + par[2] * par[2] + par[3] * par[3] + par[4] * par[4]);
 }
 
