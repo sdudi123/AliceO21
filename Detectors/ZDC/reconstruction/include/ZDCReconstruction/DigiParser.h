@@ -13,6 +13,7 @@
 #include <deque>
 #include <gsl/span>
 #include <TFile.h>
+#include <TAxis.h>
 #include <TH1.h>
 #include <TH2.h>
 #include "Framework/Logger.h"
@@ -74,6 +75,7 @@ class DigiParser
 
   void setStat(TH1* h);
   void setModuleLabel(TH1* h);
+  void setModuleLabel(TAxis* ax);
 
   int32_t mVerbosity = DbgMinimal;
   bool mRejectPileUp = true;
@@ -87,6 +89,7 @@ class DigiParser
   std::unique_ptr<TH1> mCounts[NChannels] = {nullptr};
   std::unique_ptr<TH2> mSignalTH[NChannels] = {nullptr};
   std::unique_ptr<TH2> mBunchH[NChannels] = {nullptr}; // Bunch pattern Hit
+  std::unique_ptr<TH2> mAlignment;
 
   int mNBC = 0;
 };

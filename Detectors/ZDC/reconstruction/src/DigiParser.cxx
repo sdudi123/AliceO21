@@ -76,6 +76,9 @@ void DigiParser::init()
   if (mFired == nullptr) {
     mFired = std::make_unique<TH1F>("hfired", "Fired channels", NChannels, -0.5, NChannels - 0.5);
   }
+  if (mAlignment == nullptr) {
+    mAlignment = std::make_unique<TH2F>("hmap", "Map of fired channels", o2::constants::lhc::LHCMaxBunches, -0.5, o2::constants::lhc::LHCMaxBunches-0.5, NChannels, -0.5, NChannels - 0.5);
+  }
   for (uint32_t ich = 0; ich < NChannels; ich++) {
     if (mBaseline[ich] == nullptr) {
       TString hname = TString::Format("hp_%s", ChannelNames[ich].data());
@@ -133,6 +136,9 @@ void DigiParser::eor()
   setModuleLabel(mFired.get());
   mFired->SetMinimum(0);
   mFired->Write();
+  setModuleLabel((mAlignment.get())->GetYaxis());
+  mAlignment->SetMinimum(0);
+  mAlignment->Write();
   f->Close();
 }
 
@@ -221,6 +227,7 @@ int DigiParser::process(const gsl::span<const o2::zdc::OrbitData>& orbitdata, co
                 double bc_m = uint32_t(ir.bc % 100);
                 mBunchH[isig]->Fill(bc_m, -bc_d);
                 mFired->Fill(isig);
+                mAlignment->Fill(ir.bc, isig);
               }
             }
             if (bcd == ibn) {
@@ -277,6 +284,13 @@ void DigiParser::setModuleLabel(TH1* h)
 {
   for (uint32_t isig = 0; isig < NChannels; isig++) {
     h->GetXaxis()->SetBinLabel(isig + 1, ChannelNames[isig].data());
+  }
+}
+
+void DigiParser::setModuleLabel(TAxis* ax)
+{
+  for (uint32_t isig = 0; isig < NChannels; isig++) {
+    ax->SetBinLabel(isig + 1, ChannelNames[isig].data());
   }
 }
 
