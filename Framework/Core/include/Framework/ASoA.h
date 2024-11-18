@@ -208,8 +208,20 @@ inline constexpr bool is_type_with_originals_v<T, std::void_t<decltype(sizeof(ty
 template <typename T>
 concept has_parent_t = not_void<typename T::parent_t>;
 
+template <typename INHERIT>
+class TableMetadata;
+
 template <typename T>
-concept has_metadata = not_void<typename T::metadata>;
+concept is_metadata = framework::base_of_template<TableMetadata, T>;
+
+template <typename T>
+concept is_metadata_trait = framework::specialization_of_template<aod::MetadataTrait, T>;
+
+template <typename T>
+concept has_metadata = is_metadata_trait<T> && not_void<typename T::metadata>;
+
+template <typename T>
+concept has_sources = is_metadata_trait<T> && not_void<typename T::sources>;
 
 template <typename T>
 concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
@@ -1909,9 +1921,6 @@ class TableMetadata
   static constexpr o2::header::DataHeader::SubSpecificationType version() { return INHERIT::mVersion; }
   static std::string sourceSpec() { return fmt::format("{}/{:s}/{}/{}", INHERIT::mLabel, INHERIT::table_t::mOrigin, INHERIT::mDescription, INHERIT::mVersion); };
 };
-
-template <typename T>
-concept is_metadata = framework::is_base_of_template_v<TableMetadata, T>;
 
 /// Helper templates to define universal join and concat
 template <o2::framework::OriginEnc ORIGIN, typename... T>
