@@ -12,8 +12,8 @@
 12,"BadEMCalorimetry","Bad EM Calorimetry",1,0
 13,"BadPhotonCalorimetry","Bad Photon Calorimetry",1,0
 14,"Unknown","Unknown",1,0
-15,"BadFT0DataConsistency","Bad FT0 data consistency",1,0
-16,"BadFT0TimeOfssetCalibration","Bad FT0 time offset calibration",1,0
-17,"BadFT0TimeSlewingCalibration","Bad FT0 time slewing calibration",1,0
-18,"BadFT0HWSettings","Bad FT0 hardware settings",1,0
-19,"BadFT0RecoSettings","Bad FT0 reconstruction settings",1,0
+15,"BadDataConsistency","Bad data consistency",1,0
+16,"BadHWSettings","Bad hardware settings",1,0
+17,"BadRecoSettings","Bad reconstruction settings",1,0
+18,"BadFT0TimeOffsetCalibration","Bad FT0 time offset calibration",1,0
+19,"BadFT0TimeSlewingCalibration","Bad FT0 time slewing calibration",1,0

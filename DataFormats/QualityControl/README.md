@@ -76,11 +76,11 @@ This section details the currently available Flag Types and provides a brief exp
 * **Bad Electron PID:** analyses relying on correct electron identification should not use this data.
 * **Bad Photon Calorimetry:** analyses relying on correct photon calorimetry should not use this data.
 * **Bad EMCalorimetry:** analyses relying on correct electromagnetic calorimetry should not use this data.
-* **Bad FT0 Data Consistency:** FT0 data incosistent, i.e. some modules haven't sent data, BC async among modules, etc.
-* **Bad FT0 Time Ofsset Calibration:** Bad FT0 time offset calibration, collected during online. Can be fixed.
-* **Bad FT0 Time Slewing Calibration:** Bad FT0 time slewing calibration, collected during offline. Can be fixed.
-* **Bad FT0 HW Settings:** Bad FT0 hardware settings, which corrupted data, but w/o data inconsistency, i.e. phase time shift at some channels, out-of-gate situation, etc
-* **Bad FT0 Reco Settings:** Bad FT0 reconstruction settings, i.e. if for some reason configuration for reconstruction was incorrect, including corrupted DeadChannelMap
+* **Bad Data Consistency:** data is inconsistent. FT0's example: some modules haven't sent data, BC async among modules(modules sent data with shifted BC), etc.
+* **Bad HW Settings:** Bad hardware settings, which corrupted data. FT0's example: phase time shift at some channels, time peak is close to gate borders, or even out of gate.
+* **Bad Reco Settings:** Bad reconstruction settings. FT0's example: bad DeadChannelMap(healthy channels ignored for reco, or vice versa); incorrectly configured time filtering logic
+* **Bad FT0 Time Offset Calibration:** Bad FT0 time offset calibration, collected during online. Can be fixed. Causes bad accuracy in FT0's timeA and timeC at AOD
+* **Bad FT0 Time Slewing Calibration:** Bad FT0 time slewing calibration, collected during offline. Can be fixed. Causes the same as for FT0's bad time offset calibration.
 
 * **Unknown:** the exact impact of an issue on the data is unclear, but it's likely bad.
   Treat data with this flag with caution until further investigation.
