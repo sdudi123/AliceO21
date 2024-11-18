@@ -32,8 +32,6 @@ set(OCL_DEFINECL "-D$<JOIN:$<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS
             -I${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
             -I${CMAKE_SOURCE_DIR}/Detectors/Base/src
             -I${CMAKE_SOURCE_DIR}/DataFormats/Reconstruction/src
-            -I${CMAKE_SOURCE_DIR}/Detectors/ITSMFT/ITS/tracking/cuda/include
-            -D__OPENCLCPP__
 )
 
 set(SRCS GPUReconstructionOCL2.cxx)
@@ -55,7 +53,7 @@ if(OPENCL2_ENABLED_SPIRV) # BUILD OpenCL2 intermediate code for SPIR-V target
       MAIN_DEPENDENCY ${CL_SRC}
       IMPLICIT_DEPENDS CXX ${CL_SRC}
       COMMAND_EXPAND_LISTS
-      COMMENT "Compiling OpenCL2 CL source file ${CL_SRC} to SPIRV")
+      COMMENT "Compiling OpenCL2 CL source file ${CL_SRC} to SPIRV ${CL_BIN}.spirv")
 
   create_binary_resource(${CL_BIN}.spirv ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode.spirv.o)
   set(SRCS ${SRCS} ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode.spirv.o)
@@ -66,12 +64,14 @@ if(OPENCL2_ENABLED) # BUILD OpenCL2 source code for runtime compilation target
   add_custom_command(
       OUTPUT ${CL_BIN}.src
       COMMAND ${LLVM_CLANG}
-              ${OCL_DEFINECL} -cl-no-stdinc
+              ${OCL_FLAGS}
+              ${OCL_DEFINECL}
+              -cl-no-stdinc
               -E ${CL_SRC} > ${CL_BIN}.src
       MAIN_DEPENDENCY ${CL_SRC}
       IMPLICIT_DEPENDS CXX ${CL_SRC}
       COMMAND_EXPAND_LISTS
-      COMMENT "Preparing OpenCL2 CL source file for run time compilation")
+      COMMENT "Preparing OpenCL2 CL source file for run time compilation ${CL_BIN}.src")
 
   create_binary_resource(${CL_BIN}.src ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode.src.o)
   set(SRCS ${SRCS} ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode.src.o)
