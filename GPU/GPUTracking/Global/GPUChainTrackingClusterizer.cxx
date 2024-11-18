@@ -865,8 +865,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
 
         if (fragment.index == 0) {
-          runKernel<GPUMemClean16>({GetGridAutoStep(lane, RecoStep::TPCClusterFinding), krnlRunRangeNone, {nullptr, transferRunning[lane] == 1 ? &mEvents->stream[lane] : nullptr}}, clustererShadow.mPclusterInRow, GPUCA_ROW_COUNT * sizeof(*clustererShadow.mPclusterInRow));
-          transferRunning[lane] = 2;
+          deviceEvent* waitEvent = nullptr;
+          if (transferRunning[lane] == 1) {
+            waitEvent = &mEvents->stream[lane];
+            transferRunning[lane] = 2;
+          }
+          runKernel<GPUMemClean16>({GetGridAutoStep(lane, RecoStep::TPCClusterFinding), krnlRunRangeNone, {nullptr, waitEvent}}, clustererShadow.mPclusterInRow, GPUCA_ROW_COUNT * sizeof(*clustererShadow.mPclusterInRow));
         }
 
         if (clusterer.mPmemory->counters.nClusters == 0) {
@@ -930,7 +934,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (transferRunning[lane]) {
           ReleaseEvent(mEvents->stream[lane], doGPU);
         }
-        RecordMarker(mEvents->stream[lane], mRec->NStreams() - 1);
+        RecordMarker(&mEvents->stream[lane], mRec->NStreams() - 1);
         transferRunning[lane] = 1;
       }
 
