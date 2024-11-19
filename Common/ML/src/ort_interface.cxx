@@ -145,7 +145,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 
 void OrtModel::resetSession()
 {
-  (pImplOrt->session).reset(std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions));
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 }
 
 template <class I, class O>
