@@ -173,7 +173,7 @@ template <typename C>
 concept is_persistent_column = requires(C c) { c.mColumnIterator; };
 
 template <typename C>
-constexpr bool is_persistent_column_v = is_persistent_column<C>;
+constexpr bool is_persistent_v = is_persistent_column<C>;
 
 template <typename C>
 using is_persistent_column_t = std::conditional_t<is_persistent_column<C>, std::true_type, std::false_type>;
