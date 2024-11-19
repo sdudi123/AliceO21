@@ -472,6 +472,7 @@ o2::framework::ServiceSpec ArrowSupport::arrowBackendSpec()
         }
         std::sort(ac.requestedDYNs.begin(), ac.requestedDYNs.end(), inputSpecLessThan);
         std::sort(ac.providedDYNs.begin(), ac.providedDYNs.end(), outputSpecLessThan);
+        ac.spawnerInputs.clear();
         for (auto& input : ac.requestedDYNs) {
           if (std::none_of(ac.providedDYNs.begin(), ac.providedDYNs.end(), [&input](auto const& x) { return DataSpecUtils::match(input, x); })) {
             ac.spawnerInputs.emplace_back(input);
