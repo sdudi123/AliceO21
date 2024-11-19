@@ -62,5 +62,11 @@ else
     NEV=10
 fi
 
+# Generation of 1000 events using STARlight in a slight.hepmc file
+${O2_ROOT}/examples/HepMC_STARlight/run-starlight.sh
+
+# Generation of event pool with pythia8 (10000 events) in a evtpool.root file
+${O2DPG_ROOT}/MC/run/examples/event_pool.sh --make
+
 # Starting simulation with Hybrid generator
 ${O2_ROOT}/bin/o2-sim --noGeant -j $JOBS --field ccdb --vertexMode kCCDB --run 300000 --configKeyValues "MFTBase.buildAlignment=true;GeneratorHybrid.configFile=$PWD/hybridconfig.json;GeneratorHybrid.randomize=false;${more}" -g hybrid -o genevents --timestamp 1546300800000 --seed 836302859 -n $NEV

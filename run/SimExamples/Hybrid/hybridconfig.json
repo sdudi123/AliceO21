@@ -78,22 +78,7 @@
         "confighepmc": {
           "version": 2,
           "eventsToSkip": 0,
-          "fileName": "${PWD}/epos4.hepmc",
-          "prune": false
-        }
-      }
-    },
-    {
-      "name": "hepmc",
-      "config": {
-        "configcmd": {
-          "fileNames": "",
-          "cmd": "${O2DPG_ROOT}/MC/config/examples/epos4/epos.sh -i example"
-        },
-        "confighepmc": {
-          "version": 2,
-          "eventsToSkip": 0,
-          "fileName": "",
+          "fileName": "${PWD}/slight.hepmc",
           "prune": false
         }
       }
@@ -107,7 +92,6 @@
     }
   ],
   "fractions": [
-    1,
     1,
     1,
     1,

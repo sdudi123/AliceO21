@@ -4,7 +4,7 @@
 
 The usage of the Hybrid generator with the o2-sim is presented in this short manual.
 All the other generators are implemented as sub-generators and they can be called thanks to a
-JSON file, fed to o2-sim via the GeneratorHybrid.configFile parameter.
+JSON file, fed to o2-sim via the GeneratorHybrid.configFile parameter. The O2sim package needs to be loaded in order to use this example.
 
 The example can be run automatically using the runo2sim.sh script, which contains most of the
 available generators in O2. The JSON template can be generated using the ${O2DPG_ROOT}/MC/bin/o2_hybrid_gen.py script. To use this example the user can simply copy the entire Hybrid example folder and execute the script after giving it execution permissions (`chmod +x runo2sim.sh`).
