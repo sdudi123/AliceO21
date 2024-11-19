@@ -208,7 +208,7 @@ using filtered_pack = std::decay_t<decltype(filter_pack<Condition>(pack<>{}, pac
 template <typename T, typename... Us>
 bool consteval has_type(framework::pack<Us...>)
 {
-  return (std::is_same_v<T, Us> || ...);
+  return (std::same_as<T, Us> || ...);
 }
 
 template <typename T, typename P>

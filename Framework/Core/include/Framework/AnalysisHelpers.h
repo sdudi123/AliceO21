@@ -89,7 +89,7 @@ concept is_producable = soa::has_metadata<aod::MetadataTrait<T>> || soa::has_met
 template <is_producable T>
 struct WritingCursor {
  public:
-  using persistent_table_t = decltype([]() { if constexpr (soa::is_iterator<T>) { return typename T::parent_t{nullptr}; } else { return T{nullptr}; } }());  // std::conditional<soa::is_iterator<T>, typename T::parent_t, T>;
+  using persistent_table_t = decltype([]() { if constexpr (soa::is_iterator<T>) { return typename T::parent_t{nullptr}; } else { return T{nullptr}; } }());
   using cursor_t = decltype(std::declval<TableBuilder>().cursor<persistent_table_t>());
 
   template <typename... Ts>
@@ -135,14 +135,16 @@ struct WritingCursor {
 
  private:
   template <typename A>
+    requires requires { &A::globalIndex; }
   static decltype(auto) extract(A const& arg)
   {
-    if constexpr (requires(T t) { t.globalIndex(); }) {
-      return arg.globalIndex();
-    } else {
-      static_assert(!framework::has_type<A>(typename persistent_table_t::persistent_columns_t{}), "Argument type mismatch");
-      return arg;
-    }
+    return arg.globalIndex();
+  }
+
+  template <typename A>
+  static decltype(auto) extract(A const& arg)
+  {
+    return arg;
   }
 
   /// The table builder which actually performs the
