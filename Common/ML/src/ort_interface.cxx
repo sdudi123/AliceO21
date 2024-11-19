@@ -167,7 +167,7 @@ std::vector<O> OrtModel::inference(std::vector<I>& input)
 {
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
-  inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(input)).data(), input.size(), inputShape.data(), inputShape.size()));
+  inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, reinterpret_cast<O*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   O* outputValues = reinterpret_cast<O*>(outputTensors[0].template GetTensorMutableData<O>());
@@ -182,7 +182,7 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
   std::vector<Ort::Value> inputTensor;
   for (auto i : input) {
     std::vector<int64_t> inputShape{(int64_t)(i.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
-    inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(i)).data(), i.size(), inputShape.data(), inputShape.size()));
+    inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, reinterpret_cast<O*>(i.data()), i.size(), inputShape.data(), inputShape.size()));
   }
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
