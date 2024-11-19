@@ -321,7 +321,15 @@ class AlpideCoder
           // are first collected in the temporary buffer
           // real columnt id is col = colD + 1;
           if (rightC) {
-            rightColHits[nRightCHits++] = row; // col = colD+1
+            if (nRightCHits < NRows - 1) {
+              rightColHits[nRightCHits++] = row;
+            } else {
+#ifdef ALPIDE_DECODING_STAT
+              chipData.setError(ChipStat::RepeatingPixel);
+              chipData.addErrorInfo((uint64_t(colD + 1) << 16) | uint64_t(row));
+#endif
+              return unexpectedEOF("ROW_OVERFLOW"); // abandon cable data
+            }
           } else {
             addHit(chipData, row, colD); // col = colD, left column hits are added directly to the container
           }
@@ -353,9 +361,17 @@ class AlpideCoder
                 rightC = ((rowE & 0x1) ? !(addr & 0x1) : (addr & 0x1)); // true for right column / lalse for left
                 // the real columnt is int colE = colD + rightC;
                 if (rightC) { // same as above
-                  rightColHits[nRightCHits++] = rowE;
+                  if (nRightCHits < NRows - 1) {
+                    rightColHits[nRightCHits++] = rowE;
+                  } else {
+#ifdef ALPIDE_DECODING_STAT
+                    chipData.setError(ChipStat::RepeatingPixel);
+                    chipData.addErrorInfo((uint64_t(colD + 1) << 16) | uint64_t(rowE));
+#endif
+                    return unexpectedEOF("ROW_OVERFLOW"); // abandon cable data
+                  }
                 } else {
-                  addHit(chipData, rowE, colD + rightC); // left column hits are added directly to the container
+                  addHit(chipData, rowE, colD); // left column hits are added directly to the container
                 }
               }
             }
