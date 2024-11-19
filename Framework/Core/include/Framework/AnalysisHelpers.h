@@ -84,9 +84,9 @@ class TableConsumer;
 /// a table. The provided template arguments are if type Column and
 /// therefore refer only to the persisted columns.
 template <typename T>
-concept producable = soa::has_metadata<T> || soa::has_metadata<typename T::parent_t>;
+concept is_producable = soa::has_metadata<aod::MetadataTrait<T>> || soa::has_metadata<aod::MetadataTrait<typename T::parent_t>>;
 
-template <producable T>
+template <is_producable T>
 struct WritingCursor {
  public:
   using persistent_table_t = decltype([]() { if constexpr (soa::is_iterator<T>) { return typename T::parent_t{nullptr}; } else { return T{nullptr}; } }());  // std::conditional<soa::is_iterator<T>, typename T::parent_t, T>;
@@ -174,7 +174,7 @@ struct OutputForTable {
 /// given analysis task. Notice how the actual cursor is implemented by the
 /// means of the WritingCursor helper class, from which produces actually
 /// derives.
-template <producable T>
+template <is_producable T>
 struct Produces : WritingCursor<T> {
 };
 
@@ -227,9 +227,9 @@ struct TableTransform {
 /// This helper struct allows you to declare extended tables which should be
 /// created by the task (as opposed to those pre-defined by data model)
 template <typename T>
-concept spawnable = soa::is_table<T> && soa::has_metadata<T>;
+concept is_spawnable = soa::is_table<T> && soa::has_metadata<aod::MetadataTrait<T>>;
 
-template <spawnable T>
+template <is_spawnable T>
 struct Spawns : TableTransform<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata, T::ref> {
   using metadata = TableTransform<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata, T::ref>::metadata;
   using extension_t = typename metadata::extension_table_t;

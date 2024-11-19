@@ -239,7 +239,7 @@ struct OutputManager {
 };
 
 /// Produces specialization
-template <producable T>
+template <is_producable T>
 struct OutputManager<Produces<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Produces<T>& /*what*/, uint32_t)
   {
@@ -339,7 +339,7 @@ static inline auto extractOriginals(ProcessingContext& pc)
   }(std::make_index_sequence<refs.size()>());
 }
 
-template <typename T>
+template <is_spawnable T>
 struct OutputManager<Spawns<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Spawns<T>& what, uint32_t)
   {

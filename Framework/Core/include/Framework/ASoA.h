@@ -394,7 +394,7 @@ concept has_metadata = is_metadata_trait<T> && not_void<typename T::metadata>;
 // concept has_sources = is_metadata<T> && not_void<typename T::sources>;
 
 template <typename T>
-concept is_spawnable_column = std::is_same_v<typename T::spawnable_t, std::true_type>;
+concept is_spawnable_column = std::same_as<typename T::spawnable_t, std::true_type>;
 
 template <typename B, typename E>
 struct EquivalentIndex {
