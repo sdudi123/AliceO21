@@ -31,10 +31,13 @@ void TrackerTraitsGPU<nLayers>::initialiseTimeFrame(const int iteration)
   mTimeFrameGPU->initialise(iteration, mTrkParams[iteration], nLayers);
   mTimeFrameGPU->loadClustersDevice(iteration);
   mTimeFrameGPU->loadUnsortedClustersDevice(iteration);
+  mTimeFrameGPU->loadClustersIndexTables(iteration);
   mTimeFrameGPU->loadTrackingFrameInfoDevice(iteration);
   mTimeFrameGPU->loadMultiplicityCutMask(iteration);
   mTimeFrameGPU->loadVertices(iteration);
   mTimeFrameGPU->loadROframeClustersDevice(iteration);
+  mTimeFrameGPU->createUsedClustersDevice(iteration);
+  mTimeFrameGPU->loadIndexTableUtils(iteration);
 }
 
 template <int nLayers>
@@ -95,7 +98,8 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : mTimeFrameGPU->getNrof()};
 
-  computeTrackletsInRofsHandler<nLayers>(mTimeFrameGPU->getDeviceMultCutMask(),
+  computeTrackletsInROFsHandler<nLayers>(mTimeFrameGPU->getDeviceIndexTableUtils(),
+                                         mTimeFrameGPU->getDeviceMultCutMask(),
                                          startROF,
                                          endROF,
                                          mTimeFrameGPU->getNrof(),
@@ -106,6 +110,15 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
                                          mTimeFrameGPU->getPrimaryVerticesNum(),
                                          mTimeFrameGPU->getDeviceArrayClusters(),
                                          mTimeFrameGPU->getDeviceROframeClusters(),
+                                         mTimeFrameGPU->getDeviceArrayUsedClusters(),
+                                         mTimeFrameGPU->getDeviceArrayClustersIndexTables(),
+                                         iteration,
+                                         mTrkParams[iteration].NSigmaCut,
+                                         mTimeFrameGPU->getPhiCuts(),
+                                         mTrkParams[iteration].PVres,
+                                         mTimeFrameGPU->getMinRs(),
+                                         mTimeFrameGPU->getMaxRs(),
+                                         mTimeFrameGPU->getPositionResolutions(),
                                          mTrkParams[iteration].LayerRadii,
                                          mTimeFrameGPU->getMSangles(),
                                          conf.nBlocks,
@@ -324,6 +337,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       mTimeFrame->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
     }
   }
+  mTimeFrameGPU->loadUsedClustersDevice();
   if (iteration == mTrkParams.size() - 1) {
     mTimeFrameGPU->unregisterHostMemory(0);
   }

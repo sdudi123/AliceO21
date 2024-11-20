@@ -51,10 +51,14 @@ class TimeFrameGPU : public TimeFrame
   void initialise(const int, const TrackingParameters&, const int, IndexTableUtils* utils = nullptr, const TimeFrameGPUParameters* pars = nullptr);
   void initDevice(IndexTableUtils*, const TrackingParameters& trkParam, const TimeFrameGPUParameters&, const int, const int);
   void initDeviceSAFitting();
+  void loadIndexTableUtils(const int);
   void loadTrackingFrameInfoDevice(const int);
   void loadUnsortedClustersDevice(const int);
   void loadClustersDevice(const int);
-  void loadROframeClustersDevice(const int iteration);
+  void loadClustersIndexTables(const int iteration);
+  void createUsedClustersDevice(const int);
+  void loadUsedClustersDevice();
+  void loadROframeClustersDevice(const int);
   void loadMultiplicityCutMask(const int);
   void loadVertices(const int);
 
@@ -112,6 +116,8 @@ class TimeFrameGPU : public TimeFrame
   const TrackingFrameInfo** getDeviceArrayTrackingFrameInfo() const { return mTrackingFrameInfoDeviceArray; }
   const Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
   const Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
+  const int** getDeviceArrayClustersIndexTables() const { return mClustersIndexTablesDeviceArray; }
+  const unsigned char** getDeviceArrayUsedClusters() const { return mUsedClustersDeviceArray; }
   const int** getDeviceROframeClusters() const { return mROFrameClustersDeviceArray; }
   const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
   const int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
@@ -148,7 +154,6 @@ class TimeFrameGPU : public TimeFrame
   // Device pointers
   StaticTrackingParameters<nLayers>* mTrackingParamsDevice;
   IndexTableUtils* mIndexTableUtilsDevice;
-  std::array<unsigned char*, nLayers> mUsedClustersDevice;
 
   // Hybrid pref
   uint8_t* mMultMaskDevice;
@@ -156,9 +161,13 @@ class TimeFrameGPU : public TimeFrame
   int* mROFramesPVDevice;
   std::array<Cluster*, nLayers> mClustersDevice;
   std::array<Cluster*, nLayers> mUnsortedClustersDevice;
+  std::array<int*, nLayers> mClustersIndexTablesDevice;
+  std::array<unsigned char*, nLayers> mUsedClustersDevice;
   std::array<int*, nLayers> mROFramesClustersDevice;
   const Cluster** mClustersDeviceArray;
   const Cluster** mUnsortedClustersDeviceArray;
+  const int** mClustersIndexTablesDeviceArray;
+  const unsigned char** mUsedClustersDeviceArray;
   const int** mROFrameClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
   const Tracklet** mTrackletsDeviceArray;

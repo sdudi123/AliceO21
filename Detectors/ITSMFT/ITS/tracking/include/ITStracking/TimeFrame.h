@@ -106,13 +106,16 @@ class TimeFrame
 
   float getBeamX() const;
   float getBeamY() const;
-
+  std::vector<float>& getMinRs() { return mMinR; }
+  std::vector<float>& getMaxRs() { return mMaxR; }
   float getMinR(int layer) const { return mMinR[layer]; }
   float getMaxR(int layer) const { return mMaxR[layer]; }
   float getMSangle(int layer) const { return mMSangles[layer]; }
   std::vector<float>& getMSangles() { return mMSangles; }
   float getPhiCut(int layer) const { return mPhiCuts[layer]; }
+  std::vector<float>& getPhiCuts() { return mPhiCuts; }
   float getPositionResolution(int layer) const { return mPositionResolution[layer]; }
+  std::vector<float>& getPositionResolutions() { return mPositionResolution; }
 
   gsl::span<Cluster> getClustersOnLayer(int rofId, int layerId);
   gsl::span<const Cluster> getClustersOnLayer(int rofId, int layerId) const;

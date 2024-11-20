@@ -39,9 +39,9 @@ struct gpuSpan {
   using ref = T&;
 
   GPUd() gpuSpan() : _data(nullptr), _size(0) {}
-  GPUd() gpuSpan(ptr data, std::size_t dim) : _data(data), _size(dim) {}
-  GPUd() ref operator[](std::size_t idx) const { return _data[idx]; }
-  GPUd() std::size_t size() const { return _size; }
+  GPUd() gpuSpan(ptr data, unsigned int dim) : _data(data), _size(dim) {}
+  GPUd() ref operator[](unsigned int idx) const { return _data[idx]; }
+  GPUd() unsigned int size() const { return _size; }
   GPUd() bool empty() const { return _size == 0; }
   GPUd() ref front() const { return _data[0]; }
   GPUd() ref back() const { return _data[_size - 1]; }
@@ -50,7 +50,7 @@ struct gpuSpan {
 
  protected:
   ptr _data;
-  std::size_t _size;
+  unsigned int _size;
 };
 
 template <typename T>
@@ -60,10 +60,10 @@ struct gpuSpan<const T> {
   using ref = const T&;
 
   GPUd() gpuSpan() : _data(nullptr), _size(0) {}
-  GPUd() gpuSpan(ptr data, std::size_t dim) : _data(data), _size(dim) {}
+  GPUd() gpuSpan(ptr data, unsigned int dim) : _data(data), _size(dim) {}
   GPUd() gpuSpan(const gpuSpan<T>& other) : _data(other._data), _size(other._size) {}
-  GPUd() ref operator[](std::size_t idx) const { return _data[idx]; }
-  GPUd() std::size_t size() const { return _size; }
+  GPUd() ref operator[](unsigned int idx) const { return _data[idx]; }
+  GPUd() unsigned int size() const { return _size; }
   GPUd() bool empty() const { return _size == 0; }
   GPUd() ref front() const { return _data[0]; }
   GPUd() ref back() const { return _data[_size - 1]; }
@@ -72,7 +72,7 @@ struct gpuSpan<const T> {
 
  protected:
   ptr _data;
-  std::size_t _size;
+  unsigned int _size;
 };
 
 enum class Task {
