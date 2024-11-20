@@ -33,7 +33,9 @@ inline constexpr bool is_specialization_v = is_specialization<T, Ref>::value;
 
 template <template <typename...> typename T, typename S>
 concept specialization_of_template = requires {
-  {[]<typename... Ts>(T<Ts...>*) -> T<Ts...> {}(std::declval<S*>())} -> std::same_as<S>;
+  {
+    []<typename... Ts>(T<Ts...>*) -> T<Ts...> {}(std::declval<S*>())
+  } -> std::same_as<S>;
 };
 
 template <typename A, typename B>
