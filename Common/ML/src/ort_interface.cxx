@@ -107,7 +107,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
 
   pImplOrt->env = std::make_shared<Ort::Env>(OrtLoggingLevel(loggingLevel), (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()));
-  (pImplOrt->session).reset(new Ort::Session{*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
     mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
@@ -145,7 +145,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 
 void OrtModel::resetSession()
 {
-  (pImplOrt->session).reset(new Ort::Session{*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 }
 
 template <class I, class O>
@@ -156,8 +156,9 @@ std::vector<O> OrtModel::v2v(std::vector<I>& input, bool clearInput)
   } else {
     std::vector<O> output(input.size());
     std::transform(std::begin(input), std::end(input), std::begin(output), [](I f) { return O(f); });
-    if (clearInput)
+    if (clearInput) {
       input.clear();
+    }
     return output;
   }
 }
@@ -167,7 +168,7 @@ std::vector<O> OrtModel::inference(std::vector<I>& input)
 {
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
-  inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(input)).data(), input.size(), inputShape.data(), inputShape.size()));
+  inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, reinterpret_cast<O*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
   O* outputValues = reinterpret_cast<O*>(outputTensors[0].template GetTensorMutableData<O>());
@@ -182,7 +183,7 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
   std::vector<Ort::Value> inputTensor;
   for (auto i : input) {
     std::vector<int64_t> inputShape{(int64_t)(i.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
-    inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, (reinterpret_cast<O*>(i)).data(), i.size(), inputShape.data(), inputShape.size()));
+    inputTensor.emplace_back(Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, reinterpret_cast<O*>(i.data()), i.size(), inputShape.data(), inputShape.size()));
   }
   // input.clear();
   auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
@@ -195,8 +196,9 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
 std::string OrtModel::printShape(const std::vector<int64_t>& v)
 {
   std::stringstream ss("");
-  for (size_t i = 0; i < v.size() - 1; i++)
+  for (size_t i = 0; i < v.size() - 1; i++) {
     ss << v[i] << "x";
+  }
   ss << v[v.size() - 1];
   return ss.str();
 }

@@ -115,15 +115,16 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
         clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_VERSION, sizeof(platform_version), platform_version, nullptr);
         clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_NAME, sizeof(platform_name), platform_name, nullptr);
         clGetPlatformInfo(mInternals->platforms[i_platform], CL_PLATFORM_VENDOR, sizeof(platform_vendor), platform_vendor, nullptr);
-        if (mProcessingSettings.debugLevel >= 2) {
-          GPUInfo("Available Platform %d: (%s %s) %s %s", i_platform, platform_profile, platform_version, platform_vendor, platform_name);
-        }
+        const char* platformUsageInfo = "";
         if (!found && CheckPlatform(i_platform)) {
           found = true;
           mInternals->platform = mInternals->platforms[i_platform];
           if (mProcessingSettings.debugLevel >= 2) {
-            GPUInfo("    Using this platform");
+            platformUsageInfo = "    !!! Using this platform !!!";
           }
+        }
+        if (mProcessingSettings.debugLevel >= 2) {
+          GPUInfo("Available Platform %d: (%s %s) %s %s%s", i_platform, platform_profile, platform_version, platform_vendor, platform_name, platformUsageInfo);
         }
       }
     }
@@ -358,6 +359,11 @@ int32_t GPUReconstructionOCL::InitDevice_Runtime()
     mInternals = master->mInternals;
   }
 
+  for (uint32_t i = 0; i < mEvents.size(); i++) {
+    cl_event* events = (cl_event*)mEvents[i].data();
+    new (events) cl_event[mEvents[i].size()];
+  }
+
   return (0);
 }
 
@@ -431,7 +437,7 @@ size_t GPUReconstructionOCL::WriteToConstantMemory(size_t offset, const void* sr
 
 void GPUReconstructionOCL::ReleaseEvent(deviceEvent ev) { GPUFailedMsg(clReleaseEvent(ev.get<cl_event>())); }
 
-void GPUReconstructionOCL::RecordMarker(deviceEvent ev, int32_t stream) { GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream], 0, nullptr, ev.getEventList<cl_event>())); }
+void GPUReconstructionOCL::RecordMarker(deviceEvent* ev, int32_t stream) { GPUFailedMsg(clEnqueueMarkerWithWaitList(mInternals->command_queue[stream], 0, nullptr, ev->getEventList<cl_event>())); }
 
 int32_t GPUReconstructionOCL::DoStuckProtection(int32_t stream, deviceEvent event)
 {

@@ -121,7 +121,7 @@ set(HDRS_INSTALL
     Base/GPUReconstructionKernels.h
     DataCompression/GPUTPCClusterRejection.h
     DataCompression/GPUTPCCompressionKernels.inc
-    DataCompression/TPCClusterDecompressor.inc
+    DataCompression/TPCClusterDecompressionCore.inc
     DataTypes/GPUdEdxInfo.h
     DataTypes/GPUHostDataTypes.h
     DataTypes/GPUO2DataTypes.h
@@ -167,6 +167,7 @@ set(HDRS_INSTALL
     TRDTracking/GPUTRDTrackletLabels.h
     TRDTracking/GPUTRDTrackPoint.h
     TRDTracking/GPUTRDTrackPoint.h
+    DataTypes/GPUTPCGMPolynomialField.h
 )
 
 # Sources for O2 and for Standalone if requested in config file
@@ -265,7 +266,7 @@ endif()
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
 file(GENERATE
      OUTPUT include_gpu_onthefly/GPUReconstructionKernelList.h
-     INPUT Base/GPUReconstructionKernels.template.h
+     INPUT Base/GPUReconstructionKernelList.template.h
 )
 file(GENERATE
      OUTPUT include_gpu_onthefly/GPUReconstructionKernelIncludes.h

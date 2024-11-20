@@ -618,7 +618,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   }
 
   size_t nClsTotal = 0;
-  ClusterNativeAccess* tmpNative = mClusterNativeAccess.get();
+  ClusterNativeAccess* tmpNativeAccess = mClusterNativeAccess.get();
+  ClusterNative* tmpNativeClusters = nullptr;
+  std::unique_ptr<ClusterNative[]> tmpNativeClusterBuffer;
 
   // setup MC Labels
   bool propagateMCLabels = GetProcessingSettings().runMC && processors()->ioPtrs.tpcPackedDigits && processors()->ioPtrs.tpcPackedDigits->tpcDigitsMC;
@@ -636,7 +638,13 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     if (mWaitForFinalInputs) {
       GPUFatal("Cannot use waitForFinalInput callback without delayed output");
     }
-    AllocateRegisteredMemory(mInputsHost->mResourceClusterNativeOutput, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::clustersNative)]);
+    if (!GetProcessingSettings().tpcApplyDebugClusterFilter) {
+      AllocateRegisteredMemory(mInputsHost->mResourceClusterNativeOutput, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::clustersNative)]);
+      tmpNativeClusters = mInputsHost->mPclusterNativeOutput;
+    } else {
+      tmpNativeClusterBuffer = std::make_unique<ClusterNative[]>(mInputsHost->mNClusterNative);
+      tmpNativeClusters = tmpNativeClusterBuffer.get();
+    }
   }
 
   GPUTPCLinearLabels mcLinearLabels;
@@ -864,8 +872,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
 
         if (fragment.index == 0) {
-          runKernel<GPUMemClean16>({GetGridAutoStep(lane, RecoStep::TPCClusterFinding), krnlRunRangeNone, {nullptr, transferRunning[lane] == 1 ? &mEvents->stream[lane] : nullptr}}, clustererShadow.mPclusterInRow, GPUCA_ROW_COUNT * sizeof(*clustererShadow.mPclusterInRow));
-          transferRunning[lane] = 2;
+          deviceEvent* waitEvent = nullptr;
+          if (transferRunning[lane] == 1) {
+            waitEvent = &mEvents->stream[lane];
+            transferRunning[lane] = 2;
+          }
+          runKernel<GPUMemClean16>({GetGridAutoStep(lane, RecoStep::TPCClusterFinding), krnlRunRangeNone, {nullptr, waitEvent}}, clustererShadow.mPclusterInRow, GPUCA_ROW_COUNT * sizeof(*clustererShadow.mPclusterInRow));
         }
 
         if (clusterer.mPmemory->counters.nClusters == 0) {
@@ -961,7 +973,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     bool anyLaneHasData = false;
     for (int32_t lane = 0; lane < maxLane; lane++) {
       uint32_t iSlice = iSliceBase + lane;
-      std::fill(&tmpNative->nClusters[iSlice][0], &tmpNative->nClusters[iSlice][0] + MAXGLOBALPADROW, 0);
+      std::fill(&tmpNativeAccess->nClusters[iSlice][0], &tmpNativeAccess->nClusters[iSlice][0] + MAXGLOBALPADROW, 0);
       if (doGPU) {
         SynchronizeStream(lane);
       }
@@ -983,15 +995,15 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               GPUMemCpyAlways(RecoStep::TPCClusterFinding, (void*)&mInputsShadow->mPclusterNativeBuffer[nClsTotal], (const void*)&clustererShadow.mPclusterByRow[j * clusterer.mNMaxClusterPerRow], sizeof(mIOPtrs.clustersNative->clustersLinear[0]) * clusterer.mPclusterInRow[j], mRec->NStreams() - 1, -2);
             }
           } else if (buildNativeHost) {
-            GPUMemCpyAlways(RecoStep::TPCClusterFinding, (void*)&mInputsHost->mPclusterNativeOutput[nClsTotal], (const void*)&clustererShadow.mPclusterByRow[j * clusterer.mNMaxClusterPerRow], sizeof(mIOPtrs.clustersNative->clustersLinear[0]) * clusterer.mPclusterInRow[j], mRec->NStreams() - 1, false);
+            GPUMemCpyAlways(RecoStep::TPCClusterFinding, (void*)&tmpNativeClusters[nClsTotal], (const void*)&clustererShadow.mPclusterByRow[j * clusterer.mNMaxClusterPerRow], sizeof(mIOPtrs.clustersNative->clustersLinear[0]) * clusterer.mPclusterInRow[j], mRec->NStreams() - 1, false);
           }
-          tmpNative->nClusters[iSlice][j] += clusterer.mPclusterInRow[j];
+          tmpNativeAccess->nClusters[iSlice][j] += clusterer.mPclusterInRow[j];
           nClsTotal += clusterer.mPclusterInRow[j];
         }
         if (transferRunning[lane]) {
           ReleaseEvent(mEvents->stream[lane], doGPU);
         }
-        RecordMarker(mEvents->stream[lane], mRec->NStreams() - 1);
+        RecordMarker(&mEvents->stream[lane], mRec->NStreams() - 1);
         transferRunning[lane] = 1;
       }
 
@@ -1013,9 +1025,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     }
     if (buildNativeHost && buildNativeGPU && anyLaneHasData) {
       if (GetProcessingSettings().delayedOutput) {
-        mOutputQueue.emplace_back(outputQueueEntry{(void*)((char*)&mInputsHost->mPclusterNativeOutput[nClsFirst] - (char*)&mInputsHost->mPclusterNativeOutput[0]), &mInputsShadow->mPclusterNativeBuffer[nClsFirst], (nClsTotal - nClsFirst) * sizeof(mInputsHost->mPclusterNativeOutput[nClsFirst]), RecoStep::TPCClusterFinding});
+        mOutputQueue.emplace_back(outputQueueEntry{(void*)((char*)&tmpNativeClusters[nClsFirst] - (char*)&tmpNativeClusters[0]), &mInputsShadow->mPclusterNativeBuffer[nClsFirst], (nClsTotal - nClsFirst) * sizeof(tmpNativeClusters[0]), RecoStep::TPCClusterFinding});
       } else {
-        GPUMemCpy(RecoStep::TPCClusterFinding, (void*)&mInputsHost->mPclusterNativeOutput[nClsFirst], (const void*)&mInputsShadow->mPclusterNativeBuffer[nClsFirst], (nClsTotal - nClsFirst) * sizeof(mInputsHost->mPclusterNativeOutput[0]), mRec->NStreams() - 1, false);
+        GPUMemCpy(RecoStep::TPCClusterFinding, (void*)&tmpNativeClusters[nClsFirst], (const void*)&mInputsShadow->mPclusterNativeBuffer[nClsFirst], (nClsTotal - nClsFirst) * sizeof(tmpNativeClusters[0]), mRec->NStreams() - 1, false);
       }
     }
 
@@ -1073,16 +1085,26 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   if (buildNativeHost && buildNativeGPU && GetProcessingSettings().delayedOutput) {
     mInputsHost->mNClusterNative = mInputsShadow->mNClusterNative = nClsTotal;
     AllocateRegisteredMemory(mInputsHost->mResourceClusterNativeOutput, mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::clustersNative)]);
+    tmpNativeClusters = mInputsHost->mPclusterNativeOutput;
     for (uint32_t i = outputQueueStart; i < mOutputQueue.size(); i++) {
-      mOutputQueue[i].dst = (char*)mInputsHost->mPclusterNativeOutput + (size_t)mOutputQueue[i].dst;
+      mOutputQueue[i].dst = (char*)tmpNativeClusters + (size_t)mOutputQueue[i].dst;
     }
   }
 
   if (buildNativeHost) {
-    tmpNative->clustersLinear = mInputsHost->mPclusterNativeOutput;
-    tmpNative->clustersMCTruth = mcLabelsConstView;
-    tmpNative->setOffsetPtrs();
-    mIOPtrs.clustersNative = tmpNative;
+    tmpNativeAccess->clustersLinear = tmpNativeClusters;
+    tmpNativeAccess->clustersMCTruth = mcLabelsConstView;
+    tmpNativeAccess->setOffsetPtrs();
+    mIOPtrs.clustersNative = tmpNativeAccess;
+    if (GetProcessingSettings().tpcApplyDebugClusterFilter) {
+      auto allocator = [this, &tmpNativeClusters](size_t size) {
+        this->mInputsHost->mNClusterNative = size;
+        this->AllocateRegisteredMemory(this->mInputsHost->mResourceClusterNativeOutput, this->mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::clustersNative)]);
+        return (tmpNativeClusters = this->mInputsHost->mPclusterNativeOutput);
+      };
+      RunTPCClusterFilter(tmpNativeAccess, allocator, false);
+      nClsTotal = tmpNativeAccess->nClustersTotal;
+    }
   }
 
   if (!mWaitForFinalInputs) {
@@ -1106,11 +1128,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   if (buildNativeHost && (GetProcessingSettings().deterministicGPUReconstruction || GetProcessingSettings().debugLevel >= 4)) {
     for (uint32_t i = 0; i < NSLICES; i++) {
       for (uint32_t j = 0; j < GPUCA_ROW_COUNT; j++) {
-        std::sort(&mInputsHost->mPclusterNativeOutput[tmpNative->clusterOffset[i][j]], &mInputsHost->mPclusterNativeOutput[tmpNative->clusterOffset[i][j] + tmpNative->nClusters[i][j]]);
+        std::sort(&tmpNativeClusters[tmpNativeAccess->clusterOffset[i][j]], &tmpNativeClusters[tmpNativeAccess->clusterOffset[i][j] + tmpNativeAccess->nClusters[i][j]]);
       }
     }
     if (buildNativeGPU) {
-      GPUMemCpy(RecoStep::TPCClusterFinding, (void*)mInputsShadow->mPclusterNativeBuffer, (const void*)mInputsHost->mPclusterNativeOutput, nClsTotal * sizeof(mInputsHost->mPclusterNativeOutput[0]), -1, true);
+      GPUMemCpy(RecoStep::TPCClusterFinding, (void*)mInputsShadow->mPclusterNativeBuffer, (const void*)tmpNativeClusters, nClsTotal * sizeof(tmpNativeClusters[0]), -1, true);
     }
   }
   mRec->MemoryScalers()->nTPCHits = nClsTotal;
