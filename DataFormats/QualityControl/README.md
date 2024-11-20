@@ -55,7 +55,7 @@ Each Flag Type has the following attributes:
 * **Adding new Flag Types:** If a new issue requires a flag not currently defined, propose the addition by contacting the async QC coordinators.
   They have the authority to add new Flag Types to the RCT.
   These changes will then be reflected in the [flagTypes.csv](etc/flagTypes.csv) file through a pull request.
-  Any proposals for new Flag Types should describe the effects on usability of data from analyzer point of view and they should not be detector-specific unless well-argumented. 
+  Any proposals for new Flag Types should describe the effects on usability of data from analyzer point of view and they should not be detector-specific unless well-argumented.
 * **Modification of existing Flag Types:** Existing Flag Types should not be modified in terms of their definition.
   Instead, one may create a new Flag Type and mark the existing one as obsolete in the CSV table.
   This will add the `[[ deprecated ]]` attribute to the corresponding method.
