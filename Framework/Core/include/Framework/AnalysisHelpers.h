@@ -192,7 +192,7 @@ struct ProducesGroup {
 };
 
 /// Helper template for table transformations
-template <o2::aod::is_metadata M, soa::TableRef Ref>
+template <soa::is_metadata M, soa::TableRef Ref>
 struct TableTransform {
   using metadata = M;
   constexpr static auto sources = M::sources;
