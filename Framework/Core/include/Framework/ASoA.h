@@ -390,8 +390,8 @@ concept is_metadata_trait = framework::specialization_of_template<aod::MetadataT
 template <typename T>
 concept has_metadata = is_metadata_trait<T> && not_void<typename T::metadata>;
 
-// template <typename T>
-// concept has_sources = is_metadata<T> && not_void<typename T::sources>;
+template <typename T>
+concept has_extension = is_metadata<T> && not_void<typename T::extension_table_t>;
 
 template <typename T>
 concept is_spawnable_column = std::same_as<typename T::spawnable_t, std::true_type>;

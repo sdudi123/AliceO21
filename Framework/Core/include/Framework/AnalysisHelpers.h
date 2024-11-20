@@ -229,7 +229,7 @@ struct TableTransform {
 /// This helper struct allows you to declare extended tables which should be
 /// created by the task (as opposed to those pre-defined by data model)
 template <typename T>
-concept is_spawnable = soa::is_table<T> && soa::has_metadata<aod::MetadataTrait<T>> && !soa::is_index_table<T>;
+concept is_spawnable = soa::has_metadata<aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>> && soa::has_extension<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata>;
 
 template <is_spawnable T>
 constexpr auto transformBase()
