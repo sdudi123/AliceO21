@@ -229,11 +229,18 @@ struct TableTransform {
 /// This helper struct allows you to declare extended tables which should be
 /// created by the task (as opposed to those pre-defined by data model)
 template <typename T>
-concept is_spawnable = soa::is_table<T> && soa::has_metadata<aod::MetadataTrait<T>>;
+concept is_spawnable = soa::is_table<T> && soa::has_metadata<aod::MetadataTrait<T>> && !soa::is_index_table<T>;
 
 template <is_spawnable T>
-struct Spawns : TableTransform<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata, T::ref> {
-  using metadata = TableTransform<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata, T::ref>::metadata;
+constexpr auto transformBase()
+{
+  using metadata = typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+  return TableTransform<metadata, metadata::extension_table_t::ref>{};
+}
+
+template <is_spawnable T>
+struct Spawns : decltype(transformBase<T>()) {
+  using metadata = decltype(transformBase<T>())::metadata;
   using extension_t = typename metadata::extension_table_t;
   using base_table_t = typename metadata::base_table_t;
   using expression_pack_t = typename metadata::expression_pack_t;
@@ -393,9 +400,17 @@ struct IndexBuilder {
 };
 
 /// This helper struct allows you to declare index tables to be created in a task
+
 template <soa::is_index_table T>
-struct Builds : TableTransform<typename aod::MetadataTrait<aod::Hash<T::ref.desc_hash>>::metadata, T::ref> {
-  using metadata = TableTransform<typename aod::MetadataTrait<aod::Hash<T::ref.desc_hash>>::metadata, T::ref>::metadata;
+constexpr auto transformBase()
+{
+  using metadata = typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+  return TableTransform<metadata, T::ref>{};
+}
+
+template <soa::is_index_table T>
+struct Builds : decltype(transformBase<T>()) {
+  using metadata = decltype(transformBase<T>())::metadata;
   using IP = std::conditional_t<metadata::exclusive, IndexBuilder<Exclusive>, IndexBuilder<Sparse>>;
   using Key = metadata::Key;
   using H = typename T::first_t;

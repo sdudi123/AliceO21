@@ -390,7 +390,7 @@ static inline auto extractOriginalsVector(framework::pack<Os...>, ProcessingCont
   return std::vector{extractOriginalJoined<Os>(pc)...};
 }
 
-template <typename T>
+template <soa::is_index_table T>
 struct OutputManager<Builds<T>> {
   static bool appendOutput(std::vector<OutputSpec>& outputs, Builds<T>& what, uint32_t)
   {
