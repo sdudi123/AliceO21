@@ -93,9 +93,9 @@ struct WritingCursor {
   using cursor_t = decltype(std::declval<TableBuilder>().cursor<persistent_table_t>());
 
   template <typename... Ts>
+    requires (sizeof...(Ts) == framework::pack_size(typename persistent_table_t::persistent_columns_t{}))
   void operator()(Ts... args)
   {
-    static_assert(sizeof...(Ts) == framework::pack_size(typename persistent_table_t::persistent_columns_t{}), "Argument number mismatch");
     ++mCount;
     cursor(0, extract(args)...);
   }
