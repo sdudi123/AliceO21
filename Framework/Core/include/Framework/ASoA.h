@@ -139,27 +139,34 @@ consteval auto intersect()
 
 template <typename T, typename... Ts>
 consteval auto mergeOriginals()
-  requires(sizeof...(Ts) > 0)
+  requires(sizeof...(Ts) == 1)
 {
-  if constexpr (sizeof...(Ts) == 1) {
-    using T1 = framework::pack_head_t<framework::pack<Ts...>>;
-    return merge<T::originals.size(), T1::originals.size(), T::originals, T1::originals>();
-  } else {
-    constexpr auto tail = mergeOriginals<Ts...>();
-    return merge<T::originals.size(), tail.size(), T::originals, tail>();
-  }
+  using T1 = framework::pack_head_t<framework::pack<Ts...>>;
+  return merge<T::originals.size(), T1::originals.size(), T::originals, T1::originals>();
 }
 
 template <typename T, typename... Ts>
+consteval auto mergeOriginals()
+  requires(sizeof...(Ts) > 1)
+{
+  constexpr auto tail = mergeOriginals<Ts...>();
+  return merge<T::originals.size(), tail.size(), T::originals, tail>();
+}
+
+template <typename T, typename... Ts>
+  requires (sizeof...(Ts) == 1)
 consteval auto intersectOriginals()
 {
-  if constexpr (sizeof...(Ts) == 1) {
-    using T1 = framework::pack_head_t<framework::pack<Ts...>>;
-    return intersect<T::originals.size(), T1::originals.size(), T::originals, T1::originals>();
-  } else {
-    constexpr auto tail = intersectOriginals<Ts...>();
-    return intersect<T::originals.size(), tail.size(), T::originals, tail>();
-  }
+  using T1 = framework::pack_head_t<framework::pack<Ts...>>;
+  return intersect<T::originals.size(), T1::originals.size(), T::originals, T1::originals>();
+}
+
+template <typename T, typename... Ts>
+  requires (sizeof...(Ts) > 1)
+consteval auto intersectOriginals()
+{
+  constexpr auto tail = intersectOriginals<Ts...>();
+  return intersect<T::originals.size(), tail.size(), T::originals, tail>();
 }
 } // namespace o2::soa
 
