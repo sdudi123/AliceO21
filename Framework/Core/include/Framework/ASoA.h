@@ -154,7 +154,7 @@ consteval auto mergeOriginals()
 }
 
 template <typename T, typename... Ts>
-  requires (sizeof...(Ts) == 1)
+  requires(sizeof...(Ts) == 1)
 consteval auto intersectOriginals()
 {
   using T1 = framework::pack_head_t<framework::pack<Ts...>>;
@@ -162,7 +162,7 @@ consteval auto intersectOriginals()
 }
 
 template <typename T, typename... Ts>
-  requires (sizeof...(Ts) > 1)
+  requires(sizeof...(Ts) > 1)
 consteval auto intersectOriginals()
 {
   constexpr auto tail = intersectOriginals<Ts...>();
