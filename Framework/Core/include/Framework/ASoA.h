@@ -186,7 +186,7 @@ template <typename C>
 using is_persistent_column_t = std::conditional_t<is_persistent_column<C>, std::true_type, std::false_type>;
 
 template <typename C>
-concept is_index_column = requires { not_void<typename C::binding_t>; };
+concept is_index_column = requires { requires not_void<typename C::binding_t>; };
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
