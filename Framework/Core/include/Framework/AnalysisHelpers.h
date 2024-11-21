@@ -32,9 +32,9 @@ template <TableRef R>
 constexpr auto tableRef2InputSpec()
 {
   return framework::InputSpec{
-    o2::aod::Hash<R.label_hash>::str,
-    o2::aod::Hash<R.origin_hash>::origin,
-    o2::aod::description(o2::aod::Hash<R.desc_hash>::str),
+    o2::aod::label<R>(),
+    o2::aod::origin<R>(),
+    o2::aod::description(o2::aod::signature<R>()),
     R.version};
 }
 
@@ -42,9 +42,9 @@ template <TableRef R>
 constexpr auto tableRef2OutputSpec()
 {
   return framework::OutputSpec{
-    framework::OutputLabel{o2::aod::Hash<R.label_hash>::str},
-    o2::aod::Hash<R.origin_hash>::origin,
-    o2::aod::description(o2::aod::Hash<R.desc_hash>::str),
+    framework::OutputLabel{o2::aod::label<R>()},
+    o2::aod::origin<R>(),
+    o2::aod::description(o2::aod::signature<R>()),
     R.version};
 }
 
@@ -52,8 +52,8 @@ template <TableRef R>
 constexpr auto tableRef2Output()
 {
   return framework::Output{
-    o2::aod::Hash<R.origin_hash>::origin,
-    o2::aod::description(o2::aod::Hash<R.desc_hash>::str),
+    o2::aod::origin<R>(),
+    o2::aod::description(o2::aod::signature<R>()),
     R.version};
 }
 
@@ -61,7 +61,7 @@ template <TableRef R>
 constexpr auto tableRef2OutputRef()
 {
   return framework::OutputRef{
-    o2::aod::Hash<R.label_hash>::str,
+    o2::aod::label<R>(),
     R.version};
 }
 
@@ -69,7 +69,7 @@ template <TableRef R>
 constexpr auto tableRef2ConfigParamSpec()
 {
   return o2::framework::ConfigParamSpec{
-    std::string{"input:"} + o2::aod::Hash<R.label_hash>::str,
+    std::string{"input:"} + o2::aod::label<R>(),
     framework::VariantType::String,
     aod::sourceSpec<R>(),
     {"\"\""}};
@@ -163,12 +163,12 @@ struct OutputForTable {
 
   static OutputSpec const spec()
   {
-    return OutputSpec{OutputLabel{o2::aod::Hash<T::ref.label_hash>::str}, o2::aod::Hash<T::ref.origin_hash>::origin, o2::aod::description(o2::aod::Hash<T::ref.desc_hash>::str), T::ref.version};
+    return OutputSpec{OutputLabel{aod::label<T::ref>()}, o2::aod::origin<T::ref>(), o2::aod::description(o2::aod::signature<T::ref>()), T::ref.version};
   }
 
   static OutputRef ref()
   {
-    return OutputRef{o2::aod::Hash<T::ref.label_hash>::str, T::ref.version};
+    return OutputRef{aod::label<T::ref>(), T::ref.version};
   }
 };
 
@@ -440,7 +440,7 @@ struct Builds : decltype(transformBase<T>()) {
   template <typename Key, typename... Cs>
   auto build(framework::pack<Cs...>, std::vector<std::shared_ptr<arrow::Table>>&& tables)
   {
-    this->table = std::make_shared<T>(IP::template indexBuilder<Key, metadata::sources.size(), metadata::sources>(o2::aod::Hash<T::ref.label_hash>::str, std::forward<std::vector<std::shared_ptr<arrow::Table>>>(tables), framework::pack<Cs...>{}));
+    this->table = std::make_shared<T>(IP::template indexBuilder<Key, metadata::sources.size(), metadata::sources>(o2::aod::label<T::ref>(), std::forward<std::vector<std::shared_ptr<arrow::Table>>>(tables), framework::pack<Cs...>{}));
     return (this->table != nullptr);
   }
 };

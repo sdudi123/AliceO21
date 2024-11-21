@@ -137,7 +137,7 @@ struct AnalysisDataProcessorBuilder {
       auto inputSources = getInputMetadata<metadata>();
       inputMetadata.insert(inputMetadata.end(), inputSources.begin(), inputSources.end());
     }
-    DataSpecUtils::updateInputList(inputs, InputSpec{o2::aod::Hash<R.label_hash>::str, o2::aod::Hash<R.origin_hash>::origin, aod::description(o2::aod::Hash<R.desc_hash>::str), aod::version(o2::aod::Hash<R.desc_hash>::str), Lifetime::Timeframe, inputMetadata});
+    DataSpecUtils::updateInputList(inputs, InputSpec{o2::aod::label<R>(), o2::aod::origin<R>(), aod::description(o2::aod::signature<R>()), R.version, Lifetime::Timeframe, inputMetadata});
   }
 
   template <typename R, typename C, typename... Args>
@@ -185,7 +185,7 @@ struct AnalysisDataProcessorBuilder {
   template <soa::TableRef R>
   static auto extractTableFromRecord(InputRecord& record)
   {
-    auto table = record.get<TableConsumer>(o2::aod::Hash<R.label_hash>::str)->asArrowTable();
+    auto table = record.get<TableConsumer>(o2::aod::label<R>())->asArrowTable();
     if (table->num_rows() == 0) {
       table = makeEmptyTable<R>();
     }

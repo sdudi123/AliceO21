@@ -318,6 +318,31 @@ static inline constexpr header::DataDescription description(const char* const st
   return {out};
 }
 
+// Helpers to get strings from TableRef
+template <soa::TableRef R>
+consteval const char* label()
+{
+  return o2::aod::Hash<R.label_hash>::str;
+}
+
+template <soa::TableRef R>
+consteval const char* origin_str()
+{
+  return o2::aod::Hash<R.origin_hash>::str;
+}
+
+template <soa::TableRef R>
+consteval header::DataOrigin origin()
+{
+  return o2::aod::Hash<R.desc_hash>::origin;
+}
+
+template <soa::TableRef R>
+consteval const char* signature()
+{
+  return o2::aod::Hash<R.desc_hash>::str;
+}
+
 /// hash identification concepts
 template <typename T>
 concept is_aod_hash = requires(T t) { t.hash; t.str; };
@@ -329,7 +354,7 @@ concept is_origin_hash = is_aod_hash<T> && requires(T t) { t.origin; };
 template <soa::TableRef R>
 static constexpr auto sourceSpec()
 {
-  return fmt::format("{}/{}/{}/{}", o2::aod::Hash<R.label_hash>::str, o2::aod::Hash<R.origin_hash>::str, description(o2::aod::Hash<R.desc_hash>::str), R.version);
+  return fmt::format("{}/{}/{}/{}", label<R>(), origin_str<R>(), description_str(signature<R>()), R.version);
 }
 } // namespace o2::aod
 
@@ -1233,7 +1258,7 @@ concept is_index_table = framework::specialization_of_template<o2::soa::IndexTab
 template <soa::is_table T>
 static constexpr std::string getLabelForTable()
 {
-  return std::string{o2::aod::Hash<std::decay_t<T>::originals[0].label_hash>::str};
+  return std::string{aod::label<std::decay_t<T>::originals[0]>()};
 }
 
 template <soa::is_table T>
@@ -1269,7 +1294,7 @@ static constexpr auto hasColumnForKey(framework::pack<C...>, std::string const& 
 template <TableRef ref>
 static constexpr std::pair<bool, std::string> hasKey(std::string const& key)
 {
-  return {hasColumnForKey(typename aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>::metadata::columns{}, key), o2::aod::Hash<ref.label_hash>::str};
+  return {hasColumnForKey(typename aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>::metadata::columns{}, key), aod::label<ref>()};
 }
 
 template <typename... C>

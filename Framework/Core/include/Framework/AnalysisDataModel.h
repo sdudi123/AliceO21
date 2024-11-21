@@ -1648,13 +1648,13 @@ using TrackedV0 = TrackedV0s::iterator;
 using Tracked3Bodys = Tracked3Bodys;
 using Tracked3body = Tracked3Bodys::iterator;
 
-namespace origin
+namespace origins
 {
 DECLARE_SOA_COLUMN(DataframeID, dataframeID, uint64_t); //! Data frame ID (what is usually found in directory name in the AO2D.root, i.e. DF_XXX)
 } // namespace origin
 
 DECLARE_SOA_TABLE(Origins, "AOD", "ORIGIN", //! Table which contains the IDs of all dataframes merged into this dataframe
-                  o2::soa::Index<>, origin::DataframeID);
+                  o2::soa::Index<>, origins::DataframeID);
 
 using Origin = Origins::iterator;
 

@@ -53,7 +53,7 @@ auto createTableCursor(framework::ProcessingContext& pc)
   framework::Produces<T> c;
   c.resetCursor(pc.outputs()
                   .make<framework::TableBuilder>(framework::OutputForTable<T>::ref()));
-  c.setLabel(o2::aod::Hash<T::ref.label_hash>::str);
+  c.setLabel(aod::label<T::ref>());
   return c;
 }
 } // namespace o2::aodhelpers

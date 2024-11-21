@@ -253,7 +253,7 @@ struct OutputManager<Produces<T>> {
   }
   static bool finalize(ProcessingContext&, Produces<T>& what)
   {
-    what.setLabel(o2::aod::Hash<Produces<T>::persistent_table_t::ref.label_hash>::str);
+    what.setLabel(o2::aod::label<Produces<T>::persistent_table_t::ref>());
     what.release();
     return true;
   }
@@ -335,7 +335,7 @@ template <size_t N, std::array<soa::TableRef, N> refs>
 static inline auto extractOriginals(ProcessingContext& pc)
 {
   return [&]<size_t... Is>(std::index_sequence<Is...>) -> std::vector<std::shared_ptr<arrow::Table>> {
-    return {pc.inputs().get<TableConsumer>(o2::aod::Hash<refs[Is].label_hash>::str)->asArrowTable()...};
+    return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
   }(std::make_index_sequence<refs.size()>());
 }
 
@@ -353,10 +353,10 @@ struct OutputManager<Spawns<T>> {
     auto originalTable = soa::ArrowHelpers::joinTables(extractOriginals<metadata::sources.size(), metadata::sources>(pc));
     if (originalTable->schema()->fields().empty() == true) {
       using base_table_t = typename Spawns<T>::base_table_t::table_t;
-      originalTable = makeEmptyTable<base_table_t>(o2::aod::Hash<metadata::extension_table_t::ref.label_hash>::str);
+      originalTable = makeEmptyTable<base_table_t>(o2::aod::label<metadata::extension_table_t::ref>());
     }
 
-    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::Hash<metadata::extension_table_t::ref.label_hash>::str));
+    what.extension = std::make_shared<typename Spawns<T>::extension_t>(o2::framework::spawner<o2::aod::Hash<metadata::extension_table_t::ref.desc_hash>>(originalTable, o2::aod::label<metadata::extension_table_t::ref>()));
     what.table = std::make_shared<typename T::table_t>(soa::ArrowHelpers::joinTables({what.extension->asArrowTable(), originalTable}));
     return true;
   }

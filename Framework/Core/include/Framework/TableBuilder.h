@@ -871,7 +871,7 @@ auto makeEmptyTable()
 {
   TableBuilder b;
   [[maybe_unused]] auto writer = b.cursor(typename aod::MetadataTrait<aod::Hash<R.desc_hash>>::metadata::columns{});
-  b.setLabel(aod::Hash<R.label_hash>::str);
+  b.setLabel(aod::label<R>());
   return b.finalize();
 }
 
