@@ -334,7 +334,7 @@ consteval const char* origin_str()
 template <soa::TableRef R>
 consteval header::DataOrigin origin()
 {
-  return o2::aod::Hash<R.desc_hash>::origin;
+  return o2::aod::Hash<R.origin_hash>::origin;
 }
 
 template <soa::TableRef R>
