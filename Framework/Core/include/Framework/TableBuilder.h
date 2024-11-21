@@ -870,7 +870,7 @@ template <soa::TableRef R>
 auto makeEmptyTable()
 {
   TableBuilder b;
-  [[maybe_unused]] auto writer = b.cursor(typename aod::MetadataTrait<aod::Hash<R.desc_hash>>::metadata::columns{});
+  [[maybe_unused]] auto writer = b.cursor(typename aod::MetadataTrait<aod::Hash<R.desc_hash>>::metadata::persistent_columns_t{});
   b.setLabel(aod::label<R>());
   return b.finalize();
 }
