@@ -223,7 +223,7 @@ o2::ctf::CTFIOSize CTFCoder::decode(const CTF::base& ec, VTRG& data, LumiInfo& l
     if (mCTPConfig.getRunNumber() != 0) {
       trgclassmask = mCTPConfig.getTriggerClassMask();
     }
-    std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
+    //std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
     o2::pmr::vector<CTPDigit> digits;
     o2::ctp::RawDataDecoder::shiftInputs(digitsMap, digits, mFirstTFOrbit, trgclassmask);
     for (auto const& dig : digits) {
