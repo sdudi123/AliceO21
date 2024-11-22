@@ -781,17 +781,19 @@ struct Index : o2::soa::IndexColumn<Index<START, END>> {
   std::tuple<uint64_t const*> rowOffsets;
 };
 
+template <typename D>
+concept is_indexing_column = requires {
+  []<int64_t S, int64_t E>(o2::soa::Index<S, E>*){}(std::declval<D*>());
+};
+
 template <typename T>
-concept is_dynamic_column = framework::is_base_of_template_v<soa::DynamicColumn, T>;
+concept is_dynamic_column = framework::base_of_template<soa::DynamicColumn, T>;
 
 template <typename T>
 using is_dynamic_t = std::conditional_t<is_dynamic_column<T>, std::true_type, std::false_type>;
 
 template <typename T>
-concept is_indexing_column = framework::is_base_of_template_v<soa::IndexColumn, T>;
-
-template <typename T>
-concept is_column = framework::is_base_of_template_v<soa::Column, T> || is_dynamic_column<T> || is_indexing_column<T> || framework::is_base_of_template_v<soa::MarkerColumn, T>;
+concept is_column = framework::base_of_template<soa::Column, T> || is_dynamic_column<T> || is_indexing_column<T> || framework::base_of_template<soa::MarkerColumn, T>;
 
 template <typename T>
 using is_indexing_t = std::conditional_t<is_indexing_column<T>, std::true_type, std::false_type>;
