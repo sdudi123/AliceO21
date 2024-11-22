@@ -607,8 +607,8 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
         if (d.intRecord.bc == (o2::constants::lhc::LHCMaxBunches - L1shift)) { // input can be lost because latency class-l1input = 1
           nTwoIlost++;
         } else {
-          //LOG(error) << d.intRecord << " " << d.CTPClassMask << " " << d.CTPInputMask;
-          //std::cout << "ERROR:" << std::hex << d.CTPClassMask << " " << d.CTPInputMask << std::dec << std::endl;
+          // LOG(error) << d.intRecord << " " << d.CTPClassMask << " " << d.CTPInputMask;
+          // std::cout << "ERROR:" << std::hex << d.CTPClassMask << " " << d.CTPInputMask << std::dec << std::endl;
           nTwoI++;
         }
       }
@@ -618,7 +618,7 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
   if (nTwoI) { // Trigger class wo Input
     LOG(error) << "LM:" << nLM << " L0:" << nL0 << " L1:" << nL1 << " TwI:" << nTwI << " Trigger classes wo input:" << nTwoI;
   }
-  if(nTwoIlost) {
+  if (nTwoIlost) {
     LOG(warn) << " Trigger classes wo input from diff latency 1:" << nTwoIlost;
   }
   return 0;
