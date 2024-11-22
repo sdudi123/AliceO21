@@ -13,8 +13,9 @@
 #include <CCDB/BasicCCDBManager.h>
 #include <DataFormatsCTP/Configuration.h>
 #include "CTPWorkflowScalers/ctpCCDBManager.h"
-#include "Framework/Logger.h"
 #endif
+
+#include "Framework/Logger.h"
 using namespace o2::ctp;
 
 void TestConfig(bool test = 1)

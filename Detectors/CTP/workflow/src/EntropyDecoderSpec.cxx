@@ -95,7 +95,7 @@ DataProcessorSpec getEntropyDecoderSpec(int verbosity, unsigned int sspec)
   inputs.emplace_back("ctf_CTP", "CTP", "CTFDATA", sspec, Lifetime::Timeframe);
   inputs.emplace_back("ctfdict_CTP", "CTP", "CTFDICT", 0, Lifetime::Condition, ccdbParamSpec("CTP/Calib/CTFDictionaryTree"));
   inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, Lifetime::Condition, ccdbParamSpec("CTP/Config/TriggerOffsets"));
-
+  inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, Lifetime::Condition, ccdbParamSpec("CTP/Config/Config", 1));
   return DataProcessorSpec{
     "ctp-entropy-decoder",
     inputs,
