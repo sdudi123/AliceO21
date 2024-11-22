@@ -186,13 +186,13 @@ template <typename C>
 using is_persistent_column_t = std::conditional_t<is_persistent_column<C>, std::true_type, std::false_type>;
 
 template <typename C>
-concept is_index_column = requires { requires not_void<typename C::binding_t>; };
+concept is_self_index_column = not_void<typename C::self_index_t> && std::same_as<typename C::self_index_t, std::true_type>;
+
+template <typename C>
+concept is_index_column = !is_self_index_column<C> && (requires {&C::getId;} || requires {&C::getIds;});
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
-
-template <typename C>
-concept is_self_index_column = requires { typename C::self_index_t{}; };
 
 template <typename C>
 using is_self_index_t = typename std::conditional_t<is_self_index_column<C>, std::true_type, std::false_type>;
@@ -1793,7 +1793,7 @@ class Table
       if constexpr (framework::has_type<decayed>(bindings_pack_t{})) { // index to another table
         constexpr auto idx = framework::has_type_at_v<decayed>(bindings_pack_t{});
         return framework::pack_element_t<idx, external_index_columns_t>::getId();
-      } else if constexpr (std::is_same_v<decayed, Parent>) { // self index
+      } else if constexpr (std::same_as<decayed, Parent>) { // self index
         return this->globalIndex();
       } else if constexpr (is_indexing_column<decayed>) { // soa::Index<>
         return this->globalIndex();
