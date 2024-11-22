@@ -297,7 +297,7 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
     if (mCTPConfig.getRunNumber() != 0) {
       trgclassmask = mCTPConfig.getTriggerClassMask();
     }
-    //std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
+    // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
     shiftInputs(digitsMap, digits, mTFOrbit, trgclassmask);
   }
   if (mDoDigits && !mDecodeInps) {
