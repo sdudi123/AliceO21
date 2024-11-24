@@ -16,7 +16,7 @@
 #endif
 using namespace o2::ctp;
 
-void TestFetcher(int runNumber = 559456)
+void TestFetcher(int runNumber = 557251)
 {
   auto& ccdb = o2::ccdb::BasicCCDBManager::instance();
   std::pair<int64_t, int64_t> pp = ccdb.getRunDuration(runNumber);
@@ -25,9 +25,7 @@ void TestFetcher(int runNumber = 559456)
   // Opening run
   CTPRateFetcher fetcher;
   fetcher.setupRun(runNumber, &ccdb, ts, 0);
-  // ccdb.setURL("http://ali-qcdb-gpn.cern.ch:8083/");
-  ccdb.setURL("http://ccdb-test.cern.ch:8080/");
-
+  ccdb.setURL("http://ali-qcdb-gpn.cern.ch:8083/");
   std::string QCDBPathCTPScalers = "qc/CTP/Scalers";
   map<string, string> metadata; // can be empty
   std::string run = std::to_string(runNumber);

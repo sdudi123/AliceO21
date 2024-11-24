@@ -14,17 +14,15 @@
 #include <DataFormatsCTP/Configuration.h>
 #include "CTPWorkflowScalers/ctpCCDBManager.h"
 #endif
-
-#include "Framework/Logger.h"
 using namespace o2::ctp;
 
-void TestConfig(bool test = 1)
+void TestConfig(bool test = 0)
 {
   if (test == 0) {
     return;
   }
-  uint64_t timestamp = 1660276134898 + 10000;
-  std::string run = "523186";
+  uint64_t timestamp = 1660196771632;
+  std::string run = "523148";
   o2::ctp::ctpCCDBManager::setCCDBHost("https://alice-ccdb.cern.ch");
   bool ok;
   auto ctpcfg = o2::ctp::ctpCCDBManager::getConfigFromCCDB(timestamp, run, ok);
@@ -33,17 +31,13 @@ void TestConfig(bool test = 1)
   }
   CTPConfiguration ctpconfig;
   ctpconfig.loadConfigurationRun3(ctpcfg.getConfigString());
+  // ctpconfig.printStream(std::cout);
+  // return;
+  // ctpconfig.assignDescriptors();
+  // ctpconfig.createInputsInDecriptorsFromNames();
   ctpconfig.printStream(std::cout);
   auto& triggerclasses = ctpconfig.getCTPClasses();
   std::cout << "Found " << triggerclasses.size() << " trigger classes" << std::endl;
-  for (const auto& trg : triggerclasses) {
-    if (trg.cluster->maskCluster[o2::detectors::DetID::EMC]) {
-      // Class triggering EMCAL cluster
-      LOG(info) << "Found trigger class for EMCAL cluster: " << trg.name << " with input mask " << std::bitset<64>(trg.descriptor->getInputsMask());
-      trg.descriptor->getInputsMask();
-    }
-  }
-  return;
   int indexInList = 0;
   for (const auto& trgclass : triggerclasses) {
     uint64_t inputmask = 0;
