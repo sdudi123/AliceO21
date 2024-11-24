@@ -209,6 +209,7 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
   std::vector<o2::framework::OutputSpec> outputs;
   if (digits) {
     inputs.emplace_back("ctpconfig", "CTP", "CTPCONFIG", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/Config", 1));
+    inputs.emplace_back("trigoffset", "CTP", "Trig_Offset", 0, o2::framework::Lifetime::Condition, o2::framework::ccdbParamSpec("CTP/Config/TriggerOffsets"));
     outputs.emplace_back("CTP", "DIGITS", 0, o2::framework::Lifetime::Timeframe);
   }
   if (lumi) {

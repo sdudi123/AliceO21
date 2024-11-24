@@ -89,7 +89,7 @@ int RawDataDecoder::addCTPDigit(uint32_t linkCRU, uint32_t orbit, gbtword80_t& d
     }
   } else if (linkCRU == o2::ctp::GBTLinkIDClassRec) {
     int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
-    int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1 - 1;
+    int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
     LOG(debug) << "tcr ir ori:" << ir;
     if ((ir.orbit <= mTFOrbit) && ((int32_t)ir.bc < offset)) {
       // LOG(warning) << "Loosing tclass:" << ir;
@@ -535,7 +535,7 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
   int nTwoIlost = 0;
   std::map<o2::InteractionRecord, CTPDigit> digitsMapShifted;
   auto L0shift = o2::ctp::TriggerOffsetsParam::Instance().LM_L0;
-  auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1 + 1;
+  auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_inputs;
   for (auto const& dig : digitsMap) {
     auto inpmask = dig.second.CTPInputMask;
     auto inpmaskLM = inpmask & LMMASKInputs;
