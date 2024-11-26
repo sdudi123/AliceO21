@@ -201,7 +201,11 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
   if (!tf->checkMemory(mTrkParams[iteration].MaxMemory)) {
     return;
   }
-
+  for (auto& l : tf->getTrackletsLookupTable()) {
+    for (auto& t : l) {
+      std::cout << t << "\t";
+    }
+  }
 #pragma omp parallel for num_threads(mNThreads)
   for (int iLayer = 0; iLayer < mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
     /// Sort tracklets

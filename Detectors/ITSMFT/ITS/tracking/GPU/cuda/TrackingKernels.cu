@@ -386,8 +386,8 @@ GPUg() void computeLayerCellsKernel(
   for (int iCurrentTrackletIndex = blockIdx.x * blockDim.x + threadIdx.x; iCurrentTrackletIndex < nTrackletsCurrent; iCurrentTrackletIndex += blockDim.x * gridDim.x) {
     const Tracklet& currentTracklet = tracklets[layer][iCurrentTrackletIndex];
     const int nextLayerClusterIndex{currentTracklet.secondClusterIndex};
-    const int nextLayerFirstTrackletIndex{trackletsLUT[layer][nextLayerClusterIndex]};
-    const int nextLayerLastTrackletIndex{trackletsLUT[layer][nextLayerClusterIndex + 1]};
+    const int nextLayerFirstTrackletIndex{trackletsLUT[layer + 1][nextLayerClusterIndex]};
+    const int nextLayerLastTrackletIndex{trackletsLUT[layer + 1][nextLayerClusterIndex + 1]};
     if (nextLayerFirstTrackletIndex == nextLayerLastTrackletIndex) {
       continue;
     }
@@ -612,7 +612,7 @@ GPUg() void printBufferLayerOnThread(const int layer, const int* v, unsigned int
   }
 }
 
-GPUg() void printMatrixRow(const int row, const int** mat, const unsigned int rowLength, const int len = 256 * 128 + 1, const unsigned int tId = 0)
+GPUg() void printMatrixRow(const int row, int** mat, const unsigned int rowLength, const int len = 256 * 128 + 1, const unsigned int tId = 0)
 {
   if (blockIdx.x * blockDim.x + threadIdx.x == tId) {
     for (int i{0}; i < rowLength; ++i) {
@@ -723,34 +723,35 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    const int nThreads)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    // gpu::computeLayerTrackletsMultiROFKernel<<<1, 1>>>(
-    //   utils,
-    //   multMask,
-    //   iLayer,
-    //   startROF,
-    //   endROF,
-    //   maxROF,
-    //   deltaROF,
-    //   vertices,
-    //   rofPV,
-    //   nVertices,
-    //   vertexId,
-    //   clusters,
-    //   ROFClusters,
-    //   usedClusters,
-    //   clustersIndexTables,
-    //   trackletsLUTs,
-    //   iteration,
-    //   NSigmaCut,
-    //   phiCuts[iLayer],
-    //   resolutionPV,
-    //   minRs[iLayer + 1],
-    //   maxRs[iLayer + 1],
-    //   resolutions[iLayer],
-    //   radii[iLayer + 1] - radii[iLayer],
-    //   mulScatAng[iLayer]);
+    gpu::computeLayerTrackletsMultiROFKernel<<<1, 1>>>(
+      utils,
+      multMask,
+      iLayer,
+      startROF,
+      endROF,
+      maxROF,
+      deltaROF,
+      vertices,
+      rofPV,
+      nVertices,
+      vertexId,
+      clusters,
+      ROFClusters,
+      usedClusters,
+      clustersIndexTables,
+      trackletsLUTs,
+      iteration,
+      NSigmaCut,
+      phiCuts[iLayer],
+      resolutionPV,
+      minRs[iLayer + 1],
+      maxRs[iLayer + 1],
+      resolutions[iLayer],
+      radii[iLayer + 1] - radii[iLayer],
+      mulScatAng[iLayer]);
     gpuCheckError(cudaPeekAtLastError());
     gpuCheckError(cudaDeviceSynchronize());
+    gpu::printMatrixRow<<<1, 1>>>(iLayer, trackletsLUTs, 3000);
   }
 }
 
