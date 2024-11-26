@@ -231,11 +231,11 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
       {"max-input-size-fatal", o2::framework::VariantType::Bool, false, {"If true issue fatal error otherwise error on;y"}},
       {"ctpinputs-decoding", o2::framework::VariantType::Bool, false, {"Inputs alignment: true - raw decoder - has to be compatible with CTF decoder: allowed options: 10,01,00"}}}};
 }
- void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
- {
+void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
+{
   if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) {
     pc.inputs().get<o2::ctp::TriggerOffsetsParam*>("trigoffset");
     const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
-    LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes; 
+    LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes;
   }
- }
+}

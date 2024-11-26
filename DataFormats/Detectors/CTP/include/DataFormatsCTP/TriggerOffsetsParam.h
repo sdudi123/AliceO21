@@ -27,7 +27,7 @@ struct TriggerOffsetsParam : public o2::conf::ConfigurableParamHelper<TriggerOff
   int64_t L0_L1 = 281;           // trigger input latency
   int64_t globalInputsShift = 0; // Global shift of inps; customOffset[CTP] is global shift of classes
   int64_t customOffset[MaxNDet] = {};
-  int64_t L0_L1_classes = 280;                             // trigger input latency
+  int64_t L0_L1_classes = 280;                            // trigger input latency
   O2ParamDef(TriggerOffsetsParam, "TriggerOffsetsParam"); // boilerplate stuff + make principal key
 };
 } // namespace ctp

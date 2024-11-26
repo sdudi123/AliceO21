@@ -52,6 +52,7 @@ class RawDecoderSpec : public framework::Task
   /// Output HW errors: {"CTP", "RAWHWERRORS", 0, Lifetime::Timeframe} -later
   void run(framework::ProcessingContext& ctx) final;
   void updateTimeDependentParams(framework::ProcessingContext& pc);
+
  protected:
  private:
   // for digits
