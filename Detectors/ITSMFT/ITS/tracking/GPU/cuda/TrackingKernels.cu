@@ -370,7 +370,7 @@ GPUg() void computeLayerCellsKernel(
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
   const Tracklet** tracklets,
-  const int** trackletsLUT,
+  int** trackletsLUT,
   const int nTrackletsCurrent,
   const int layer,
   CellSeed* cells,
@@ -467,7 +467,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   const unsigned char** usedClusters, // Used clusters
   const int** indexTables,            // input data rof0-delta <rof0< rof0+delta (up to 3 rofs)
   // Tracklet* tracklets,                        // output data
-  // int* trackletsLUT,
+  int** trackletsLUT,
   const int iteration,
   const float NSigmaCut,
   const float phiCut,
@@ -548,7 +548,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
               if (deltaZ / sigmaZ < NSigmaCut && (deltaPhi < phiCut || o2::gpu::CAMath::Abs(deltaPhi - constants::math::TwoPi) < phiCut)) {
                 // if (layerIndex > 0) {
                 if constexpr (initRun) {
-                  // trackletsLUT[currentSortedIndex]++; // we need l0 as well for usual exclusive sums.
+                  trackletsLUT[layerIndex][currentSortedIndex]++; // we need l0 as well for usual exclusive sums.
                 } else {
                   // }
                   const float phi{o2::gpu::CAMath::ATan2(currentCluster.yCoordinate - nextCluster.yCoordinate, currentCluster.xCoordinate - nextCluster.xCoordinate)};
@@ -612,7 +612,7 @@ GPUg() void printBufferLayerOnThread(const int layer, const int* v, unsigned int
   }
 }
 
-GPUg() void printMatrixRow(const int row, const int** mat, const unsigned int rowLength, const int len = 150, const unsigned int tId = 0)
+GPUg() void printMatrixRow(const int row, const int** mat, const unsigned int rowLength, const int len = 256 * 128 + 1, const unsigned int tId = 0)
 {
   if (blockIdx.x * blockDim.x + threadIdx.x == tId) {
     for (int i{0}; i < rowLength; ++i) {
@@ -709,6 +709,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    const int** ROFClusters,
                                    const unsigned char** usedClusters,
                                    const int** clustersIndexTables,
+                                   int** trackletsLUTs,
                                    const int iteration,
                                    const float NSigmaCut,
                                    std::vector<float>& phiCuts,
@@ -722,31 +723,34 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    const int nThreads)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    gpu::computeLayerTrackletsMultiROFKernel<<<nBlocks, nThreads>>>(
-      utils,
-      multMask,
-      iLayer,
-      startROF,
-      endROF,
-      maxROF,
-      deltaROF,
-      vertices,
-      rofPV,
-      nVertices,
-      vertexId,
-      clusters,
-      ROFClusters,
-      usedClusters,
-      clustersIndexTables,
-      iteration,
-      NSigmaCut,
-      phiCuts[iLayer],
-      resolutionPV,
-      minRs[iLayer + 1],
-      maxRs[iLayer + 1],
-      resolutions[iLayer],
-      radii[iLayer + 1] - radii[iLayer],
-      mulScatAng[iLayer]);
+    // gpu::computeLayerTrackletsMultiROFKernel<<<1, 1>>>(
+    //   utils,
+    //   multMask,
+    //   iLayer,
+    //   startROF,
+    //   endROF,
+    //   maxROF,
+    //   deltaROF,
+    //   vertices,
+    //   rofPV,
+    //   nVertices,
+    //   vertexId,
+    //   clusters,
+    //   ROFClusters,
+    //   usedClusters,
+    //   clustersIndexTables,
+    //   trackletsLUTs,
+    //   iteration,
+    //   NSigmaCut,
+    //   phiCuts[iLayer],
+    //   resolutionPV,
+    //   minRs[iLayer + 1],
+    //   maxRs[iLayer + 1],
+    //   resolutions[iLayer],
+    //   radii[iLayer + 1] - radii[iLayer],
+    //   mulScatAng[iLayer]);
+    gpuCheckError(cudaPeekAtLastError());
+    gpuCheckError(cudaDeviceSynchronize());
   }
 }
 
@@ -755,7 +759,7 @@ void countCellsHandler(
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
   const Tracklet** tracklets,
-  const int** trackletsLUT,
+  int** trackletsLUT,
   const int nTracklets,
   const int layer,
   CellSeed* cells,
@@ -806,7 +810,7 @@ void computeCellsHandler(
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
   const Tracklet** tracklets,
-  const int** trackletsLUT,
+  int** trackletsLUT,
   const int nTracklets,
   const int layer,
   CellSeed* cells,
@@ -994,6 +998,7 @@ template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const int** ROFClusters,
                                                const unsigned char** usedClusters,
                                                const int** clustersIndexTables,
+                                               int** trackletsLUTs,
                                                const int iteration,
                                                const float NSigmaCut,
                                                std::vector<float>& phiCuts,

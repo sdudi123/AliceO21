@@ -147,12 +147,12 @@ void TimeFrameGPU<nLayers>::loadClustersIndexTables(const int iteration)
   if (!iteration) {
     START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading sorted clusters");
     for (auto iLayer{0}; iLayer < nLayers; ++iLayer) {
-      LOGP(info, "gpu-transfer: loading clusters indextable for layer {} with {} elements, for {} MB.", iLayer, mIndexTables[iLayer].size(), mIndexTables[iLayer].size() * sizeof(int) / MB);
+      LOGP(debug, "gpu-transfer: loading clusters indextable for layer {} with {} elements, for {} MB.", iLayer, mIndexTables[iLayer].size(), mIndexTables[iLayer].size() * sizeof(int) / MB);
       allocMemAsync(reinterpret_cast<void**>(&mClustersIndexTablesDevice[iLayer]), mIndexTables[iLayer].size() * sizeof(int), nullptr, getExtAllocator());
       checkGPUError(cudaMemcpyAsync(mClustersIndexTablesDevice[iLayer], mIndexTables[iLayer].data(), mIndexTables[iLayer].size() * sizeof(int), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
     }
     allocMemAsync(reinterpret_cast<void**>(&mClustersIndexTablesDeviceArray), nLayers * sizeof(int), nullptr, getExtAllocator());
-    checkGPUError(cudaMemcpyAsync(mClustersIndexTablesDeviceArray, mClustersIndexTablesDevice.data(), nLayers * sizeof(int), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+    checkGPUError(cudaMemcpyAsync(mClustersIndexTablesDeviceArray, mClustersIndexTablesDevice.data(), nLayers * sizeof(int*), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
     STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
   }
 }
@@ -246,6 +246,32 @@ void TimeFrameGPU<nLayers>::loadVertices(const int iteration)
 }
 
 template <int nLayers>
+void TimeFrameGPU<nLayers>::createTrackletsLUTDevice()
+{
+  START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "creating cells LUTs");
+  for (auto iLayer{0}; iLayer < nLayers - 1; ++iLayer) {
+    LOGP(debug, "gpu-transfer: creating tracklets LUT for {} elements on layer {}, for {} MB.", mClusters[iLayer].size() + 1, iLayer, (mClusters[iLayer].size() + 1) * sizeof(int) / MB);
+    allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDevice[iLayer]), (mClusters[iLayer].size() + 1) * sizeof(int), nullptr, getExtAllocator());
+    checkGPUError(cudaMemsetAsync(mTrackletsLUTDevice[iLayer], 0, (mClusters[iLayer].size() + 1) * sizeof(int), mGpuStreams[0].get()));
+  }
+  allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDeviceArray), (nLayers - 2) * sizeof(int*), nullptr, getExtAllocator());
+  checkGPUError(cudaMemcpyAsync(mTrackletsLUTDeviceArray, mTrackletsLUTDevice.data(), mTrackletsLUTDevice.size() * sizeof(int*), cudaMemcpyHostToDevice, mGpuStreams[0].get()));
+  STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+}
+
+// template<int nLayers> void TimeFrameGPU<nLayers>::createTrackletsBuffers()
+// {
+//   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "creating cells buffers");
+//   for (auto iLayer{0}; iLayer < nLayers - 1; ++iLayer) {
+//     mNTracklets[iLayer] = 0;
+//     checkGPUError(cudaMemcpyAsync(&mNTracklets[iLayer], mTrackletsLUTDevice[iLayer] + mClusters[iLayer].size(), sizeof(int), cudaMemcpyDeviceToHost));
+//     LOGP(debug, "gpu-transfer: creating tracklets buffer for {} elements on layer {}, for {} MB.", mNTracklets[layer], iLayer, mNTracklets[iLayer] * sizeof(CellSeed) / MB);
+//     allocMemAsync(reinterpret_cast<void**>(&mTrackletsDevice[iLayer]), mNTracklets[iLayer] * sizeof(Tracklet), nullptr, getExtAllocator());
+//   }
+//   STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+// }
+
+template <int nLayers>
 void TimeFrameGPU<nLayers>::loadTrackletsDevice()
 {
   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading tracklets");
@@ -267,11 +293,11 @@ void TimeFrameGPU<nLayers>::loadTrackletsLUTDevice()
   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "loading tracklets");
   for (auto iLayer{0}; iLayer < nLayers - 2; ++iLayer) {
     LOGP(debug, "gpu-transfer: loading tracklets LUT for {} elements on layer {}, for {} MB", mTrackletsLookupTable[iLayer].size(), iLayer, mTrackletsLookupTable[iLayer].size() * sizeof(int) / MB);
-    allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDevice[iLayer]), mTrackletsLookupTable[iLayer].size() * sizeof(int), nullptr, getExtAllocator());
+    // allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDevice[iLayer]), mTrackletsLookupTable[iLayer].size() * sizeof(int), nullptr, getExtAllocator());
     checkGPUError(cudaHostRegister(mTrackletsLookupTable[iLayer].data(), mTrackletsLookupTable[iLayer].size() * sizeof(int), cudaHostRegisterPortable));
     checkGPUError(cudaMemcpyAsync(mTrackletsLUTDevice[iLayer], mTrackletsLookupTable[iLayer].data(), mTrackletsLookupTable[iLayer].size() * sizeof(int), cudaMemcpyHostToDevice));
   }
-  allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDeviceArray), (nLayers - 2) * sizeof(int*), nullptr, getExtAllocator());
+  // allocMemAsync(reinterpret_cast<void**>(&mTrackletsLUTDeviceArray), (nLayers - 2) * sizeof(int*), nullptr, getExtAllocator());
   checkGPUError(cudaHostRegister(mTrackletsLUTDevice.data(), (nLayers - 2) * sizeof(int*), cudaHostRegisterPortable));
   checkGPUError(cudaMemcpyAsync(mTrackletsLUTDeviceArray, mTrackletsLUTDevice.data(), (nLayers - 2) * sizeof(int*), cudaMemcpyHostToDevice));
   STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());

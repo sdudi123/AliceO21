@@ -63,6 +63,7 @@ class TimeFrameGPU : public TimeFrame
   void loadVertices(const int);
 
   ///
+  void createTrackletsLUTDevice();
   void loadTrackletsDevice();
   void loadTrackletsLUTDevice();
   void loadCellsDevice();
@@ -120,7 +121,7 @@ class TimeFrameGPU : public TimeFrame
   const unsigned char** getDeviceArrayUsedClusters() const { return mUsedClustersDeviceArray; }
   const int** getDeviceROframeClusters() const { return mROFrameClustersDeviceArray; }
   const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
-  const int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
+  int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
   int** getDeviceArrayCellsLUT() const { return mCellsLUTDeviceArray; }
   int** getDeviceArrayNeighboursCellLUT() const { return mNeighboursCellLUTDeviceArray; }
   CellSeed** getDeviceArrayCells() const { return mCellsDeviceArray; }
@@ -171,14 +172,14 @@ class TimeFrameGPU : public TimeFrame
   const int** mROFrameClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
   const Tracklet** mTrackletsDeviceArray;
-  const int** mTrackletsLUTDeviceArray;
-  std::array<int*, nLayers - 2> mTrackletsLUTDevice;
+  std::array<int*, nLayers - 1> mTrackletsLUTDevice;
   std::array<int*, nLayers - 2> mCellsLUTDevice;
   std::array<int*, nLayers - 3> mNeighboursLUTDevice;
 
   int** mCellsLUTDeviceArray;
   int** mNeighboursCellDeviceArray;
   int** mNeighboursCellLUTDeviceArray;
+  int** mTrackletsLUTDeviceArray;
   std::array<CellSeed*, nLayers - 2> mCellsDevice;
   std::array<int*, nLayers - 2> mNeighboursIndexTablesDevice;
   CellSeed* mTrackSeedsDevice;
