@@ -16,6 +16,7 @@
 #include <deque>
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/Task.h"
+#include "Framework/WorkflowSpec.h"
 #include "DataFormatsCTP/Digits.h"
 #include "DataFormatsCTP/LumiInfo.h"
 #include "CTPReconstruction/RawDataDecoder.h"
@@ -50,7 +51,7 @@ class RawDecoderSpec : public framework::Task
   /// Input RawData: {"ROUT", "RAWDATA", 0, Lifetime::Timeframe}
   /// Output HW errors: {"CTP", "RAWHWERRORS", 0, Lifetime::Timeframe} -later
   void run(framework::ProcessingContext& ctx) final;
-
+  void updateTimeDependentParams(framework::ProcessingContext& pc);
  protected:
  private:
   // for digits

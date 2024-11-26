@@ -13,7 +13,6 @@
 #include <fairlogger/Logger.h>
 #include "Framework/InputRecordWalker.h"
 #include "Framework/DataRefUtils.h"
-#include "Framework/WorkflowSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "DetectorsRaw/RDHUtils.h"
 #include "CTPWorkflow/RawDecoderSpec.h"
@@ -75,6 +74,7 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
 }
 void RawDecoderSpec::run(framework::ProcessingContext& ctx)
 {
+  updateTimeDependentParams(ctx);
   mOutputDigits.clear();
   std::map<o2::InteractionRecord, CTPDigit> digits;
   using InputSpec = o2::framework::InputSpec;
@@ -143,6 +143,7 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
         mDecoder.setCTPConfig(*ctpcfg);
       }
     }
+    const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
     ret = mDecoder.decodeRaw(inputs, filter, mOutputDigits, lumiPointsHBF1);
   }
   if (ret == 1) {
@@ -230,3 +231,11 @@ o2::framework::DataProcessorSpec o2::ctp::reco_workflow::getRawDecoderSpec(bool 
       {"max-input-size-fatal", o2::framework::VariantType::Bool, false, {"If true issue fatal error otherwise error on;y"}},
       {"ctpinputs-decoding", o2::framework::VariantType::Bool, false, {"Inputs alignment: true - raw decoder - has to be compatible with CTF decoder: allowed options: 10,01,00"}}}};
 }
+ void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
+ {
+  if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) {
+    pc.inputs().get<o2::ctp::TriggerOffsetsParam*>("trigoffset");
+    const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
+    LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes; 
+  }
+ }
