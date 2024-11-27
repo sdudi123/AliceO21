@@ -3158,7 +3158,7 @@ constexpr auto join(Ts const&... t)
 }
 
 template <typename T>
-constexpr bool is_soa_join_v = framework::is_specialization_v<T, JoinFull>;
+concept is_join = framework::specialization_of_template<JoinFull, T>;
 
 template <typename... Ts>
 struct Concat : Table<o2::aod::Hash<"CONC"_h>, o2::aod::Hash<"CONC/0"_h>, o2::aod::Hash<"CONC"_h>, Ts...> {
