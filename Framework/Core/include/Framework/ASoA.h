@@ -381,7 +381,7 @@ struct Binding {
   {
     ptr = table;
     hash = o2::framework::TypeIdHelpers::uniqueId<T>();
-    if constexpr (framework::is_base_of_template_v<soa::Table, T>) {
+    if constexpr (framework::base_of_template<soa::Table, T>) {
       refs = std::span{T::originals};
     }
   }
@@ -477,7 +477,7 @@ using unwrap_t = typename unwrap<T>::type;
 template <typename T, typename ChunkingPolicy = Chunked>
 class ColumnIterator : ChunkingPolicy
 {
-  static constexpr char SCALE_FACTOR = std::is_same_v<std::decay_t<T>, bool> ? 3 : 0;
+  static constexpr char SCALE_FACTOR = std::same_as<std::decay_t<T>, bool> ? 3 : 0;
 
  public:
   /// Constructor of the column iterator. Notice how it takes a pointer
@@ -554,7 +554,7 @@ class ColumnIterator : ChunkingPolicy
   decltype(auto) operator*() const
   {
     if constexpr (ChunkingPolicy::chunked) {
-      if constexpr (std::is_same_v<arrow_array_for_t<T>, arrow::ListArray>) {
+      if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
         auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
         if (O2_BUILTIN_UNLIKELY(*mCurrentPos - mFirstIndex >= list->length())) {
           nextChunk();
@@ -565,10 +565,10 @@ class ColumnIterator : ChunkingPolicy
         }
       }
     }
-    if constexpr (std::is_same_v<bool, std::decay_t<T>>) {
+    if constexpr (std::same_as<bool, std::decay_t<T>>) {
       // FIXME: check if shifting the masked bit to the first position is better than != 0
       return (*(mCurrent - (mOffset >> SCALE_FACTOR) + ((*mCurrentPos + mOffset) >> SCALE_FACTOR)) & (1 << ((*mCurrentPos + mOffset) & 0x7))) != 0;
-    } else if constexpr (std::is_same_v<arrow_array_for_t<T>, arrow::ListArray>) {
+    } else if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
       auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
       auto offset = list->value_offset(*mCurrentPos - mFirstIndex);
       auto length = list->value_length(*mCurrentPos - mFirstIndex);
@@ -616,10 +616,10 @@ class ColumnIterator : ChunkingPolicy
   {
     std::shared_ptr<arrow::Array> chunkToUse = mColumn->chunk(mCurrentChunk);
     mOffset = chunkToUse->offset();
-    if constexpr (std::is_same_v<arrow_array_for_t<T>, arrow::FixedSizeListArray>) {
+    if constexpr (std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>) {
       chunkToUse = std::dynamic_pointer_cast<arrow::FixedSizeListArray>(chunkToUse)->values();
       return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
-    } else if constexpr (std::is_same_v<arrow_array_for_t<T>, arrow::ListArray>) {
+    } else if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
       chunkToUse = std::dynamic_pointer_cast<arrow::ListArray>(chunkToUse)->values();
       mOffset = chunkToUse->offset();
       return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
@@ -1055,7 +1055,7 @@ struct TableIterator : IP, C... {
   }
 
   TableIterator(TableIterator<D, O, FilteredIndexPolicy, C...> const& other)
-    requires std::is_same_v<IP, DefaultIndexPolicy>
+    requires std::same_as<IP, DefaultIndexPolicy>
     : IP{static_cast<IP const&>(other)},
       C(static_cast<C const&>(other))...
   {
@@ -1208,7 +1208,7 @@ struct TableIterator : IP, C... {
     requires(can_bind<self_t, B>)
   decltype(auto) getDynamicBinding()
   {
-    static_assert(std::is_same_v<decltype(&(static_cast<B*>(this)->mColumnIterator)), std::decay_t<decltype(B::mColumnIterator)>*>, "foo");
+    static_assert(std::same_as<decltype(&(static_cast<B*>(this)->mColumnIterator)), std::decay_t<decltype(B::mColumnIterator)>*>, "foo");
     return &(static_cast<B*>(this)->mColumnIterator);
     // return static_cast<std::decay_t<decltype(B::mColumnIterator)>*>(nullptr);
   }
