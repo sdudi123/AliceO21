@@ -3848,17 +3848,9 @@ template <typename T>
 using SmallGroupsUnfiltered = SmallGroupsBase<T, false>;
 
 template <typename T>
-struct is_smallgroups_t {
-  static constexpr bool value = false;
+concept is_smallgroups = requires {
+  []<typename B, bool A>(SmallGroupsBase<B,A>*){}(std::declval<T*>());
 };
-
-template <typename T, bool F>
-struct is_smallgroups_t<SmallGroupsBase<T, F>> {
-  static constexpr bool value = true;
-};
-
-template <typename T>
-constexpr bool is_smallgroups_v = is_smallgroups_t<T>::value;
 } // namespace o2::soa
 
 #endif // O2_FRAMEWORK_ASOA_H_

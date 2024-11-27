@@ -116,7 +116,7 @@ struct AnalysisDataProcessorBuilder {
       ([&bk, &bku, &key]() mutable {
         if constexpr (soa::relatedByIndex<std::decay_t<G>, std::decay_t<As>>()) {
           auto binding = soa::getLabelFromTypeForKey<std::decay_t<As>>(key);
-          if constexpr (o2::soa::is_smallgroups_v<std::decay_t<As>>) {
+          if constexpr (o2::soa::is_smallgroups<std::decay_t<As>>) {
             framework::updatePairList(bku, binding, key);
           } else {
             framework::updatePairList(bk, binding, key);
@@ -215,7 +215,7 @@ struct AnalysisDataProcessorBuilder {
       table = o2::soa::ArrowHelpers::joinTables(joiner.template operator()<T::originals.size(), T::originals>(std::make_index_sequence<T::originals.size()>()));
     }
     expressions::updateFilterInfo(info, table);
-    if constexpr (!o2::soa::is_smallgroups_v<std::decay_t<T>>) {
+    if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
       if (info.selection == nullptr) {
         soa::missingFilterDeclaration(info.processHash, info.argumentIndex);
       }
