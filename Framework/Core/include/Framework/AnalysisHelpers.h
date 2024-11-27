@@ -291,9 +291,9 @@ struct ColumnTrait {
 
   static consteval auto listSize()
   {
-    if constexpr (std::is_same_v<typename C::type, std::vector<int>>) {
+    if constexpr (std::same_as<typename C::type, std::vector<int>>) {
       return -1;
-    } else if constexpr (std::is_same_v<int[2], typename C::type>) {
+    } else if constexpr (std::same_as<int[2], typename C::type>) {
       return 2;
     } else {
       return 1;
@@ -303,7 +303,7 @@ struct ColumnTrait {
   template <typename T, typename Key>
   static std::shared_ptr<SelfIndexColumnBuilder> makeColumnBuilder(arrow::Table* table, arrow::MemoryPool* pool)
   {
-    if constexpr (!std::is_same_v<T, Key>) {
+    if constexpr (!std::same_as<T, Key>) {
       return std::make_shared<IndexColumnBuilder>(getIndexToKey<T, Key>(table), C::columnLabel(), listSize(), pool);
     } else {
       return std::make_shared<SelfIndexColumnBuilder>(C::columnLabel(), pool);
@@ -364,14 +364,14 @@ struct IndexBuilder {
             return std::static_pointer_cast<reduced_t<Key, T>>(columnBuilders[Is])->template find<T>(idx);
           }()...};
       }(sq);
-      if constexpr (std::is_same_v<Kind, Sparse>) {
+      if constexpr (std::same_as<Kind, Sparse>) {
         [&idx, &columnBuilders]<size_t... Is>(std::index_sequence<Is...>) {
           ([&idx, &columnBuilders]() {
             using T = typename framework::pack_element_t<Is, framework::pack<Cs...>>;
             return std::static_pointer_cast<reduced_t<Key, T>>(columnBuilders[Is])->template fill<T>(idx); }(), ...);
         }(sq);
         self.fill<C1>(counter);
-      } else if constexpr (std::is_same_v<Kind, Exclusive>) {
+      } else if constexpr (std::same_as<Kind, Exclusive>) {
         if (std::none_of(finds.begin(), finds.end(), [](bool const x) { return x == false; })) {
           [&idx, &columnBuilders]<size_t... Is>(std::index_sequence<Is...>) {
             ([&idx, &columnBuilders]() {
@@ -549,7 +549,7 @@ struct Service {
 
   decltype(auto) operator->() const
   {
-    if constexpr (is_base_of_template_v<LoadableServicePlugin, T>) {
+    if constexpr (base_of_template<LoadableServicePlugin, T>) {
       return service->get();
     } else {
       return service;

@@ -45,7 +45,7 @@ struct GroupedCombinationManager<GroupedCombinationsGenerator<T1, GroupingPolicy
   static void setGroupedCombination(GroupedCombinationsGenerator<T1, GroupingPolicy, BP, G, As...>& comb, TG& grouping, std::tuple<T2s...>& associated)
   {
     static_assert(sizeof...(T2s) > 0, "There must be associated tables in process() for a correct pair");
-    if constexpr (std::is_same_v<G, TG>) {
+    if constexpr (std::same_as<G, TG>) {
       static_assert((framework::has_type<As>(pack<T2s...>{}) && ...), "You didn't subscribed to all tables requested for mixing");
       comb.setTables(grouping, associated);
     }
@@ -89,7 +89,7 @@ struct PartitionManager<Partition<T>> {
   template <typename T2>
   static void doSetPartition(Partition<T>& partition, T2& table)
   {
-    if constexpr (std::is_same_v<T, T2>) {
+    if constexpr (std::same_as<T, T2>) {
       partition.bindTable(table);
     }
   }
@@ -160,7 +160,7 @@ struct ConditionManager {
   template <typename ANY>
   static bool appendCondition(std::vector<InputSpec>& inputs, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConditionGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConditionGroup>) {
       homogeneous_apply_refs<true>([&inputs](auto& y) { return ConditionManager<std::decay_t<decltype(y)>>::appendCondition(inputs, y); }, x);
       return true;
     } else {
@@ -171,7 +171,7 @@ struct ConditionManager {
   template <typename ANY>
   static bool newDataframe(InputRecord& record, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       homogeneous_apply_refs<true>([&record](auto&& y) { return ConditionManager<std::decay_t<decltype(y)>>::newDataframe(record, y); }, x);
       return true;
     } else {
@@ -200,7 +200,7 @@ struct OutputManager {
   template <typename ANY>
   static bool appendOutput(std::vector<OutputSpec>& outputs, ANY& what, uint32_t v)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&outputs, v](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::appendOutput(outputs, p, v); }, what);
       return true;
     }
@@ -210,7 +210,7 @@ struct OutputManager {
   template <typename ANY>
   static bool prepare(ProcessingContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::prepare(context, p); }, what);
       return true;
     }
@@ -220,7 +220,7 @@ struct OutputManager {
   template <typename ANY>
   static bool postRun(EndOfStreamContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::postRun(context, p); }, what);
       return true;
     }
@@ -230,7 +230,7 @@ struct OutputManager {
   template <typename ANY>
   static bool finalize(ProcessingContext& context, ANY& what)
   {
-    if constexpr (std::is_base_of_v<ProducesGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ProducesGroup>) {
       homogeneous_apply_refs<true>([&context](auto& p) { return OutputManager<std::decay_t<decltype(p)>>::finalize(context, p); }, what);
       return true;
     }
@@ -441,7 +441,7 @@ template <typename T>
 struct ServiceManager<Service<T>> {
   static bool add(std::vector<ServiceSpec>& specs, Service<T>& /*service*/)
   {
-    if constexpr (o2::framework::is_base_of_template_v<LoadableServicePlugin, T>) {
+    if constexpr (o2::framework::base_of_template<LoadableServicePlugin, T>) {
       T p = T{};
       auto loadableServices = PluginManager::parsePluginSpecString(p.loadSpec.c_str());
       PluginManager::loadFromPlugin<ServiceSpec, ServicePlugin>(loadableServices, specs);
@@ -509,7 +509,7 @@ struct OptionManager {
   static bool appendOption(std::vector<ConfigParamSpec>& options, ANY& x)
   {
     /// Recurse, in case we are brace constructible
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       if constexpr (requires { x.prefix; }) {
         homogeneous_apply_refs<true>([prefix = x.prefix]<typename C>(C& y) { // apend group prefix if set
           if constexpr (requires { y.name; }) {
@@ -530,7 +530,7 @@ struct OptionManager {
   template <typename ANY>
   static bool prepare(InitContext& ic, ANY& x)
   {
-    if constexpr (std::is_base_of_v<ConfigurableGroup, ANY>) {
+    if constexpr (std::derived_from<ANY, ConfigurableGroup>) {
       homogeneous_apply_refs<true>([&ic](auto&& y) { return OptionManager<std::decay_t<decltype(y)>>::prepare(ic, y); }, x);
       return true;
     } else {
