@@ -56,6 +56,7 @@ class CTFCoder : public o2::ctf::CTFCoderBase
   void setDecodeInps(bool decodeinps) { mDecodeInps = decodeinps; }
   void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); }
   bool getDecodeInps() { return mDecodeInps; }
+  CTPConfiguration& getCTPConfig() { return mCTPConfig; }
   bool canApplyBCShiftInputs(const o2::InteractionRecord& ir) const { return canApplyBCShift(ir, mBCShiftInputs); }
 
  private:

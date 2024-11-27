@@ -55,22 +55,14 @@ void EntropyDecoderSpec::run(ProcessingContext& pc)
   mTimer.Start(false);
   o2::ctf::CTFIOSize iosize;
 
-  mCTFCoder.updateTimeDependentParams(pc, true);
+  updateTimeDependentParams(pc);
   auto buff = pc.inputs().get<gsl::span<o2::ctf::BufferType>>("ctf_CTP");
-
-  const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
   auto& digits = pc.outputs().make<std::vector<CTPDigit>>(OutputRef{"digits"});
   auto& lumi = pc.outputs().make<LumiInfo>(OutputRef{"CTPLumi"});
 
   // since the buff is const, we cannot use EncodedBlocks::relocate directly, instead we wrap its data to another flat object
   if (buff.size()) {
     const auto ctfImage = o2::ctp::CTF::getImage(buff.data());
-    if (mCTFCoder.getDecodeInps()) {
-      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      if (ctpcfg != nullptr) {
-        mCTFCoder.setCTPConfig(*ctpcfg);
-      }
-    }
     iosize = mCTFCoder.decode(ctfImage, digits, lumi);
   }
   pc.outputs().snapshot({"ctfrep", 0}, iosize);
@@ -82,6 +74,20 @@ void EntropyDecoderSpec::endOfStream(EndOfStreamContext& ec)
 {
   LOGF(info, "CTP Entropy Decoding total timing: Cpu: %.3e Real: %.3e s in %d slots",
        mTimer.CpuTime(), mTimer.RealTime(), mTimer.Counter() - 1);
+}
+void EntropyDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
+{
+  mCTFCoder.updateTimeDependentParams(pc, true);
+  if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) {
+    const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+    if (mCTFCoder.getDecodeInps()) {
+      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+      if (ctpcfg != nullptr) {
+        mCTFCoder.setCTPConfig(*ctpcfg);
+        LOG(info) << "ctpconfig for run done:" << mCTFCoder.getCTPConfig().getRunNumber();
+      }
+    }
+  }
 }
 
 DataProcessorSpec getEntropyDecoderSpec(int verbosity, unsigned int sspec)

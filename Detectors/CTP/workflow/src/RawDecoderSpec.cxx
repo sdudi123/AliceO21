@@ -137,13 +137,6 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
   if (fatal_flag) {
     ret = mDecoder.decodeRawFatal(inputs, filter);
   } else {
-    if (mDecodeinputs) {
-      const auto ctpcfg = inputs.get<o2::ctp::CTPConfiguration*>("ctpconfig");
-      if (ctpcfg != nullptr) {
-        mDecoder.setCTPConfig(*ctpcfg);
-      }
-    }
-    const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
     ret = mDecoder.decodeRaw(inputs, filter, mOutputDigits, lumiPointsHBF1);
   }
   if (ret == 1) {
@@ -237,5 +230,12 @@ void RawDecoderSpec::updateTimeDependentParams(framework::ProcessingContext& pc)
     pc.inputs().get<o2::ctp::TriggerOffsetsParam*>("trigoffset");
     const auto& trigOffsParam = o2::ctp::TriggerOffsetsParam::Instance();
     LOG(info) << "updateing TroggerOffsetsParam: inputs L0_L1:" << trigOffsParam.L0_L1 << " classes L0_L1:" << trigOffsParam.L0_L1_classes;
+    if (mDecodeinputs) {
+      const auto ctpcfg = pc.inputs().get<o2::ctp::CTPConfiguration*>("ctpconfig");
+      if (ctpcfg != nullptr) {
+        mDecoder.setCTPConfig(*ctpcfg);
+        LOG(info) << "ctpconfig for run done:" << mDecoder.getCTPConfig().getRunNumber();
+      }
+    }
   }
 }
