@@ -1620,7 +1620,29 @@ consteval auto base_iter(framework::pack<C...>&&) -> TableIterator<D, O, IP, C..
 {
 }
 
-template <TableRef ref>
+template <TableRef ref, typename... Ts>
+  requires ((sizeof...(Ts) > 0) && (soa::is_column<Ts> && ...))
+consteval auto getColumns()
+{
+  return framework::pack<Ts...>{};
+}
+
+template <TableRef ref, typename... Ts>
+  requires ((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash == "CONC"_h))
+consteval auto getColumns()
+{
+  return framework::full_intersected_pack_t<typename Ts::columns_t...>{};
+}
+
+template <TableRef ref, typename... Ts>
+  requires ((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash != "CONC"_h))
+consteval auto getColumns()
+{
+  return framework::concatenated_pack_unique_t<typename Ts::columns_t...>{};
+}
+
+template <TableRef ref, typename... Ts>
+  requires (sizeof...(Ts) == 0 && soa::has_metadata<aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>>)
 consteval auto getColumns()
 {
   return typename aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>::metadata::columns{};
@@ -1636,30 +1658,33 @@ class Table
   using self_t = Table<L, D, O, Ts...>;
   using table_t = self_t;
 
-  static constexpr const auto originals = []() {
-    if constexpr (sizeof...(Ts) == 0) {
-      return std::array<TableRef, 1>{ref};
-    } else {
-      if constexpr ((o2::soa::is_column<Ts> && ...)) {
-        return std::array<TableRef, 1>{ref};
-      } else {
-        return o2::soa::mergeOriginals<Ts...>();
-      }
-    }
-  }();
+  static constexpr const auto originals = framework::overloaded {
+      []<typename... TTs> requires ((sizeof... (TTs) == 0) || (o2::soa::is_column<TTs> && ...)) (framework::pack<TTs...>) { return std::array<TableRef, 1>{ref}; },
+      []<typename... TTs> requires ((sizeof... (TTs) > 0) && (!o2::soa::is_column<TTs> || ...)) (framework::pack<TTs...>) { return o2::soa::mergeOriginals<TTs...>(); }
+    }.operator()(framework::pack<Ts...>{});
 
   template <size_t N, std::array<TableRef, N> bindings>
+    requires (ref.origin_hash == "CONC"_h)
   static consteval auto isIndexTargetOf()
   {
-    if constexpr (std::same_as<O, o2::aod::Hash<"CONC"_h>>) {
-      return false;
-    } else if constexpr (std::same_as<O, o2::aod::Hash<"JOIN"_h>>) {
-      return std::find_if(self_t::originals.begin(), self_t::originals.end(), [](TableRef const& r) {
-               return std::find(bindings.begin(), bindings.end(), r) != bindings.end();
-             }) != self_t::originals.end();
-    } else {
-      return std::find(bindings.begin(), bindings.end(), self_t::ref) != bindings.end();
-    }
+    return false;
+  }
+
+  template <size_t N, std::array<TableRef, N> bindings>
+    requires (ref.origin_hash == "JOIN"_h)
+  static consteval auto isIndexTargetOf()
+  {
+    return std::find_if(self_t::originals.begin(), self_t::originals.end(),
+           [](TableRef const& r) {
+             return std::find(bindings.begin(), bindings.end(), r) != bindings.end();
+           }) != self_t::originals.end();
+  }
+
+  template <size_t N, std::array<TableRef, N> bindings>
+    requires (!(ref.origin_hash == "CONC"_h || ref.origin_hash == "JOIN"_h))
+  static consteval auto isIndexTargetOf()
+  {
+    return std::find(bindings.begin(), bindings.end(), self_t::ref) != bindings.end();
   }
 
   template <TableRef r>
@@ -1668,26 +1693,7 @@ class Table
     return std::find_if(originals.begin(), originals.end(), [](TableRef const& o) { return o.desc_hash == r.desc_hash; }) != originals.end();
   }
 
-  static consteval bool hasOriginal_alt(TableRef const& r)
-  {
-    return std::ranges::find_if(originals.begin(), originals.end(), [&](TableRef const& o) { return o.desc_hash == r.desc_hash; }) != originals.end();
-  }
-
-  using columns_t = decltype([]() {
-    if constexpr (sizeof...(Ts) == 0) {
-      return getColumns<originals[0]>();
-    } else {
-      if constexpr ((o2::soa::is_column<Ts> && ...)) {
-        return framework::pack<Ts...>{};
-      } else {
-        if constexpr (std::same_as<O, o2::aod::Hash<"CONC"_h>>) {
-          return framework::full_intersected_pack_t<typename Ts::columns_t...>{};
-        } else {
-          return framework::concatenated_pack_unique_t<typename Ts::columns_t...>{};
-        }
-      }
-    }
-  }());
+  using columns_t = decltype(getColumns<ref, Ts...>());
 
   using persistent_columns_t = decltype([]<typename... C>(framework::pack<C...>&&) -> framework::selected_pack<soa::is_persistent_column_t, C...> {}(columns_t{}));
   using column_types = decltype([]<typename... C>(framework::pack<C...>) -> framework::pack<typename C::type...> {}(persistent_columns_t{}));
@@ -1729,7 +1735,7 @@ class Table
 
     template <typename P>
     TableIteratorBase& operator=(TableIteratorBase<FilteredIndexPolicy, P, T...> other)
-      requires std::is_same_v<IP, DefaultIndexPolicy>
+      requires std::same_as<IP, DefaultIndexPolicy>
     {
       static_cast<base_iterator<IP>&>(*this) = static_cast<base_iterator<FilteredIndexPolicy>>(other);
       return *this;
@@ -1763,7 +1769,7 @@ class Table
 
     template <typename P>
     TableIteratorBase(TableIteratorBase<FilteredIndexPolicy, P, T...> other)
-      requires std::is_same_v<IP, DefaultIndexPolicy>
+      requires std::same_as<IP, DefaultIndexPolicy>
     {
       *this = other;
     }
@@ -1781,7 +1787,7 @@ class Table
 
     template <typename P, typename... Os>
     void matchTo(TableIteratorBase<IP, P, Os...> const& other)
-      requires std::is_same_v<typename P::table_t, typename Parent::table_t>
+      requires std::same_as<typename P::table_t, typename Parent::table_t>
     {
       this->mRowIndex = other.mRowIndex;
     }
@@ -1821,7 +1827,7 @@ class Table
     template <typename B, typename... CCs>
     std::array<B, sizeof...(CCs)> getValues() const
     {
-      static_assert(std::is_same_v<B, float> || std::is_same_v<B, double>, "The common return type should be float or double");
+      static_assert(std::same_as<B, float> || std::same_as<B, double>, "The common return type should be float or double");
       return {getValue<B, CCs>()...};
     }
 
@@ -1901,13 +1907,13 @@ class Table
   }
 
   Table(std::vector<std::shared_ptr<arrow::Table>>&& tables, uint64_t offset = 0)
-    requires(!std::is_same_v<O, o2::aod::Hash<"CONC"_h>>)
+    requires(ref.origin_hash != "CONC"_h)
     : Table(ArrowHelpers::joinTables(std::move(tables)), offset)
   {
   }
 
   Table(std::vector<std::shared_ptr<arrow::Table>>&& tables, uint64_t offset = 0)
-    requires(std::is_same_v<O, o2::aod::Hash<"CONC"_h>>)
+    requires(ref.origin_hash == "CONC"_h)
     : Table(ArrowHelpers::concatTables(std::move(tables)), offset)
   {
   }
