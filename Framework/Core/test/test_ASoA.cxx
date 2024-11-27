@@ -288,7 +288,7 @@ TEST_CASE("TestJoinedTables")
   }
 
   auto tests2 = join(TestX{tableX}, TestY{tableY});
-  static_assert(std::is_same_v<Test::self_t, decltype(tests2)>, "Joined tables should have the same type, regardless how we construct them");
+  static_assert(std::same_as<Test::self_t, decltype(tests2)>, "Joined tables should have the same type, regardless how we construct them");
   for (auto& test : tests2) {
     REQUIRE(7 == test.x() + test.y());
   }
@@ -365,16 +365,16 @@ TEST_CASE("TestConcatTables")
   using NestedJoinTest = Join<JoinedTest, TestD>;
   using NestedConcatTest = Concat<Join<TestA, TestB>, TestD>;
 
-  static_assert(std::is_same_v<NestedJoinTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
+  static_assert(std::same_as<NestedJoinTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
 
-  static_assert(std::is_same_v<ConcatTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
+  static_assert(std::same_as<ConcatTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
   ConcatTest tests{tableA, tableB};
   REQUIRE(16 == tests.size());
   for (auto& test : tests) {
     REQUIRE(test.index() == test.x());
   }
 
-  static_assert(std::is_same_v<NestedConcatTest::columns_t, o2::framework::pack<o2::aod::test::X>>, "Bad nested concat");
+  static_assert(std::same_as<NestedConcatTest::columns_t, o2::framework::pack<o2::aod::test::X>>, "Bad nested concat");
 
   // Hardcode a selection for the first 5 odd numbers
   using FilteredTest = Filtered<TestA>;
@@ -517,7 +517,7 @@ TEST_CASE("TestDereference")
 
   REQUIRE(segments.begin().pointAId() == 0);
   REQUIRE(segments.begin().pointBId() == 1);
-  static_assert(std::is_same_v<decltype(segments.begin().pointA()), o2::aod::Points::iterator>);
+  static_assert(std::same_as<decltype(segments.begin().pointA()), o2::aod::Points::iterator>);
   auto i = segments.begin();
   using namespace o2::framework;
   i.bindExternalIndices(&points, &infos);
@@ -819,7 +819,7 @@ TEST_CASE("TestAdvancedIndices")
   auto it = prt.begin();
   auto s1 = it.pointSlice();
   auto g1 = it.pointGroup();
-  auto bb = std::is_same_v<decltype(s1), o2::aod::Points3Ds>;
+  auto bb = std::same_as<decltype(s1), o2::aod::Points3Ds>;
   REQUIRE(bb);
   REQUIRE(s1.size() == 2);
   aa = {2, 3, 4};
@@ -901,12 +901,12 @@ TEST_CASE("TestAdvancedIndices")
   c2 = 0;
   for (auto& p : pst) {
     auto op = p.otherPoint_as<o2::aod::PointsSelfIndex>();
-    auto bbb = std::is_same_v<decltype(op), o2::aod::PointsSelfIndex::iterator>;
+    auto bbb = std::same_as<decltype(op), o2::aod::PointsSelfIndex::iterator>;
     REQUIRE(bbb);
     REQUIRE(op.globalIndex() == references[i]);
 
     auto ops = p.pointSeq_as<o2::aod::PointsSelfIndex>();
-    auto bbbs = std::is_same_v<decltype(ops), o2::aod::PointsSelfIndex>;
+    auto bbbs = std::same_as<decltype(ops), o2::aod::PointsSelfIndex>;
     REQUIRE(bbbs);
 
     if (i == withSlices[c1]) {
@@ -923,7 +923,7 @@ TEST_CASE("TestAdvancedIndices")
     }
 
     auto opss = p.pointSet_as<o2::aod::PointsSelfIndex>();
-    auto bbba = std::is_same_v<decltype(opss), std::vector<o2::aod::PointsSelfIndex::iterator>>;
+    auto bbba = std::same_as<decltype(opss), std::vector<o2::aod::PointsSelfIndex::iterator>>;
     REQUIRE(bbba);
 
     auto opss_ids = p.pointSetIds();
@@ -987,15 +987,15 @@ TEST_CASE("TestSelfIndexRecursion")
   for (auto& p : pst) {
     auto ops = p.pointSeq_as<o2::aod::PointsSelfIndex>();
     for (auto& pp : ops) {
-      auto bpp = std::is_same_v<std::decay_t<decltype(pp)>, o2::aod::PointsSelfIndex::iterator>;
+      auto bpp = std::same_as<std::decay_t<decltype(pp)>, o2::aod::PointsSelfIndex::iterator>;
       REQUIRE(bpp);
       auto opps = pp.pointSeq_as<o2::aod::PointsSelfIndex>();
       for (auto& ppp : opps) {
-        auto bppp = std::is_same_v<std::decay_t<decltype(ppp)>, o2::aod::PointsSelfIndex::iterator>;
+        auto bppp = std::same_as<std::decay_t<decltype(ppp)>, o2::aod::PointsSelfIndex::iterator>;
         REQUIRE(bppp);
         auto oppps = ppp.pointSeq_as<o2::aod::PointsSelfIndex>();
         for (auto& pppp : oppps) {
-          auto bpppp = std::is_same_v<std::decay_t<decltype(pppp)>, o2::aod::PointsSelfIndex::iterator>;
+          auto bpppp = std::same_as<std::decay_t<decltype(pppp)>, o2::aod::PointsSelfIndex::iterator>;
           REQUIRE(bpppp);
           auto opppps = pppp.pointSeq_as<o2::aod::PointsSelfIndex>();
         }
@@ -1040,16 +1040,16 @@ TEST_CASE("TestSelfIndexRecursion")
   // FIXME: only 4 levels of recursive self-index dereference are tested
   // self-index binding should stay the same for recursive dereferences
   for (auto& p : fp) {
-    REQUIRE(std::is_same_v<std::decay_t<decltype(p)>, FullPoints::iterator>);
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>, FullPoints::iterator>);
     auto ops = p.pointSeq_as<FullPoints>();
     for (auto& pp : ops) {
-      REQUIRE(std::is_same_v<std::decay_t<decltype(pp)>, FullPoints::iterator>);
+      REQUIRE(std::same_as<std::decay_t<decltype(pp)>, FullPoints::iterator>);
       auto opps = pp.pointSeq_as<FullPoints>();
       for (auto& ppp : opps) {
-        REQUIRE(std::is_same_v<std::decay_t<decltype(ppp)>, FullPoints::iterator>);
+        REQUIRE(std::same_as<std::decay_t<decltype(ppp)>, FullPoints::iterator>);
         auto oppps = ppp.pointSeq_as<FullPoints>();
         for (auto& pppp : oppps) {
-          REQUIRE(std::is_same_v<std::decay_t<decltype(pppp)>, FullPoints::iterator>);
+          REQUIRE(std::same_as<std::decay_t<decltype(pppp)>, FullPoints::iterator>);
           auto opppps = pppp.pointSeq_as<FullPoints>();
         }
       }
@@ -1062,9 +1062,9 @@ TEST_CASE("TestSelfIndexRecursion")
   for (auto& it1 : fpa) {
     [[maybe_unused]] auto it2 = fpa.rawIteratorAt(0);
     [[maybe_unused]] auto it3 = fpa.iteratorAt(0);
-    auto bit1 = std::is_same_v<std::decay_t<decltype(it1)>, std::decay_t<decltype(it2)>>;
+    auto bit1 = std::same_as<std::decay_t<decltype(it1)>, std::decay_t<decltype(it2)>>;
     REQUIRE(bit1);
-    auto bit2 = std::is_same_v<std::decay_t<decltype(it1)>, std::decay_t<decltype(it3)>>;
+    auto bit2 = std::same_as<std::decay_t<decltype(it1)>, std::decay_t<decltype(it3)>>;
     REQUIRE(bit2);
   }
 
@@ -1074,17 +1074,17 @@ TEST_CASE("TestSelfIndexRecursion")
 
   // Filter should not interfere with self-index and the binding should stay the same
   for (auto& p : ffp) {
-    REQUIRE(std::is_same_v<std::decay_t<decltype(p)>, FilteredPoints::iterator>);
-    REQUIRE(std::is_same_v<std::decay_t<decltype(p)>::parent_t, FilteredPoints>);
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>, FilteredPoints::iterator>);
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>::parent_t, FilteredPoints>);
     auto ops = p.pointSeq_as<typename std::decay_t<decltype(p)>::parent_t>();
     for (auto& pp : ops) {
-      REQUIRE(std::is_same_v<std::decay_t<decltype(pp)>::parent_t, FilteredPoints>);
+      REQUIRE(std::same_as<std::decay_t<decltype(pp)>::parent_t, FilteredPoints>);
       auto opps = pp.pointSeq_as<FilteredPoints>();
       for (auto& ppp : opps) {
-        REQUIRE(std::is_same_v<std::decay_t<decltype(ppp)>, FilteredPoints::iterator>);
+        REQUIRE(std::same_as<std::decay_t<decltype(ppp)>, FilteredPoints::iterator>);
         auto oppps = ppp.pointSeq_as<FilteredPoints>();
         for (auto& pppp : oppps) {
-          REQUIRE(std::is_same_v<std::decay_t<decltype(pppp)>, FilteredPoints::iterator>);
+          REQUIRE(std::same_as<std::decay_t<decltype(pppp)>, FilteredPoints::iterator>);
           auto opppps = pppp.pointSeq_as<FilteredPoints>();
         }
       }
@@ -1100,15 +1100,15 @@ TEST_CASE("TestSelfIndexRecursion")
     using T1 = std::decay_t<decltype(it1)>;
     using T2 = std::decay_t<decltype(it2)>;
     using T3 = std::decay_t<decltype(it3)>;
-    auto bit1 = !std::is_same_v<T1, T2>;
+    auto bit1 = !std::same_as<T1, T2>;
     REQUIRE(bit1);
-    auto bit2 = !std::is_same_v<T1, T3>;
+    auto bit2 = !std::same_as<T1, T3>;
     REQUIRE(bit2);
-    auto bit3 = std::is_same_v<typename T1::policy_t, typename T3::policy_t>;
+    auto bit3 = std::same_as<typename T1::policy_t, typename T3::policy_t>;
     REQUIRE(bit3);
-    auto bit4 = std::is_same_v<typename T1::policy_t, o2::soa::FilteredIndexPolicy>;
+    auto bit4 = std::same_as<typename T1::policy_t, o2::soa::FilteredIndexPolicy>;
     REQUIRE(bit4);
-    auto bit5 = std::is_same_v<typename T2::policy_t, o2::soa::DefaultIndexPolicy>;
+    auto bit5 = std::same_as<typename T2::policy_t, o2::soa::DefaultIndexPolicy>;
     REQUIRE(bit5);
   }
 }
@@ -1135,8 +1135,8 @@ TEST_CASE("TestListColumns")
   for (auto& row : tbl) {
     auto f = row.l1();
     auto i = row.l2();
-    auto constexpr bf = std::is_same_v<decltype(f), gsl::span<const float, (size_t)-1>>;
-    auto constexpr bi = std::is_same_v<decltype(i), gsl::span<const int, (size_t)-1>>;
+    auto constexpr bf = std::same_as<decltype(f), gsl::span<const float, (size_t)-1>>;
+    auto constexpr bi = std::same_as<decltype(i), gsl::span<const int, (size_t)-1>>;
     REQUIRE(bf);
     REQUIRE(bi);
     REQUIRE(f.size() == s);
@@ -1301,7 +1301,7 @@ TEST_CASE("TestArrayColumns")
   for (auto const& row : li) {
     auto iir = row.smallIntArray();
     [[maybe_unused]] auto bbrr = row.boolArray_raw();
-    REQUIRE(std::is_same_v<std::decay_t<decltype(iir)>, int8_t const*>);
+    REQUIRE(std::same_as<std::decay_t<decltype(iir)>, int8_t const*>);
     for (auto i = 0; i < 32; ++i) {
       REQUIRE(iir[i] == i);
       REQUIRE(row.boolArray_bit(i) == (i % 2 == 0));
@@ -1342,11 +1342,11 @@ TEST_CASE("TestCombinedGetter")
     auto features1 = row.getValues<float, o2::aod::table::One, o2::aod::table::Three>();
     auto features2 = row.getValues<double, o2::aod::table::One, o2::aod::table::Two, o2::aod::table::Three>();
     auto features3 = row.getValues<float, o2::aod::table::Two, o2::aod::table::Five<o2::aod::table::Four>>();
-    auto b1 = std::is_same_v<std::array<float, 2>, decltype(features1)>;
+    auto b1 = std::same_as<std::array<float, 2>, decltype(features1)>;
     REQUIRE(b1);
-    auto b2 = std::is_same_v<std::array<double, 3>, decltype(features2)>;
+    auto b2 = std::same_as<std::array<double, 3>, decltype(features2)>;
     REQUIRE(b2);
-    auto b3 = std::is_same_v<std::array<float, 2>, decltype(features3)>;
+    auto b3 = std::same_as<std::array<float, 2>, decltype(features3)>;
     REQUIRE(b3);
     REQUIRE(features1[0] == (float)count);
     REQUIRE(features1[1] == (float)(o2::constants::math::Almost0 * count));

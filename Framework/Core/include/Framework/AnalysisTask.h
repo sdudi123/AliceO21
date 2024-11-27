@@ -236,7 +236,7 @@ struct AnalysisDataProcessorBuilder {
   template <soa::is_iterator T, int AI>
   static auto extract(InputRecord& record, std::vector<ExpressionInfo>& infos, size_t phash)
   {
-    if constexpr (std::is_same_v<typename T::policy_t, soa::FilteredIndexPolicy>) {
+    if constexpr (std::same_as<typename T::policy_t, soa::FilteredIndexPolicy>) {
       return extractFilteredFromRecord<T>(record, *std::find_if(infos.begin(), infos.end(), [&phash](ExpressionInfo const& i) { return (i.processHash == phash && i.argumentIndex == AI); }));
     } else {
       return extractFromRecord<T>(record);
@@ -255,7 +255,7 @@ struct AnalysisDataProcessorBuilder {
 
   template <typename R, typename C, typename Grouping, typename... Args>
   static auto bindGroupingTable(InputRecord& record, R (C::*)(Grouping, Args...), std::vector<ExpressionInfo>& infos)
-    requires(!std::is_same_v<Grouping, void>)
+    requires(!std::same_as<Grouping, void>)
   {
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Grouping, Args...)>();
     return extract<std::decay_t<Grouping>, 0>(record, infos, hash);
@@ -263,7 +263,7 @@ struct AnalysisDataProcessorBuilder {
 
   template <typename R, typename C, typename Grouping, typename... Args>
   static auto bindAssociatedTables(InputRecord& record, R (C::*)(Grouping, Args...), std::vector<ExpressionInfo>& infos)
-    requires(!std::is_same_v<Grouping, void> && sizeof...(Args) > 0)
+    requires(!std::same_as<Grouping, void> && sizeof...(Args) > 0)
   {
     constexpr auto p = pack<Args...>{};
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Grouping, Args...)>();

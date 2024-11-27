@@ -54,7 +54,7 @@ TEST_CASE("TestJoinedTablesContains")
   REQUIRE(tests.asArrowTable()->num_columns() ==
           tXY->num_columns() + tZD->num_columns());
   auto tests2 = join(XY{tXY}, ZD{tZD});
-  static_assert(std::is_same_v<Test::table_t, decltype(tests2)::table_t>,
+  static_assert(std::same_as<Test::table_t, decltype(tests2)::table_t>,
                 "Joined tables should have the same type, regardless how we construct them");
 
   using FullTracks = o2::soa::Join<o2::aod::Tracks, o2::aod::TracksExtra, o2::aod::TracksCov>;

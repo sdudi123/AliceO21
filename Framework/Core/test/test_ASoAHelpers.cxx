@@ -141,8 +141,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
 
   auto comb2 = combinations(CombinationsStrictlyUpperIndexPolicy(testsA, testsA));
 
-  static_assert(std::is_same_v<decltype(comb2.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<TestA, TestA>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(comb2.begin())), CombinationsStrictlyUpperIndexPolicy<TestA, TestA>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(comb2.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<TestA, TestA>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(comb2.begin())), CombinationsStrictlyUpperIndexPolicy<TestA, TestA>::CombinationType&>, "Wrong combination type");
 
   auto beginCombination = *(comb2.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginCombination)).getIterator().mCurrentPos == nullptr));
@@ -176,8 +176,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
 
   auto comb2Filter = combinations(CombinationsStrictlyUpperIndexPolicy<TestA, TestA>(), filter, testsA, testsA);
 
-  static_assert(std::is_same_v<decltype(comb2Filter.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<Filtered<TestA>, Filtered<TestA>>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(comb2Filter.begin())), CombinationsStrictlyUpperIndexPolicy<Filtered<TestA>, Filtered<TestA>>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(comb2Filter.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<Filtered<TestA>, Filtered<TestA>>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(comb2Filter.begin())), CombinationsStrictlyUpperIndexPolicy<Filtered<TestA>, Filtered<TestA>>::CombinationType&>, "Wrong combination type");
 
   auto beginFilterCombination = *(comb2Filter.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginFilterCombination)).getIterator().mCurrentPos == nullptr));
@@ -199,8 +199,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
 
   auto comb2Concat = combinations(CombinationsStrictlyUpperIndexPolicy(concatTests, concatTests));
 
-  static_assert(std::is_same_v<decltype(comb2Concat.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<ConcatTest, ConcatTest>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(comb2Concat.begin())), CombinationsStrictlyUpperIndexPolicy<ConcatTest, ConcatTest>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(comb2Concat.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<ConcatTest, ConcatTest>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(comb2Concat.begin())), CombinationsStrictlyUpperIndexPolicy<ConcatTest, ConcatTest>::CombinationType&>, "Wrong combination type");
 
   auto beginConcatCombination = *(comb2Concat.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginConcatCombination)).getIterator().mCurrentPos == nullptr));
@@ -224,8 +224,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
 
   auto comb2Diff = combinations(CombinationsFullIndexPolicy(testsA, testsB));
 
-  static_assert(std::is_same_v<decltype(comb2Diff.begin()), CombinationsGenerator<CombinationsFullIndexPolicy<TestA, TestB>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(comb2Diff.begin())), CombinationsFullIndexPolicy<TestA, TestB>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(comb2Diff.begin()), CombinationsGenerator<CombinationsFullIndexPolicy<TestA, TestB>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(comb2Diff.begin())), CombinationsFullIndexPolicy<TestA, TestB>::CombinationType&>, "Wrong combination type");
 
   auto beginDiffCombination = *(comb2Diff.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginDiffCombination)).getIterator().mCurrentPos == nullptr));
@@ -248,8 +248,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
   // More elements required for a combination than number of elements in the table
   auto comb2Bad = combinations(CombinationsStrictlyUpperIndexPolicy(testsB, testsB, testsB, testsB, testsB));
 
-  static_assert(std::is_same_v<decltype(comb2Bad.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<TestB, TestB, TestB, TestB, TestB>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(comb2Bad.begin())), CombinationsStrictlyUpperIndexPolicy<TestB, TestB, TestB, TestB, TestB>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(comb2Bad.begin()), CombinationsGenerator<CombinationsStrictlyUpperIndexPolicy<TestB, TestB, TestB, TestB, TestB>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(comb2Bad.begin())), CombinationsStrictlyUpperIndexPolicy<TestB, TestB, TestB, TestB, TestB>::CombinationType&>, "Wrong combination type");
 
   auto beginBadCombination = *(comb2Bad.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginBadCombination)).getIterator().mCurrentPos == nullptr));
@@ -289,8 +289,8 @@ TEST_CASE("CombinationsGeneratorConstruction")
 
   auto combBlock = combinations(CombinationsBlockStrictlyUpperSameIndexPolicy(pairBinning, 2, -1, testsA, testsA));
 
-  static_assert(std::is_same_v<decltype(combBlock.begin()), CombinationsGenerator<CombinationsBlockStrictlyUpperSameIndexPolicy<ColumnBinningPolicy<test::Y, test::FloatZ>, int32_t, TestA, TestA>>::CombinationsIterator>, "Wrong iterator type");
-  static_assert(std::is_same_v<decltype(*(combBlock.begin())), CombinationsBlockStrictlyUpperSameIndexPolicy<ColumnBinningPolicy<test::Y, test::FloatZ>, int32_t, TestA, TestA>::CombinationType&>, "Wrong combination type");
+  static_assert(std::same_as<decltype(combBlock.begin()), CombinationsGenerator<CombinationsBlockStrictlyUpperSameIndexPolicy<ColumnBinningPolicy<test::Y, test::FloatZ>, int32_t, TestA, TestA>>::CombinationsIterator>, "Wrong iterator type");
+  static_assert(std::same_as<decltype(*(combBlock.begin())), CombinationsBlockStrictlyUpperSameIndexPolicy<ColumnBinningPolicy<test::Y, test::FloatZ>, int32_t, TestA, TestA>::CombinationType&>, "Wrong combination type");
 
   auto beginBlockCombination = *(combBlock.begin());
   REQUIRE(!(static_cast<test::X>(std::get<0>(beginBlockCombination)).getIterator().mCurrentPos == nullptr));
