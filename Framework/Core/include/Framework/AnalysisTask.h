@@ -504,7 +504,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
   homogeneous_apply_refs(
     [name = name_str, &expressionInfos, &inputs, &bindingsKeys, &bindingsKeysUnsorted](auto& x) {
       using D = std::decay_t<decltype(x)>;
-      if constexpr (is_base_of_template_v<ProcessConfigurable, D>) {
+      if constexpr (base_of_template<ProcessConfigurable, D>) {
         // this pushes (argumentIndex,processHash,schemaPtr,nullptr) into expressionInfos for arguments that are Filtered/filtered_iterators
         AnalysisDataProcessorBuilder::inputsFromArgs(x.process, (name + "/" + x.name).c_str(), x.value, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted);
         return true;
@@ -616,7 +616,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
       // execute optional process()
       homogeneous_apply_refs(
         [&pc, &expressionInfos, &task, &slices](auto& x) mutable {
-          if constexpr (is_base_of_template_v<ProcessConfigurable, std::decay_t<decltype(x)>>) {
+          if constexpr (base_of_template<ProcessConfigurable, std::decay_t<decltype(x)>>) {
             if (x.value == true) {
               AnalysisDataProcessorBuilder::invokeProcess(*task.get(), pc.inputs(), x.process, expressionInfos, slices);
               return true;
