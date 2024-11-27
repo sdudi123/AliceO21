@@ -110,6 +110,7 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
                                          mTimeFrameGPU->getDeviceROFramesPV(),
                                          mTimeFrameGPU->getPrimaryVerticesNum(),
                                          mTimeFrameGPU->getDeviceArrayClusters(),
+                                         mTimeFrameGPU->getClusterSizes(),
                                          mTimeFrameGPU->getDeviceROframeClusters(),
                                          mTimeFrameGPU->getDeviceArrayUsedClusters(),
                                          mTimeFrameGPU->getDeviceArrayClustersIndexTables(),

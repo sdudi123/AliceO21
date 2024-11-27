@@ -534,7 +534,13 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
             const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
             const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + firstBinIndex];
             const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + maxBinIndex];
+            if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
+              printf("GPU: rof0: %d rof1: %d nclus0: %d nclus1: %d vertId: %d fbi: %d, mbi: %d, frci: %d, mrci: %d \n", rof0, rof1, clustersCurrentLayer.size(), clustersNextLayer.size(), iV, firstBinIndex, maxBinIndex, firstRowClusterIndex, maxRowClusterIndex);
+            }
             for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
+              if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
+                printf("\ttesting clId: %d ...\n", iNextCluster);
+              }
               if (iNextCluster >= clustersNextLayer.size()) {
                 break;
               }
@@ -612,7 +618,7 @@ GPUg() void printBufferLayerOnThread(const int layer, const int* v, unsigned int
   }
 }
 
-GPUg() void printMatrixRow(const int row, int** mat, const unsigned int rowLength, const int len = 256 * 128 + 1, const unsigned int tId = 0)
+GPUg() void printMatrixRow(const int row, int** mat, const unsigned int rowLength, const int len = 150, const unsigned int tId = 0)
 {
   if (blockIdx.x * blockDim.x + threadIdx.x == tId) {
     for (int i{0}; i < rowLength; ++i) {
@@ -656,6 +662,28 @@ GPUg() void printNeighbours(const gpuPair<int, int>* neighbours,
   for (unsigned int iNeighbour{0}; iNeighbour < nNeighboursIndexTable[nCells]; ++iNeighbour) {
     if (threadIdx.x == tId) {
       printf("%d -> %d\n", neighbours[iNeighbour].first, neighbours[iNeighbour].second);
+    }
+  }
+}
+
+GPUg() void printTrackletsLUTPerROF(const int layerId,
+                                    const int** ROFClusters,
+                                    int** luts,
+                                    const int tId = 0)
+{
+  if (blockIdx.x * blockDim.x + threadIdx.x == tId) {
+    for (auto rofId{0}; rofId < 2304; ++rofId) {
+      int nClus = ROFClusters[layerId][rofId + 1] - ROFClusters[layerId][rofId];
+      if (!nClus) {
+        continue;
+      }
+      printf("rof: %d (%d) ==> ", rofId, nClus);
+
+      for (int iC{0}; iC < nClus; ++iC) {
+        int nT = luts[layerId][ROFClusters[layerId][rofId] + iC];
+        printf("%d\t", nT);
+      }
+      printf("\n");
     }
   }
 }
@@ -706,6 +734,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    const int* rofPV,
                                    const int nVertices,
                                    const Cluster** clusters,
+                                   std::vector<unsigned int> nClusters,
                                    const int** ROFClusters,
                                    const unsigned char** usedClusters,
                                    const int** clustersIndexTables,
@@ -751,8 +780,9 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
       mulScatAng[iLayer]);
     gpuCheckError(cudaPeekAtLastError());
     gpuCheckError(cudaDeviceSynchronize());
-    gpu::printMatrixRow<<<1, 1>>>(iLayer, trackletsLUTs, 3000);
+    // gpu::printMatrixRow<<<1, 1>>>(iLayer, trackletsLUTs, nClusters[iLayer]);
   }
+  // gpu::printTrackletsLUTPerROF<<<1, 1>>>(1, ROFClusters, trackletsLUTs);
 }
 
 void countCellsHandler(
@@ -996,6 +1026,7 @@ template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const int* rofPV,
                                                const int nVertices,
                                                const Cluster** clusters,
+                                               std::vector<unsigned int> nClusters,
                                                const int** ROFClusters,
                                                const unsigned char** usedClusters,
                                                const int** clustersIndexTables,

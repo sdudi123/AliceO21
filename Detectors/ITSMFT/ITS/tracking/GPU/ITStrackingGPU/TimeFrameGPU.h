@@ -118,6 +118,7 @@ class TimeFrameGPU : public TimeFrame
   const Cluster** getDeviceArrayClusters() const { return mClustersDeviceArray; }
   const Cluster** getDeviceArrayUnsortedClusters() const { return mUnsortedClustersDeviceArray; }
   const int** getDeviceArrayClustersIndexTables() const { return mClustersIndexTablesDeviceArray; }
+  std::vector<unsigned int> getClusterSizes();
   const unsigned char** getDeviceArrayUsedClusters() const { return mUsedClustersDeviceArray; }
   const int** getDeviceROframeClusters() const { return mROFrameClustersDeviceArray; }
   const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
@@ -230,6 +231,16 @@ inline int TimeFrameGPU<nLayers>::getNClustersInRofSpan(const int rofIdstart, co
 {
   return static_cast<int>(mROFramesClusters[layerId][(rofIdstart + rofSpanSize) < mROFramesClusters.size() ? rofIdstart + rofSpanSize : mROFramesClusters.size() - 1] - mROFramesClusters[layerId][rofIdstart]);
 }
+
+template <int nLayers>
+inline std::vector<unsigned int> TimeFrameGPU<nLayers>::getClusterSizes()
+{
+  std::vector<unsigned int> sizes(mUnsortedClusters.size());
+  std::transform(mUnsortedClusters.begin(), mUnsortedClusters.end(), sizes.begin(),
+                 [](const auto& v) { return static_cast<unsigned int>(v.size()); });
+  return sizes;
+}
+
 } // namespace gpu
 } // namespace its
 } // namespace o2
