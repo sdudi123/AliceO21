@@ -420,31 +420,18 @@ TGeoHMatrix* GeometryTGeo::extractMatrixSensor(int index) const
   static int chipInGlo{0};
 
   // account for the difference between physical sensitive layer (where charge collection is simulated) and effective sensor thicknesses
+  // in the ITS3 case this accounted by specialized functions
   double delta = Segmentation::SensorLayerThickness - Segmentation::SensorLayerThicknessEff;
-#ifdef ENABLE_UPGRADES
-  if (mIsLayerITS3[getLayer(index)]) {
-    delta = its3::SegmentationSuperAlpide::mSensorLayerThickness - its3::SegmentationSuperAlpide::mSensorLayerThicknessEff;
+  static TGeoTranslation tra(0., 0.5 * delta, 0.);
+#ifdef ENABLE_UPGRADES // only apply for non ITS3 OB layers
+  if (!mIsLayerITS3[getLayer(index)]) {
+    matTmp *= tra;
   }
+#else
+  matTmp *= tra;
 #endif
 
-  static TGeoTranslation tra(0., 0.5 * delta, 0.);
-
-  matTmp *= tra;
-
   return &matTmp;
-}
-
-//__________________________________________________________________________
-const o2::math_utils::Transform3D GeometryTGeo::getT2LMatrixITS3(int isn, float alpha)
-{
-  // create for sensor isn the TGeo matrix for Tracking to Local frame transformations
-  static TGeoHMatrix t2l;
-  t2l.Clear();
-  t2l.RotateZ(alpha * RadToDeg()); // rotate in direction of normal to the tangent to the cylinder
-  const TGeoHMatrix& matL2G = getMatrixL2G(isn);
-  const auto& matL2Gi = matL2G.Inverse();
-  t2l.MultiplyLeft(&matL2Gi);
-  return Mat3D(t2l);
 }
 
 //__________________________________________________________________________
@@ -924,6 +911,26 @@ TGeoHMatrix& GeometryTGeo::createT2LMatrix(int isn)
   const TGeoHMatrix& matL2Gi = matL2G->Inverse();
   t2l.MultiplyLeft(&matL2Gi);
   return t2l;
+}
+
+//__________________________________________________________________________
+const o2::math_utils::Transform3D GeometryTGeo::getT2LMatrixITS3(int isn, float alpha)
+{
+  // create for sensor isn the TGeo matrix for Tracking to Local frame transformations with correction for effective thickness
+  static TGeoHMatrix t2l;
+  t2l.Clear();
+  t2l.RotateZ(alpha * RadToDeg()); // rotate in direction of normal to the tangent to the cylinder
+  const TGeoHMatrix& matL2G = getMatrixL2G(isn);
+  const auto& matL2Gi = matL2G.Inverse();
+  t2l.MultiplyLeft(&matL2Gi);
+  // TODO FS
+  // correction for effective sensor thickness; disabled for now since this does not work
+  // but the bias by not using in this should be very small
+  /*static TGeoTranslation tra;*/
+  /*tra.SetDx(SuperSegmentation::mSensorLayerThicknessCorr * std::cos(alpha));*/
+  /*tra.SetDy(SuperSegmentation::mSensorLayerThicknessCorr * std::sin(alpha));*/
+  /*t2l *= tra;*/
+  return Mat3D(t2l);
 }
 
 //__________________________________________________________________________
