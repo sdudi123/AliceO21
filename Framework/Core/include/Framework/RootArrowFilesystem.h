@@ -17,6 +17,8 @@
 #include <arrow/type_fwd.h>
 #include <memory>
 
+class TFile;
+class TBranch;
 class TTree;
 class TBufferFile;
 class TDirectoryFile;
@@ -87,6 +89,11 @@ class TTreeFileSystem : public VirtualRootFileSystemBase
   {
     return std::dynamic_pointer_cast<VirtualRootFileSystemBase>(shared_from_this());
   };
+
+  arrow::Result<std::shared_ptr<arrow::io::OutputStream>> OpenOutputStream(
+    const std::string& path,
+    const std::shared_ptr<const arrow::KeyValueMetadata>& metadata) override;
+
   virtual TTree* GetTree(arrow::dataset::FileSource source) = 0;
 };
 
@@ -127,6 +134,10 @@ class TFileFileSystem : public VirtualRootFileSystemBase
   }
 
   std::shared_ptr<VirtualRootFileSystemBase> GetSubFilesystem(arrow::dataset::FileSource source) override;
+
+  arrow::Result<std::shared_ptr<arrow::io::OutputStream>> OpenOutputStream(
+    const std::string& path,
+    const std::shared_ptr<const arrow::KeyValueMetadata>& metadata) override;
 
   // We can go back to the TFile in case this is needed.
   TDirectoryFile* GetFile()
@@ -216,6 +227,59 @@ class TTreeFileFormat : public arrow::dataset::FileFormat
   arrow::Result<arrow::RecordBatchGenerator> ScanBatchesAsync(
     const std::shared_ptr<arrow::dataset::ScanOptions>& options,
     const std::shared_ptr<arrow::dataset::FileFragment>& fragment) const override;
+};
+
+// An arrow outputstream which allows to write to a TDirectoryFile.
+// This will point to the location of the file itself. You can
+// specify the location of the actual object inside it by passing the
+// associated path to the Write() API.
+class TDirectoryFileOutputStream : public arrow::io::OutputStream
+{
+ public:
+  TDirectoryFileOutputStream(TDirectoryFile*);
+
+  arrow::Status Close() override;
+
+  arrow::Result<int64_t> Tell() const override;
+
+  arrow::Status Write(const void* data, int64_t nbytes) override;
+
+  bool closed() const override;
+
+  TDirectoryFile* GetDirectory()
+  {
+    return mDirectory;
+  }
+
+ private:
+  TDirectoryFile* mDirectory;
+};
+
+// An arrow outputstream which allows to write to a TTree. Eventually
+// with a prefix for the branches.
+class TTreeOutputStream : public arrow::io::OutputStream
+{
+ public:
+  TTreeOutputStream(TTree*, std::string branchPrefix);
+
+  arrow::Status Close() override;
+
+  arrow::Result<int64_t> Tell() const override;
+
+  arrow::Status Write(const void* data, int64_t nbytes) override;
+
+  bool closed() const override;
+
+  TBranch* CreateBranch(char const* branchName, char const* sizeBranch);
+
+  TTree* GetTree()
+  {
+    return mTree;
+  }
+
+ private:
+  TTree* mTree;
+  std::string mBranchPrefix;
 };
 
 } // namespace o2::framework

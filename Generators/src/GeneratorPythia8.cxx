@@ -45,20 +45,32 @@ namespace eventgen
 /*****************************************************************/
 /*****************************************************************/
 
-GeneratorPythia8::GeneratorPythia8() : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
+// the default construct uses the GeneratorPythia8Param singleton to extract a config and delegates
+// to the proper constructor
+GeneratorPythia8::GeneratorPythia8() : GeneratorPythia8(GeneratorPythia8Param::Instance().detach())
 {
-  /** default constructor **/
+  LOG(info) << "GeneratorPythia8 constructed from GeneratorPythia8Param ConfigurableParam";
+}
+
+/*****************************************************************/
+
+GeneratorPythia8::GeneratorPythia8(Pythia8GenConfig const& config) : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
+{
+  /** constructor **/
 
   mInterface = reinterpret_cast<void*>(&mPythia);
   mInterfaceName = "pythia8";
 
-  auto& param = GeneratorPythia8Param::Instance();
   LOG(info) << "Instance \'Pythia8\' generator with following parameters";
-  LOG(info) << param;
+  LOG(info) << "config: " << config.config;
+  LOG(info) << "hooksFileName: " << config.hooksFileName;
+  LOG(info) << "hooksFuncName: " << config.hooksFuncName;
 
-  setConfig(param.config);
-  setHooksFileName(param.hooksFileName);
-  setHooksFuncName(param.hooksFuncName);
+  mGenConfig = config;
+
+  setConfig(mGenConfig.config);
+  setHooksFileName(mGenConfig.hooksFileName);
+  setHooksFuncName(mGenConfig.hooksFuncName);
 }
 
 /*****************************************************************/
@@ -557,7 +569,7 @@ void GeneratorPythia8::pruneEvent(Pythia8::Event& event, Select select)
       }
     }
   }
-  if (GeneratorPythia8Param::Instance().verbose) {
+  if (mGenConfig.verbose) {
     LOG(info) << "Pythia event was pruned from " << event.size()
               << " to " << pruned.size() << " particles";
   }
@@ -570,7 +582,7 @@ void GeneratorPythia8::initUserFilterCallback()
 {
   mUserFilterFcn = [](Pythia8::Particle const&) -> bool { return true; };
 
-  auto& filter = GeneratorPythia8Param::Instance().particleFilter;
+  std::string filter = mGenConfig.particleFilter;
   if (filter.size() > 0) {
     LOG(info) << "Initializing the callback for user-based particle pruning " << filter;
     auto expandedFileName = o2::utils::expandShellVarsInFileName(filter);
@@ -599,7 +611,8 @@ Bool_t
   // event record in the AOD.
 
   std::function<bool(const Pythia8::Particle&)> partonSelect = [](const Pythia8::Particle&) { return true; };
-  if (not GeneratorPythia8Param::Instance().includePartonEvent) {
+  bool includeParton = mGenConfig.includePartonEvent;
+  if (not includeParton) {
 
     // Select pythia particles
     partonSelect = [](const Pythia8::Particle& particle) {
