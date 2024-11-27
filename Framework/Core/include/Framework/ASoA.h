@@ -1230,29 +1230,34 @@ template <typename T>
 concept is_iterator = framework::base_of_template<TableIterator, T> || framework::specialization_of_template<TableIterator, T>;
 
 template <typename T>
-concept with_originals = requires() {
+concept with_originals = requires {
   T::originals.size();
 };
 
 template <typename T>
-concept with_sources = requires() {
+concept with_sources = requires {
   T::sources.size();
 };
 
 template <typename T>
 concept with_base_table = not_void<typename aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata::base_table_t>;
 
+template <size_t N1, std::array<TableRef, N1> os1, size_t N2, std::array<TableRef, N2> os2>
+consteval bool is_compatible()
+{
+  return []<size_t... Is>(std::index_sequence<Is...>){
+    return ([]<size_t... Ks>(std::index_sequence<Ks...>){
+      constexpr auto h = os1[Is].desc_hash;
+      using H = o2::aod::Hash<h>;
+      return (((h == os2[Ks].desc_hash) || is_ng_index_equivalent_v<H, o2::aod::Hash<os2[Ks].desc_hash>>) || ...);  
+    }(std::make_index_sequence<N2>()) || ...);
+  }(std::make_index_sequence<N1>());
+}
+
 template <with_originals T, with_originals B>
 consteval bool is_binding_compatible_v()
 {
-  return []<size_t... Is>(std::index_sequence<Is...>) {
-    return ([]<size_t... Ks>(std::index_sequence<Ks...>) {
-      constexpr auto thash = T::originals[Is].desc_hash;
-      using tHash = o2::aod::Hash<T::originals[Is].desc_hash>;
-      return (((thash == B::originals[Ks].desc_hash) || is_ng_index_equivalent_v<tHash, o2::aod::Hash<B::originals[Ks].desc_hash>>) || ...);
-    }(std::make_index_sequence<B::originals.size()>()) ||
-            ...);
-  }(std::make_index_sequence<T::originals.size()>());
+  return is_compatible<T::originals.size(), T::originals, B::originals.size(), B::originals>();
 }
 
 template <typename T, typename B>
