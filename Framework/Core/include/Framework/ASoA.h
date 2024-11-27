@@ -189,7 +189,7 @@ template <typename C>
 concept is_self_index_column = not_void<typename C::self_index_t> && std::same_as<typename C::self_index_t, std::true_type>;
 
 template <typename C>
-concept is_index_column = !is_self_index_column<C> && (requires {&C::getId;} || requires {&C::getIds;});
+concept is_index_column = !is_self_index_column<C> && (requires { &C::getId; } || requires { &C::getIds; });
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
@@ -783,7 +783,7 @@ struct Index : o2::soa::IndexColumn<Index<START, END>> {
 
 template <typename D>
 concept is_indexing_column = requires {
-  []<int64_t S, int64_t E>(o2::soa::Index<S, E>*){}(std::declval<D*>());
+  []<int64_t S, int64_t E>(o2::soa::Index<S, E>*) {}(std::declval<D*>());
 };
 
 template <typename T>
@@ -1245,12 +1245,13 @@ concept with_base_table = not_void<typename aod::MetadataTrait<o2::aod::Hash<T::
 template <size_t N1, std::array<TableRef, N1> os1, size_t N2, std::array<TableRef, N2> os2>
 consteval bool is_compatible()
 {
-  return []<size_t... Is>(std::index_sequence<Is...>){
-    return ([]<size_t... Ks>(std::index_sequence<Ks...>){
+  return []<size_t... Is>(std::index_sequence<Is...>) {
+    return ([]<size_t... Ks>(std::index_sequence<Ks...>) {
       constexpr auto h = os1[Is].desc_hash;
       using H = o2::aod::Hash<h>;
-      return (((h == os2[Ks].desc_hash) || is_ng_index_equivalent_v<H, o2::aod::Hash<os2[Ks].desc_hash>>) || ...);  
-    }(std::make_index_sequence<N2>()) || ...);
+      return (((h == os2[Ks].desc_hash) || is_ng_index_equivalent_v<H, o2::aod::Hash<os2[Ks].desc_hash>>) || ...);
+    }(std::make_index_sequence<N2>()) ||
+            ...);
   }(std::make_index_sequence<N1>());
 }
 
@@ -1626,28 +1627,28 @@ consteval auto base_iter(framework::pack<C...>&&) -> TableIterator<D, O, IP, C..
 }
 
 template <TableRef ref, typename... Ts>
-  requires ((sizeof...(Ts) > 0) && (soa::is_column<Ts> && ...))
+  requires((sizeof...(Ts) > 0) && (soa::is_column<Ts> && ...))
 consteval auto getColumns()
 {
   return framework::pack<Ts...>{};
 }
 
 template <TableRef ref, typename... Ts>
-  requires ((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash == "CONC"_h))
+  requires((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash == "CONC"_h))
 consteval auto getColumns()
 {
   return framework::full_intersected_pack_t<typename Ts::columns_t...>{};
 }
 
 template <TableRef ref, typename... Ts>
-  requires ((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash != "CONC"_h))
+  requires((sizeof...(Ts) > 0) && !(soa::is_column<Ts> || ...) && (ref.origin_hash != "CONC"_h))
 consteval auto getColumns()
 {
   return framework::concatenated_pack_unique_t<typename Ts::columns_t...>{};
 }
 
 template <TableRef ref, typename... Ts>
-  requires (sizeof...(Ts) == 0 && soa::has_metadata<aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>>)
+  requires(sizeof...(Ts) == 0 && soa::has_metadata<aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>>)
 consteval auto getColumns()
 {
   return typename aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>::metadata::columns{};
@@ -1663,30 +1664,34 @@ class Table
   using self_t = Table<L, D, O, Ts...>;
   using table_t = self_t;
 
-  static constexpr const auto originals = framework::overloaded {
-      []<typename... TTs> requires ((sizeof... (TTs) == 0) || (o2::soa::is_column<TTs> && ...)) (framework::pack<TTs...>) { return std::array<TableRef, 1>{ref}; },
-      []<typename... TTs> requires ((sizeof... (TTs) > 0) && (!o2::soa::is_column<TTs> || ...)) (framework::pack<TTs...>) { return o2::soa::mergeOriginals<TTs...>(); }
-    }.operator()(framework::pack<Ts...>{});
+  static constexpr const auto originals = framework::overloaded{
+    []<typename... TTs>
+      requires((sizeof...(TTs) == 0) || (o2::soa::is_column<TTs> && ...))
+              (framework::pack<TTs...>) { return std::array<TableRef, 1>{ref}; },
+              []<typename... TTs>
+                requires((sizeof...(TTs) > 0) && (!o2::soa::is_column<TTs> || ...))
+              (framework::pack<TTs...>) { return o2::soa::mergeOriginals<TTs...>(); }}
+        .operator()(framework::pack<Ts...>{});
 
   template <size_t N, std::array<TableRef, N> bindings>
-    requires (ref.origin_hash == "CONC"_h)
+    requires(ref.origin_hash == "CONC"_h)
   static consteval auto isIndexTargetOf()
   {
     return false;
   }
 
   template <size_t N, std::array<TableRef, N> bindings>
-    requires (ref.origin_hash == "JOIN"_h)
+    requires(ref.origin_hash == "JOIN"_h)
   static consteval auto isIndexTargetOf()
   {
     return std::find_if(self_t::originals.begin(), self_t::originals.end(),
-           [](TableRef const& r) {
-             return std::find(bindings.begin(), bindings.end(), r) != bindings.end();
-           }) != self_t::originals.end();
+                        [](TableRef const& r) {
+                          return std::find(bindings.begin(), bindings.end(), r) != bindings.end();
+                        }) != self_t::originals.end();
   }
 
   template <size_t N, std::array<TableRef, N> bindings>
-    requires (!(ref.origin_hash == "CONC"_h || ref.origin_hash == "JOIN"_h))
+    requires(!(ref.origin_hash == "CONC"_h || ref.origin_hash == "JOIN"_h))
   static consteval auto isIndexTargetOf()
   {
     return std::find(bindings.begin(), bindings.end(), self_t::ref) != bindings.end();
