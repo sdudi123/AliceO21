@@ -27,6 +27,7 @@
 #include <arrow/array.h>
 #include <arrow/util/config.h>
 #include <gandiva/selection_vector.h>
+#include <array>
 #include <cassert>
 #include <fmt/format.h>
 #include <gsl/span>
@@ -282,17 +283,17 @@ consteval auto filterForKey()
   };
 
 /// Compile-time function to extract version from table signature string "DESC/#"
-static inline constexpr int version(const char* const str)
+static inline constexpr uint32_t version(const char* const str)
 {
   if (str[0] == '\0') {
     return 0;
   }
   size_t len = 0;
-  int res = 0;
-  while (len < 16 && str[len] != '/') {
+  uint32_t res = 0;
+  while (str[len] != '/' && str[len] != '\0') {
     ++len;
   }
-  if (len > 16) {
+  if (str[len - 1] == '\0') {
     return -1;
   }
   for (auto i = len + 1; str[i] != '\0'; ++i) {
@@ -1656,6 +1657,20 @@ consteval auto getColumns()
   return typename aod::MetadataTrait<o2::aod::Hash<ref.desc_hash>>::metadata::columns{};
 }
 
+template <TableRef ref, typename... Ts>
+  requires((sizeof...(Ts) == 0) || (o2::soa::is_column<Ts> && ...))
+consteval auto computeOriginals()
+{
+  return std::array<TableRef, 1>{ref};
+}
+
+template <TableRef ref, typename... Ts>
+  requires((sizeof...(Ts) > 0) && (!o2::soa::is_column<Ts> || ...))
+consteval auto computeOriginals()
+{
+  return o2::soa::mergeOriginals<Ts...>();
+}
+
 /// A Table class which observes an arrow::Table and provides
 /// It is templated on a set of Column / DynamicColumn types.
 template <aod::is_aod_hash L, aod::is_aod_hash D, aod::is_origin_hash O, typename... Ts>
@@ -1666,14 +1681,7 @@ class Table
   using self_t = Table<L, D, O, Ts...>;
   using table_t = self_t;
 
-  static constexpr const auto originals = framework::overloaded{
-    []<typename... TTs>
-      requires((sizeof...(TTs) == 0) || (o2::soa::is_column<TTs> && ...))
-              (framework::pack<TTs...>) { return std::array<TableRef, 1>{ref}; },
-              []<typename... TTs>
-                requires((sizeof...(TTs) > 0) && (!o2::soa::is_column<TTs> || ...))
-              (framework::pack<TTs...>) { return o2::soa::mergeOriginals<TTs...>(); }}
-        .operator()(framework::pack<Ts...>{});
+  static constexpr const auto originals = computeOriginals<ref, Ts...>();
 
   template <size_t N, std::array<TableRef, N> bindings>
     requires(ref.origin_hash == "CONC"_h)
