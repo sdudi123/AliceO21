@@ -128,7 +128,6 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
             if (layer1.empty()) {
               continue;
             }
-
             for (int iPhiCount{0}; iPhiCount < phiBinsNum; iPhiCount++) {
               int iPhiBin = (selectedBinsRect.y + iPhiCount) % mTrkParams[iteration].PhiBins;
               const int firstBinIndex{tf->mIndexTableUtils.getBinIndex(selectedBinsRect.x, iPhiBin)};
@@ -145,13 +144,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
               }
               const int firstRowClusterIndex = tf->getIndexTable(rof1, iLayer + 1)[firstBinIndex];
               const int maxRowClusterIndex = tf->getIndexTable(rof1, iLayer + 1)[maxBinIndex];
-              if (iCluster == 0 && iLayer == 1 && rof0 == 81) {
-                printf("CPU: rof0: %d rof1: %d nclus0: %d nclus1: %d vertId: %d fbi: %d, mbi: %d, frci: %d, mrci: %d \n", rof0, rof1, layer0.size(), layer1.size(), iV, firstBinIndex, maxBinIndex, firstRowClusterIndex, maxRowClusterIndex);
-              }
               for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
-                if (iCluster == 0 && iLayer == 1 && rof0 == 81) {
-                  printf("\ttesting clId: %d ...\n", iNextCluster);
-                }
                 if (iNextCluster >= (int)layer1.size()) {
                   break;
                 }

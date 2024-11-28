@@ -529,18 +529,18 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
             continue;
           }
           for (int iPhiCount{0}; iPhiCount < phiBinsNum; iPhiCount++) {
-            int iPhiBin = (selectedBinsRect.y + iPhiCount) % PhiBins;
+            int iPhiBin = (selectedBinsRect.y + iPhiCount) % phiBins;
             const int firstBinIndex{utils->getBinIndex(selectedBinsRect.x, iPhiBin)};
             const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
             const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + firstBinIndex];
             const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + maxBinIndex];
-            if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
-              printf("GPU: rof0: %d rof1: %d nclus0: %d nclus1: %d vertId: %d fbi: %d, mbi: %d, frci: %d, mrci: %d \n", rof0, rof1, clustersCurrentLayer.size(), clustersNextLayer.size(), iV, firstBinIndex, maxBinIndex, firstRowClusterIndex, maxRowClusterIndex);
-            }
+            // if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
+            //   printf("GPU: pb: %d ipc: %d ipb: %d sbr.x: %d sbr.y: %d sbr.z: %d sbr.w: %d fbi: %d, mbi: %d, frci: %d, mrci: %d \n", phiBins, iPhiCount, iPhiBin, selectedBinsRect.x, selectedBinsRect.y, selectedBinsRect.z, selectedBinsRect.w, firstBinIndex, maxBinIndex, firstRowClusterIndex, maxRowClusterIndex);
+            // }
             for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
-              if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
-                printf("\ttesting clId: %d ...\n", iNextCluster);
-              }
+              // if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
+              //   printf("\ttesting clId: %d ...\n", iNextCluster);
+              // }
               if (iNextCluster >= clustersNextLayer.size()) {
                 break;
               }
@@ -782,7 +782,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
     gpuCheckError(cudaDeviceSynchronize());
     // gpu::printMatrixRow<<<1, 1>>>(iLayer, trackletsLUTs, nClusters[iLayer]);
   }
-  // gpu::printTrackletsLUTPerROF<<<1, 1>>>(1, ROFClusters, trackletsLUTs);
+  gpu::printTrackletsLUTPerROF<<<1, 1>>>(1, ROFClusters, trackletsLUTs);
 }
 
 void countCellsHandler(
