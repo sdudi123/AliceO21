@@ -589,7 +589,7 @@ class ColumnIterator : ChunkingPolicy
   mutable int mOffset;
 
  private:
-  void checkSkipChunk()
+  void checkSkipChunk() const
     requires((ChunkingPolicy::chunked == true) && std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
   {
     auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
@@ -598,7 +598,7 @@ class ColumnIterator : ChunkingPolicy
     }
   }
 
-  void checkSkipChunk()
+  void checkSkipChunk() const
     requires((ChunkingPolicy::chunked == true) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
   {
     if (O2_BUILTIN_UNLIKELY(((mCurrent + (*mCurrentPos >> SCALE_FACTOR)) >= mLast))) {
@@ -606,25 +606,36 @@ class ColumnIterator : ChunkingPolicy
     }
   }
 
-  void checkSkipChunk()
+  void checkSkipChunk() const
     requires(ChunkingPolicy::chunked == false)
   {
   }
   /// get pointer to mCurrentChunk chunk
   auto getCurrentArray() const
+    requires(std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>)
   {
     std::shared_ptr<arrow::Array> chunkToUse = mColumn->chunk(mCurrentChunk);
     mOffset = chunkToUse->offset();
-    if constexpr (std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>) {
-      chunkToUse = std::dynamic_pointer_cast<arrow::FixedSizeListArray>(chunkToUse)->values();
-      return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
-    } else if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
-      chunkToUse = std::dynamic_pointer_cast<arrow::ListArray>(chunkToUse)->values();
-      mOffset = chunkToUse->offset();
-      return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
-    } else {
-      return std::static_pointer_cast<arrow_array_for_t<T>>(chunkToUse);
-    }
+    chunkToUse = std::dynamic_pointer_cast<arrow::FixedSizeListArray>(chunkToUse)->values();
+    return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
+  }
+
+  auto getCurrentArray() const
+    requires(std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    std::shared_ptr<arrow::Array> chunkToUse = mColumn->chunk(mCurrentChunk);
+    mOffset = chunkToUse->offset();
+    chunkToUse = std::dynamic_pointer_cast<arrow::ListArray>(chunkToUse)->values();
+    mOffset = chunkToUse->offset();
+    return std::static_pointer_cast<arrow_array_for_t<value_for_t<T>>>(chunkToUse);
+  }
+
+  auto getCurrentArray() const
+    requires(!std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray> && !std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    std::shared_ptr<arrow::Array> chunkToUse = mColumn->chunk(mCurrentChunk);
+    mOffset = chunkToUse->offset();
+    return std::static_pointer_cast<arrow_array_for_t<T>>(chunkToUse);
   }
 };
 
