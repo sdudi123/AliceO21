@@ -381,9 +381,7 @@ struct Binding {
   {
     ptr = table;
     hash = o2::framework::TypeIdHelpers::uniqueId<T>();
-    if constexpr (framework::base_of_template<soa::Table, T>) {
-      refs = std::span{T::originals};
-    }
+    refs = std::span{T::originals};
   }
 
   template <typename T>
@@ -552,53 +550,33 @@ class ColumnIterator : ChunkingPolicy
   }
 
   decltype(auto) operator*() const
+    requires std::same_as<bool, std::decay_t<T>>
   {
-    if constexpr (ChunkingPolicy::chunked) {
-      if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
-        auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
-        if (O2_BUILTIN_UNLIKELY(*mCurrentPos - mFirstIndex >= list->length())) {
-          nextChunk();
-        }
-      } else {
-        if (O2_BUILTIN_UNLIKELY(((mCurrent + (*mCurrentPos >> SCALE_FACTOR)) >= mLast))) {
-          nextChunk();
-        }
-      }
-    }
-    if constexpr (std::same_as<bool, std::decay_t<T>>) {
-      // FIXME: check if shifting the masked bit to the first position is better than != 0
-      return (*(mCurrent - (mOffset >> SCALE_FACTOR) + ((*mCurrentPos + mOffset) >> SCALE_FACTOR)) & (1 << ((*mCurrentPos + mOffset) & 0x7))) != 0;
-    } else if constexpr (std::same_as<arrow_array_for_t<T>, arrow::ListArray>) {
-      auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
-      auto offset = list->value_offset(*mCurrentPos - mFirstIndex);
-      auto length = list->value_length(*mCurrentPos - mFirstIndex);
-      return gsl::span{mCurrent + mFirstIndex + offset, mCurrent + mFirstIndex + (offset + length)};
-    } else {
-      return *(mCurrent + (*mCurrentPos >> SCALE_FACTOR));
-    }
+    checkSkipChunk();
+    return (*(mCurrent - (mOffset >> SCALE_FACTOR) + ((*mCurrentPos + mOffset) >> SCALE_FACTOR)) & (1 << ((*mCurrentPos + mOffset) & 0x7))) != 0;
+  }
+
+  decltype(auto) operator*() const
+    requires((!std::same_as<bool, std::decay_t<T>>) && std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    checkSkipChunk();
+    auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
+    auto offset = list->value_offset(*mCurrentPos - mFirstIndex);
+    auto length = list->value_length(*mCurrentPos - mFirstIndex);
+    return gsl::span{mCurrent + mFirstIndex + offset, mCurrent + mFirstIndex + (offset + length)};
+  }
+
+  decltype(auto) operator*() const
+    requires((!std::same_as<bool, std::decay_t<T>>) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    checkSkipChunk();
+    return *(mCurrent + (*mCurrentPos >> SCALE_FACTOR));
   }
 
   // Move to the chunk which containts element pos
   ColumnIterator<T>& moveToPos()
   {
-    // If we get outside range of the current chunk, go to the next.
-    if constexpr (ChunkingPolicy::chunked) {
-      while (O2_BUILTIN_UNLIKELY((mCurrent + (*mCurrentPos >> SCALE_FACTOR)) >= mLast)) {
-        nextChunk();
-      }
-    }
-    return *this;
-  }
-
-  // Move to the chunk which containts element pos
-  ColumnIterator<T>& checkNextChunk()
-  {
-    if constexpr (ChunkingPolicy::chunked) {
-      if (O2_BUILTIN_LIKELY((mCurrent + (*mCurrentPos >> SCALE_FACTOR)) <= mLast)) {
-        return *this;
-      }
-      nextChunk();
-    }
+    checkSkipChunk();
     return *this;
   }
 
@@ -611,6 +589,27 @@ class ColumnIterator : ChunkingPolicy
   mutable int mOffset;
 
  private:
+  void checkSkipChunk()
+    requires((ChunkingPolicy::chunked == true) && std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
+    if (O2_BUILTIN_UNLIKELY(*mCurrentPos - mFirstIndex >= list->length())) {
+      nextChunk();
+    }
+  }
+
+  void checkSkipChunk()
+    requires((ChunkingPolicy::chunked == true) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  {
+    if (O2_BUILTIN_UNLIKELY(((mCurrent + (*mCurrentPos >> SCALE_FACTOR)) >= mLast))) {
+      nextChunk();
+    }
+  }
+
+  void checkSkipChunk()
+    requires(ChunkingPolicy::chunked == false)
+  {
+  }
   /// get pointer to mCurrentChunk chunk
   auto getCurrentArray() const
   {
@@ -1161,14 +1160,6 @@ struct TableIterator : IP, C... {
   }
 
  private:
-  /// Helper to move to the correct chunk, if needed.
-  /// FIXME: not needed?
-  template <typename... PC>
-  void checkNextChunk(framework::pack<PC...>)
-  {
-    (PC::mColumnIterator.checkNextChunk(), ...);
-  }
-
   /// Helper to move at the end of columns which actually have an iterator.
   template <typename... PC>
   void doMoveToEnd(framework::pack<PC...>)
