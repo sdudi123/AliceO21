@@ -24,7 +24,7 @@
 
 #include "Headers/DataHeader.h"
 
-#include "ML/ort_interface.h"
+#include "ML/OrtInterface.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 
 #include "Steer/MCKinematicsReader.h"
@@ -139,7 +139,7 @@ class onnxInference : public Task
       if ((i % epochs_measure == 0) && (i != 0)) {
         auto end_network_eval = std::chrono::high_resolution_clock::now();
         time = std::chrono::duration<double, std::ratio<1, (unsigned long)1e9>>(end_network_eval - start_network_eval).count() / 1e9;
-        LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads * test_num_tensors / time) << " elements / s";
+        LOG(info) << "Total time: " << time << "s. Timing: " << uint64_t((double)test_size_tensor * epochs_measure * execution_threads / time) << " elements / s";
         time = 0;
         start_network_eval = std::chrono::high_resolution_clock::now();
       }
