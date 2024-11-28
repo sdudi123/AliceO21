@@ -1715,7 +1715,8 @@ class Table
 
   template <typename IP, typename Parent, typename... T>
   struct TableIteratorBase : base_iterator<IP> {
-    using external_index_columns_t = decltype([]<typename... C>(framework::pack<C...>) -> framework::selected_pack<soa::is_external_index_t, C...> {}(columns_t{}));
+    using columns_t = typename Parent::columns_t;
+    using external_index_columns_t = typename Parent::external_index_columns_t;
     using bindings_pack_t = decltype([]<typename... C>(framework::pack<C...>) -> framework::pack<typename C::binding_t...> {}(external_index_columns_t{}));
     static constexpr const std::array<TableRef, sizeof...(T)> originals{T::ref...};
     using policy_t = IP;
