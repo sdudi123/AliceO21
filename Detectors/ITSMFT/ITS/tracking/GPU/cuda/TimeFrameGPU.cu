@@ -259,17 +259,17 @@ void TimeFrameGPU<nLayers>::createTrackletsLUTDevice()
   STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
 }
 
-// template<int nLayers> void TimeFrameGPU<nLayers>::createTrackletsBuffers()
-// {
-//   START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "creating cells buffers");
-//   for (auto iLayer{0}; iLayer < nLayers - 1; ++iLayer) {
-//     mNTracklets[iLayer] = 0;
-//     checkGPUError(cudaMemcpyAsync(&mNTracklets[iLayer], mTrackletsLUTDevice[iLayer] + mClusters[iLayer].size(), sizeof(int), cudaMemcpyDeviceToHost));
-//     LOGP(debug, "gpu-transfer: creating tracklets buffer for {} elements on layer {}, for {} MB.", mNTracklets[layer], iLayer, mNTracklets[iLayer] * sizeof(CellSeed) / MB);
-//     allocMemAsync(reinterpret_cast<void**>(&mTrackletsDevice[iLayer]), mNTracklets[iLayer] * sizeof(Tracklet), nullptr, getExtAllocator());
-//   }
-//   STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
-// }
+template<int nLayers> void TimeFrameGPU<nLayers>::createTrackletsBuffers()
+{
+  START_GPU_STREAM_TIMER(mGpuStreams[0].get(), "creating cells buffers");
+  for (auto iLayer{0}; iLayer < nLayers - 1; ++iLayer) {
+    mNTracklets[iLayer] = 0;
+    checkGPUError(cudaMemcpyAsync(&mNTracklets[iLayer], mTrackletsLUTDevice[iLayer] + mClusters[iLayer].size(), sizeof(int), cudaMemcpyDeviceToHost));
+    LOGP(info, "gpu-transfer: creating tracklets buffer for {} elements on layer {}, for {} MB.", mNTracklets[iLayer], iLayer, mNTracklets[iLayer] * sizeof(Tracklet) / MB);
+    allocMemAsync(reinterpret_cast<void**>(&mTrackletsDevice[iLayer]), mNTracklets[iLayer] * sizeof(Tracklet), nullptr, getExtAllocator());
+  }
+  STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
+}
 
 template <int nLayers>
 void TimeFrameGPU<nLayers>::loadTrackletsDevice()

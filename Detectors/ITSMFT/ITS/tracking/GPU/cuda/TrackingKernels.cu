@@ -466,7 +466,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   const int** ROFClusters,            // Number of clusters on layers per ROF
   const unsigned char** usedClusters, // Used clusters
   const int** indexTables,            // input data rof0-delta <rof0< rof0+delta (up to 3 rofs)
-  // Tracklet* tracklets,                        // output data
+  Tracklet* tracklets,                // output data
   int** trackletsLUT,
   const int iteration,
   const float NSigmaCut,
@@ -534,13 +534,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
             const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
             const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + firstBinIndex];
             const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + maxBinIndex];
-            // if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
-            //   printf("GPU: pb: %d ipc: %d ipb: %d sbr.x: %d sbr.y: %d sbr.z: %d sbr.w: %d fbi: %d, mbi: %d, frci: %d, mrci: %d \n", phiBins, iPhiCount, iPhiBin, selectedBinsRect.x, selectedBinsRect.y, selectedBinsRect.z, selectedBinsRect.w, firstBinIndex, maxBinIndex, firstRowClusterIndex, maxRowClusterIndex);
-            // }
             for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
-              // if (currentClusterIndex == 0 && layerIndex == 1 && rof0 == 81 && threadIdx.x == 0) {
-              //   printf("\ttesting clId: %d ...\n", iNextCluster);
-              // }
               if (iNextCluster >= clustersNextLayer.size()) {
                 break;
               }
@@ -723,36 +717,37 @@ GPUg() void removeDuplicateTrackletsEntriesLUTKernel(
 } // namespace gpu
 
 template <int nLayers>
-void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
-                                   const uint8_t* multMask,
-                                   const int startROF,
-                                   const int endROF,
-                                   const int maxROF,
-                                   const int deltaROF,
-                                   const int vertexId,
-                                   const Vertex* vertices,
-                                   const int* rofPV,
-                                   const int nVertices,
-                                   const Cluster** clusters,
-                                   std::vector<unsigned int> nClusters,
-                                   const int** ROFClusters,
-                                   const unsigned char** usedClusters,
-                                   const int** clustersIndexTables,
-                                   int** trackletsLUTs,
-                                   const int iteration,
-                                   const float NSigmaCut,
-                                   std::vector<float>& phiCuts,
-                                   const float resolutionPV,
-                                   std::vector<float>& minRs,
-                                   std::vector<float>& maxRs,
-                                   std::vector<float>& resolutions,
-                                   std::vector<float>& radii,
-                                   std::vector<float>& mulScatAng,
-                                   const int nBlocks,
-                                   const int nThreads)
+void countTrackletsInROFsHandler(const IndexTableUtils* utils,
+                                 const uint8_t* multMask,
+                                 const int startROF,
+                                 const int endROF,
+                                 const int maxROF,
+                                 const int deltaROF,
+                                 const int vertexId,
+                                 const Vertex* vertices,
+                                 const int* rofPV,
+                                 const int nVertices,
+                                 const Cluster** clusters,
+                                 std::vector<unsigned int> nClusters,
+                                 const int** ROFClusters,
+                                 const unsigned char** usedClusters,
+                                 const int** clustersIndexTables,
+                                 int** trackletsLUTs,
+                                 gsl::span<int*> trackletsLUTsHost,
+                                 const int iteration,
+                                 const float NSigmaCut,
+                                 std::vector<float>& phiCuts,
+                                 const float resolutionPV,
+                                 std::vector<float>& minRs,
+                                 std::vector<float>& maxRs,
+                                 std::vector<float>& resolutions,
+                                 std::vector<float>& radii,
+                                 std::vector<float>& mulScatAng,
+                                 const int nBlocks,
+                                 const int nThreads)
 {
   for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
-    gpu::computeLayerTrackletsMultiROFKernel<<<1, 1>>>(
+    gpu::computeLayerTrackletsMultiROFKernel<true><<<nBlocks, nThreads>>>(
       utils,
       multMask,
       iLayer,
@@ -768,6 +763,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
       ROFClusters,
       usedClusters,
       clustersIndexTables,
+      nullptr,
       trackletsLUTs,
       iteration,
       NSigmaCut,
@@ -778,11 +774,87 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
       resolutions[iLayer],
       radii[iLayer + 1] - radii[iLayer],
       mulScatAng[iLayer]);
+    // gpuCheckError(cudaPeekAtLastError());
+    // gpuCheckError(cudaDeviceSynchronize());
+    void* d_temp_storage = nullptr;
+    size_t temp_storage_bytes = 0;
+    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                                temp_storage_bytes,        // temp_storage_bytes
+                                                trackletsLUTsHost[iLayer], // d_in
+                                                trackletsLUTsHost[iLayer], // d_out
+                                                nClusters[iLayer] + 1,     // num_items
+                                                0));                       // NOLINT: this is the offset of the sum, not a pointer
+    discardResult(cudaMalloc(&d_temp_storage, temp_storage_bytes));
+    gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
+                                                temp_storage_bytes,        // temp_storage_bytes
+                                                trackletsLUTsHost[iLayer], // d_in
+                                                trackletsLUTsHost[iLayer], // d_out
+                                                nClusters[iLayer] + 1,     // num_items
+                                                0));                       // NOLINT: this is the offset of the sum, not a pointer
+    gpuCheckError(cudaFree(d_temp_storage));
+  }
+}
+
+template <int nLayers>
+void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
+                                   const uint8_t* multMask,
+                                   const int startROF,
+                                   const int endROF,
+                                   const int maxROF,
+                                   const int deltaROF,
+                                   const int vertexId,
+                                   const Vertex* vertices,
+                                   const int* rofPV,
+                                   const int nVertices,
+                                   const Cluster** clusters,
+                                   std::vector<unsigned int> nClusters,
+                                   const int** ROFClusters,
+                                   const unsigned char** usedClusters,
+                                   const int** clustersIndexTables,
+                                   Tracklet* tracklets,
+                                   int** trackletsLUTs,
+                                   const int iteration,
+                                   const float NSigmaCut,
+                                   std::vector<float>& phiCuts,
+                                   const float resolutionPV,
+                                   std::vector<float>& minRs,
+                                   std::vector<float>& maxRs,
+                                   std::vector<float>& resolutions,
+                                   std::vector<float>& radii,
+                                   std::vector<float>& mulScatAng,
+                                   const int nBlocks,
+                                   const int nThreads)
+{
+  for (int iLayer = 0; iLayer < nLayers - 1; ++iLayer) {
+    gpu::computeLayerTrackletsMultiROFKernel<false><<<nBlocks, nThreads>>>(utils,
+                                                                           multMask,
+                                                                           iLayer,
+                                                                           startROF,
+                                                                           endROF,
+                                                                           maxROF,
+                                                                           deltaROF,
+                                                                           vertices,
+                                                                           rofPV,
+                                                                           nVertices,
+                                                                           vertexId,
+                                                                           clusters,
+                                                                           ROFClusters,
+                                                                           usedClusters,
+                                                                           clustersIndexTables,
+                                                                           tracklets,
+                                                                           trackletsLUTs,
+                                                                           iteration,
+                                                                           NSigmaCut,
+                                                                           phiCuts[iLayer],
+                                                                           resolutionPV,
+                                                                           minRs[iLayer + 1],
+                                                                           maxRs[iLayer + 1],
+                                                                           resolutions[iLayer],
+                                                                           radii[iLayer + 1] - radii[iLayer],
+                                                                           mulScatAng[iLayer]);
     gpuCheckError(cudaPeekAtLastError());
     gpuCheckError(cudaDeviceSynchronize());
-    // gpu::printMatrixRow<<<1, 1>>>(iLayer, trackletsLUTs, nClusters[iLayer]);
   }
-  gpu::printTrackletsLUTPerROF<<<1, 1>>>(1, ROFClusters, trackletsLUTs);
 }
 
 void countCellsHandler(
@@ -832,7 +904,6 @@ void countCellsHandler(
                                               cellsLUTsHost,      // d_out
                                               nTracklets + 1,     // num_items
                                               0));                // NOLINT: this is the offset of the sum, not a pointer
-  // gpu::printBufferLayerOnThread<<<1, 1>>>(layer, cellsLUTsHost, nTracklets + 1);
   gpuCheckError(cudaFree(d_temp_storage));
 }
 
@@ -1015,6 +1086,35 @@ void trackSeedHandler(CellSeed* trackSeeds,
   gpuCheckError(cudaDeviceSynchronize());
 }
 
+template void countTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
+                                             const uint8_t* multMask,
+                                             const int startROF,
+                                             const int endROF,
+                                             const int maxROF,
+                                             const int deltaROF,
+                                             const int vertexId,
+                                             const Vertex* vertices,
+                                             const int* rofPV,
+                                             const int nVertices,
+                                             const Cluster** clusters,
+                                             std::vector<unsigned int> nClusters,
+                                             const int** ROFClusters,
+                                             const unsigned char** usedClusters,
+                                             const int** clustersIndexTables,
+                                             int** trackletsLUTs,
+                                             gsl::span<int*> trackletsLUTsHost,
+                                             const int iteration,
+                                             const float NSigmaCut,
+                                             std::vector<float>& phiCuts,
+                                             const float resolutionPV,
+                                             std::vector<float>& minRs,
+                                             std::vector<float>& maxRs,
+                                             std::vector<float>& resolutions,
+                                             std::vector<float>& radii,
+                                             std::vector<float>& mulScatAng,
+                                             const int nBlocks,
+                                             const int nThreads);
+
 template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const uint8_t* multMask,
                                                const int startROF,
@@ -1030,6 +1130,7 @@ template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const int** ROFClusters,
                                                const unsigned char** usedClusters,
                                                const int** clustersIndexTables,
+                                               Tracklet* tracklets,
                                                int** trackletsLUTs,
                                                const int iteration,
                                                const float NSigmaCut,

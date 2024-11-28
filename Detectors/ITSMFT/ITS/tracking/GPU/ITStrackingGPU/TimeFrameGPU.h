@@ -72,6 +72,7 @@ class TimeFrameGPU : public TimeFrame
   void loadTrackSeedsChi2Device();
   void loadRoadsDevice();
   void loadTrackSeedsDevice(std::vector<CellSeed>&);
+  void createTrackletsBuffers();
   void createCellsBuffers(const int);
   void createCellsDevice();
   void createCellsLUTDevice();
@@ -139,6 +140,7 @@ class TimeFrameGPU : public TimeFrame
   gsl::span<int> getHostNCells(const int chunkId);
 
   // Host-available device getters
+  gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }
   gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
   gsl::span<int, nLayers - 2> getNCellsDevice() { return mNCells; }
@@ -151,6 +153,7 @@ class TimeFrameGPU : public TimeFrame
   StaticTrackingParameters<nLayers> mStaticTrackingParams;
 
   // Host-available device buffer sizes
+  std::array<int, nLayers - 1> mNTracklets;
   std::array<int, nLayers - 2> mNCells;
 
   // Device pointers
