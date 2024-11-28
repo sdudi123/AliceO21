@@ -193,6 +193,8 @@ o2_add_test_command(NAME o2sim_G4
                                       2
                                       --skipModules
                                       MFT ZDC
+                                      --seed
+                                      15946057944514955802
                                       --configKeyValues
                                       "align-geom.mDetectors=none"
                     ENVIRONMENT "${SIMENV}"
