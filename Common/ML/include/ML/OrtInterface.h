@@ -13,8 +13,8 @@
 /// \author   Christian Sonnabend <christian.sonnabend@cern.ch>
 /// \brief    A header library for loading ONNX models and inferencing them on CPU and GPU
 
-#ifndef O2_ML_ONNX_INTERFACE_H
-#define O2_ML_ONNX_INTERFACE_H
+#ifndef O2_ML_ORTINTERFACE_H
+#define O2_ML_ORTINTERFACE_H
 
 // C++ and system includes
 #include <vector>
@@ -89,4 +89,4 @@ class OrtModel
 
 } // namespace o2
 
-#endif // O2_ML_OrtInterface_H
+#endif // O2_ML_ORTINTERFACE_H
