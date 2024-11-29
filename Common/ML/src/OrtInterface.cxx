@@ -180,7 +180,7 @@ std::vector<O> OrtModel::v2v(std::vector<I>& input, bool clearInput)
   } else {
     std::vector<O> output(input.size());
     std::transform(std::begin(input), std::end(input), std::begin(output), [](I f) { return O(f); });
-    if (clearInput){
+    if (clearInput) {
       input.clear();
     }
     return output;
