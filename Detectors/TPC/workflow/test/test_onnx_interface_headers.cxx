@@ -174,7 +174,7 @@ void customize(std::vector<o2::framework::ConfigParamSpec>& workflowOptions)
     {"measure-cycle", VariantType::Int, 10, {"Epochs in which to measure"}},
     {"enable-profiling", VariantType::Int, 0, {"Enable profiling"}},
     {"profiling-output-path", VariantType::String, "/scratch/csonnabe/O2_new", {"Path to save profiling output"}},
-    {"logging-level", VariantType::Int, 1, {"Logging level"}},
+    {"logging-level", VariantType::Int, 2, {"Logging level"}},
     {"enable-optimizations", VariantType::Int, 0, {"Enable optimizations"}},
     {"allocate-device-memory", VariantType::Int, 0, {"Allocate the memory on device"}}};
   std::swap(workflowOptions, options);

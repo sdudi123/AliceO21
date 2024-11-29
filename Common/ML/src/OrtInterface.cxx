@@ -50,35 +50,35 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
   allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
   intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
-  loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
+  loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 2);
   enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
   enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
 
   std::string dev_mem_str = "Hip";
 #if defined(ORT_ROCM_BUILD)
-  #if ORT_ROCM_BUILD == 1
+#if ORT_ROCM_BUILD == 1
   if (device == "ROCM") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) ROCM execution provider set";
   }
-  #endif
+#endif
 #endif
 #if defined(ORT_MIGRAPHX_BUILD)
-  #if ORT_MIGRAPHX_BUILD == 1
+#if ORT_MIGRAPHX_BUILD == 1
   if (device == "MIGRAPHX") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) MIGraphX execution provider set";
   }
-  #endif
+#endif
 #endif
 #if defined(ORT_CUDA_BUILD)
-  #if ORT_CUDA_BUILD == 1
+#if ORT_CUDA_BUILD == 1
   if (device == "CUDA") {
     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
     LOG(info) << "(ORT) CUDA execution provider set";
     dev_mem_str = "Cuda";
   }
-  #endif
+#endif
 #endif
 
   if (allocateDeviceMemory) {
@@ -112,7 +112,27 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
   (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
 
-  pImplOrt->env = std::make_shared<Ort::Env>(OrtLoggingLevel(loggingLevel), (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()));
+  pImplOrt->env = std::make_shared<Ort::Env>(
+    OrtLoggingLevel(loggingLevel), 
+    (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
+    // Integrate ORT logging into Fairlogger
+    [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
+      if(severity == ORT_LOGGING_LEVEL_VERBOSE) {
+        LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if(severity == ORT_LOGGING_LEVEL_INFO) {
+        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if(severity == ORT_LOGGING_LEVEL_WARNING) {
+        LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if(severity == ORT_LOGGING_LEVEL_ERROR) {
+        LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else if(severity == ORT_LOGGING_LEVEL_FATAL) {
+        LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      } else {
+        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+      }
+    },
+    (void*)3);
+  (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
   (pImplOrt->session).reset(new Ort::Session{*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
 
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
@@ -136,14 +156,14 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
                  [&](const std::string& str) { return str.c_str(); });
 
   // Print names
-  LOG(info) << "Input Nodes:";
+  LOG(info) << "\tInput Nodes:";
   for (size_t i = 0; i < mInputNames.size(); i++) {
-    LOG(info) << "\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
+    LOG(info) << "\t\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
   }
 
-  LOG(info) << "Output Nodes:";
+  LOG(info) << "\tOutput Nodes:";
   for (size_t i = 0; i < mOutputNames.size(); i++) {
-    LOG(info) << "\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
+    LOG(info) << "\t\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
   }
 }
 
