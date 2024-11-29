@@ -115,7 +115,7 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
                                        mTimeFrameGPU->getDeviceArrayUsedClusters(),
                                        mTimeFrameGPU->getDeviceArrayClustersIndexTables(),
                                        mTimeFrameGPU->getDeviceArrayTrackletsLUT(),
-                                       mTimeFrameGPU->getDeviceTrackletsLUTs(),
+                                       mTimeFrameGPU->getDeviceTrackletsLUTs(), // Required for the exclusive sums
                                        iteration,
                                        mTrkParams[iteration].NSigmaCut,
                                        mTimeFrameGPU->getPhiCuts(),
@@ -128,6 +128,34 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
                                        conf.nBlocks,
                                        conf.nThreads);
   mTimeFrameGPU->createTrackletsBuffers();
+  computeTrackletsInROFsHandler<nLayers>(mTimeFrameGPU->getDeviceIndexTableUtils(),
+                                         mTimeFrameGPU->getDeviceMultCutMask(),
+                                         startROF,
+                                         endROF,
+                                         mTimeFrameGPU->getNrof(),
+                                         mTrkParams[iteration].DeltaROF,
+                                         iVertex,
+                                         mTimeFrameGPU->getDeviceVertices(),
+                                         mTimeFrameGPU->getDeviceROFramesPV(),
+                                         mTimeFrameGPU->getPrimaryVerticesNum(),
+                                         mTimeFrameGPU->getDeviceArrayClusters(),
+                                         mTimeFrameGPU->getClusterSizes(),
+                                         mTimeFrameGPU->getDeviceROframeClusters(),
+                                         mTimeFrameGPU->getDeviceArrayUsedClusters(),
+                                         mTimeFrameGPU->getDeviceArrayClustersIndexTables(),
+                                         mTimeFrameGPU->getDeviceArrayTracklets(),
+                                         mTimeFrameGPU->getDeviceArrayTrackletsLUT(),
+                                         iteration,
+                                         mTrkParams[iteration].NSigmaCut,
+                                         mTimeFrameGPU->getPhiCuts(),
+                                         mTrkParams[iteration].PVres,
+                                         mTimeFrameGPU->getMinRs(),
+                                         mTimeFrameGPU->getMaxRs(),
+                                         mTimeFrameGPU->getPositionResolutions(),
+                                         mTrkParams[iteration].LayerRadii,
+                                         mTimeFrameGPU->getMSangles(),
+                                         conf.nBlocks,
+                                         conf.nThreads);
 }
 
 template <int nLayers>

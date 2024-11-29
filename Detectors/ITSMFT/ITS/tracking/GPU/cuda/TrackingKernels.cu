@@ -369,7 +369,7 @@ GPUg() void computeLayerCellsKernel(
   const Cluster** sortedClusters,
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
-  const Tracklet** tracklets,
+  Tracklet** tracklets,
   int** trackletsLUT,
   const int nTrackletsCurrent,
   const int layer,
@@ -462,11 +462,11 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   const int* rofPV,
   const int nVertices,
   const int vertexId,
-  const Cluster** clusters,           // input data rof0
+  const Cluster** clusters,           // Input data rof0
   const int** ROFClusters,            // Number of clusters on layers per ROF
   const unsigned char** usedClusters, // Used clusters
-  const int** indexTables,            // input data rof0-delta <rof0< rof0+delta (up to 3 rofs)
-  Tracklet* tracklets,                // output data
+  const int** indexTables,            // Input data rof0-delta <rof0< rof0+delta (up to 3 rofs)
+  Tracklet** tracklets,               // Output data
   int** trackletsLUT,
   const int iteration,
   const float NSigmaCut,
@@ -475,18 +475,18 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   const float minR,
   const float maxR,
   const float positionResolution,
-  const float meanDeltaR = -666.f,
-  const float MSAngle = -666.f)
+  const float meanDeltaR = -42.f,
+  const float MSAngle = -42.f)
 {
   const int phiBins{utils->getNphiBins()};
   const int zBins{utils->getNzBins()};
   for (unsigned int iROF{blockIdx.x}; iROF < endROF - startROF; iROF += gridDim.x) {
-    const int rof0 = iROF + startROF;
+    const short rof0 = iROF + startROF;
     auto primaryVertices = getPrimaryVertices(rof0, rofPV, totalROFs, multMask, vertices);
     const auto startVtx{vertexId >= 0 ? vertexId : 0};
     const auto endVtx{vertexId >= 0 ? o2::gpu::CAMath::Min(vertexId + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
-    auto minROF = o2::gpu::CAMath::Max(startROF, static_cast<int>(rof0 - deltaROF));
-    auto maxROF = o2::gpu::CAMath::Min(endROF - 1, static_cast<int>(rof0 + deltaROF));
+    const short minROF = o2::gpu::CAMath::Max(startROF, static_cast<int>(rof0 - deltaROF));
+    const short maxROF = o2::gpu::CAMath::Min(endROF - 1, static_cast<int>(rof0 + deltaROF));
     auto clustersCurrentLayer = getClustersOnLayer(rof0, totalROFs, layerIndex, ROFClusters, clusters);
     if (clustersCurrentLayer.empty()) {
       continue;
@@ -523,7 +523,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
         }
 
         const int tableSize{phiBins * zBins + 1};
-        for (int rof1{minROF}; rof1 <= maxROF; ++rof1) {
+        for (short rof1{minROF}; rof1 <= maxROF; ++rof1) {
           auto clustersNextLayer = getClustersOnLayer(rof1, totalROFs, layerIndex + 1, ROFClusters, clusters);
           if (clustersNextLayer.empty()) {
             continue;
@@ -534,26 +534,24 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
             const int maxBinIndex{firstBinIndex + selectedBinsRect.z - selectedBinsRect.x + 1};
             const int firstRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + firstBinIndex];
             const int maxRowClusterIndex = indexTables[layerIndex + 1][(rof1 - startROF) * tableSize + maxBinIndex];
-            for (int iNextCluster{firstRowClusterIndex}; iNextCluster < maxRowClusterIndex; ++iNextCluster) {
-              if (iNextCluster >= clustersNextLayer.size()) {
+            for (int nextClusterIndex{firstRowClusterIndex}; nextClusterIndex < maxRowClusterIndex; ++nextClusterIndex) {
+              if (nextClusterIndex >= clustersNextLayer.size()) {
                 break;
               }
-              const Cluster& nextCluster{clustersNextLayer[iNextCluster]};
+              const Cluster& nextCluster{clustersNextLayer[nextClusterIndex]};
               if (usedClusters[layerIndex + 1][nextCluster.clusterId]) {
                 continue;
               }
               const float deltaPhi{o2::gpu::CAMath::Abs(currentCluster.phi - nextCluster.phi)};
-              const float deltaZ{o2::gpu::CAMath::Abs(tanLambda * (nextCluster.radius - currentCluster.radius) +
-                                                      currentCluster.zCoordinate - nextCluster.zCoordinate)};
+              const float deltaZ{o2::gpu::CAMath::Abs(tanLambda * (nextCluster.radius - currentCluster.radius) + currentCluster.zCoordinate - nextCluster.zCoordinate)};
+              const int nextSortedIndex{ROFClusters[layerIndex + 1][rof1] + nextClusterIndex};
               if (deltaZ / sigmaZ < NSigmaCut && (deltaPhi < phiCut || o2::gpu::CAMath::Abs(deltaPhi - constants::math::TwoPi) < phiCut)) {
-                // if (layerIndex > 0) {
                 if constexpr (initRun) {
                   trackletsLUT[layerIndex][currentSortedIndex]++; // we need l0 as well for usual exclusive sums.
                 } else {
-                  // }
                   const float phi{o2::gpu::CAMath::ATan2(currentCluster.yCoordinate - nextCluster.yCoordinate, currentCluster.xCoordinate - nextCluster.xCoordinate)};
                   const float tanL{(currentCluster.zCoordinate - nextCluster.zCoordinate) / (currentCluster.radius - nextCluster.radius)};
-                  // tf->getTracklets()[layerIndex].emplace_back(currentSortedIndex, tf->getSortedIndex(rof1, layerIndex + 1, iNextCluster), tanL, phi, rof0, rof1);
+                  new (tracklets[layerIndex] + trackletsLUT[layerIndex][currentSortedIndex] + storedTracklets) Tracklet{currentSortedIndex, nextSortedIndex, tanL, phi, rof0, rof1};
                 }
                 ++storedTracklets;
               }
@@ -809,7 +807,7 @@ void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
                                    const int** ROFClusters,
                                    const unsigned char** usedClusters,
                                    const int** clustersIndexTables,
-                                   Tracklet* tracklets,
+                                   Tracklet** tracklets,
                                    int** trackletsLUTs,
                                    const int iteration,
                                    const float NSigmaCut,
@@ -859,7 +857,7 @@ void countCellsHandler(
   const Cluster** sortedClusters,
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
-  const Tracklet** tracklets,
+  Tracklet** tracklets,
   int** trackletsLUT,
   const int nTracklets,
   const int layer,
@@ -909,7 +907,7 @@ void computeCellsHandler(
   const Cluster** sortedClusters,
   const Cluster** unsortedClusters,
   const TrackingFrameInfo** tfInfo,
-  const Tracklet** tracklets,
+  Tracklet** tracklets,
   int** trackletsLUT,
   const int nTracklets,
   const int layer,
@@ -1128,7 +1126,7 @@ template void computeTrackletsInROFsHandler<7>(const IndexTableUtils* utils,
                                                const int** ROFClusters,
                                                const unsigned char** usedClusters,
                                                const int** clustersIndexTables,
-                                               Tracklet* tracklets,
+                                               Tracklet** tracklets,
                                                int** trackletsLUTs,
                                                const int iteration,
                                                const float NSigmaCut,

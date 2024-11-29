@@ -211,9 +211,9 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
     return;
   }
 
-  for (auto iLayer{0}; iLayer < tf->getTracklets().size(); ++iLayer) {
-    std::cout << "tracklets layer " << iLayer << ": " << tf->getTracklets()[iLayer].size() << std::endl;
-  }
+  // for (auto iLayer{0}; iLayer < tf->getTracklets().size(); ++iLayer) {
+  //   std::cout << "tracklets layer " << iLayer << ": " << tf->getTracklets()[iLayer].size() << std::endl;
+  // }
 
   // for (auto iLayer{0}; iLayer < tf->getTrackletsLookupTable().size(); ++iLayer) {
   //   auto lut = tf->getTrackletsLookupTable()[iLayer];

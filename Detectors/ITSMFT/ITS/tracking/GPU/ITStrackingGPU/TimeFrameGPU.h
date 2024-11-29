@@ -122,7 +122,7 @@ class TimeFrameGPU : public TimeFrame
   std::vector<unsigned int> getClusterSizes();
   const unsigned char** getDeviceArrayUsedClusters() const { return mUsedClustersDeviceArray; }
   const int** getDeviceROframeClusters() const { return mROFrameClustersDeviceArray; }
-  const Tracklet** getDeviceArrayTracklets() const { return mTrackletsDeviceArray; }
+  Tracklet** getDeviceArrayTracklets() { return mTrackletsDeviceArray; }
   int** getDeviceArrayTrackletsLUT() const { return mTrackletsLUTDeviceArray; }
   int** getDeviceArrayCellsLUT() const { return mCellsLUTDeviceArray; }
   int** getDeviceArrayNeighboursCellLUT() const { return mNeighboursCellLUTDeviceArray; }
@@ -142,6 +142,7 @@ class TimeFrameGPU : public TimeFrame
   // Host-available device getters
   gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }
   gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
+  gsl::span<Tracklet*> getDeviceTracklet() { return mTrackletsDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
   gsl::span<int, nLayers - 2> getNCellsDevice() { return mNCells; }
 
@@ -175,7 +176,7 @@ class TimeFrameGPU : public TimeFrame
   const unsigned char** mUsedClustersDeviceArray;
   const int** mROFrameClustersDeviceArray;
   std::array<Tracklet*, nLayers - 1> mTrackletsDevice;
-  const Tracklet** mTrackletsDeviceArray;
+  Tracklet** mTrackletsDeviceArray;
   std::array<int*, nLayers - 1> mTrackletsLUTDevice;
   std::array<int*, nLayers - 2> mCellsLUTDevice;
   std::array<int*, nLayers - 3> mNeighboursLUTDevice;
