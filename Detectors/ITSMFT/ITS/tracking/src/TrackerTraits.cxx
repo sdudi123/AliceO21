@@ -193,6 +193,18 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
           }
         }
       }
+      // if (rof0 == 81) {
+      //   printf("CPU layer: %d -> %f %f %f %f %f %f %f %f\n",
+      //          iLayer,
+      //          mTrkParams[iteration].NSigmaCut,
+      //          tf->getPhiCut(iLayer),
+      //          mTrkParams[iteration].PVres,
+      //          tf->getMinR(iLayer + 1),
+      //          tf->getMaxR(iLayer + 1),
+      //          tf->getPositionResolution(iLayer),
+      //          meanDeltaR,
+      //          tf->getMSangle(iLayer));
+      // }
     }
   }
   if (!tf->checkMemory(mTrkParams[iteration].MaxMemory)) {

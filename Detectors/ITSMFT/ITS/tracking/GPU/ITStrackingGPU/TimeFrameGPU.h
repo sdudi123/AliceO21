@@ -63,7 +63,7 @@ class TimeFrameGPU : public TimeFrame
   void loadVertices(const int);
 
   ///
-  void createTrackletsLUTDevice();
+  void createTrackletsLUTDevice(const int);
   void loadTrackletsDevice();
   void loadTrackletsLUTDevice();
   void loadCellsDevice();

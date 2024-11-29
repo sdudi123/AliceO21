@@ -92,7 +92,7 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
 {
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   TrackerTraits::computeLayerTracklets(iteration, iROFslice, iVertex);
-  mTimeFrameGPU->createTrackletsLUTDevice();
+  mTimeFrameGPU->createTrackletsLUTDevice(iteration);
 
   const Vertex diamondVert({mTrkParams[iteration].Diamond[0], mTrkParams[iteration].Diamond[1], mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);

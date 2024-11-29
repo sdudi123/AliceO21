@@ -472,8 +472,8 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
   const float NSigmaCut,
   const float phiCut,
   const float resolutionPV,
-  const float maxR,
   const float minR,
+  const float maxR,
   const float positionResolution,
   const float meanDeltaR = -666.f,
   const float MSAngle = -666.f)
@@ -496,7 +496,7 @@ GPUg() void computeLayerTrackletsMultiROFKernel(
       unsigned int storedTracklets{0};
       auto currentCluster{clustersCurrentLayer[currentClusterIndex]};
       const int currentSortedIndex{ROFClusters[layerIndex][rof0] + currentClusterIndex};
-      if (usedClusters[layerIndex][currentSortedIndex]) {
+      if (usedClusters[layerIndex][currentCluster.clusterId]) {
         continue;
       }
 
@@ -774,8 +774,6 @@ void countTrackletsInROFsHandler(const IndexTableUtils* utils,
       resolutions[iLayer],
       radii[iLayer + 1] - radii[iLayer],
       mulScatAng[iLayer]);
-    // gpuCheckError(cudaPeekAtLastError());
-    // gpuCheckError(cudaDeviceSynchronize());
     void* d_temp_storage = nullptr;
     size_t temp_storage_bytes = 0;
     gpuCheckError(cub::DeviceScan::ExclusiveSum(d_temp_storage,            // d_temp_storage
