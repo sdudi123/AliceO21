@@ -81,6 +81,7 @@ if(OpenMP_CXX_FOUND)
   target_link_libraries(${mergertargetName} PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
+
 o2_add_executable(reco-workflow
                   COMPONENT_NAME tpc
                   SOURCES src/tpc-reco-workflow.cxx
