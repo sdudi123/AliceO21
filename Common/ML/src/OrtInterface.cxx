@@ -133,7 +133,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     },
     (void*)3);
   (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
-  pImplOrt->session = std::make_shared<Ort::Session>({*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions});
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
     mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
