@@ -219,14 +219,15 @@ int32_t GPUChainTracking::RunTPCDecompression()
       return ((tmpBuffer = std::make_unique<ClusterNative[]>(size))).get();
     };
     auto& decompressTimer = getTimer<TPCClusterDecompressor>("TPCDecompression", 0);
-    auto allocatorUse = GetProcessingSettings().tpcApplyCFCutsAtDecoding ? std::function<ClusterNative*(size_t)>{allocatorTmp} : std::function<ClusterNative*(size_t)>{allocatorFinal};
+    bool runFiltering = GetProcessingSettings().tpcApplyCFCutsAtDecoding;
+    auto allocatorUse = runFiltering ? std::function<ClusterNative*(size_t)>{allocatorTmp} : std::function<ClusterNative*(size_t)>{allocatorFinal};
     decompressTimer.Start();
     if (decomp.decompress(mIOPtrs.tpcCompressedClusters, *mClusterNativeAccess, allocatorUse, param(), GetProcessingSettings().deterministicGPUReconstruction)) {
       GPUError("Error decompressing clusters");
       return 1;
     }
-    if (GetProcessingSettings().tpcApplyCFCutsAtDecoding) {
-      RunTPCClusterFilter(mClusterNativeAccess.get(), allocatorFinal, true);
+    if (runFiltering) {
+      RunTPCClusterFilter(mClusterNativeAccess.get(), allocatorFinal, GetProcessingSettings().tpcApplyCFCutsAtDecoding);
     }
     decompressTimer.Stop();
     mIOPtrs.clustersNative = mClusterNativeAccess.get();
@@ -254,40 +255,10 @@ int32_t GPUChainTracking::RunTPCDecompression()
 
     int32_t inputStream = 0;
     int32_t unattachedStream = mRec->NStreams() - 1;
-    inputGPU.nAttachedClusters = cmprClsHost.nAttachedClusters;
-    inputGPU.nUnattachedClusters = cmprClsHost.nUnattachedClusters;
-    inputGPU.nTracks = cmprClsHost.nTracks;
-    inputGPU.nAttachedClustersReduced = inputGPU.nAttachedClusters - inputGPU.nTracks;
-    inputGPU.nSliceRows = NSLICES * GPUCA_ROW_COUNT;
-    inputGPU.nComppressionModes = param().rec.tpc.compressionTypeMask;
-    inputGPU.solenoidBz = param().bzkG;
-    inputGPU.maxTimeBin = param().continuousMaxTimeBin;
+    inputGPU = cmprClsHost;
     SetupGPUProcessor(&Decompressor, true);
     WriteToConstantMemory(myStep, (char*)&processors()->tpcDecompressor - (char*)processors(), &DecompressorShadow, sizeof(DecompressorShadow), inputStream);
-
-    inputGPU.nTrackClusters = cmprClsHost.nTrackClusters;
-    inputGPU.qTotU = cmprClsHost.qTotU;
-    inputGPU.qMaxU = cmprClsHost.qMaxU;
-    inputGPU.flagsU = cmprClsHost.flagsU;
-    inputGPU.padDiffU = cmprClsHost.padDiffU;
-    inputGPU.timeDiffU = cmprClsHost.timeDiffU;
-    inputGPU.sigmaPadU = cmprClsHost.sigmaPadU;
-    inputGPU.sigmaTimeU = cmprClsHost.sigmaTimeU;
-    inputGPU.nSliceRowClusters = cmprClsHost.nSliceRowClusters;
-    inputGPU.qTotA = cmprClsHost.qTotA;
-    inputGPU.qMaxA = cmprClsHost.qMaxA;
-    inputGPU.flagsA = cmprClsHost.flagsA;
-    inputGPU.rowDiffA = cmprClsHost.rowDiffA;
-    inputGPU.sliceLegDiffA = cmprClsHost.sliceLegDiffA;
-    inputGPU.padResA = cmprClsHost.padResA;
-    inputGPU.timeResA = cmprClsHost.timeResA;
-    inputGPU.sigmaPadA = cmprClsHost.sigmaPadA;
-    inputGPU.sigmaTimeA = cmprClsHost.sigmaTimeA;
-    inputGPU.qPtA = cmprClsHost.qPtA;
-    inputGPU.rowA = cmprClsHost.rowA;
-    inputGPU.sliceA = cmprClsHost.sliceA;
-    inputGPU.timeA = cmprClsHost.timeA;
-    inputGPU.padA = cmprClsHost.padA;
+    inputGPU = cmprClsHost;
 
     bool toGPU = true;
     runKernel<GPUMemClean16>({GetGridAutoStep(inputStream, RecoStep::TPCDecompression), krnlRunRangeNone, &mEvents->init}, DecompressorShadow.mNativeClustersIndex, NSLICES * GPUCA_ROW_COUNT * sizeof(DecompressorShadow.mNativeClustersIndex[0]));
