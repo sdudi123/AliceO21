@@ -489,13 +489,6 @@ void TimeFrameGPU<nLayers>::unregisterRest()
   LOGP(debug, "unregistering rest of the host memory...");
   checkGPUError(cudaHostUnregister(mCellsDevice.data()));
   checkGPUError(cudaHostUnregister(mTrackletsDevice.data()));
-  checkGPUError(cudaHostUnregister(mTrackletsLUTDevice.data()));
-  for (auto iLayer{0}; iLayer < nLayers - 1; ++iLayer) {
-    if (iLayer < nLayers - 2) {
-      checkGPUError(cudaHostUnregister(mTrackletsLookupTable[iLayer].data()));
-    }
-    checkGPUError(cudaHostUnregister(mTracklets[iLayer].data()));
-  }
   STOP_GPU_STREAM_TIMER(mGpuStreams[0].get());
 }
 

@@ -138,13 +138,14 @@ class TimeFrameGPU : public TimeFrame
   // Host-specific getters
   gsl::span<int> getHostNTracklets(const int chunkId);
   gsl::span<int> getHostNCells(const int chunkId);
+  gsl::span<int, nLayers - 1> getNTracklets() { return mNTracklets; }
+  gsl::span<int, nLayers - 2> getNCells() { return mNCells; }
 
   // Host-available device getters
   gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }
   gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
   gsl::span<Tracklet*> getDeviceTracklet() { return mTrackletsDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
-  gsl::span<int, nLayers - 2> getNCellsDevice() { return mNCells; }
 
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations

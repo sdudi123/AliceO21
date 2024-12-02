@@ -144,7 +144,10 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
                                          mTimeFrameGPU->getDeviceArrayUsedClusters(),
                                          mTimeFrameGPU->getDeviceArrayClustersIndexTables(),
                                          mTimeFrameGPU->getDeviceArrayTracklets(),
+                                         mTimeFrameGPU->getDeviceTracklet(),
+                                         mTimeFrameGPU->getNTracklets(),
                                          mTimeFrameGPU->getDeviceArrayTrackletsLUT(),
+                                         mTimeFrameGPU->getDeviceTrackletsLUTs(),
                                          iteration,
                                          mTrkParams[iteration].NSigmaCut,
                                          mTimeFrameGPU->getPhiCuts(),
@@ -161,25 +164,22 @@ void TrackerTraitsGPU<nLayers>::computeTrackletsHybrid(const int iteration, int 
 template <int nLayers>
 void TrackerTraitsGPU<nLayers>::computeCellsHybrid(const int iteration)
 {
-  mTimeFrameGPU->loadTrackletsDevice();
-  mTimeFrameGPU->loadTrackletsLUTDevice();
   mTimeFrameGPU->createCellsLUTDevice();
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
 
-  // #pragma omp parallel for num_threads(nLayers)
   for (int iLayer = 0; iLayer < mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
-    if (mTimeFrameGPU->getTracklets()[iLayer + 1].empty() ||
-        mTimeFrameGPU->getTracklets()[iLayer].empty()) {
+    if (!mTimeFrameGPU->getNTracklets()[iLayer + 1] || !mTimeFrameGPU->getNTracklets()[iLayer]) {
+      LOGP(info, "continuing here");
       continue;
     }
-
-    const int currentLayerTrackletsNum{static_cast<int>(mTimeFrameGPU->getTracklets()[iLayer].size())};
+    LOGP(info, "+> {}", mTimeFrameGPU->getNTracklets()[iLayer]);
+    const int currentLayerTrackletsNum{static_cast<int>(mTimeFrameGPU->getNTracklets()[iLayer])};
     countCellsHandler(mTimeFrameGPU->getDeviceArrayClusters(),
                       mTimeFrameGPU->getDeviceArrayUnsortedClusters(),
                       mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
                       mTimeFrameGPU->getDeviceArrayTracklets(),
                       mTimeFrameGPU->getDeviceArrayTrackletsLUT(),
-                      mTimeFrameGPU->getTracklets()[iLayer].size(),
+                      mTimeFrameGPU->getNTracklets()[iLayer],
                       iLayer,
                       nullptr,
                       mTimeFrameGPU->getDeviceArrayCellsLUT(),
@@ -196,7 +196,7 @@ void TrackerTraitsGPU<nLayers>::computeCellsHybrid(const int iteration)
                         mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
                         mTimeFrameGPU->getDeviceArrayTracklets(),
                         mTimeFrameGPU->getDeviceArrayTrackletsLUT(),
-                        mTimeFrameGPU->getTracklets()[iLayer].size(),
+                        mTimeFrameGPU->getNTracklets()[iLayer],
                         iLayer,
                         mTimeFrameGPU->getDeviceCells()[iLayer],
                         mTimeFrameGPU->getDeviceArrayCellsLUT(),
@@ -220,7 +220,7 @@ void TrackerTraitsGPU<nLayers>::findCellsNeighboursHybrid(const int iteration)
   auto& conf = o2::its::ITSGpuTrackingParamConfig::Instance();
   std::vector<std::vector<std::pair<int, int>>> cellsNeighboursLayer(mTrkParams[iteration].CellsPerRoad() - 1);
   for (int iLayer{0}; iLayer < mTrkParams[iteration].CellsPerRoad() - 1; ++iLayer) {
-    const int nextLayerCellsNum{static_cast<int>(mTimeFrameGPU->getNCellsDevice()[iLayer + 1])};
+    const int nextLayerCellsNum{static_cast<int>(mTimeFrameGPU->getNCells()[iLayer + 1])};
     mTimeFrameGPU->getCellsNeighboursLUT()[iLayer].clear();
     mTimeFrameGPU->getCellsNeighboursLUT()[iLayer].resize(nextLayerCellsNum, 0);
 
@@ -283,7 +283,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       std::vector<int> lastCellId, updatedCellId;
       std::vector<CellSeed> lastCellSeed, updatedCellSeed;
 
-      processNeighbours(startLayer, startLevel, mTimeFrame->getCells()[startLayer], lastCellId, updatedCellSeed, updatedCellId);
+      processNeighbours(startLayer, startLevel, mTimeFrameGPU->getCells()[startLayer], lastCellId, updatedCellSeed, updatedCellId);
 
       int level = startLevel;
       for (int iLayer{startLayer - 1}; iLayer > 0 && level > 2; --iLayer) {
@@ -337,8 +337,8 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
         if (track.getClusterIndex(iLayer) == UnusedIndex) {
           continue;
         }
-        nShared += int(mTimeFrame->isClusterUsed(iLayer, track.getClusterIndex(iLayer)));
-        isFirstShared |= !iLayer && mTimeFrame->isClusterUsed(iLayer, track.getClusterIndex(iLayer));
+        nShared += int(mTimeFrameGPU->isClusterUsed(iLayer, track.getClusterIndex(iLayer)));
+        isFirstShared |= !iLayer && mTimeFrameGPU->isClusterUsed(iLayer, track.getClusterIndex(iLayer));
       }
 
       if (nShared > mTrkParams[0].ClusterSharing) {
@@ -350,8 +350,8 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
         if (track.getClusterIndex(iLayer) == UnusedIndex) {
           continue;
         }
-        mTimeFrame->markUsedCluster(iLayer, track.getClusterIndex(iLayer));
-        int currentROF = mTimeFrame->getClusterROF(iLayer, track.getClusterIndex(iLayer));
+        mTimeFrameGPU->markUsedCluster(iLayer, track.getClusterIndex(iLayer));
+        int currentROF = mTimeFrameGPU->getClusterROF(iLayer, track.getClusterIndex(iLayer));
         for (int iR{0}; iR < 3; ++iR) {
           if (rofs[iR] == INT_MAX) {
             rofs[iR] = currentROF;
@@ -367,7 +367,7 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
       if (rofs[1] != INT_MAX) {
         track.setNextROFbit();
       }
-      mTimeFrame->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
+      mTimeFrameGPU->getTracks(std::min(rofs[0], rofs[1])).emplace_back(track);
     }
   }
   mTimeFrameGPU->loadUsedClustersDevice();

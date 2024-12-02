@@ -193,56 +193,17 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
           }
         }
       }
-      // if (rof0 == 81) {
-      //   printf("CPU layer: %d -> %f %f %f %f %f %f %f %f\n",
-      //          iLayer,
-      //          mTrkParams[iteration].NSigmaCut,
-      //          tf->getPhiCut(iLayer),
-      //          mTrkParams[iteration].PVres,
-      //          tf->getMinR(iLayer + 1),
-      //          tf->getMaxR(iLayer + 1),
-      //          tf->getPositionResolution(iLayer),
-      //          meanDeltaR,
-      //          tf->getMSangle(iLayer));
-      // }
     }
   }
   if (!tf->checkMemory(mTrkParams[iteration].MaxMemory)) {
     return;
   }
 
-  // for (auto iLayer{0}; iLayer < tf->getTracklets().size(); ++iLayer) {
-  //   std::cout << "tracklets layer " << iLayer << ": " << tf->getTracklets()[iLayer].size() << std::endl;
-  // }
-
-  // for (auto iLayer{0}; iLayer < tf->getTrackletsLookupTable().size(); ++iLayer) {
-  //   auto lut = tf->getTrackletsLookupTable()[iLayer];
-  //   for (unsigned int iC{0}; iC < lut.size(); ++iC) {
-  //     if (!(iC % 150)) {
-  //       printf("\n row %d: ===> %d/%d\t", iLayer, iC, (int)lut.size());
-  //     }
-  //     printf("%d\t", lut[iC]);
-  //   }
-  // }
-
-  // for (auto rofId{0}; rofId < 2304; ++rofId) {
-  //   int nClus = tf->getClustersOnLayer(rofId, 1).size();
-  //   if (!nClus) {
-  //     continue;
-  //   }
-  //   printf("rof: %d (%d) ==> ", rofId, nClus);
-
-  //   for (int iC{0}; iC < nClus; ++iC) {
-  //     int nT = tf->getTrackletsLookupTable()[0][tf->getSortedIndex(rofId, 1, iC)];
-  //     printf("%d\t", nT);
-  //   }
-  //   printf("\n");
-  // }
-
 #pragma omp parallel for num_threads(mNThreads)
   for (int iLayer = 0; iLayer < mTrkParams[iteration].CellsPerRoad(); ++iLayer) {
     /// Sort tracklets
     auto& trkl{tf->getTracklets()[iLayer + 1]};
+    auto oldsize{trkl.size()};
     std::sort(trkl.begin(), trkl.end(), [](const Tracklet& a, const Tracklet& b) {
       return a.firstClusterIndex < b.firstClusterIndex || (a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex < b.secondClusterIndex);
     });
@@ -265,6 +226,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
     /// Compute LUT
     std::exclusive_scan(lut.begin(), lut.end(), lut.begin(), 0);
     lut.push_back(trkl.size());
+     LOGP(info, "CPU layer {} -> old size: {} - new size: {}", iLayer, oldsize, trkl.size());
   }
   /// Layer 0 is done outside the loop
   std::sort(tf->getTracklets()[0].begin(), tf->getTracklets()[0].end(), [](const Tracklet& a, const Tracklet& b) {
