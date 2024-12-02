@@ -34,6 +34,9 @@ struct GeneratorFactory {
   static void setPrimaryGenerator(o2::conf::SimConfig const&, FairPrimaryGenerator*);
 };
 
+template <typename T>
+std::vector<std::unique_ptr<T>> genptr;
+
 } // end namespace eventgen
 } // end namespace o2
 

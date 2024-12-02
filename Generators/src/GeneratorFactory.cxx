@@ -61,7 +61,7 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
   auto primGenO2 = dynamic_cast<PrimaryGenerator*>(primGen);
 
   auto makeBoxGen = [](int pdgid, int mult, double etamin, double etamax, double pmin, double pmax, double phimin, double phimax, bool debug = false) {
-    auto gen = new FairBoxGenerator(pdgid, mult);
+    auto gen = std::make_unique<FairBoxGenerator>(pdgid, mult);
     gen->SetEtaRange(etamin, etamax);
     gen->SetPRange(pmin, pmax);
     gen->SetPhiRange(phimin, phimax);
@@ -80,7 +80,7 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       .particleFilter = singleton.particleFilter,
       .verbose = singleton.verbose,
     };
-    auto gen = new o2::eventgen::GeneratorPythia8(pars);
+    auto gen = std::make_unique<o2::eventgen::GeneratorPythia8>(pars);
     if (!config.empty()) {
       LOG(info) << "Setting \'Pythia8\' base configuration: " << config << std::endl;
       gen->setConfig(config); // assign config; will be executed in Init function
@@ -99,58 +99,58 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     auto& boxparam = BoxGunParam::Instance();
     LOG(info) << "Init generic box generator with following parameters";
     LOG(info) << boxparam;
-    auto boxGen = makeBoxGen(boxparam.pdg, boxparam.number, boxparam.eta[0], boxparam.eta[1], boxparam.prange[0], boxparam.prange[1], boxparam.phirange[0], boxparam.phirange[1], boxparam.debug);
-    primGen->AddGenerator(boxGen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(boxparam.pdg, boxparam.number, boxparam.eta[0], boxparam.eta[1], boxparam.prange[0], boxparam.prange[1], boxparam.phirange[0], boxparam.phirange[1], boxparam.debug));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("fwmugen") == 0) {
     // a simple "box" generator for forward muons
     LOG(info) << "Init box forward muons generator";
-    auto boxGen = makeBoxGen(13, 1, -4, -2.5, 50., 50., 0., 360);
-    primGen->AddGenerator(boxGen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(13, 1, -4, -2.5, 50., 50., 0., 360));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("hmpidgun") == 0) {
     // a simple "box" generator for forward muons
     LOG(info) << "Init hmpid gun generator";
-    auto boxGen = makeBoxGen(-211, 100, -0.5, -0.5, 2, 5, -5, 60);
-    primGen->AddGenerator(boxGen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(-211, 100, -0.5, -0.5, 2, 5, -5, 60));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("fwpigen") == 0) {
     // a simple "box" generator for forward pions
     LOG(info) << "Init box forward pions generator";
-    auto boxGen = makeBoxGen(-211, 10, -4, -2.5, 7, 7, 0, 360);
-    primGen->AddGenerator(boxGen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(-211, 10, -4, -2.5, 7, 7, 0, 360));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("fwrootino") == 0) {
     // a simple "box" generator for forward rootinos
     LOG(info) << "Init box forward rootinos generator";
-    auto boxGen = makeBoxGen(0, 1, -4, -2.5, 1, 5, 0, 360);
-    primGen->AddGenerator(boxGen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(0, 1, -4, -2.5, 1, 5, 0, 360));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("zdcgen") == 0) {
     // a simple "box" generator for forward neutrons
     LOG(info) << "Init box forward/backward zdc generator";
-    auto boxGenC = makeBoxGen(2112 /*neutrons*/, 1, -8, -9999, 500, 1000, 0., 360.);
-    auto boxGenA = makeBoxGen(2112 /*neutrons*/, 1, 8, 9999, 500, 1000, 0., 360.);
-    primGen->AddGenerator(boxGenC);
-    primGen->AddGenerator(boxGenA);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(2112 /*neutrons*/, 1, -8, -9999, 500, 1000, 0., 360.));
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(2112 /*neutrons*/, 1, 8, 9999, 500, 1000, 0., 360.));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("emcgenele") == 0) {
     // box generator with one electron per event
     LOG(info) << "Init box generator for electrons in EMCAL";
     // using phi range of emcal
-    auto elecgen = makeBoxGen(11, 1, -0.67, 0.67, 15, 15, 80, 187);
-    primGen->AddGenerator(elecgen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(11, 1, -0.67, 0.67, 15, 15, 80, 187));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("emcgenphoton") == 0) {
     LOG(info) << "Init box generator for photons in EMCAL";
-    auto photongen = makeBoxGen(22, 1, -0.67, 0.67, 15, 15, 80, 187);
-    primGen->AddGenerator(photongen);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(22, 1, -0.67, 0.67, 15, 15, 80, 187));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("fddgen") == 0) {
     LOG(info) << "Init box FDD generator";
-    auto boxGenFDC = makeBoxGen(13, 1000, -7, -4.8, 10, 500, 0, 360.);
-    auto boxGenFDA = makeBoxGen(13, 1000, 4.9, 6.3, 10, 500, 0., 360);
-    primGen->AddGenerator(boxGenFDA);
-    primGen->AddGenerator(boxGenFDC);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(13, 1000, -7, -4.8, 10, 500, 0, 360.));
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(13, 1000, 4.9, 6.3, 10, 500, 0., 360));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("extkin") == 0) {
     // external kinematics
     // needs precense of a kinematics file "Kinematics.root"
     // TODO: make this configurable and check for presence
-    auto extGen = new o2::eventgen::GeneratorFromFile(conf.getExtKinematicsFileName().c_str());
-    extGen->SetStartEvent(conf.getStartEvent());
-    primGen->AddGenerator(extGen);
+    genptr<o2::eventgen::GeneratorFromFile>.push_back(std::make_unique<o2::eventgen::GeneratorFromFile>(conf.getExtKinematicsFileName().c_str()));
+    genptr<o2::eventgen::GeneratorFromFile>.back()->SetStartEvent(conf.getStartEvent());
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorFromFile>.back().get());
     LOG(info) << "using external kinematics";
   } else if (genconfig.compare("extkinO2") == 0) {
     // external kinematics from previous O2 output
@@ -165,9 +165,9 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       .rngseed = singleton.rngseed,
       .randomphi = singleton.randomphi,
       .fileName = name1.size() > 0 ? name1.c_str() : name2.c_str()};
-    auto extGen = new o2::eventgen::GeneratorFromO2Kine(pars);
-    extGen->SetStartEvent(conf.getStartEvent());
-    primGen->AddGenerator(extGen);
+    genptr<o2::eventgen::GeneratorFromO2Kine>.push_back(std::make_unique<o2::eventgen::GeneratorFromO2Kine>(pars));
+    genptr<o2::eventgen::GeneratorFromO2Kine>.back()->SetStartEvent(conf.getStartEvent());
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorFromO2Kine>.back().get());
     if (pars.continueMode) {
       auto o2PrimGen = dynamic_cast<o2::eventgen::PrimaryGenerator*>(primGen);
       if (o2PrimGen) {
@@ -183,9 +183,9 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     LOG(info) << "Init 'GeneratorTParticle' with the following parameters";
     LOG(info) << param0;
     LOG(info) << param;
-    auto tgen = new o2::eventgen::GeneratorTParticle();
-    tgen->setup(param0, param, conf);
-    primGen->AddGenerator(tgen);
+    genptr<o2::eventgen::GeneratorTParticle>.push_back(std::make_unique<o2::eventgen::GeneratorTParticle>());
+    genptr<o2::eventgen::GeneratorTParticle>.back()->setup(param0, param, conf);
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorTParticle>.back().get());
 #ifdef GENERATORS_WITH_HEPMC3
   } else if (genconfig.compare("hepmc") == 0) {
     // external HepMC file, or external program writing HepMC event
@@ -195,9 +195,9 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     LOG(info) << "Init \'GeneratorHepMC\' with following parameters";
     LOG(info) << param0;
     LOG(info) << param;
-    auto hepmcGen = new o2::eventgen::GeneratorHepMC();
-    hepmcGen->setup(param0, param, conf);
-    primGen->AddGenerator(hepmcGen);
+    genptr<o2::eventgen::GeneratorHepMC>.push_back(std::make_unique<o2::eventgen::GeneratorHepMC>());
+    genptr<o2::eventgen::GeneratorHepMC>.back()->setup(param0, param, conf);
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorHepMC>.back().get());
 #endif
 #ifdef GENERATORS_WITH_PYTHIA8
   } else if (genconfig.compare("alldets") == 0) {
@@ -206,37 +206,37 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     // I compose it of:
     // 1) pythia8
     auto py8config = std::string(std::getenv("O2_ROOT")) + "/share/Generators/egconfig/pythia8_inel.cfg";
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
     // 2) forward muons
-    auto muon = makeBoxGen(13, 100, -2.5, -4.0, 100, 100, 0., 360);
-    primGen->AddGenerator(muon);
+    genptr<FairBoxGenerator>.push_back(makeBoxGen(13, 100, -2.5, -4.0, 100, 100, 0., 360));
+    primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
   } else if (genconfig.compare("pythia8") == 0) {
     auto py8config = std::string();
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
   } else if (genconfig.compare("pythia8pp") == 0) {
     auto py8config = std::string(std::getenv("O2_ROOT")) + "/share/Generators/egconfig/pythia8_inel.cfg";
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
   } else if (genconfig.compare("pythia8hf") == 0) {
     // pythia8 pp (HF production)
     // configures pythia for HF production in pp collisions at 14 TeV
     auto py8config = std::string(std::getenv("O2_ROOT")) + "/share/Generators/egconfig/pythia8_hf.cfg";
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
   } else if (genconfig.compare("pythia8hi") == 0) {
     // pythia8 heavy-ion
     // exploits pythia8 heavy-ion machinery (available from v8.230)
     // configures pythia for min.bias Pb-Pb collisions at 5.52 TeV
     auto py8config = std::string(std::getenv("O2_ROOT")) + "/share/Generators/egconfig/pythia8_hi.cfg";
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
   } else if (genconfig.compare("pythia8powheg") == 0) {
     // pythia8 with powheg
     auto py8config = std::string(std::getenv("O2_ROOT")) + "/share/Generators/egconfig/pythia8_powheg.cfg";
-    auto py8 = makePythia8Gen(py8config);
-    primGen->AddGenerator(py8);
+    genptr<o2::eventgen::GeneratorPythia8>.push_back(makePythia8Gen(py8config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorPythia8>.back().get());
 #endif
   } else if (genconfig.compare("external") == 0 || genconfig.compare("extgen") == 0) {
     // external generator via configuration macro
@@ -245,21 +245,21 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
     LOG(info) << params;
     auto extgen_filename = params.fileName;
     auto extgen_func = params.funcName;
-    auto extgen = o2::conf::GetFromMacro<FairGenerator*>(extgen_filename, extgen_func, "FairGenerator*", "extgen");
-    if (!extgen) {
+    genptr<FairGenerator>.push_back(std::unique_ptr<FairGenerator>(o2::conf::GetFromMacro<FairGenerator*>(extgen_filename, extgen_func, "FairGenerator*", "extgen")));
+    if (!genptr<FairGenerator>.back()) {
       LOG(fatal) << "Failed to retrieve \'extgen\': problem with configuration ";
     }
-    primGen->AddGenerator(extgen);
+    primGen->AddGenerator(genptr<FairGenerator>.back().get());
   } else if (genconfig.compare("toftest") == 0) { // 1 muon per sector and per module
     LOG(info) << "Init tof test generator -> 1 muon per sector and per module";
     for (int i = 0; i < 18; i++) {
       for (int j = 0; j < 5; j++) {
-        auto boxGen = new FairBoxGenerator(13, 1); /*protons*/
-        boxGen->SetEtaRange(-0.8 + 0.32 * j + 0.15, -0.8 + 0.32 * j + 0.17);
-        boxGen->SetPRange(9, 10);
-        boxGen->SetPhiRange(10 + 20. * i - 1, 10 + 20. * i + 1);
-        boxGen->SetDebug(kTRUE);
-        primGen->AddGenerator(boxGen);
+        genptr<FairBoxGenerator>.push_back(std::make_unique<FairBoxGenerator>(13, 1)); /*protons*/
+        genptr<FairBoxGenerator>.back()->SetEtaRange(-0.8 + 0.32 * j + 0.15, -0.8 + 0.32 * j + 0.17);
+        genptr<FairBoxGenerator>.back()->SetPRange(9, 10);
+        genptr<FairBoxGenerator>.back()->SetPhiRange(10 + 20. * i - 1, 10 + 20. * i + 1);
+        genptr<FairBoxGenerator>.back()->SetDebug(kTRUE);
+        primGen->AddGenerator(genptr<FairBoxGenerator>.back().get());
       }
     }
 #if defined(GENERATORS_WITH_PYTHIA8) && defined(GENERATORS_WITH_HEPMC3)
@@ -277,8 +277,8 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       LOG(fatal) << "Configuration file for hybrid generator does not exist";
       return;
     }
-    auto hybrid = new o2::eventgen::GeneratorHybrid(config);
-    primGen->AddGenerator(hybrid);
+    genptr<o2::eventgen::GeneratorHybrid>.push_back(std::make_unique<o2::eventgen::GeneratorHybrid>(config));
+    primGen->AddGenerator(genptr<o2::eventgen::GeneratorHybrid>.back().get());
 #endif
   } else {
     LOG(fatal) << "Invalid generator";
