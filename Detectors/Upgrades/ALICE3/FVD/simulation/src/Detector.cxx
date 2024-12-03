@@ -16,6 +16,7 @@
 #include "FVDSimulation/Detector.h"
 #include "FVDBase/GeometryTGeo.h"
 #include "FVDBase/FVDBaseParam.h"
+#include "FVDBase/Constants.h"
 
 #include "DetectorsBase/Stack.h"
 #include "SimulationDataFormat/TrackReference.h"
@@ -55,7 +56,6 @@ Detector::Detector(bool active)
     mTrackData()
 {
   auto& baseParam = FVDBaseParam::Instance();
-  mNumberOfSectors = baseParam.nsect;
 
   mDzScint = baseParam.dzscint/2;
 
@@ -67,6 +67,8 @@ Detector::Detector(bool active)
 
   mZmodA = baseParam.zmodA;
   mZmodC = baseParam.zmodC;
+
+  mNumberOfSectors = Constants::nsect;
 }
 
 Detector::Detector(const Detector& rhs)

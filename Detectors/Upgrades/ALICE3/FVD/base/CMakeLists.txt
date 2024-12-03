@@ -16,5 +16,6 @@ o2_add_library(FVDBase
 
 o2_target_root_dictionary(FVDBase
 	                          HEADERS include/FVDBase/GeometryTGeo.h
-				          include/FVDBase/FVDBaseParam.h)
+				  include/FVDBase/Constants.h
+				  include/FVDBase/FVDBaseParam.h)
 
