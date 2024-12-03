@@ -155,20 +155,30 @@ struct WritingCursor {
 };
 
 /// Helper to define output for a Table
+template <soa::is_table T>
+consteval auto typeWithRef() -> T
+{
+}
+
+template <soa::is_iterator T>
+consteval auto typeWithRef() -> typename T::parent_t
+{
+}
+
 template <typename T>
   requires soa::is_table<T> || soa::is_iterator<T>
 struct OutputForTable {
-  using table_t = T;
-  using metadata = aod::MetadataTrait<o2::aod::Hash<T::ref.desc_hash>>::metadata;
+  using table_t = decltype(typeWithRef<T>());
+  using metadata = aod::MetadataTrait<o2::aod::Hash<table_t::ref.desc_hash>>::metadata;
 
   static OutputSpec const spec()
   {
-    return OutputSpec{OutputLabel{aod::label<T::ref>()}, o2::aod::origin<T::ref>(), o2::aod::description(o2::aod::signature<T::ref>()), T::ref.version};
+    return OutputSpec{OutputLabel{aod::label<table_t::ref>()}, o2::aod::origin<table_t::ref>(), o2::aod::description(o2::aod::signature<table_t::ref>()), table_t::ref.version};
   }
 
   static OutputRef ref()
   {
-    return OutputRef{aod::label<T::ref>(), T::ref.version};
+    return OutputRef{aod::label<table_t::ref>(), table_t::ref.version};
   }
 };
 
