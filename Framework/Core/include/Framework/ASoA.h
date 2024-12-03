@@ -3849,7 +3849,7 @@ using SmallGroupsUnfiltered = SmallGroupsBase<T, false>;
 
 template <typename T>
 concept is_smallgroups = requires {
-  []<typename B, bool A>(SmallGroupsBase<B,A>*){}(std::declval<T*>());
+  []<typename B, bool A>(SmallGroupsBase<B, A>*) {}(std::declval<T*>());
 };
 } // namespace o2::soa
 
