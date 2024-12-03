@@ -78,14 +78,20 @@ struct LiteralStorage {
 
 using LiteralValue = LiteralStorage<int, bool, float, double, uint8_t, int64_t, int16_t, uint16_t, int8_t, uint32_t, uint64_t>;
 
-#define SELECT_ARROW_TYPE(_Ctype_, _Atype_) \
-  template <_Ctype_ T>                      \
-  constexpr auto selectArrowType()          \
-  {                                         \
-    return atype::_Atype_;                  \
-  }
+template <typename T>
+constexpr auto selectArrowType()
+{
+  return atype::NA;
+}
 
-SELECT_ARROW_TYPE(typename, NA);
+#define SELECT_ARROW_TYPE(_Ctype_, _Atype_) \
+template <typename T>                       \
+  requires std::same_as<T, _Ctype_>         \
+constexpr auto selectArrowType()            \
+{                                           \
+  return atype::_Atype_;                    \
+}
+
 SELECT_ARROW_TYPE(bool, BOOL);
 SELECT_ARROW_TYPE(float, FLOAT);
 SELECT_ARROW_TYPE(double, DOUBLE);
