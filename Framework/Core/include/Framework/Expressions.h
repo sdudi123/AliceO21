@@ -85,12 +85,12 @@ constexpr auto selectArrowType()
 }
 
 #define SELECT_ARROW_TYPE(_Ctype_, _Atype_) \
-template <typename T>                       \
-  requires std::same_as<T, _Ctype_>         \
-constexpr auto selectArrowType()            \
-{                                           \
-  return atype::_Atype_;                    \
-}
+  template <typename T>                     \
+    requires std::same_as<T, _Ctype_>       \
+  constexpr auto selectArrowType()          \
+  {                                         \
+    return atype::_Atype_;                  \
+  }
 
 SELECT_ARROW_TYPE(bool, BOOL);
 SELECT_ARROW_TYPE(float, FLOAT);
