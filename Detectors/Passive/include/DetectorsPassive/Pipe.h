@@ -13,7 +13,7 @@
 #define ALICEO2_PASSIVE_PIPE_H
 
 #include "DetectorsPassive/PassiveBase.h"
-#include "Rtypes.h"     // for Pipe::Class, ClassDef, Pipe::Streamer
+#include "Rtypes.h" // for Pipe::Class, ClassDef, Pipe::Streamer
 
 class TGeoPcon;
 
@@ -24,7 +24,7 @@ namespace passive
 class Pipe : public PassiveBase
 {
  public:
-  Pipe(const char* name, const char* Title = "Alice Pipe", float rho = 0.f, float thick = 0.f);
+  Pipe(const char* name, const char* Title = "Alice Pipe", float rho = 0.f, float thick = 0.f, bool dofocal = false);
   Pipe();
 
   ~Pipe() override;
@@ -53,6 +53,7 @@ class Pipe : public PassiveBase
   float mBePipeRmax = 0.;  // outer diameter of the Be section
   float mBePipeThick = 0.; // Be section thickness
   float mIpHLength = 0.;   // half length of the beampipe around the IP // FixMe: up to now, hardcoded to 57.25cm
+  bool mDoFOCAL = false;   // flag weather to implement the beam infront of FOCAL according to run3 or run4
 
   ClassDefOverride(Pipe, 1);
 };
