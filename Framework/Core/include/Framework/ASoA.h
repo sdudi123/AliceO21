@@ -3637,8 +3637,8 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
   using table_t = typename FilteredBase<typename T::table_t>::table_t;
   using columns_t = typename T::columns_t;
 
-  using iterator = typename T::template iterator_template_o<FilteredIndexPolicy, self_t> ;//FilteredBase<typename T::table_t>::iterator;
-  using unfiltered_iterator = typename T::template iterator_template_o<DefaultIndexPolicy, self_t> ;//FilteredBase<typename T::table_t>::unfiltered_iterator;
+  using iterator = typename T::template iterator_template_o<FilteredIndexPolicy, self_t>;
+  using unfiltered_iterator = typename T::template iterator_template_o<DefaultIndexPolicy, self_t>;
   using const_iterator = iterator;
 
   iterator begin()
