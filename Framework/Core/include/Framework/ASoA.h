@@ -1451,12 +1451,7 @@ using PresliceOptional = PresliceBase<T, true, true>;
 
 namespace o2::soa
 {
-template <typename T>
-class FilteredBase;
-template <typename T>
-class Filtered;
-
-template <typename T>
+template <soa::is_table T>
 class FilteredBase;
 template <typename T>
 class Filtered;
@@ -3062,9 +3057,6 @@ consteval auto getIndexTargets()
 
 namespace o2::soa
 {
-// template <typename T>
-// class FilteredBase;
-
 template <typename D, typename... Ts>
 struct JoinFull : Table<o2::aod::Hash<"JOIN"_h>, D, o2::aod::Hash<"JOIN"_h>, Ts...> {
   using base = Table<o2::aod::Hash<"JOIN"_h>, D, o2::aod::Hash<"JOIN"_h>, Ts...>;
@@ -3202,7 +3194,7 @@ constexpr auto concat(Ts const&... t)
   return Concat<Ts...>{t...};
 }
 
-template <typename T>
+template <soa::is_table T>
 class FilteredBase : public T
 {
  public:
@@ -3472,7 +3464,7 @@ template <typename T>
 class Filtered : public FilteredBase<T>
 {
  public:
-  using base_t = FilteredBase<T>;
+  using base_t = T;
   using self_t = Filtered<T>;
   using table_t = typename T::table_t;
   using columns_t = typename T::columns_t;
