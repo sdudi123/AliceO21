@@ -75,6 +75,10 @@ GeneratorHybrid::GeneratorHybrid(const std::string& inputgens)
         int confO2KineIndex = std::stoi(mConfigs[index].substr(9));
         gens.push_back(std::make_unique<o2::eventgen::GeneratorFromO2Kine>(*mO2KineGenConfigs[confO2KineIndex]));
         mGens.push_back(gen);
+      } else if (gen.compare("evtpool") == 0) {
+        int confEvtPoolIndex = std::stoi(mConfigs[index].substr(8));
+        gens.push_back(std::make_unique<o2::eventgen::GeneratorFromEventPool>(mEventPoolConfigs[confEvtPoolIndex]));
+        mGens.push_back(gen);
       } else if (gen.compare("external") == 0) {
         int confextIndex = std::stoi(mConfigs[index].substr(9));
         auto& extgen_filename = mExternalGenConfigs[confextIndex]->fileName;
@@ -127,15 +131,55 @@ Bool_t GeneratorHybrid::Init()
     addSubGenerator(count, gen);
     count++;
   }
+  if (mRandomize) {
+    if (std::all_of(mFractions.begin(), mFractions.end(), [](int i) { return i == 1; })) {
+      LOG(info) << "Full randomisation of generators order";
+    } else {
+      LOG(info) << "Randomisation based on fractions";
+      int allfracs = 0;
+      for (auto& f : mFractions) {
+        allfracs += f;
+      }
+      // Assign new rng fractions
+      float sum = 0;
+      float chance = 0;
+      for (int k = 0; k < mFractions.size(); k++) {
+        if (mFractions[k] == 0) {
+          // Generator will not be used if fraction is 0
+          mRngFractions.push_back(-1);
+          LOG(info) << "Generator " << mGens[k] << " will not be used";
+        } else {
+          chance = static_cast<float>(mFractions[k]) / allfracs;
+          sum += chance;
+          mRngFractions.push_back(sum);
+          LOG(info) << "Generator " << (mConfigs[k] == "" ? mGens[k] : mConfigs[k]) << " has a " << chance * 100 << "% chance of being used";
+        }
+      }
+    }
+  } else {
+    LOG(info) << "Generators will be used in sequence, following provided fractions";
+  }
   return Generator::Init();
 }
 
 Bool_t GeneratorHybrid::generateEvent()
 {
   // Order randomisation or sequence of generators
-  // following provided fractions, if not generators are used in proper sequence
+  // following provided fractions. If not available generators will be used sequentially
   if (mRandomize) {
-    mIndex = gRandom->Integer(mGens.size());
+    if (mRngFractions.size() != 0) {
+      // Generate number between 0 and 1
+      float rnum = gRandom->Rndm();
+      // Find generator index
+      for (int k = 0; k < mRngFractions.size(); k++) {
+        if (rnum <= mRngFractions[k]) {
+          mIndex = k;
+          break;
+        }
+      }
+    } else {
+      mIndex = gRandom->Integer(mGens.size());
+    }
   } else {
     while (mFractions[mCurrentFraction] == 0 || mseqCounter == mFractions[mCurrentFraction]) {
       if (mFractions[mCurrentFraction] != 0) {
@@ -225,6 +269,12 @@ Bool_t GeneratorHybrid::parseJSON(const std::string& path)
           auto o2kineConfig = TBufferJSON::FromJSON<o2::eventgen::O2KineGenConfig>(jsonValueToString(o2kineconf).c_str());
           mO2KineGenConfigs.push_back(std::move(o2kineConfig));
           mConfigs.push_back("extkinO2_" + std::to_string(mO2KineGenConfigs.size() - 1));
+          continue;
+        } else if (name == "evtpool") {
+          const auto& o2kineconf = gen["config"];
+          auto poolConfig = TBufferJSON::FromJSON<o2::eventgen::EventPoolGenConfig>(jsonValueToString(o2kineconf).c_str());
+          mEventPoolConfigs.push_back(*poolConfig);
+          mConfigs.push_back("evtpool_" + std::to_string(mEventPoolConfigs.size() - 1));
           continue;
         } else if (name == "external") {
           const auto& extconf = gen["config"];

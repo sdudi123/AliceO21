@@ -63,7 +63,7 @@ class GeneratorHybrid : public Generator
  private:
   o2::eventgen::Generator* currentgen = nullptr;
   std::vector<std::unique_ptr<o2::eventgen::Generator>> gens;
-  const std::vector<std::string> generatorNames = {"extkinO2", "boxgen", "external", "hepmc", "pythia8", "pythia8pp", "pythia8hi", "pythia8hf", "pythia8powheg"};
+  const std::vector<std::string> generatorNames = {"extkinO2", "evtpool", "boxgen", "external", "hepmc", "pythia8", "pythia8pp", "pythia8hi", "pythia8hf", "pythia8powheg"};
   std::vector<std::string> mInputGens;
   std::vector<std::string> mGens;
   std::vector<std::string> mConfigs;
@@ -73,12 +73,14 @@ class GeneratorHybrid : public Generator
   std::vector<std::unique_ptr<o2::eventgen::BoxGenConfig>> mBoxGenConfigs;
   std::vector<std::unique_ptr<o2::eventgen::Pythia8GenConfig>> mPythia8GenConfigs;
   std::vector<std::unique_ptr<o2::eventgen::O2KineGenConfig>> mO2KineGenConfigs;
+  std::vector<o2::eventgen::EventPoolGenConfig> mEventPoolConfigs;
   std::vector<std::unique_ptr<o2::eventgen::ExternalGenConfig>> mExternalGenConfigs;
   std::vector<std::unique_ptr<o2::eventgen::FileOrCmdGenConfig>> mFileOrCmdGenConfigs;
   std::vector<std::unique_ptr<o2::eventgen::HepMCGenConfig>> mHepMCGenConfigs;
 
   bool mRandomize = false;
   std::vector<int> mFractions;
+  std::vector<float> mRngFractions;
   int mseqCounter = 0;
   int mCurrentFraction = 0;
   int mIndex = 0;
