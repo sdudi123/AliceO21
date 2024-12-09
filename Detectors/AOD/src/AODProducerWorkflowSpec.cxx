@@ -2697,7 +2697,7 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
                        << "trackQAHolder.dRefGloSnp=" << trackQAHolder.dRefGloSnp
                        << "trackQAHolder.dRefGloTgl=" << trackQAHolder.dRefGloTgl
                        << "trackQAHolder.dRefGloQ2Pt=" << trackQAHolder.dRefGloQ2Pt
-                       << "trackQAHolder.dTofdY=" << trackQAHolder.dTofdY
+                       << "trackQAHolder.dTofdX=" << trackQAHolder.dTofdX
                        << "trackQAHolder.dTofdZ=" << trackQAHolder.dTofdZ
                        << "scaleTOF=" << scaleTOF
                        << "\n";
