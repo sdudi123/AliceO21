@@ -807,7 +807,6 @@ void AODProducerWorkflowDPL::addToFwdTracksTable(FwdTracksCursorType& fwdTracksC
                        (Char_t)(128. * mfttrack.getCovariances()(1, 4) / (sQ2Pt * sY)),
                        (Char_t)(128. * mfttrack.getCovariances()(2, 4) / (sQ2Pt * sPhi)),
                        (Char_t)(128. * mfttrack.getCovariances()(3, 4) / (sQ2Pt * sTgl)));
- 
   }
 
   std::uint64_t bcOfTimeRef;
