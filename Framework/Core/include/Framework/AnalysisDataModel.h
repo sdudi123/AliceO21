@@ -638,8 +638,8 @@ DECLARE_SOA_EXTENDED_TABLE(TracksExtra_002, StoredTracksExtra_002, "EXTRACKEXTRA
 DECLARE_SOA_TABLE(Run2TrackExtras, "AOD", "RUN2TRACKEXTRA",
                   track::ITSSignal);
 
-using StoredTracksExtra = StoredTracksExtra_001;
-using TracksExtra = TracksExtra_001;
+using StoredTracksExtra = StoredTracksExtra_002;
+using TracksExtra = TracksExtra_002;
 
 using Track = Tracks::iterator;
 using TrackIU = TracksIU::iterator;
