@@ -649,7 +649,7 @@ DECLARE_SOA_EXTENDED_TABLE(TracksExtra_002, StoredTracksExtra_002, "EXTRACKEXTRA
 DECLARE_SOA_TABLE(Run2TrackExtras_000, "AOD", "RUN2TRACKEXTRA",
                   track::ITSSignal);
 DECLARE_SOA_TABLE_VERSIONED(Run2TrackExtras_001, "AOD", "RUN2TRACKEXTRA", 1, //! adds ITS shared cluster map
-                            track::ITSSignal, track::ITSSharedClusterMap, 
+                            track::ITSSignal, track::ITSSharedClusterMap,
                             track::ITSNSharedCls<track::ITSSharedClusterMap>);
 
 using StoredTracksExtra = StoredTracksExtra_001;
