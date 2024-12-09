@@ -381,7 +381,10 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
     trackQAInfoHolder.dRefGloZ,
     trackQAInfoHolder.dRefGloSnp,
     trackQAInfoHolder.dRefGloTgl,
-    trackQAInfoHolder.dRefGloQ2Pt);
+    trackQAInfoHolder.dRefGloQ2Pt,
+    trackQAInfoHolder.dTofdY,
+    trackQAInfoHolder.dTofdZ
+    );
 }
 
 template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
@@ -2597,6 +2600,15 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     trackQAHolder.tpcdEdxTot1R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC1 * dEdxNorm);
     trackQAHolder.tpcdEdxTot2R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC2 * dEdxNorm);
     trackQAHolder.tpcdEdxTot3R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC3 * dEdxNorm);
+    ///
+    float_t scaleTOF=0;
+    if (contributorsGID[GIndex::Source::TOF].isIndexSet()) { // ITS-TPC-TRD-TOF, ITS-TPC-TOF, TPC-TRD-TOF, TPC-TOF
+      const auto& tofMatch = data.getTOFMatch(trackIndex);
+      const float qpt = gloCopy.getQ2Pt();
+      scaleTOF=std::sqrt(o2::aod::track::trackQAScaledTOF[0]*o2::aod::track::trackQAScaledTOF[0]+qpt*qpt*o2::aod::track::trackQAScaledTOF[1]*o2::aod::track::trackQAScaledTOF[1])/(2.*o2::aod::track::trackQAScaleBins);
+      trackQAHolder.dTofdX = safeInt8Clamp(tofMatch.getDXatTOF()/scaleTOF);
+      trackQAHolder.dTofdZ = safeInt8Clamp(tofMatch.getDZatTOF()/scaleTOF);
+    }
 
     // Add matching information at a reference point (defined by
     // o2::aod::track::trackQARefRadius) in the same frame as the global track
@@ -2641,6 +2653,7 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
         trackQAHolder.dRefGloSnp = safeInt8Clamp(((itsCopy.getSnp() + tpcCopy.getSnp()) * 0.5f - gloCopy.getSnp()) * scaleGlo(2));
         trackQAHolder.dRefGloTgl = safeInt8Clamp(((itsCopy.getTgl() + tpcCopy.getTgl()) * 0.5f - gloCopy.getTgl()) * scaleGlo(3));
         trackQAHolder.dRefGloQ2Pt = safeInt8Clamp(((itsCopy.getQ2Pt() + tpcCopy.getQ2Pt()) * 0.5f - gloCopy.getQ2Pt()) * scaleGlo(4));
+        //
 
         if (O2_ENUM_TEST_BIT(mStreamerMask, AODProducerStreamerMask::TrackQA)) {
           (*mStreamer) << "trackQA"
@@ -2684,6 +2697,9 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
                        << "trackQAHolder.dRefGloSnp=" << trackQAHolder.dRefGloSnp
                        << "trackQAHolder.dRefGloTgl=" << trackQAHolder.dRefGloTgl
                        << "trackQAHolder.dRefGloQ2Pt=" << trackQAHolder.dRefGloQ2Pt
+                       << "trackQAHolder.dTofdY=" << trackQAHolder.dTofdY
+                       << "trackQAHolder.dTofdZ=" << trackQAHolder.dTofdZ
+                       << "scaleTOF=" << scaleTOF
                        << "\n";
         }
       }
