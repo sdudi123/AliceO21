@@ -2607,7 +2607,8 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     trackQAHolder.tpcdEdxTot3R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC3 * dEdxNorm);
     ///
     float scaleTOF{0};
-    if (contributorsGID[GIndex::Source::TOF].isIndexSet()) { // ITS-TPC-TRD-TOF, ITS-TPC-TOF, TPC-TRD-TOF, TPC-TOF
+    auto contributorsGIDA = data.getSingleDetectorRefs(trackIndex);
+    if (contributorsGIDA[GIndex::Source::TOF].isIndexSet()) { // ITS-TPC-TRD-TOF, ITS-TPC-TOF, TPC-TRD-TOF, TPC-TOF
       const auto& tofMatch = data.getTOFMatch(trackIndex);
       const float qpt = trackPar.getQ2Pt();
       scaleTOF = std::sqrt(o2::aod::track::trackQAScaledTOF[0] * o2::aod::track::trackQAScaledTOF[0] + qpt * qpt * o2::aod::track::trackQAScaledTOF[1] * o2::aod::track::trackQAScaledTOF[1]) / (2. * o2::aod::track::trackQAScaleBins);
