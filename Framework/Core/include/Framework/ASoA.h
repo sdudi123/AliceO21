@@ -2185,7 +2185,7 @@ template <typename R, typename T>
 using ColumnGetterFunction = R (*)(const T&);
 
 template <typename T, typename R>
-concept dynamic_with_common_getter = is_dynamic_v<T> &&
+concept dynamic_with_common_getter = is_dynamic_column<T> &&
                                      // lambda is callable without additional free args
                                      framework::pack_size(typename T::bindings_t{}) == framework::pack_size(typename T::callable_t::args{}) &&
                                      requires(T t) {
@@ -2242,7 +2242,7 @@ using with_common_getter_t = typename std::conditional<persistent_with_common_ge
 template <typename R, typename T>
 ColumnGetterFunction<R, typename T::iterator> getColumnGetterByLabel(const std::string_view& targetColumnLabel)
 {
-  using TypesWithCommonGetter = o2::framework::selected_pack_multicondition<with_common_getter_t, framework::pack<R>, typename T::columns>;
+  using TypesWithCommonGetter = o2::framework::selected_pack_multicondition<with_common_getter_t, framework::pack<R>, typename T::columns_t>;
 
   if (targetColumnLabel.size() == 0) {
     throw framework::runtime_error("columnLabel: must not be empty");

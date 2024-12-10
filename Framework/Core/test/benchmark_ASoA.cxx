@@ -304,7 +304,7 @@ static void BM_ASoADynamicColumnPresentGetGetterByLabel(benchmark::State& state)
   }
   auto table = builder.finalize();
 
-  using Test = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, test::X, test::Y, test::Z, test::Sum<test::X, test::Y>>;
+  using Test = o2::soa::InPlaceTable<"A/0"_h, test::X, test::Y, test::Z, test::Sum<test::X, test::Y>>;
 
   for (auto _ : state) {
     Test tests{table};
@@ -362,7 +362,7 @@ static void BM_ASoADynamicColumnCallGetGetterByLabel(benchmark::State& state)
   auto table = builder.finalize();
 
   // SumFreeArgs presence checks if dynamic columns get() is handled correctly during compilation
-  using Test = o2::soa::Table<o2::framework::OriginEnc{"AOD"}, test::X, test::Y, test::Sum<test::X, test::Y>, test::SumFreeArgs<test::X, test::Y>>;
+  using Test = o2::soa::InPlaceTable<"A/0"_h, test::X, test::Y, test::Sum<test::X, test::Y>, test::SumFreeArgs<test::X, test::Y>>;
 
   Test tests{table};
   for (auto _ : state) {
