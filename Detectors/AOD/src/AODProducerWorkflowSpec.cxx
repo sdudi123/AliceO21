@@ -383,8 +383,7 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
     trackQAInfoHolder.dRefGloTgl,
     trackQAInfoHolder.dRefGloQ2Pt,
     trackQAInfoHolder.dTofdY,
-    trackQAInfoHolder.dTofdZ
-    );
+    trackQAInfoHolder.dTofdZ);
 }
 
 template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
@@ -2601,13 +2600,13 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     trackQAHolder.tpcdEdxTot2R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC2 * dEdxNorm);
     trackQAHolder.tpcdEdxTot3R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC3 * dEdxNorm);
     ///
-    float_t scaleTOF=0;
+    float_t scaleTOF = 0;
     if (contributorsGID[GIndex::Source::TOF].isIndexSet()) { // ITS-TPC-TRD-TOF, ITS-TPC-TOF, TPC-TRD-TOF, TPC-TOF
       const auto& tofMatch = data.getTOFMatch(trackIndex);
       const float qpt = gloCopy.getQ2Pt();
-      scaleTOF=std::sqrt(o2::aod::track::trackQAScaledTOF[0]*o2::aod::track::trackQAScaledTOF[0]+qpt*qpt*o2::aod::track::trackQAScaledTOF[1]*o2::aod::track::trackQAScaledTOF[1])/(2.*o2::aod::track::trackQAScaleBins);
-      trackQAHolder.dTofdX = safeInt8Clamp(tofMatch.getDXatTOF()/scaleTOF);
-      trackQAHolder.dTofdZ = safeInt8Clamp(tofMatch.getDZatTOF()/scaleTOF);
+      scaleTOF = std::sqrt(o2::aod::track::trackQAScaledTOF[0] * o2::aod::track::trackQAScaledTOF[0] + qpt * qpt * o2::aod::track::trackQAScaledTOF[1] * o2::aod::track::trackQAScaledTOF[1]) / (2. * o2::aod::track::trackQAScaleBins);
+      trackQAHolder.dTofdX = safeInt8Clamp(tofMatch.getDXatTOF() / scaleTOF);
+      trackQAHolder.dTofdZ = safeInt8Clamp(tofMatch.getDZatTOF() / scaleTOF);
     }
 
     // Add matching information at a reference point (defined by
