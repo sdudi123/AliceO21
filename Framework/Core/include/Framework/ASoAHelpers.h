@@ -127,9 +127,8 @@ std::vector<BinningIndex> groupTable(const T& table, const BP<Cs...>& binningPol
 
       auto values = binningPolicy.getBinningValues(rowIterator, arrowTable, ci, ai, ind);
       auto val = binningPolicy.getBin(values);
-
       if (val != outsider) {
-        groupedIndices.emplace_back(val, *std::get<1>(rowIterator.getIndices()));
+        groupedIndices.emplace_back(val, ind);
       }
       ind++;
 
