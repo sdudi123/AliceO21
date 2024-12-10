@@ -381,7 +381,9 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
     trackQAInfoHolder.dRefGloZ,
     trackQAInfoHolder.dRefGloSnp,
     trackQAInfoHolder.dRefGloTgl,
-    trackQAInfoHolder.dRefGloQ2Pt)
+    trackQAInfoHolder.dRefGloQ2Pt,
+    trackQAInfoHolder.dTofdX,
+    trackQAInfoHolder.dTofdZ)
 }
 
 template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
