@@ -60,8 +60,8 @@ class GeneratorService
 {
 
  public:
-
-  ~GeneratorService() {
+  ~GeneratorService()
+  {
     o2::eventgen::GeneratorFactory::cleanup();
   };
 
