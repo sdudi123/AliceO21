@@ -325,4 +325,5 @@ void o2sim(bool asservice = false, bool evalmat = false)
   auto run = o2sim_init(asservice, evalmat);
   o2sim_run(run, asservice);
   delete run;
+  o2::eventgen::GeneratorFactory::cleanup();
 }

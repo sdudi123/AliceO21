@@ -10,7 +10,6 @@
 // or submit itself to any jurisdiction.
 
 #include "Generators/GeneratorService.h"
-#include "Generators/GeneratorFactory.h"
 #include "SimConfig/SimConfig.h"
 #include "DataFormatsCalibration/MeanVertexObject.h"
 

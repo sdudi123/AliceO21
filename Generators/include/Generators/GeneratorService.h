@@ -20,6 +20,7 @@
 #include <SimulationDataFormat/MCTrack.h>
 #include <Generators/PrimaryGenerator.h> // could be forward declaration
 #include <DetectorsBase/Stack.h>
+#include "Generators/GeneratorFactory.h"
 
 namespace o2
 {
@@ -59,6 +60,11 @@ class GeneratorService
 {
 
  public:
+
+  ~GeneratorService() {
+    o2::eventgen::GeneratorFactory::cleanup();
+  };
+
   void initService(std::string const& generatorName,
                    std::string const& triggerName,
                    VertexOption const& vtxOption);

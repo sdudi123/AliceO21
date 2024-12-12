@@ -14,6 +14,20 @@
 #ifndef ALICEO2_GENERATORFACTORY_H_
 #define ALICEO2_GENERATORFACTORY_H_
 
+#include "FairGenerator.h"
+#include "FairBoxGenerator.h"
+#include <Generators/GeneratorFromFile.h>
+#include <Generators/GeneratorTParticle.h>
+#ifdef GENERATORS_WITH_HEPMC3
+#include <Generators/GeneratorHepMC.h>
+#endif
+#if defined(GENERATORS_WITH_PYTHIA8) && defined(GENERATORS_WITH_HEPMC3)
+#include <Generators/GeneratorHybrid.h>
+#endif
+#ifdef GENERATORS_WITH_PYTHIA8
+#include <Generators/GeneratorPythia8.h>
+#endif
+
 class FairPrimaryGenerator;
 namespace o2
 {
@@ -32,10 +46,31 @@ namespace eventgen
 // main purpose is to init a FairPrimGen given some (Sim)Config
 struct GeneratorFactory {
   static void setPrimaryGenerator(o2::conf::SimConfig const&, FairPrimaryGenerator*);
+  //Make destructor to delete all the pointers
+  ~GeneratorFactory() {
+    cleanup();
+  }
+  static void cleanup() {
+    for (auto& gen : mBoxGenPtr) {
+      delete gen;
+    }
+    delete mPythia8GenPtr;
+    delete mHybridGenPtr;
+    delete mHepMCGenPtr;
+    delete mExtGenPtr;
+    delete mFileGenPtr;
+    delete mO2KineGenPtr;
+    delete mTParticleGenPtr;
+  }
+  static std::vector<FairBoxGenerator*> mBoxGenPtr;
+  static o2::eventgen::GeneratorPythia8* mPythia8GenPtr;
+  static o2::eventgen::GeneratorHybrid* mHybridGenPtr;
+  static o2::eventgen::GeneratorHepMC* mHepMCGenPtr;
+  static FairGenerator* mExtGenPtr;
+  static o2::eventgen::GeneratorFromFile* mFileGenPtr;
+  static o2::eventgen::GeneratorFromO2Kine* mO2KineGenPtr;
+  static o2::eventgen::GeneratorTParticle* mTParticleGenPtr;
 };
-
-template <typename T>
-std::vector<std::unique_ptr<T>> genptr;
 
 } // end namespace eventgen
 } // end namespace o2
