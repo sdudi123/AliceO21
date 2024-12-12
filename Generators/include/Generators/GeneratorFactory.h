@@ -46,11 +46,13 @@ namespace eventgen
 // main purpose is to init a FairPrimGen given some (Sim)Config
 struct GeneratorFactory {
   static void setPrimaryGenerator(o2::conf::SimConfig const&, FairPrimaryGenerator*);
-  //Make destructor to delete all the pointers
-  ~GeneratorFactory() {
+  // Make destructor to delete all the pointers
+  ~GeneratorFactory()
+  {
     cleanup();
   }
-  static void cleanup() {
+  static void cleanup()
+  {
     for (auto& gen : mBoxGenPtr) {
       delete gen;
     }
