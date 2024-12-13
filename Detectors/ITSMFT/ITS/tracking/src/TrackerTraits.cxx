@@ -71,7 +71,7 @@ void TrackerTraits::computeLayerTracklets(const int iteration, int iROFslice, in
   const Vertex diamondVert({mTrkParams[iteration].Diamond[0], mTrkParams[iteration].Diamond[1], mTrkParams[iteration].Diamond[2]}, {25.e-6f, 0.f, 0.f, 25.e-6f, 0.f, 36.f}, 1, 1.f);
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
-  int endROF{mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : tf->getNrof()};
+  int endROF{gpu::GPUCommonMath::Min(mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : tf->getNrof(), tf->getNrof())};
   for (int rof0{startROF}; rof0 < endROF; ++rof0) {
     gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : tf->getPrimaryVertices(rof0);
     const int startVtx{iVertex >= 0 ? iVertex : 0};
@@ -573,6 +573,9 @@ void TrackerTraits::findRoads(const int iteration)
     const int minimumLayer{startLevel - 1};
     std::vector<CellSeed> trackSeeds;
     for (int startLayer{mTrkParams[iteration].CellsPerRoad() - 1}; startLayer >= minimumLayer; --startLayer) {
+      if ((mTrkParams[iteration].StartLayerMask & (1 << (startLayer + 2))) == 0) {
+        continue;
+      }
       CA_DEBUGGER(std::cout << "\t\t > Starting processing layer " << startLayer << std::endl);
       std::vector<int> lastCellId, updatedCellId;
       std::vector<CellSeed> lastCellSeed, updatedCellSeed;
@@ -615,7 +618,7 @@ void TrackerTraits::findRoads(const int iteration)
       temporaryTrack.resetCovariance();
       temporaryTrack.setChi2(0);
       fitSuccess = fitTrack(temporaryTrack, mTrkParams[0].NLayers - 1, -1, -1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF, 50.f);
-      if (!fitSuccess) {
+      if (!fitSuccess || temporaryTrack.getPt() < mTrkParams[iteration].MinPt[mTrkParams[iteration].NLayers - temporaryTrack.getNClusters()]) {
         continue;
       }
       tracks[trackIndex++] = temporaryTrack;
