@@ -10,7 +10,7 @@
 # or submit itself to any jurisdiction.
 
 o2_add_library(FVDBase
-	SOURCES src/GeometryTGeo.cxx
+        SOURCES src/GeometryTGeo.cxx
                 src/FVDBaseParam.cxx
                 PUBLIC_LINK_LIBRARIES  O2::DetectorsBase)
 
