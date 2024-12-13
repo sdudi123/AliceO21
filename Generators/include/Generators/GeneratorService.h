@@ -60,11 +60,6 @@ class GeneratorService
 {
 
  public:
-  ~GeneratorService()
-  {
-    o2::eventgen::GeneratorFactory::cleanup();
-  };
-
   void initService(std::string const& generatorName,
                    std::string const& triggerName,
                    VertexOption const& vtxOption);

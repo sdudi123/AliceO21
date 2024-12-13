@@ -73,7 +73,7 @@ class O2PrimaryServerDevice final : public fair::mq::Device
       if (mControlThread.joinable()) {
         mControlThread.join();
       }
-      o2::eventgen::GeneratorFactory::cleanup();
+      delete mPrimGen;
     } catch (...) {
     }
   }
