@@ -358,7 +358,6 @@ void Detector::defineSensitiveVolumes()
     LOG(info) << "Adding FVD Sensitive Volume => " << v->GetName();
     AddSensitiveVolume(v);
   }
-  
 }
 
 int Detector::getChannelId(TVector3 vec)
