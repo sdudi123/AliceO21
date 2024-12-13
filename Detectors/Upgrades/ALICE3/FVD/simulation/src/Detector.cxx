@@ -57,7 +57,7 @@ Detector::Detector(bool active)
 {
   auto& baseParam = FVDBaseParam::Instance();
 
-  mDzScint = baseParam.dzscint/2;
+  mDzScint = baseParam.dzscint / 2;
 
   mRingRadiiA = baseParam.ringsA;
   mRingRadiiC = baseParam.ringsC;
