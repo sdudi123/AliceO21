@@ -1731,12 +1731,12 @@ DECLARE_SOA_TABLE(Run2BCInfos_000, "AOD", "RUN2BCINFO", run2::EventCuts, //! Leg
                   run2::V0TriggerChargeA, run2::V0TriggerChargeC);
 
 DECLARE_SOA_TABLE_VERSIONED(Run2BCInfos_001, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
-                  run2::TriggerMaskNext50, run2::L0TriggerInputMask,
-                  run2::SPDClustersL0, run2::SPDClustersL1,
-                  run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
-                  run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
-                  run2::V0TriggerChargeA, run2::V0TriggerChargeC,
-                  run2::NTPCClusters, run2::NSDDSSDClusters);
+                            run2::TriggerMaskNext50, run2::L0TriggerInputMask,
+                            run2::SPDClustersL0, run2::SPDClustersL1,
+                            run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
+                            run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
+                            run2::V0TriggerChargeA, run2::V0TriggerChargeC,
+                            run2::NTPCClusters, run2::NSDDSSDClusters);
 
 using Run2BCInfos = Run2BCInfos_000;
 using Run2BCInfo = Run2BCInfos::iterator;
