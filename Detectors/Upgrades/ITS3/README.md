@@ -35,7 +35,7 @@ export ALICEO2_CCDB_LOCALCACHE=${PWD}/ccdb
 
 Simulate diamond
 
-``` bash
+```bash
 # append to o2-sim
 --configKeyValues="Diamond.width[2]=6.;""
 ```
@@ -86,7 +86,7 @@ TODO
 
 ```bash
 # Create Full Geometry
-o2-sim -g pythia8pp -j10 --detectorList ALICE2.1 --run 303901 -n0
+o2-sim --detectorList ALICE2.1 --run 303901 -n0
 cp o2sim_geometry.root ${ALICEO2_CCDB_LOCALCACHE}/GLO/Config/Geometry/snapshot.root
 o2-create-aligned-geometry-workflow -b --configKeyValues "HBFUtils.startTime=1547978230000" --condition-remap="file://${ALICEO2_CCDB_LOCALCACHE}=GLO/Config/Geometry"
 cp o2sim_geometry-aligned.root ${ALICEO2_CCDB_LOCALCACHE}/GLO/Config/GeometryAligned/snapshot.root
@@ -158,7 +158,7 @@ The file `hijing.C` can be found [here](https://alice.its.cern.ch/jira/browse/AO
 2. (optional) Run the macro `CreateITS3StaticDeadMap.C` and/or visualize with `CheckTileNumbering.C`
 3. Move the ccdb object into `${ALICEO2_CCDB_LOCALCACHE}/IT3/Calib/DeadMap`, this is not optional since there is no default object uploaded
 4. Run digitizer with `ITS3Params.useDeadChannelMap=true;`, e.g.:
-``` bash
+```bash
 o2-sim-digitizer-workflow --configKeyValues="ITS3Params.useDeadChannelMap=true;"
 ```
 
@@ -168,6 +168,6 @@ o2-sim-digitizer-workflow --configKeyValues="ITS3Params.useDeadChannelMap=true;"
 1. Create misalignment parameters with `CreateMisalignmentITS3.C`
 2. Visualize with `ShowCoefficients.C`
 3. Run digitizer
-``` bash
+```bash
 o2-sim-digitizer-workflow -b --configKeyValues="ITS3Params.applyMisalignmentHits=true;ITS3Params.misalignmentHitsParams=misparams.root"
 ```
