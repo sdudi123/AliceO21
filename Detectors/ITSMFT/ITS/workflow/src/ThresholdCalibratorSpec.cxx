@@ -1411,9 +1411,6 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         if ((chipID % mChipModBase) != mChipModSel) {
           continue;
         }
-        if ((loopval == 100 || loopval == 105) && (chipID == 1 || chipID == 8)) {
-          LOG(info) << "Loopval: " << loopval << " Charge: " << realcharge << " Chip: " << chipID << " row: " << d.getRow() << " Col: " << d.getColumn();
-        }
         if (d.getRow() != row && mVerboseOutput) {
           LOG(info) << "iROF: " << iROF << " ChipID " << chipID << ": current row is " << d.getRow() << " (col = " << d.getColumn() << ") but the one in CW is " << row;
         }
