@@ -280,6 +280,7 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
       return;
     }
     mHybridGenPtr = new o2::eventgen::GeneratorHybrid(config);
+    mHybridGenPtr->setNEvents(conf.getNEvents());
     primGen->AddGenerator(mHybridGenPtr);
 #endif
   } else {

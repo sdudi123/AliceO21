@@ -57,6 +57,7 @@ enum TrackFlagsRun2Enum {
   FreeClsSPDTracklet = 0x1, // for SPD tracklets, tracklet from cluster not used in tracking
   TPCrefit = 0x2,
   GoldenChi2 = 0x4,
+  TPCout = 0x8
   // NOTE Highest 4 (29..32) bits reserved for PID hypothesis
 };
 enum DetectorMapEnum : uint8_t {
@@ -130,6 +131,7 @@ constexpr std::array<float, 5> trackQAScaleContP0{0.257192, 0.0775375, 0.0042428
 constexpr std::array<float, 5> trackQAScaleContP1{0.189371, 0.409071, 0.00694444, 0.00720038, 0.0806902};
 constexpr std::array<float, 5> trackQAScaleGloP0{0.130985, 0.0775375, 0.00194703, 0.000405458, 0.0160007};
 constexpr std::array<float, 5> trackQAScaleGloP1{0.183731, 0.409071, 0.00621802, 0.00624881, 0.0418957};
+constexpr std::array<float, 2> trackQAScaledTOF{1.1, 0.33};
 } // namespace o2::aod::track
 
 namespace o2::aod::fwdtrack

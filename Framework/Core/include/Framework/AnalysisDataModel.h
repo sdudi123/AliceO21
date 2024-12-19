@@ -242,6 +242,7 @@ DECLARE_SOA_COLUMN(TPCNClsFindableMinusFound, tpcNClsFindableMinusFound, int8_t)
 DECLARE_SOA_COLUMN(TPCNClsFindableMinusPID, tpcNClsFindableMinusPID, int8_t);                 //! TPC Clusters: Findable - Found clusters used for PID
 DECLARE_SOA_COLUMN(TPCNClsFindableMinusCrossedRows, tpcNClsFindableMinusCrossedRows, int8_t); //! TPC Clusters: Findable - crossed rows
 DECLARE_SOA_COLUMN(TPCNClsShared, tpcNClsShared, uint8_t);                                    //! Number of shared TPC clusters
+DECLARE_SOA_COLUMN(ITSSharedClusterMap, itsSharedClusterMap, uint8_t);                        //! shared ITS cluster map (Run 2)
 DECLARE_SOA_COLUMN(TRDPattern, trdPattern, uint8_t);                                          //! Contributor to the track on TRD layer in bits 0-5, starting from the innermost, bit 6 indicates a potentially split tracklet, bit 7 if the track crossed a padrow
 DECLARE_SOA_COLUMN(ITSChi2NCl, itsChi2NCl, float);                                            //! Chi2 / cluster for the ITS track segment
 DECLARE_SOA_COLUMN(TPCChi2NCl, tpcChi2NCl, float);                                            //! Chi2 / cluster for the TPC track segment
@@ -430,6 +431,16 @@ DECLARE_SOA_DYNAMIC_COLUMN(ITSNClsInnerBarrel, itsNClsInnerBarrel, //! Number of
                                  itsNclsInnerBarrel++;
                              }
                              return itsNclsInnerBarrel;
+                           });
+DECLARE_SOA_DYNAMIC_COLUMN(ITSNSharedCls, itsNSharedCls, //! Number of shared ITS clusters (Run 2)
+                           [](uint8_t itsSharedClusterMap) -> uint8_t {
+                             uint8_t itsNSharedCls = 0;
+                             constexpr uint8_t bit = 1;
+                             for (int layer = 0; layer < 6; layer++) { // ITS1: 6 layers
+                               if (itsSharedClusterMap & (bit << layer))
+                                 itsNSharedCls++;
+                             }
+                             return itsNSharedCls;
                            });
 DECLARE_SOA_DYNAMIC_COLUMN(TPCFoundOverFindableCls, tpcFoundOverFindableCls, //! Ratio of found over findable clusters
                            [](uint8_t tpcNClsFindable, int8_t tpcNClsFindableMinusFound) -> float {
@@ -635,17 +646,21 @@ DECLARE_SOA_EXTENDED_TABLE(TracksExtra_001, StoredTracksExtra_001, "EXTRACKEXTRA
 DECLARE_SOA_EXTENDED_TABLE(TracksExtra_002, StoredTracksExtra_002, "EXTRACKEXTRA", 2, //! Additional track information (clusters, PID, etc.)
                            track::v001::DetectorMap);
 
-DECLARE_SOA_TABLE(Run2TrackExtras, "AOD", "RUN2TRACKEXTRA",
+DECLARE_SOA_TABLE(Run2TrackExtras_000, "AOD", "RUN2TRACKEXTRA",
                   track::ITSSignal);
+DECLARE_SOA_TABLE_VERSIONED(Run2TrackExtras_001, "AOD", "RUN2TRACKEXTRA", 1, //! adds ITS shared cluster map
+                            track::ITSSignal, track::ITSSharedClusterMap,
+                            track::ITSNSharedCls<track::ITSSharedClusterMap>);
 
-using StoredTracksExtra = StoredTracksExtra_001;
-using TracksExtra = TracksExtra_001;
+using StoredTracksExtra = StoredTracksExtra_002;
+using TracksExtra = TracksExtra_002;
 
 using Track = Tracks::iterator;
 using TrackIU = TracksIU::iterator;
 using TrackCov = TracksCov::iterator;
 using TrackCovIU = TracksCovIU::iterator;
 using TrackExtra = TracksExtra::iterator;
+using Run2TrackExtras = Run2TrackExtras_000;
 using Run2TrackExtra = Run2TrackExtras::iterator;
 
 } // namespace aod
@@ -686,6 +701,8 @@ DECLARE_SOA_COLUMN(DeltaRefGloParamZ, deltaRefGloParamZ, int8_t);         //! No
 DECLARE_SOA_COLUMN(DeltaRefGloParamSnp, deltaRefGloParamSnp, int8_t);     //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Snp
 DECLARE_SOA_COLUMN(DeltaRefGloParamTgl, deltaRefGloParamTgl, int8_t);     //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Tgl
 DECLARE_SOA_COLUMN(DeltaRefGloParamQ2Pt, deltaRefGloParamQ2Pt, int8_t);   //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Q2Pt
+DECLARE_SOA_COLUMN(DeltaTOFdX, deltaTOFdX, int8_t);                       //!
+DECLARE_SOA_COLUMN(DeltaTOFdZ, deltaTOFdZ, int8_t);                       //!
 
 DECLARE_SOA_DYNAMIC_COLUMN(IsDummy, isDummy, //! indicates if the propagation of the contrib. tracks was successful and residuals are available
                            [](int8_t cY, int8_t cZ, int8_t cSnp, int8_t cTgl, int8_t cQ2Pt, int8_t gY, int8_t gZ, int8_t gSnp, int8_t gTgl, int8_t gQ2Pt) -> bool {
@@ -709,7 +726,17 @@ DECLARE_SOA_TABLE_VERSIONED(TracksQA_001, "AOD", "TRACKQA", 1, //! trackQA infor
                             trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
                                              trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
 
-using TracksQAVersion = TracksQA_001;
+DECLARE_SOA_TABLE_VERSIONED(TracksQA_002, "AOD", "TRACKQA", 2, //! trackQA information - version 2 - including contributor residuals of matched tracks at reference radius + TOF delta information
+                            o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
+                            trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
+                            trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R,
+                            trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                            trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt,
+                            trackqa::DeltaTOFdX, trackqa::DeltaTOFdZ,
+                            trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                                             trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
+
+using TracksQAVersion = TracksQA_002;
 using TracksQA = TracksQAVersion::iterator;
 
 namespace fwdtrack
@@ -1651,7 +1678,7 @@ using Tracked3body = Tracked3Bodys::iterator;
 namespace origins
 {
 DECLARE_SOA_COLUMN(DataframeID, dataframeID, uint64_t); //! Data frame ID (what is usually found in directory name in the AO2D.root, i.e. DF_XXX)
-} // namespace origin
+} // namespace origins
 
 DECLARE_SOA_TABLE(Origins, "AOD", "ORIGIN", //! Table which contains the IDs of all dataframes merged into this dataframe
                   o2::soa::Index<>, origins::DataframeID);
@@ -1672,15 +1699,60 @@ DECLARE_SOA_COLUMN(SPDFiredFastOrL0, spdFiredFastOrL0, uint16_t);     //! Fired 
 DECLARE_SOA_COLUMN(SPDFiredFastOrL1, spdFiredFastOrL1, uint16_t);     //! Fired FASTOR signals in the first layer of the SPD (online)
 DECLARE_SOA_COLUMN(V0TriggerChargeA, v0TriggerChargeA, uint16_t);     //! V0A trigger charge
 DECLARE_SOA_COLUMN(V0TriggerChargeC, v0TriggerChargeC, uint16_t);     //! V0C trigger charge
+DECLARE_SOA_COLUMN(NTPCClusters, nTPCClusters, uint32_t);             //! total number of TPC clusters (for ev sel)
+DECLARE_SOA_COLUMN(NSDDSSDClusters, nSDDSSDClusters, uint32_t);       //! total number of SSD + SDD clusters (for ev sel)
+namespace oftv0
+{
+DECLARE_SOA_INDEX_COLUMN(Collision, collision);                         //! Collision index
+DECLARE_SOA_INDEX_COLUMN_FULL(PosTrack, posTrack, int, Tracks, "_Pos"); //! Positive track
+DECLARE_SOA_INDEX_COLUMN_FULL(NegTrack, negTrack, int, Tracks, "_Neg"); //! Negative track
+DECLARE_SOA_COLUMN(Px, px, float);                                      //! momentum in x
+DECLARE_SOA_COLUMN(Py, py, float);                                      //! momentum in y
+DECLARE_SOA_COLUMN(Pz, pz, float);                                      //! momentum in z
+DECLARE_SOA_COLUMN(E, e, float);                                        //! energy
+DECLARE_SOA_COLUMN(Qt, qt, float);                                      //! Qt of AP
+DECLARE_SOA_COLUMN(Alpha, alpha, float);                                //! Alpha of AP
+DECLARE_SOA_COLUMN(X, x, float);                                        //! conversion point x coordiante
+DECLARE_SOA_COLUMN(Y, y, float);                                        //! conversion point y coordiante
+DECLARE_SOA_COLUMN(Z, z, float);                                        //! conversion point z coordiante
+DECLARE_SOA_COLUMN(Chi2NDF, chi2NDF, float);                            //! chi^2 over NDF from KFParticle
+DECLARE_SOA_COLUMN(PsiPair, psiPair, float);                            //! Psi pair
+DECLARE_SOA_COLUMN(DCAr, dcaR, float);                                  //! DCA in radial direction
+DECLARE_SOA_COLUMN(DCAz, dcaZ, float);                                  //! DCA in z direction
+DECLARE_SOA_COLUMN(Mass, mass, float);                                  //! mass of the conversion. Do NOT use for cut!
+} // namespace oftv0
 } // namespace run2
 
-DECLARE_SOA_TABLE(Run2BCInfos, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
+DECLARE_SOA_TABLE(Run2BCInfos_000, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
                   run2::TriggerMaskNext50, run2::L0TriggerInputMask,
                   run2::SPDClustersL0, run2::SPDClustersL1,
                   run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
                   run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
                   run2::V0TriggerChargeA, run2::V0TriggerChargeC);
+
+DECLARE_SOA_TABLE_VERSIONED(Run2BCInfos_001, "AOD", "RUN2BCINFO", 1,
+                            run2::EventCuts, //! Legacy information for Run 2 event selection
+                            run2::TriggerMaskNext50, run2::L0TriggerInputMask,
+                            run2::SPDClustersL0, run2::SPDClustersL1,
+                            run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
+                            run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
+                            run2::V0TriggerChargeA, run2::V0TriggerChargeC,
+                            run2::NTPCClusters, run2::NSDDSSDClusters);
+
+using Run2BCInfos = Run2BCInfos_000;
 using Run2BCInfo = Run2BCInfos::iterator;
+
+DECLARE_SOA_TABLE(Run2OTFV0s, "AOD", "Run2OTFV0", //! Run 2 V0 on the fly table
+                  o2::soa::Index<>,
+                  run2::oftv0::CollisionId, run2::oftv0::PosTrackId, run2::oftv0::NegTrackId,
+                  run2::oftv0::Px, run2::oftv0::Py, run2::oftv0::Pz, run2::oftv0::E,
+                  run2::oftv0::Qt, run2::oftv0::Alpha,
+                  run2::oftv0::X, run2::oftv0::Y, run2::oftv0::Z,
+                  run2::oftv0::Chi2NDF, run2::oftv0::PsiPair,
+                  run2::oftv0::DCAr, run2::oftv0::DCAz,
+                  run2::oftv0::Mass);
+
+using Run2OTFV0 = Run2OTFV0s::iterator;
 
 // ---- MC tables ----
 namespace mccollision
@@ -1848,7 +1920,11 @@ DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/0");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/0");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/1");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/2");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/0", "TRACKEXTRA/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/0", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/1", "TRACKEXTRA/2");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("HMPID/0", "HMPID/1");
 DECLARE_EQUIVALENT_FOR_INDEX_NG("MFTTracks/0", "MFTTracks/1");
 } // namespace soa
