@@ -1181,18 +1181,22 @@ void processNeighboursHandler(const int startLayer,
                               const float MaxChi2ClusterAttachment,
                               const o2::base::Propagator* propagator,
                               const o2::base::PropagatorF::MatCorrType matCorrType,
-                              std::vector<int>& updatedCellIdHost,        // temporary host vectors
-                              std::vector<CellSeed>& updatedCellSeedHost, // temporary host vectors
+                              const std::vector<int>& lastCellIdHost,        // temporary host vector
+                              const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
+                              std::vector<int>& updatedCellIdHost,           // temporary host vector
+                              std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                               const int nBlocks,
                               const int nThreads)
 {
   thrust::device_vector<int> foundSeedsTable(nCurrentCells + 1); // Shortcut: device_vector skips central memory management, we are relying on the contingency. TODO: fix this.
+  thrust::device_vector<int> lastCellIds(lastCellIdHost);
+  thrust::device_vector<CellSeed> lastCellSeed(lastCellSeedHost);
   gpu::processNeighboursKernel<true><<<nBlocks, nThreads>>>(startLayer,
                                                             startLevel,
                                                             allCellSeeds,
-                                                            currentCellSeeds,
-                                                            nullptr, // currentCellIds,
-                                                            nCurrentCells,
+                                                            lastCellIdHost.empty() ? currentCellSeeds : thrust::raw_pointer_cast(&lastCellSeed[0]), // lastCellSeeds
+                                                            lastCellIdHost.empty() ? nullptr : thrust::raw_pointer_cast(&lastCellIds[0]),           // lastCellIds,
+                                                            lastCellIdHost.empty() ? nCurrentCells : lastCellSeedHost.size(),
                                                             nullptr,                                       // updatedCellSeeds,
                                                             nullptr,                                       // updatedCellsIds,
                                                             thrust::raw_pointer_cast(&foundSeedsTable[0]), // auxiliary only in GPU code to compute the number of cells per iteration
@@ -1220,15 +1224,15 @@ void processNeighboursHandler(const int startLayer,
                                               nCurrentCells + 1,                             // num_items
                                               0));
 
-  thrust::device_vector<int> updatedCellIds(foundSeedsTable.back()), lastCellIds(foundSeedsTable.back());
-  thrust::device_vector<CellSeed> updatedCellSeeds(foundSeedsTable.back()), lastCellSeeds(foundSeedsTable.back());
+  thrust::device_vector<int> updatedCellIds(foundSeedsTable.back()) /*, lastCellIds(foundSeedsTable.back())*/;
+  thrust::device_vector<CellSeed> updatedCellSeeds(foundSeedsTable.back()) /*, lastCellSeeds(foundSeedsTable.back())*/;
 
   gpu::processNeighboursKernel<false><<<nBlocks, nThreads>>>(startLayer,
                                                              startLevel,
                                                              allCellSeeds,
-                                                             currentCellSeeds,
-                                                             nullptr, // currentCellIds,
-                                                             nCurrentCells,
+                                                             lastCellIdHost.empty() ? currentCellSeeds : thrust::raw_pointer_cast(&lastCellSeed[0]), // lastCellSeeds
+                                                             lastCellIdHost.empty() ? nullptr : thrust::raw_pointer_cast(&lastCellIds[0]),           // lastCellIds,
+                                                             lastCellIdHost.empty() ? nCurrentCells : lastCellSeedHost.size(),
                                                              thrust::raw_pointer_cast(&updatedCellSeeds[0]), // updatedCellSeeds
                                                              thrust::raw_pointer_cast(&updatedCellIds[0]),   // updatedCellsIds
                                                              thrust::raw_pointer_cast(&foundSeedsTable[0]),  // auxiliary only in GPU code to compute the number of cells per iteration
@@ -1419,8 +1423,10 @@ template void processNeighboursHandler<7>(const int startLayer,
                                           const float MaxChi2ClusterAttachment,
                                           const o2::base::Propagator* propagator,
                                           const o2::base::PropagatorF::MatCorrType matCorrType,
-                                          std::vector<int>& updatedCellIdHost,        // temporary host vectors
-                                          std::vector<CellSeed>& updatedCellSeedHost, // temporary host vectors
+                                          const std::vector<int>& lastCellIdHost,        // temporary host vector
+                                          const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
+                                          std::vector<int>& updatedCellIdHost,           // temporary host vector
+                                          std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                                           const int nBlocks,
                                           const int nThreads);
 } // namespace o2::its

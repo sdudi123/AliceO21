@@ -298,6 +298,8 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
                                         mTrkParams[0].MaxChi2ClusterAttachment, // float maxChi2ClusterAttachment
                                         mTimeFrameGPU->getDevicePropagator(),
                                         mCorrType,
+                                        lastCellId,      // temporary host vector
+                                        lastCellSeed,    // temporary host vector
                                         updatedCellId,   // temporary host vectors
                                         updatedCellSeed, // temporary host vectors
                                         conf.nBlocks,
@@ -309,7 +311,25 @@ void TrackerTraitsGPU<nLayers>::findRoads(const int iteration)
         lastCellId.swap(updatedCellId);
         std::vector<CellSeed>().swap(updatedCellSeed); /// tame the memory peaks
         updatedCellId.clear();
-        processNeighbours(iLayer, --level, lastCellSeed, lastCellId, updatedCellSeed, updatedCellId);
+        processNeighboursHandler<nLayers>(iLayer,
+                                          --level,
+                                          mTimeFrameGPU->getDeviceArrayCells(),
+                                          mTimeFrameGPU->getDeviceCells()[iLayer],
+                                          mTimeFrameGPU->getNCells()[iLayer],
+                                          mTimeFrameGPU->getDeviceArrayUsedClusters(),
+                                          mTimeFrameGPU->getDeviceNeighbours(iLayer - 1),
+                                          mTimeFrameGPU->getDeviceNeighboursLUTs(),
+                                          mTimeFrameGPU->getDeviceArrayTrackingFrameInfo(),
+                                          mBz,
+                                          mTrkParams[0].MaxChi2ClusterAttachment, // float maxChi2ClusterAttachment
+                                          mTimeFrameGPU->getDevicePropagator(),
+                                          mCorrType,
+                                          lastCellId,      // temporary host vector
+                                          lastCellSeed,    // temporary host vector
+                                          updatedCellId,   // temporary host vectors
+                                          updatedCellSeed, // temporary host vectors
+                                          conf.nBlocks,
+                                          conf.nThreads);
       }
       for (auto& seed : updatedCellSeed) {
         if (seed.getQ2Pt() > 1.e3 || seed.getChi2() > mTrkParams[0].MaxChi2NDF * ((startLevel + 2) * 2 - 5)) {

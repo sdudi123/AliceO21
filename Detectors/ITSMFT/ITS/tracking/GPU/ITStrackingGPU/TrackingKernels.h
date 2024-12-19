@@ -195,8 +195,10 @@ void processNeighboursHandler(const int startLayer,
                               const float MaxChi2ClusterAttachment,
                               const o2::base::Propagator* propagator,
                               const o2::base::PropagatorF::MatCorrType matCorrType,
-                              std::vector<int>& updatedCellIdHost,        // temporary host vectors
-                              std::vector<CellSeed>& updatedCellSeedHost, // temporary host vectors
+                              const std::vector<int>& lastCellIdHost,        // temporary host vector
+                              const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
+                              std::vector<int>& updatedCellIdHost,           // temporary host vector
+                              std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                               const int nBlocks,
                               const int nThreads);
 

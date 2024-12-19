@@ -15,10 +15,10 @@
 
 #ifndef TRACKINGITSU_INCLUDE_CACELL_H_
 #define TRACKINGITSU_INCLUDE_CACELL_H_
-#include <iostream>
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <array>
 #include <vector>
+#include <iostream>
 #endif
 
 #include "GPUCommonDef.h"
