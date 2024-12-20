@@ -1309,10 +1309,12 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
     short int row = -1;
     short int cwcnt = -1;
     bool isAllZero = true;
+    short int ruIndex = -1;
     for (short int iRU = 0; iRU < this->N_RU; iRU++) {
       const auto& calib = calibs[iROF * this->N_RU + iRU];
       if (calib.calibUserField != 0) {
         mRuSet.insert(iRU);
+        ruIndex = iRU;
         isAllZero = false;
 
         if (loopval >= 0) {
@@ -1363,7 +1365,6 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         short int checkVal = (mScanType == 'I') ? mMin : mMax;
         if ((mScanType != 'r' && loopval == checkVal) || (mScanType == 'r' && realcharge == mMax2)) {
           mCdwCntRU[iRU][row]++;
-          mRowRU[iRU] = row;            // keep the row
           mLoopVal[iRU][row] = loopval; // keep loop val (relevant for VRESET2D scan only)
         }
         if (this->mVerboseOutput) {
@@ -1466,29 +1467,31 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         }
       }
     } // if (charge)
-  }   // for (ROFs)
 
-  // Prepare the ChipDone object for QC + extract data if the row is completed
-  for (auto& iRU : mRuSet) {
+    ////
+    // Prepare the ChipDone object for QC + extract data if the row is completed
+    if (ruIndex < 0) {
+      continue;
+    }
     short int nL = 0;
     for (int iL = 0; iL < 3; iL++) {
-      if (mActiveLinks[iRU][iL]) {
+      if (mActiveLinks[ruIndex][iL]) {
         nL++; // count active links
       }
     }
-    std::vector<short int> chipEnabled = getChipListFromRu(iRU, mActiveLinks[iRU]); // chip boundaries
+    std::vector<short int> chipEnabled = getChipListFromRu(ruIndex, mActiveLinks[ruIndex]); // chip boundaries
     // Fill the chipDone info string
-    if (mRunTypeRUCopy[iRU] == nInjScaled * nL) {
+    if (mRunTypeRUCopy[ruIndex] == nInjScaled * nL) {
       for (short int iChip = 0; iChip < chipEnabled.size(); iChip++) {
         if ((chipEnabled[iChip] % mChipModBase) != mChipModSel) {
           continue;
         }
         addDatabaseEntry(chipEnabled[iChip], "", std::vector<float>(), true);
       }
-      mRunTypeRUCopy[iRU] = 0; // reset here is safer (the other counter is reset in finalize)
+      mRunTypeRUCopy[ruIndex] = 0; // reset here is safer (the other counter is reset in finalize)
     }
     // Check if scan of a row is finished: only for specific scans!
-    bool passCondition = (mCdwCntRU[iRU][mRowRU[iRU]] >= nInjScaled * nL);
+    bool passCondition = (mCdwCntRU[ruIndex][row] >= nInjScaled * nL);
     if (mScanType != 'D' && mScanType != 'A' && mScanType != 'P' && mScanType != 'p' && mScanType != 'R' && passCondition) {
       // extract data from the row
       for (short int iChip = 0; iChip < chipEnabled.size(); iChip++) {
@@ -1498,17 +1501,19 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
         }
         if (!isDumpS || (std::find(chipDumpList.begin(), chipDumpList.end(), chipID) != chipDumpList.end() || !chipDumpList.size())) { // to dump s-curves as histograms
           if (mPixelHits.count(chipID)) {
-            if (mPixelHits[chipID].count(mRowRU[iRU])) { // make sure the row exists
-              extractAndUpdate(chipID, mRowRU[iRU]);
-              mPixelHits[chipID].erase(mRowRU[iRU]);
-              mForbiddenRows[chipID].push_back(mRowRU[iRU]);
+            if (mPixelHits[chipID].count(row)) { // make sure the row exists
+              extractAndUpdate(chipID, row);
+              if (mScanType != 'r' || (mScanType == 'r' && mLoopVal[ruIndex][row] == mMax)) {
+                mPixelHits[chipID].erase(row);
+              }
+              mForbiddenRows[chipID].push_back(row);
             }
           }
         }
       }
-      mCdwCntRU[iRU][mRowRU[iRU]] = 0; // reset
+      mCdwCntRU[ruIndex][row] = 0; // reset
     }
-  } // end loop on RuSet
+  } // for (ROFs)
 
   if (!(this->mRunTypeUp)) {
     finalize();
