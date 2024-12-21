@@ -179,7 +179,6 @@ bool Detector::ProcessHits(FairVolume* vol)
     TLorentzVector positionStop;
     fMC->TrackPosition(positionStop);
     int trackId = fMC->GetStack()->GetCurrentTrackNumber();
-
     int chId = getChannelId(mTrackData.mPositionStart.Vect());
 
     Hit* p = addHit(trackId, chId /*cellId*/, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
