@@ -21,9 +21,10 @@ namespace o2
 {
 namespace fvd
 {
-
 struct Constants {
   static constexpr int nsect = 8;
+  static constexpr int nringsA = 5;
+  static constexpr int nringsC = 6;
 };
 
 } // namespace fvd

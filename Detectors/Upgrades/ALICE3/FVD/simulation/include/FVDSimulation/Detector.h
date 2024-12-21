@@ -98,13 +98,13 @@ class Detector : public o2::base::DetImpl<Detector>
   TGeoVolumeAssembly* buildModuleA();
   TGeoVolumeAssembly* buildModuleC();
 
+  int mNumberOfSectors;
   int mNumberOfRingsA;
   int mNumberOfRingsC;
-  int mNumberOfSectors;
   float mDzScint;
 
-  std::vector<float> mRingRadiiA;
-  std::vector<float> mRingRadiiC;
+  std::vector<float> mRingRadiiA = {};
+  std::vector<float> mRingRadiiC = {};
 
   float mZmodA;
   float mZmodC;

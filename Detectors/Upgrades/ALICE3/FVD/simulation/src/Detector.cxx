@@ -55,20 +55,23 @@ Detector::Detector(bool active)
     mGeometryTGeo(nullptr),
     mTrackData()
 {
+  mNumberOfRingsA = Constants::nringsA;
+  mNumberOfRingsC = Constants::nringsC;
+  mNumberOfSectors = Constants::nsect;
+
   auto& baseParam = FVDBaseParam::Instance();
 
   mDzScint = baseParam.dzscint / 2;
 
-  mRingRadiiA = baseParam.ringsA;
-  mRingRadiiC = baseParam.ringsC;
-
-  mNumberOfRingsA = mRingRadiiA.size() - 1;
-  mNumberOfRingsC = mRingRadiiC.size() - 1;
+  for (int i = 0; i <= mNumberOfRingsA + 1; i ++) {
+     mRingRadiiA.emplace_back(baseParam.ringsA[i]);
+  }
+  for (int i = 0; i <= mNumberOfRingsC + 1; i ++) {
+     mRingRadiiC.emplace_back(baseParam.ringsC[i]);
+  }
 
   mZmodA = baseParam.zmodA;
   mZmodC = baseParam.zmodC;
-
-  mNumberOfSectors = Constants::nsect;
 }
 
 Detector::Detector(const Detector& rhs)
@@ -112,7 +115,7 @@ bool Detector::ProcessHits(FairVolume* vol)
   // This method is called from the MC stepping
   // Track only charged particles and photons
   bool isPhotonTrack = false;
-  Int_t particlePdg = fMC->TrackPid();
+  int particlePdg = fMC->TrackPid();
   if (particlePdg == 22) { // If particle is standard PDG photon
     isPhotonTrack = true;
   }
@@ -128,7 +131,7 @@ bool Detector::ProcessHits(FairVolume* vol)
   bool startHit = false, stopHit = false;
   unsigned char status = 0;
 
-  Int_t currVolId, offId;
+  int currVolId, offId;
 
   if (fMC->IsTrackEntering()) {
     status |= Hit::kTrackEntering;
@@ -190,7 +193,7 @@ bool Detector::ProcessHits(FairVolume* vol)
   return true;
 }
 
-o2::itsmft::Hit* Detector::addHit(Int_t trackId, Int_t cellId,
+o2::itsmft::Hit* Detector::addHit(int trackId, int cellId,
                                   const TVector3& startPos,
                                   const TVector3& endPos,
                                   const TVector3& startMom,
@@ -237,28 +240,28 @@ void Detector::Reset()
 void Detector::createMaterials()
 {
 
-  Float_t density, as[11], zs[11], ws[11];
-  Double_t radLength, absLength, a_ad, z_ad;
-  Int_t id;
+  float density, as[11], zs[11], ws[11];
+  double radLength, absLength, a_ad, z_ad;
+  int id;
 
   // EJ-204 scintillator, based on polyvinyltoluene
-  const Int_t nScint = 2;
-  Float_t aScint[nScint] = {1.00784, 12.0107};
-  Float_t zScint[nScint] = {1, 6};
-  Float_t wScint[nScint] = {0.07085, 0.92915}; // based on EJ-204 datasheet: n_atoms/cm3
-  const Float_t dScint = 1.023;
+  const int nScint = 2;
+  float aScint[nScint] = {1.00784, 12.0107};
+  float zScint[nScint] = {1, 6};
+  float wScint[nScint] = {0.07085, 0.92915}; // based on EJ-204 datasheet: n_atoms/cm3
+  const float dScint = 1.023;
 
-  Int_t matId = 0;                  // tmp material id number
-  const Int_t unsens = 0, sens = 1; // sensitive or unsensitive medium
+  int matId = 0;                  // tmp material id number
+  const int unsens = 0, sens = 1; // sensitive or unsensitive medium
                                     //
-  Int_t fieldType = 3;              // Field type
-  Float_t maxField = 5.0;           // Field max.
+  int fieldType = 3;              // Field type
+  float maxField = 5.0;           // Field max.
 
-  Float_t tmaxfd = -10.0; // max deflection angle due to magnetic field in one step
-  Float_t stemax = 0.1;   // max step allowed [cm]
-  Float_t deemax = 1.0;   // maximum fractional energy loss in one step 0<deemax<=1
-  Float_t epsil = 0.03;   // tracking precision [cm]
-  Float_t stmin = -0.001; // minimum step due to continuous processes [cm] (negative value: choose it automatically)
+  float tmaxfd = -10.0; // max deflection angle due to magnetic field in one step
+  float stemax = 0.1;   // max step allowed [cm]
+  float deemax = 1.0;   // maximum fractional energy loss in one step 0<deemax<=1
+  float epsil = 0.03;   // tracking precision [cm]
+  float stmin = -0.001; // minimum step due to continuous processes [cm] (negative value: choose it automatically)
 
   LOG(info) << "FVD: CreateMaterials(): fieldType " << fieldType << ", maxField " << maxField;
 
