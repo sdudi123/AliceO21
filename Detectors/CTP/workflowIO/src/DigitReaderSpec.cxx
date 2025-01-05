@@ -80,12 +80,12 @@ void DigitReader::init(InitContext& ic)
 void DigitReader::run(ProcessingContext& pc)
 {
   gsl::span<const o2::dataformats::IRFrame> irFrames{};
-  //LOG(info) << "Using IRs:" << mUseIRFrames;
+  // LOG(info) << "Using IRs:" << mUseIRFrames;
   if (mUseIRFrames) {
     irFrames = pc.inputs().get<gsl::span<o2::dataformats::IRFrame>>("driverInfo");
   }
   auto ent = mTree->GetReadEntry();
-  if(!mUseIRFrames) {
+  if (!mUseIRFrames) {
     ent++;
     assert(ent < mTree->GetEntries()); // this should not happen
     mTree->GetEntry(ent);
@@ -109,14 +109,14 @@ void DigitReader::run(ProcessingContext& pc)
       const auto irMax = irfSel.getIRFrames().back().getMax();
       LOGP(info, "Selecting IRFrame {}-{}", irMin.asString(), irMax.asString());
       while (ent < mTree->GetEntries()) {
-        if( ent > mTree->GetReadEntry()){
+        if (ent > mTree->GetReadEntry()) {
           mTree->GetEntry(ent);
         }
-        if( mDigits.front().intRecord <= irMax && mDigits.back().intRecord >= irMin) { // THere is overlap
-          for(int i = 0; i < (int)mDigits.size(); i++) {
+        if (mDigits.front().intRecord <= irMax && mDigits.back().intRecord >= irMin) { // THere is overlap
+          for (int i = 0; i < (int)mDigits.size(); i++) {
             const auto& dig = mDigits[i];
-            //if(irfSel.check(dig.intRecord)) { // adding selected digit
-            if(dig.intRecord >= irMin && dig.intRecord <= irMax) {
+            // if(irfSel.check(dig.intRecord)) { // adding selected digit
+            if (dig.intRecord >= irMin && dig.intRecord <= irMax) {
               digitSel.push_back(dig);
               LOG(info) << "adding:" << dig.intRecord << " ent:" << ent;
             }
@@ -126,11 +126,11 @@ void DigitReader::run(ProcessingContext& pc)
           ent++;
           continue;
         }
-          break; // push collected data
+        break; // push collected data
       }
     }
     pc.outputs().snapshot(Output{"CTP", "DIGITS", 0}, digitSel);
-    pc.outputs().snapshot(Output{"CTP", "LUMI", 0}, mLumi);  // add full lumi for this TF
+    pc.outputs().snapshot(Output{"CTP", "LUMI", 0}, mLumi); // add full lumi for this TF
     if (!irFrames.size() || irFrames.back().isLast()) {
       pc.services().get<ControlService>().endOfStream();
       pc.services().get<ControlService>().readyToQuit(QuitRequest::Me);
