@@ -70,7 +70,6 @@ void DigitReader::init(InitContext& ic)
 {
   auto filename = o2::utils::Str::concat_string(o2::utils::Str::rectifyDirectory(ic.options().get<std::string>("input-dir")),
                                                 ic.options().get<std::string>("ctp-digit-infile"));
-  LOG(info) << "init: " << ic.options().hasOption("ignore-irframes") << " " << ic.options().get<bool>("ignore-irframes");
   if (ic.options().hasOption("ignore-irframes") && !ic.options().get<bool>("ignore-irframes")) {
     mUseIRFrames = true;
   }
@@ -103,8 +102,8 @@ void DigitReader::run(ProcessingContext& pc)
         ent++;
       }
       o2::utils::IRFrameSelector irfSel;
-      long biasInBC = 0; // depends if digits are already aligned
-      irfSel.setSelectedIRFrames(irFrames, 0, 0, -biasInBC, true);
+      // MC  digits are already aligned
+      irfSel.setSelectedIRFrames(irFrames, 0, 0, 0, true);
       const auto irMin = irfSel.getIRFrames().front().getMin(); // use processed IRframes for rough comparisons (possible shift!)
       const auto irMax = irfSel.getIRFrames().back().getMax();
       LOGP(info, "Selecting IRFrame {}-{}", irMin.asString(), irMax.asString());
