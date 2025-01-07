@@ -45,34 +45,42 @@ struct GroupSlicer {
     GroupSlicerIterator& operator=(GroupSlicerIterator&&) = default;
 
     template <typename T>
-    auto splittingFunction(T&& table)
+    auto splittingFunction(T&&)
     {
-      constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
-      if constexpr (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<T>>()) {
-        auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
-        auto bk = std::make_pair(binding, mIndexColumnName);
-        if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
-          if (table.size() == 0) {
-            return;
-          }
-          sliceInfos[index] = mSlices->getCacheFor(bk);
-        } else {
-          if (table.tableSize() == 0) {
-            return;
-          }
-          sliceInfosUnsorted[index] = mSlices->getCacheUnsortedFor(bk);
-        }
-      }
     }
 
     template <typename T>
+    requires (o2::soa::relatedByIndex<std::decay_t<G>, std::decay_t<T>>())
+    auto splittingFunction(T&& table)
+    {
+      constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
+      auto binding = o2::soa::getLabelFromTypeForKey<std::decay_t<T>>(mIndexColumnName);
+      auto bk = std::make_pair(binding, mIndexColumnName);
+      if constexpr (!o2::soa::is_smallgroups<std::decay_t<T>>) {
+        if (table.size() == 0) {
+          return;
+        }
+        sliceInfos[index] = mSlices->getCacheFor(bk);
+      } else {
+        if (table.tableSize() == 0) {
+          return;
+        }
+        sliceInfosUnsorted[index] = mSlices->getCacheUnsortedFor(bk);
+        }
+    }
+
+    template <typename T>
+    auto extractingFunction(T&&)
+    {
+    }
+
+    template <typename T>
+      requires (soa::is_filtered_table<std::decay_t<T>>)
     auto extractingFunction(T&& table)
     {
-      if constexpr (soa::is_filtered_table<std::decay_t<T>>) {
-        constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
-        selections[index] = &table.getSelectedRows();
-        starts[index] = selections[index]->begin();
-      }
+      constexpr auto index = framework::has_type_at_v<std::decay_t<T>>(associated_pack_t{});
+      selections[index] = &table.getSelectedRows();
+      starts[index] = selections[index]->begin();
     }
 
     GroupSlicerIterator(G& gt, std::tuple<A...>& at, ArrowTableSlicingCache& slices)
@@ -190,6 +198,9 @@ struct GroupSlicer {
     {
       constexpr auto index = framework::has_type_at_v<A1>(associated_pack_t{});
       auto& originalTable = std::get<A1>(*mAt);
+      if (originalTable.size() == 0) {
+        return originalTable;
+      }
       uint64_t pos;
       if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         pos = groupSelection[position];
@@ -197,9 +208,6 @@ struct GroupSlicer {
         pos = position;
       }
       // optimized split
-      if (originalTable.size() == 0) {
-        return originalTable;
-      }
       auto oc = sliceInfos[index].getSliceFor(pos);
       uint64_t offset = oc.first;
       auto count = oc.second;
@@ -229,6 +237,9 @@ struct GroupSlicer {
     {
       constexpr auto index = framework::has_type_at_v<A1>(associated_pack_t{});
       auto& originalTable = std::get<A1>(*mAt);
+      if (originalTable.size() == 0) {
+        return originalTable;
+      }
       uint64_t pos;
       if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         pos = groupSelection[position];
@@ -236,9 +247,6 @@ struct GroupSlicer {
         pos = position;
       }
       // optimized split
-      if (originalTable.size() == 0) {
-        return originalTable;
-      }
       auto oc = sliceInfos[index].getSliceFor(pos);
       uint64_t offset = oc.first;
       auto count = oc.second;
