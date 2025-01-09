@@ -1009,7 +1009,7 @@ template <aod::is_aod_hash L, aod::is_aod_hash D, aod::is_origin_hash O, typenam
 class Table;
 
 template <typename T>
-concept is_table = framework::specialization_of_template<soa::Table, T> || framework::base_of_template<soa::Table, T>;
+concept is_table = framework::specialization_of_template<soa::Table, std::decay_t<T>> || framework::base_of_template<soa::Table, std::decay_t<T>>;
 
 /// Similar to a pair but not a pair, to avoid
 /// exposing the second type everywhere.
@@ -1232,7 +1232,7 @@ struct ArrowHelpers {
 
 //! Helper to check if a type T is an iterator
 template <typename T>
-concept is_iterator = framework::base_of_template<TableIterator, T> || framework::specialization_of_template<TableIterator, T>;
+concept is_iterator = framework::base_of_template<TableIterator, std::decay_t<T>> || framework::specialization_of_template<TableIterator, std::decay_t<T>>;
 
 template <typename T>
 concept with_originals = requires {
