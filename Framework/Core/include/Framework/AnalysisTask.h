@@ -59,7 +59,7 @@ template <int64_t BEGIN, int64_t END, int64_t STEP>
 static constexpr bool is_enumeration_v<Enumeration<BEGIN, END, STEP>> = true;
 
 template <typename T>
-concept is_enumeration = is_enumeration_v<T>;
+concept is_enumeration = is_enumeration_v<std::decay_t<T>>;
 
 // Helper struct which builds a DataProcessorSpec from
 // the contents of an AnalysisTask...
