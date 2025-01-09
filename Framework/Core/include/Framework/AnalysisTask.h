@@ -188,7 +188,8 @@ struct AnalysisDataProcessorBuilder {
       using T = std::decay_t<As>;
       addExpression<T>(ai, hash, eInfos);
       addInput<T>(name, value, inputs);
-    }(), ...);
+    }(),
+     ...);
   }
 
   /// helper to parse the process arguments
@@ -203,7 +204,8 @@ struct AnalysisDataProcessorBuilder {
 
   /// 2. grouping case - 1st argument is an iterator
   template <typename R, typename C, soa::is_iterator A, soa::is_table... Args>
-  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>& bk, std::vector<StringPair>& bku) requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args>&&...))
+  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>& bk, std::vector<StringPair>& bku)
+    requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
   {
     addGroupingCandidates<A, Args...>(bk, bku);
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
@@ -212,7 +214,8 @@ struct AnalysisDataProcessorBuilder {
 
   /// 3. generic case
   template <typename R, typename C, soa::is_table A, soa::is_table... Args>
-  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&) requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args>&&...))
+  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&)
+    requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
   {
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
     addInputsAndExpressions<A, Args...>(hash, name, value, inputs, eInfos);
@@ -538,13 +541,13 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     AnalysisDataProcessorBuilder::inputsFromArgs(&T::process, "default", true, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted);
   }
   homogeneous_apply_refs(
-    overloaded {
+    overloaded{
       [name = name_str, &expressionInfos, &inputs, &bindingsKeys, &bindingsKeysUnsorted](framework::is_process_configurable auto& x) mutable {
         // this pushes (argumentIndex,processHash,schemaPtr,nullptr) into expressionInfos for arguments that are Filtered/filtered_iterators
         AnalysisDataProcessorBuilder::inputsFromArgs(x.process, (name + "/" + x.name).c_str(), x.value, inputs, expressionInfos, bindingsKeys, bindingsKeysUnsorted);
         return true;
       },
-      [](auto&){
+      [](auto&) {
         return false;
       }},
     *task.get());
