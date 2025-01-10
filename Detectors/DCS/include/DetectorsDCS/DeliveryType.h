@@ -20,6 +20,7 @@
 #define O2_DCS_DELIVERY_TYPE
 
 #include <string>
+#include <bitset>
 #include <stdexcept>
 #include "DetectorsDCS/GenericFunctions.h"
 
