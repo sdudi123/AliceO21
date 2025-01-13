@@ -14,6 +14,7 @@
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/ParallelContext.h"
 #include "Framework/runDataProcessing.h"
+#include "Framework/TableConsumer.h"
 #include "Framework/InputRecord.h"
 #include "Framework/Logger.h"
 #include "Framework/AnalysisDataModel.h"

@@ -15,7 +15,6 @@
 #include "Framework/DataRefUtils.h"
 #include "Framework/InputRoute.h"
 #include "Framework/TypeTraits.h"
-#include "Framework/TableConsumer.h"
 #include "Framework/Traits.h"
 #include "Framework/RuntimeError.h"
 #include "Framework/Logger.h"
@@ -39,6 +38,9 @@
 
 namespace o2::framework
 {
+
+template <typename A>
+concept TableConsumerLike = requires (A a) { a. asArrowTable(); };
 
 // Wrapper class to get CCDB metadata
 struct CCDBMetadataExtractor {
@@ -233,6 +235,16 @@ class InputRecord
     return ref;
   }
 
+  template <TableConsumerLike T, typename R>
+  decltype(auto) get(R binding, int part = 0) const
+  {
+    DataRef ref = getRef(binding, part);
+    // substitution for TableConsumer
+    // For the moment this is dummy, as it requires proper support to
+    // create the RDataSource from the arrow buffer.
+    auto data = reinterpret_cast<uint8_t const*>(ref.payload);
+    return std::make_unique<T>(data, DataRefUtils::getPayloadSize(ref));
+  }
   /// Get the object of specified type T for the binding R.
   /// If R is a string like object, we look up by name the InputSpec and
   /// return the data associated to the given label.
@@ -272,14 +284,6 @@ class InputRecord
       return reinterpret_cast<char const*>(ref.payload);
 
       // implementation (d)
-    } else if constexpr (std::is_same<T, TableConsumer>::value) {
-      // substitution for TableConsumer
-      // For the moment this is dummy, as it requires proper support to
-      // create the RDataSource from the arrow buffer.
-      auto data = reinterpret_cast<uint8_t const*>(ref.payload);
-      return std::make_unique<TableConsumer>(data, DataRefUtils::getPayloadSize(ref));
-
-      // implementation (f)
     } else if constexpr (is_span<T>::value) {
       // substitution for span of messageable objects
       // FIXME: there will be std::span in C++20

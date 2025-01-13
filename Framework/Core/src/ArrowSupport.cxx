@@ -28,6 +28,7 @@
 #include "Framework/DevicesManager.h"
 #include "Framework/DeviceConfig.h"
 #include "Framework/ServiceMetricsInfo.h"
+#include "Framework/TableConsumer.h"
 #include "WorkflowHelpers.h"
 #include "Framework/WorkflowSpecNode.h"
 #include "Framework/AnalysisSupportHelpers.h"

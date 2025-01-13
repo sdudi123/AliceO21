@@ -25,6 +25,7 @@
 #include "Framework/RawDeviceService.h"
 #include "Framework/DataSpecUtils.h"
 #include "Framework/SourceInfoHeader.h"
+#include "Framework/TableConsumer.h"
 #include "Framework/ChannelInfo.h"
 #include "Framework/Logger.h"
 
