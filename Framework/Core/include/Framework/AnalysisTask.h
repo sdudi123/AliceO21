@@ -208,7 +208,7 @@ struct AnalysisDataProcessorBuilder {
     requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
   {
     addGroupingCandidates<A, Args...>(bk, bku);
-    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
+    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(A, Args...)>();
     addInputsAndExpressions<typename std::decay_t<A>::parent_t, Args...>(hash, name, value, inputs, eInfos);
   }
 
@@ -217,8 +217,8 @@ struct AnalysisDataProcessorBuilder {
   static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&)
     requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
   {
-    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
-    addInputsAndExpressions<A, Args...>(hash, name, value, inputs, eInfos);
+    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(A, Args...)>();
+    addInputsAndExpressions<std::decay_t<A>, Args...>(hash, name, value, inputs, eInfos);
   }
 
   template <soa::TableRef R>
