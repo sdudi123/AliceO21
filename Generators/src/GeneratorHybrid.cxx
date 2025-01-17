@@ -272,7 +272,7 @@ Bool_t GeneratorHybrid::Init()
       // }
     }
     bool isTriggered = false;
-    while(!isTriggered) {
+    while (!isTriggered) {
       generator->clearParticles();
       generator->generateEvent();
       generator->importParticles();
@@ -490,9 +490,9 @@ Bool_t GeneratorHybrid::confSetter(const auto& gen)
     auto trigger_specs = [this, &trigger]() {
       mTriggerMacros.push_back({});
       mTriggerFuncs.push_back({});
-      if(trigger.HasMember("specs")) {
-        for(auto& spec : trigger["specs"].GetArray()) {
-          if(spec.HasMember("macro")){
+      if (trigger.HasMember("specs")) {
+        for (auto& spec : trigger["specs"].GetArray()) {
+          if (spec.HasMember("macro")) {
             const auto& macro = spec["macro"].GetString();
             if (!strcmp(macro, "") == 0) {
               mTriggerMacros.back().push_back(macro);
