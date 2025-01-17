@@ -494,7 +494,7 @@ Bool_t GeneratorHybrid::confSetter(const auto& gen)
         for (auto& spec : trigger["specs"].GetArray()) {
           if (spec.HasMember("macro")) {
             const auto& macro = spec["macro"].GetString();
-            if (!strcmp(macro, "") == 0) {
+            if (!(strcmp(macro, "") == 0)) {
               mTriggerMacros.back().push_back(macro);
             } else {
               mTriggerMacros.back().push_back("");
@@ -504,7 +504,7 @@ Bool_t GeneratorHybrid::confSetter(const auto& gen)
           }
           if (spec.HasMember("function")) {
             const auto& function = spec["function"].GetString();
-            if (!strcmp(function, "") == 0) {
+            if (!(strcmp(function, "") == 0)) {
               mTriggerFuncs.back().push_back(function);
             } else {
               mTriggerFuncs.back().push_back("");

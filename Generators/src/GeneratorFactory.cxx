@@ -298,7 +298,7 @@ void GeneratorFactory::setPrimaryGenerator(o2::conf::SimConfig const& conf, Fair
 
   Trigger trigger = nullptr;
   DeepTrigger deeptrigger = nullptr;
-  if (!genconfig.compare("hybrid") == 0) {
+  if (!(genconfig.compare("hybrid") == 0)) {
     auto trgconfig = conf.getTrigger();
     if (trgconfig.empty()) {
       return;
