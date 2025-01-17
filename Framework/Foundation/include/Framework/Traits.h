@@ -35,7 +35,7 @@ template <template <typename...> typename T, typename S>
 concept specialization_of_template = requires {
   {
     []<typename... Ts>(T<Ts...>*) -> T<Ts...> {}(std::declval<std::decay_t<S>*>())
-  } -> std::same_as<S>;
+  } -> std::same_as<std::decay_t<S>>;
 };
 
 template <typename A, typename B>
