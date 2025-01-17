@@ -25,5 +25,4 @@ void TestFetcher(int runNumber = 535087)
   // Opening run
   CTPRateFetcher fetcher;
   fetcher.setupRun(runNumber, &ccdb, ts, 1);
-  
 }

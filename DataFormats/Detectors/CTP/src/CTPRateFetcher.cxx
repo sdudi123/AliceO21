@@ -61,20 +61,20 @@ void CTPRateFetcher::updateScalers(ctp::CTPRunScalers& scalers)
   mScalers.convertRawToO2();
 }
 //
-int CTPRateFetcher::getRates(std::array<double,3>& rates, o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName) // rates at start,stop and middle of the run
+int CTPRateFetcher::getRates(std::array<double, 3>& rates, o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName) // rates at start,stop and middle of the run
 {
   setupRun(runNumber, ccdb, 0, 1);
   mOrbit = 1;
   mOutsideLimits = 1;
   auto orbitlimits = mScalers.getOrbitLimit();
-  //std::cout << "1st orbit:" << orbitlimits.first << " last:" << orbitlimits.second << " Middle:" << (orbitlimits.first + orbitlimits.second)/2 << std::endl;
-  double rate0 = fetch(ccdb, orbitlimits.first, mRunNumber,sourceName);
+  // std::cout << "1st orbit:" << orbitlimits.first << " last:" << orbitlimits.second << " Middle:" << (orbitlimits.first + orbitlimits.second)/2 << std::endl;
+  double rate0 = fetch(ccdb, orbitlimits.first, mRunNumber, sourceName);
   double rateLast = fetch(ccdb, orbitlimits.second, mRunNumber, sourceName);
-  double rateM = fetch(ccdb, (orbitlimits.first + orbitlimits.second)/2, mRunNumber, sourceName);
-  //std::cout << rate0 << " " << rateLast << " " << rateM << std::endl;
+  double rateM = fetch(ccdb, (orbitlimits.first + orbitlimits.second) / 2, mRunNumber, sourceName);
+  // std::cout << rate0 << " " << rateLast << " " << rateM << std::endl;
   rates[0] = rate0;
   rates[1] = rateLast;
-  rates[2] = rateM; 
+  rates[2] = rateM;
   return 0;
 }
 //
@@ -101,19 +101,19 @@ double CTPRateFetcher::fetchCTPratesClassesNoPuCorr(uint64_t timeStamp, const st
     LOG(warn) << "Trigger class " << className << " not found in CTPConfiguration";
     return -2.;
   }
-  if(mOrbit) {
+  if (mOrbit) {
     auto rate{mScalers.getRate((uint32_t)timeStamp, classIndex, inputType, mOutsideLimits)};
-    return rate.second; 
+    return rate.second;
   } else {
     auto rate{mScalers.getRateGivenT(timeStamp * 1.e-3, classIndex, inputType, mOutsideLimits)};
-    return rate.second; 
+    return rate.second;
   }
 }
 double CTPRateFetcher::fetchCTPratesInputs(uint64_t timeStamp, int input)
 {
   std::vector<ctp::CTPScalerRecordO2>& recs = mScalers.getScalerRecordO2();
   if (recs[0].scalersInps.size() == 48) {
-    if(mOrbit) {
+    if (mOrbit) {
       return pileUpCorrection(mScalers.getRate((uint32_t)timeStamp, input, 7, mOutsideLimits).second);
     } else {
       return pileUpCorrection(mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7, mOutsideLimits).second);
@@ -127,10 +127,10 @@ double CTPRateFetcher::fetchCTPratesInputsNoPuCorr(uint64_t timeStamp, int input
 {
   std::vector<ctp::CTPScalerRecordO2>& recs = mScalers.getScalerRecordO2();
   if (recs[0].scalersInps.size() == 48) {
-    if(mOrbit) {
+    if (mOrbit) {
       return mScalers.getRate((uint32_t)timeStamp, input, 7, mOutsideLimits).second;
     } else {
-      return mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7, mOutsideLimits).second;   // qc flag implemented only for time
+      return mScalers.getRateGivenT(timeStamp * 1.e-3, input, 7, mOutsideLimits).second; // qc flag implemented only for time
     }
   } else {
     LOG(error) << "Inputs not available";

@@ -57,7 +57,7 @@ int main(int argc, char** argv)
     add_option("run-number,r", bpo::value<int64_t>()->default_value(123), "run number");
     add_option("testReset,t", bpo::value<bool>()->default_value(0), "0 = CTP/Calib/OrbitReset; 1 = CTP/Calib/OrbitResetTest");
     add_option("sox-orbit,x", bpo::value<int64_t>()->default_value(0), "SOX orbit");
-    add_option("timestamp,s",bpo::value<uint64_t>()->default_value(0),"timestamp of SOX/orbit reading; if 0 timestamp is calulated inside this code");
+    add_option("timestamp,s", bpo::value<uint64_t>()->default_value(0), "timestamp of SOX/orbit reading; if 0 timestamp is calulated inside this code");
 
     //
     opt_all.add(opt_general).add(opt_hidden);
@@ -80,7 +80,7 @@ int main(int argc, char** argv)
   std::vector<int64_t> vect;
   std::string ccdbPath;
   long tt = vm["timestamp"].as<uint64_t>();
-  if( tt == 0) {
+  if (tt == 0) {
     auto now = std::chrono::system_clock::now();
     tt = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
   }

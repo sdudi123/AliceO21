@@ -26,7 +26,7 @@ void TestGetRates(int runNumber = 557251)
   CTPRateFetcher fetcher;
   fetcher.setupRun(runNumber, &ccdb, ts, 1);
   fetcher.setOrbit(1);
-  std::array<double,3> rates;
-  fetcher.getRates(rates, &ccdb,runNumber,"T0VTX");
+  std::array<double, 3> rates;
+  fetcher.getRates(rates, &ccdb, runNumber, "T0VTX");
   std::cout << "Start:" << rates[0] << " End:" << rates[1] << " Middle:" << rates[2] << std::endl;
- }
+}

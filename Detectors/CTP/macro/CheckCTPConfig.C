@@ -49,9 +49,9 @@ int CheckCTPConfig(std::string cfgRun3str = "/home/rl/backup24/runs/559781.rcfg2
   int ret = ctpcfg.loadConfigurationRun3(cfgRun3str);
   ctpcfg.printStream(std::cout);
   std::cout << "CTP config done" << std::endl;
-  //ctpcfg.checkConfigConsistency();
+  // ctpcfg.checkConfigConsistency();
   auto ctpclasses = ctpcfg.getCTPClasses();
-  for(auto const& cls: ctpclasses) {
+  for (auto const& cls : ctpclasses) {
     std::cout << cls.descriptor->name << ":" << std::hex << cls.descriptor->getInputsMask() << std::endl;
   }
   return ret;

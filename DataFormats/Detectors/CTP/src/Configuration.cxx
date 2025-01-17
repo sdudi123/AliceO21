@@ -608,7 +608,7 @@ int CTPConfiguration::processConfigurationLineRun3v2(std::string& line, int& lev
       break;
     }
     case DESCRIPTORS: {
-      if ((tokens.size() < 2)) { 
+      if ((tokens.size() < 2)) {
         if (line.find("TRUE") != std::string::npos) {
           CTPDescriptor desc;
           desc.name = tokens[0];

@@ -709,7 +709,7 @@ std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex,
       return -1; // wrong type
     }
   };
-  // qc flag decides what to return if time outside run 
+  // qc flag decides what to return if time outside run
   if (nextindex == 0) {
     // orbit is out of bounds
     if (qc == 0) {
