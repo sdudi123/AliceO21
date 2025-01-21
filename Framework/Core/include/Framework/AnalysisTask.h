@@ -176,13 +176,10 @@ struct AnalysisDataProcessorBuilder {
   }
 
   /// helper to append the inputs and expression information for normalized arguments
-  template <soa::is_table A, soa::is_table... As>
+  template <soa::is_table ... As>
   static void addInputsAndExpressions(uint32_t hash, const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos)
   {
-    int ai = 0;
-    addExpression<std::decay_t<A>>(ai, hash, eInfos);
-    addInput<std::decay_t<A>>(name, value, inputs);
-
+    int ai = -1;
     ([&ai, &hash, &eInfos, &name, &value, &inputs]() mutable {
       ++ai;
       using T = std::decay_t<As>;
@@ -193,7 +190,7 @@ struct AnalysisDataProcessorBuilder {
   }
 
   /// helper to parse the process arguments
-  /// 1. enumeration (must be a sole argument)
+  /// 1. enumeration (must be the only argument)
   template <typename R, typename C, is_enumeration A>
   static void inputsFromArgs(R (C::*)(A), const char* /*name*/, bool /*value*/, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>&, std::vector<StringPair>&, std::vector<StringPair>&)
   {
@@ -213,12 +210,12 @@ struct AnalysisDataProcessorBuilder {
   }
 
   /// 3. generic case
-  template <typename R, typename C, soa::is_table A, soa::is_table... Args>
-  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&)
-    requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
+  template <typename R, typename C, soa::is_table... Args>
+  static void inputsFromArgs(R (C::*)(Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos, std::vector<StringPair>&, std::vector<StringPair>&)
+    requires(std::is_lvalue_reference_v<Args> && ...)
   {
-    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(A, Args...)>();
-    addInputsAndExpressions<std::decay_t<A>, Args...>(hash, name, value, inputs, eInfos);
+    constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
+    addInputsAndExpressions<Args...>(hash, name, value, inputs, eInfos);
   }
 
   template <soa::TableRef R>
