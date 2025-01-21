@@ -176,7 +176,7 @@ struct AnalysisDataProcessorBuilder {
   }
 
   /// helper to append the inputs and expression information for normalized arguments
-  template <soa::is_table ... As>
+  template <soa::is_table... As>
   static void addInputsAndExpressions(uint32_t hash, const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos)
   {
     int ai = -1;
