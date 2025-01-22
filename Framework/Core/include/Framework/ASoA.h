@@ -793,13 +793,13 @@ struct Index : o2::soa::IndexColumn<Index<START, END>> {
 };
 
 template <typename C>
-concept is_indexing_column = requires (C& c) {
+concept is_indexing_column = requires(C& c) {
   c.rowIndices;
   c.rowOffsets;
 };
 
 template <typename C>
-concept is_dynamic_column = requires (C& c) {
+concept is_dynamic_column = requires(C& c) {
   c.boundIterators;
 };
 
