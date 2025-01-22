@@ -815,9 +815,6 @@ template <typename C>
 concept is_marker_column = requires { &C::mark; };
 
 template <typename T>
-using is_dynamic_t = std::conditional_t<is_dynamic_column<T>, std::true_type, std::false_type>;
-
-template <typename T>
 concept is_column = is_persistent_column<T> || is_dynamic_column<T> || is_indexing_column<T> || is_marker_column<T>;
 
 template <typename T>
@@ -1831,20 +1828,17 @@ class Table
       }
     }
 
-    template <typename CD, typename... CDArgs>
+    template <soa::is_dynamic_column CD, typename... CDArgs>
     auto getDynamicColumn() const
     {
-      using decayed = std::decay_t<CD>;
-      static_assert(is_dynamic_t<decayed>(), "Requested column is not a dynamic column");
-      return static_cast<decayed>(*this).template getDynamicValue<CDArgs...>();
+      return static_cast<std::decay_t<CD>>(*this).template getDynamicValue<CDArgs...>();
     }
 
     template <typename B, typename CC>
+      requires(is_dynamic_column<CC> || is_persistent_column<CC>)
     auto getValue() const
     {
-      using COL = std::decay_t<CC>;
-      static_assert(is_dynamic_t<COL>() || soa::is_persistent_column<COL>, "Should be persistent or dynamic column with no argument that has a return type convertable to float");
-      return static_cast<B>(static_cast<COL>(*this).get());
+      return static_cast<B>(static_cast<std::decay_t<CC>>(*this).get());
     }
 
     template <typename B, typename... CCs>
