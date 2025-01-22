@@ -9,20 +9,14 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstructionOCL2Internals.h
-/// \author David Rohr, Sergey Gorbunov
+#include "Framework/ASoA.h"
+#include "ArrowDebugHelpers.h"
+#include "Framework/RuntimeError.h"
 
-#ifndef GPUTPCGPUTRACKEROPENCLINTERNALS2_H
-#define GPUTPCGPUTRACKEROPENCLINTERNALS2_H
-
-#include "GPUReconstructionOCLInternals.h"
-
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::soa
 {
-
-struct GPUReconstructionOCL2Internals : public GPUReconstructionOCLInternals {
-};
-
-} // namespace GPUCA_NAMESPACE::gpu
-
-#endif
+void dataSizeVariesBetweenColumns()
+{
+  throw o2::framework::runtime_error("Combinations: data size varies between selected columns");
+}
+} // namespace o2::soa
