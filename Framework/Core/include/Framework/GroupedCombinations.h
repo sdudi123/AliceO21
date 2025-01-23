@@ -46,8 +46,9 @@ auto isIndexTo()
 }
 
 template <typename T, typename G>
-auto isIndexTo() -> std::false_type
+auto isIndexTo()
 {
+  return std::false_type{};
 }
 
 template <typename T, typename G>
