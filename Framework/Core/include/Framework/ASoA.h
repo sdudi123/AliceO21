@@ -213,8 +213,6 @@ template <typename D, typename... Cs>
 struct TableMetadata {
   using columns = framework::pack<Cs...>;
   using persistent_columns_t = framework::selected_pack<soa::is_persistent_column_t, Cs...>;
-  using external_index_columns_t = framework::selected_pack<soa::is_external_index_t, Cs...>;
-  using internal_index_columns_t = framework::selected_pack<soa::is_self_index_t, Cs...>;
 
   template <typename Key, typename... PCs>
   static consteval std::array<bool, sizeof...(PCs)> getMap(framework::pack<PCs...>)
@@ -1033,6 +1031,13 @@ concept can_bind = requires(T&& t) {
 template <typename... C>
 concept has_index = (is_indexing_column<C> || ...);
 
+template <is_index_column C>
+  requires (!is_self_index_column<C>)
+auto getBinding() -> typename C::binding_t {}
+
+template <typename C>
+auto getBinding() -> void {}
+
 template <typename D, typename O, typename IP, typename... C>
 struct TableIterator : IP, C... {
  public:
@@ -1040,9 +1045,9 @@ struct TableIterator : IP, C... {
   using policy_t = IP;
   using all_columns = framework::pack<C...>;
   using persistent_columns_t = framework::selected_pack<soa::is_persistent_column_t, C...>;
-  using external_index_columns_t = framework::selected_pack<soa::is_external_index_t, C...>;
-  using internal_index_columns_t = framework::selected_pack<soa::is_self_index_t, C...>;
-  using bindings_pack_t = decltype([]<typename... Cs>(framework::pack<Cs...>) -> framework::pack<typename Cs::binding_t...> {}(external_index_columns_t{})); // decltype(extractBindings(external_index_columns_t{}));
+  using bindings_pack_t = decltype([]<typename... Cs>(framework::pack<Cs...>) {
+    return framework::pack<decltype(getBinding<Cs>())...>{};
+  }(all_columns{}));
 
   TableIterator(arrow::ChunkedArray* columnData[sizeof...(C)], IP&& policy)
     : IP{policy},
@@ -1135,7 +1140,7 @@ struct TableIterator : IP, C... {
   template <typename... CL, typename TA>
   void doSetCurrentIndex(framework::pack<CL...>, TA* current)
   {
-    (CL::setCurrent(current), ...);
+    ([&current, this](){ if constexpr (is_index_column<CL> && !is_self_index_column<CL>) {CL::setCurrent(current);} }(), ...);
   }
 
   template <typename CL>
@@ -1147,24 +1152,30 @@ struct TableIterator : IP, C... {
   template <typename... Cs>
   auto getIndexBindingsImpl(framework::pack<Cs...>) const
   {
-    return std::vector<o2::soa::Binding>{static_cast<Cs const&>(*this).getCurrentRaw()...};
+    std::vector<o2::soa::Binding> result;
+    ([this, &result](){
+      if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) {
+        result.emplace_back(static_cast<Cs const&>(*this).getCurrentRaw());
+      }
+    }(), ...);
+    return result;
   }
 
   auto getIndexBindings() const
   {
-    return getIndexBindingsImpl(external_index_columns_t{});
+    return getIndexBindingsImpl(all_columns{});
   }
 
   template <typename... TA>
   void bindExternalIndices(TA*... current)
   {
-    (doSetCurrentIndex(external_index_columns_t{}, current), ...);
+    (doSetCurrentIndex(all_columns{}, current), ...);
   }
 
   template <typename... Cs>
   void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& ptrs)
   {
-    (Cs::setCurrentRaw(ptrs[framework::has_type_at_v<Cs>(p)]), ...);
+    ([&ptrs, p, this](){ if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) { Cs::setCurrentRaw(ptrs[framework::has_type_at_v<Cs>(p)]); } }(), ...);
   }
 
   template <typename... Cs, typename I>
@@ -1172,18 +1183,18 @@ struct TableIterator : IP, C... {
   {
     o2::soa::Binding b;
     b.bind(ptr);
-    (Cs::setCurrentRaw(b), ...);
+    ([&ptr, &b, this](){ if constexpr (is_self_index_column<Cs>) { Cs::setCurrentRaw(b); } }(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
   {
-    doSetCurrentIndexRaw(external_index_columns_t{}, std::forward<std::vector<o2::soa::Binding>>(ptrs));
+    doSetCurrentIndexRaw(all_columns{}, std::forward<std::vector<o2::soa::Binding>>(ptrs));
   }
 
   template <typename I>
   void bindInternalIndices(I const* table)
   {
-    doSetCurrentInternal(internal_index_columns_t{}, table);
+    doSetCurrentInternal(all_columns{}, table);
   }
 
  private:
@@ -1367,25 +1378,25 @@ static constexpr std::string getLabelFromTypeForKey(std::string const& key)
 template <typename B, typename... C>
 consteval static bool hasIndexTo(framework::pack<C...>&&)
 {
-  return (o2::soa::is_binding_compatible_v<B, typename C::binding_t>() || ...);
+  return ([](){ if constexpr (is_index_column<C> && !is_self_index_column<C>) { return o2::soa::is_binding_compatible_v<B, typename C::binding_t>(); } else { return false; } }() || ...);
 }
 
 template <typename B, typename... C>
 consteval static bool hasSortedIndexTo(framework::pack<C...>&&)
 {
-  return ((C::sorted && o2::soa::is_binding_compatible_v<B, typename C::binding_t>()) || ...);
+  return ([](){if constexpr (is_index_column<C> && !is_self_index_column<C>) { return (C::sorted && o2::soa::is_binding_compatible_v<B, typename C::binding_t>()); } else { return false; }}() || ...);
 }
 
 template <typename B, typename Z>
 consteval static bool relatedByIndex()
 {
-  return hasIndexTo<B>(typename Z::table_t::external_index_columns_t{});
+  return hasIndexTo<B>(typename Z::table_t::columns_t{});
 }
 
 template <typename B, typename Z>
 consteval static bool relatedBySortedIndex()
 {
-  return hasSortedIndexTo<B>(typename Z::table_t::external_index_columns_t{});
+  return hasSortedIndexTo<B>(typename Z::table_t::columns_t{});
 }
 } // namespace o2::soa
 
@@ -1713,16 +1724,13 @@ class Table
   using persistent_columns_t = decltype([]<typename... C>(framework::pack<C...>&&) -> framework::selected_pack<soa::is_persistent_column_t, C...> {}(columns_t{}));
   using column_types = decltype([]<typename... C>(framework::pack<C...>) -> framework::pack<typename C::type...> {}(persistent_columns_t{}));
 
-  using external_index_columns_t = decltype([]<typename... C>(framework::pack<C...>&&) -> framework::selected_pack<soa::is_external_index_t, C...> {}(columns_t{}));
-  using internal_index_columns_t = decltype([]<typename... C>(framework::pack<C...>&&) -> framework::selected_pack<soa::is_self_index_t, C...> {}(columns_t{}));
   template <typename IP>
   using base_iterator = decltype(base_iter<D, O, IP>(columns_t{}));
 
   template <typename IP, typename Parent, typename... T>
   struct TableIteratorBase : base_iterator<IP> {
     using columns_t = typename Parent::columns_t;
-    using external_index_columns_t = typename Parent::external_index_columns_t;
-    using bindings_pack_t = decltype([]<typename... C>(framework::pack<C...>) -> framework::pack<typename C::binding_t...> {}(external_index_columns_t{}));
+    using bindings_pack_t = typename base_iterator<IP>::bindings_pack_t;
     // static constexpr const std::array<TableRef, sizeof...(T)> originals{T::ref...};
     static constexpr auto originals = Parent::originals;
     using policy_t = IP;
@@ -1815,7 +1823,7 @@ class Table
       using decayed = std::decay_t<TI>;
       if constexpr (framework::has_type<decayed>(bindings_pack_t{})) { // index to another table
         constexpr auto idx = framework::has_type_at_v<decayed>(bindings_pack_t{});
-        return framework::pack_element_t<idx, external_index_columns_t>::getId();
+        return framework::pack_element_t<idx, columns_t>::getId();
       } else if constexpr (std::same_as<decayed, Parent>) { // self index
         return this->globalIndex();
       } else if constexpr (is_indexing_column<decayed>) { // soa::Index<>
@@ -2040,13 +2048,13 @@ class Table
 
   void bindInternalIndicesExplicit(o2::soa::Binding binding)
   {
-    doBindInternalIndicesExplicit(internal_index_columns_t{}, binding);
+    doBindInternalIndicesExplicit(columns_t{}, binding);
   }
 
   template <typename... Cs>
   void doBindInternalIndicesExplicit(framework::pack<Cs...>, o2::soa::Binding binding)
   {
-    (static_cast<Cs>(mBegin).setCurrentRaw(binding), ...);
+    ([this, &binding](){ if constexpr (is_self_index_column<Cs>) { static_cast<Cs>(mBegin).setCurrentRaw(binding); } }(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
@@ -2063,7 +2071,7 @@ class Table
   template <typename T>
   void copyIndexBindings(T& dest) const
   {
-    doCopyIndexBindings(external_index_columns_t{}, dest);
+    doCopyIndexBindings(columns_t{}, dest);
   }
 
   auto select(framework::expressions::Filter const& f) const
@@ -3282,7 +3290,6 @@ class FilteredBase : public T
   using T::originals;
   using columns_t = typename T::columns_t;
   using persistent_columns_t = typename T::persistent_columns_t;
-  using external_index_columns_t = typename T::external_index_columns_t;
 
   using iterator = T::template iterator_template_o<FilteredIndexPolicy, self_t>;
   using unfiltered_iterator = T::template iterator_template_o<DefaultIndexPolicy, self_t>;
@@ -3428,7 +3435,7 @@ class FilteredBase : public T
   template <typename T1>
   void copyIndexBindings(T1& dest) const
   {
-    doCopyIndexBindings(external_index_columns_t{}, dest);
+    doCopyIndexBindings(columns_t{}, dest);
   }
 
   template <typename T1>
