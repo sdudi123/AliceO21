@@ -36,7 +36,7 @@ auto interleaveTuples(std::tuple<T1s...>& t1, std::tuple<T2s...>& t2)
 
 template <soa::is_index_column T, typename G>
   requires(!soa::is_self_index_column<T>)
-auto isIndexTo()
+constexpr auto isIndexTo()
 {
   if constexpr (o2::soa::is_binding_compatible_v<G, typename T::binding_t>()) {
     return std::true_type{};
@@ -46,7 +46,7 @@ auto isIndexTo()
 }
 
 template <typename T, typename G>
-auto isIndexTo()
+constexpr auto isIndexTo()
 {
   return std::false_type{};
 }
