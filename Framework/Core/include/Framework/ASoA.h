@@ -1036,12 +1036,12 @@ concept has_index = (is_indexing_column<C> || ...);
 
 template <is_index_column C>
   requires(!is_self_index_column<C>)
-constexpr auto getBinding() -> typename C::binding_t
+consteval auto getBinding() -> typename C::binding_t
 {
 }
 
 template <typename C>
-constexpr auto getBinding() -> void
+consteval auto getBinding() -> void
 {
 }
 
