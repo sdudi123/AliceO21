@@ -46,7 +46,9 @@ auto isIndexTo()
 }
 
 template <typename T, typename G>
-auto isIndexTo() ->std::false_type {}
+auto isIndexTo() -> std::false_type
+{
+}
 
 template <typename T, typename G>
 using is_index_to_g_t = decltype(isIndexTo<T, G>());
