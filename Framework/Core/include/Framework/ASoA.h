@@ -1035,11 +1035,15 @@ template <typename... C>
 concept has_index = (is_indexing_column<C> || ...);
 
 template <is_index_column C>
-  requires (!is_self_index_column<C>)
-auto getBinding() -> typename C::binding_t {}
+  requires(!is_self_index_column<C>)
+auto getBinding() -> typename C::binding_t
+{
+}
 
 template <typename C>
-auto getBinding() -> void {}
+auto getBinding() -> void
+{
+}
 
 template <typename D, typename O, typename IP, typename... C>
 struct TableIterator : IP, C... {
@@ -1143,7 +1147,7 @@ struct TableIterator : IP, C... {
   template <typename... CL, typename TA>
   void doSetCurrentIndex(framework::pack<CL...>, TA* current)
   {
-    ([&current, this](){ if constexpr (is_index_column<CL> && !is_self_index_column<CL>) {CL::setCurrent(current);} }(), ...);
+    ([&current, this]() { if constexpr (is_index_column<CL> && !is_self_index_column<CL>) {CL::setCurrent(current);} }(), ...);
   }
 
   template <typename CL>
@@ -1156,11 +1160,12 @@ struct TableIterator : IP, C... {
   auto getIndexBindingsImpl(framework::pack<Cs...>) const
   {
     std::vector<o2::soa::Binding> result;
-    ([this, &result](){
+    ([this, &result]() {
       if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) {
         result.emplace_back(static_cast<Cs const&>(*this).getCurrentRaw());
       }
-    }(), ...);
+    }(),
+     ...);
     return result;
   }
 
@@ -1178,7 +1183,7 @@ struct TableIterator : IP, C... {
   template <typename... Cs>
   void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& ptrs)
   {
-    ([&ptrs, p, this](){ if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) { Cs::setCurrentRaw(ptrs[framework::has_type_at_v<Cs>(p)]); } }(), ...);
+    ([&ptrs, p, this]() { if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) { Cs::setCurrentRaw(ptrs[framework::has_type_at_v<Cs>(p)]); } }(), ...);
   }
 
   template <typename... Cs, typename I>
@@ -1186,7 +1191,7 @@ struct TableIterator : IP, C... {
   {
     o2::soa::Binding b;
     b.bind(ptr);
-    ([&ptr, &b, this](){ if constexpr (is_self_index_column<Cs>) { Cs::setCurrentRaw(b); } }(), ...);
+    ([&ptr, &b, this]() { if constexpr (is_self_index_column<Cs>) { Cs::setCurrentRaw(b); } }(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
@@ -1381,13 +1386,13 @@ static constexpr std::string getLabelFromTypeForKey(std::string const& key)
 template <typename B, typename... C>
 consteval static bool hasIndexTo(framework::pack<C...>&&)
 {
-  return ([](){ if constexpr (is_index_column<C> && !is_self_index_column<C>) { return o2::soa::is_binding_compatible_v<B, typename C::binding_t>(); } else { return false; } }() || ...);
+  return ([]() { if constexpr (is_index_column<C> && !is_self_index_column<C>) { return o2::soa::is_binding_compatible_v<B, typename C::binding_t>(); } else { return false; } }() || ...);
 }
 
 template <typename B, typename... C>
 consteval static bool hasSortedIndexTo(framework::pack<C...>&&)
 {
-  return ([](){if constexpr (is_index_column<C> && !is_self_index_column<C>) { return (C::sorted && o2::soa::is_binding_compatible_v<B, typename C::binding_t>()); } else { return false; }}() || ...);
+  return ([]() {if constexpr (is_index_column<C> && !is_self_index_column<C>) { return (C::sorted && o2::soa::is_binding_compatible_v<B, typename C::binding_t>()); } else { return false; } }() || ...);
 }
 
 template <typename B, typename Z>
@@ -2057,7 +2062,7 @@ class Table
   template <typename... Cs>
   void doBindInternalIndicesExplicit(framework::pack<Cs...>, o2::soa::Binding binding)
   {
-    ([this, &binding](){ if constexpr (is_self_index_column<Cs>) { static_cast<Cs>(mBegin).setCurrentRaw(binding); } }(), ...);
+    ([this, &binding]() { if constexpr (is_self_index_column<Cs>) { static_cast<Cs>(mBegin).setCurrentRaw(binding); } }(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
