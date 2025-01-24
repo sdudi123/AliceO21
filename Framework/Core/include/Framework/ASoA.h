@@ -1144,7 +1144,10 @@ struct TableIterator : IP, C... {
   template <typename... CL, typename TA>
   void doSetCurrentIndex(framework::pack<CL...>, TA* current)
   {
-    ([&current, this]() { if constexpr (is_index_column<CL> && !is_self_index_column<CL>) {CL::setCurrent(current);} }(), ...);
+    (framework::overloaded{
+       [&current, this]<is_index_column CI> requires(!is_self_index_column<CI>) () { CI::setCurrent(current); },
+       []<typename CI>(){}
+       }.template operator()<CL>(), ...);
   }
 
   template <typename CL>
@@ -1157,12 +1160,12 @@ struct TableIterator : IP, C... {
   auto getIndexBindingsImpl(framework::pack<Cs...>) const
   {
     std::vector<o2::soa::Binding> result;
-    ([this, &result]() {
-      if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) {
-        result.emplace_back(static_cast<Cs const&>(*this).getCurrentRaw());
-      }
-    }(),
-     ...);
+    (framework::overloaded{
+       [this, &result]<is_index_column CI> requires(!is_self_index_column<CI>) () mutable {
+           result.emplace_back(CI::getCurrentRaw());
+       },
+       []<typename CI>(){}
+      }.template operator()<Cs>(), ...);
     return result;
   }
 
@@ -1180,7 +1183,10 @@ struct TableIterator : IP, C... {
   template <typename... Cs>
   void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& ptrs)
   {
-    ([&ptrs, p, this]() { if constexpr (is_index_column<Cs> && !is_self_index_column<Cs>) { Cs::setCurrentRaw(ptrs[framework::has_type_at_v<Cs>(p)]); } }(), ...);
+    (framework::overloaded{
+      [&ptrs, p, this]<is_self_index_column CI> requires(!is_self_index_column<CI>) () { CI::setCurrentRaw(ptrs[framework::has_type_at_v<CI>(p)]); },
+      []<typename CI>(){}
+    }.template operator()<Cs>(), ...);
   }
 
   template <typename... Cs, typename I>
@@ -1188,7 +1194,10 @@ struct TableIterator : IP, C... {
   {
     o2::soa::Binding b;
     b.bind(ptr);
-    ([&ptr, &b, this]() { if constexpr (is_self_index_column<Cs>) { Cs::setCurrentRaw(b); } }(), ...);
+    (framework::overloaded{
+      [&ptr, &b, this]<is_self_index_column CI>() { CI::setCurrentRaw(b); },
+      []<typename CI>(){}
+     }.template operator()<Cs>(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
@@ -1383,13 +1392,19 @@ static constexpr std::string getLabelFromTypeForKey(std::string const& key)
 template <typename B, typename... C>
 consteval static bool hasIndexTo(framework::pack<C...>&&)
 {
-  return ([]() { if constexpr (is_index_column<C> && !is_self_index_column<C>) { return o2::soa::is_binding_compatible_v<B, typename C::binding_t>(); } else { return false; } }() || ...);
+  return (framework::overloaded{
+            []<is_index_column CI> requires(!is_self_index_column<CI>) () { return o2::soa::is_binding_compatible_v<B, typename CI::binding_t>(); },
+            []<typename CI>(){ return false; }
+          }.template operator()<C>() || ...);
 }
 
 template <typename B, typename... C>
 consteval static bool hasSortedIndexTo(framework::pack<C...>&&)
 {
-  return ([]() {if constexpr (is_index_column<C> && !is_self_index_column<C>) { return (C::sorted && o2::soa::is_binding_compatible_v<B, typename C::binding_t>()); } else { return false; } }() || ...);
+  return (framework::overloaded{
+            []<is_index_column CI> requires(!is_self_index_column<CI>) () {return (CI::sorted && o2::soa::is_binding_compatible_v<B, typename CI::binding_t>()); },
+            []<typename CI>(){}
+          }.template operator()<C>() || ...);
 }
 
 template <typename B, typename Z>
@@ -2059,7 +2074,10 @@ class Table
   template <typename... Cs>
   void doBindInternalIndicesExplicit(framework::pack<Cs...>, o2::soa::Binding binding)
   {
-    ([this, &binding]() { if constexpr (is_self_index_column<Cs>) { static_cast<Cs>(mBegin).setCurrentRaw(binding); } }(), ...);
+    (framework::overloaded{
+      [this, &binding]<is_self_index_column CI>() { static_cast<CI>(mBegin).setCurrentRaw(binding); },
+      []<typename CI>(){}
+     }.template operator()<Cs>(), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
