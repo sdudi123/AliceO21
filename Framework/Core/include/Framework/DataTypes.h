@@ -134,6 +134,30 @@ constexpr std::array<float, 5> trackQAScaleGloP1{0.183731, 0.409071, 0.00621802,
 constexpr std::array<float, 2> trackQAScaledTOF{1.1, 0.33};
 } // namespace o2::aod::track
 
+namespace o2::aod::mctracklabel
+{
+// ! Bit mask to indicate detector mismatches (bit ON means mismatch). Bit 0-6: mismatch at ITS layer. Bit 7-9: # of TPC mismatches in the ranges 0, 1, 2-3, 4-7, 8-15, 16-31, 32-63, >64. Bit 10: TRD, bit 11: TOF, bit 15: indicates negative label
+enum McMaskEnum : uint16_t {
+  MismatchInITS0 = 0x1,   // BIT(0) Mismatch in the layer 0 of ITS
+  MismatchInITS1 = 0x2,   // BIT(1) Mismatch in the layer 1 of ITS
+  MismatchInITS2 = 0x4,   // BIT(2) Mismatch in the layer 2 of ITS
+  MismatchInITS3 = 0x8,   // BIT(3) Mismatch in the layer 3 of ITS
+  MismatchInITS4 = 0x10,  // BIT(4) Mismatch in the layer 4 of ITS
+  MismatchInITS5 = 0x20,  // BIT(5) Mismatch in the layer 5 of ITS
+  MismatchInITS6 = 0x40,  // BIT(6) Mismatch in the layer 6 of ITS
+  MismatchInTPC0 = 0x80,  // BIT(7) Mismatch in the 0 of TPC
+  MismatchInTPC1 = 0x100, // BIT(8) Mismatch in the 1 of TPC
+  MismatchInTPC2 = 0x200, // BIT(9) Mismatch in the 2 of TPC
+  MismatchInTRD = 0x400,  // BIT(10) Mismatch in the TRD
+  MismatchInTOF = 0x800,  // BIT(11) Mismatch in the TOF
+  Noise = 0x1000,         // BIT(12)
+  Fake = 0x2000,          // BIT(13)
+  // MatchTPC0 = 0x4000, // BIT(14)
+  NegativeLabel = 0x8000 // BIT(15) Negative label
+};
+
+} // namespace o2::aod::mctracklabel
+
 namespace o2::aod::fwdtrack
 {
 enum ForwardTrackTypeEnum : uint8_t {
