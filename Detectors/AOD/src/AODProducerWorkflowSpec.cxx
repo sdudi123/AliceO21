@@ -1083,7 +1083,7 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
       };
 
       if (GIndex::includesSource(src, mInputSources)) {
-        auto mcTruth = data.getTrackMCLabel(trackIndex);
+        const auto& mcTruth = data.getTrackMCLabel(trackIndex);
         MCLabels labelHolder;
         if ((src == GIndex::Source::MFT) || (src == GIndex::Source::MFTMCH) || (src == GIndex::Source::MCH) || (src == GIndex::Source::MCHMID)) { // treating mft and fwd labels separately
           if (!needToStore(src == GIndex::Source::MFT ? mGIDToTableMFTID : mGIDToTableFwdID)) {
@@ -1113,30 +1113,30 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
             labelHolder.labelID = (mToStore[mcTruth.getSourceID()][mcTruth.getEventID()])[mcTruth.getTrackID()];
           }
           // treating possible mismatches and fakes for global tracks
-          auto contributorsGID = data.getSingleDetectorRefs(trackIndex);
-          bool isSetTPC = contributorsGID[GIndex::Source::TPC].isIndexSet();
-          bool isSetITS = contributorsGID[GIndex::Source::ITS].isIndexSet();
-          bool isSetTOF = contributorsGID[GIndex::Source::TOF].isIndexSet();
+          const auto& contributorsGID = data.getSingleDetectorRefs(trackIndex);
+          const bool isSetTPC = contributorsGID[GIndex::Source::TPC].isIndexSet();
+          const bool isSetITS = contributorsGID[GIndex::Source::ITS].isIndexSet();
+          const bool isSetTOF = contributorsGID[GIndex::Source::TOF].isIndexSet();
           bool isTOFFake = true;
           if (isSetTPC && (isSetITS || isSetTOF)) {
-            auto mcTruthTPC = data.getTrackMCLabel(contributorsGID[GIndex::Source::TPC]);
+            const auto& mcTruthTPC = data.getTrackMCLabel(contributorsGID[GIndex::Source::TPC]);
             if (mcTruthTPC.isValid()) {
               labelHolder.labelTPC = (mToStore[mcTruthTPC.getSourceID()][mcTruthTPC.getEventID()])[mcTruthTPC.getTrackID()];
               labelHolder.labelID = labelHolder.labelTPC;
             }
             if (isSetITS) {
-              auto mcTruthITS = data.getTrackMCLabel(contributorsGID[GIndex::Source::ITS]);
+              const auto& mcTruthITS = data.getTrackMCLabel(contributorsGID[GIndex::Source::ITS]);
               if (mcTruthITS.isValid()) {
                 labelHolder.labelITS = (mToStore[mcTruthITS.getSourceID()][mcTruthITS.getEventID()])[mcTruthITS.getTrackID()];
               }
               if (labelHolder.labelITS != labelHolder.labelTPC) {
                 LOG(debug) << "ITS-TPC MCTruth: labelIDs do not match at " << trackIndex.getIndex() << ", src = " << src;
-                labelHolder.labelMask |= (0x1 << 13);
+                labelHolder.labelMask |= o2::aod::mctracklabel::McMaskEnum::MismatchInITS0;
               }
             }
             if (isSetTOF) {
               const auto& labelsTOF = data.getTOFClustersMCLabels()->getLabels(contributorsGID[GIndex::Source::TOF]);
-              for (auto& mcLabel : labelsTOF) {
+              for (const auto& mcLabel : labelsTOF) {
                 if (!mcLabel.isValid()) {
                   continue;
                 }
@@ -1145,13 +1145,16 @@ void AODProducerWorkflowDPL::fillMCTrackLabelsTable(MCTrackLabelCursorType& mcTr
                   break;
                 }
               }
+              if (isTOFFake) {
+                labelHolder.labelMask |= o2::aod::mctracklabel::McMaskEnum::MismatchInTOF;
+              }
             }
           }
-          if (mcTruth.isFake() || (isSetTOF && isTOFFake)) {
-            labelHolder.labelMask |= (0x1 << 15);
+          if (mcTruth.isFake()) {
+            labelHolder.labelMask |= o2::aod::mctracklabel::McMaskEnum::Fake;
           }
           if (mcTruth.isNoise()) {
-            labelHolder.labelMask |= (0x1 << 14);
+            labelHolder.labelMask |= o2::aod::mctracklabel::McMaskEnum::Noise;
           }
           mcTrackLabelCursor(labelHolder.labelID,
                              labelHolder.labelMask);
@@ -2493,6 +2496,8 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
   if (contributorsGID[GIndex::Source::TOF].isIndexSet()) { // ITS-TPC-TRD-TOF, ITS-TPC-TOF, TPC-TRD-TOF, TPC-TOF
     const auto& tofMatch = data.getTOFMatch(trackIndex);
     extraInfoHolder.tofChi2 = tofMatch.getChi2();
+    // const auto& patternUpDown = tofMatch.getHitPatternUpDown();
+    // const auto& patternLeftRight = tofMatch.getHitPatternLeftRight();
     const auto& tofInt = tofMatch.getLTIntegralOut();
     float intLen = tofInt.getL();
     extraInfoHolder.length = intLen;
