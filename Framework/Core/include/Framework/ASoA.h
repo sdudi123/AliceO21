@@ -1420,8 +1420,9 @@ struct PresliceBase : public Policy {
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(index_.name)},{binding, index_.name}}, {}}
-  {}
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(index_.name)}, {binding, index_.name}}, {}}
+  {
+  }
 
   std::shared_ptr<arrow::Table> getSliceFor(int value, std::shared_ptr<arrow::Table> const& input, uint64_t& offset) const
   {
@@ -1518,7 +1519,7 @@ auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
 }
 
 template <soa::is_table T>
-  requires (!soa::is_filtered_table<T>)
+  requires(!soa::is_filtered_table<T>)
 auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
 {
   auto t = soa::Filtered<T>({table->asArrowTable()}, selection);
@@ -1576,7 +1577,7 @@ auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, u
 }
 
 template <typename T, typename C, bool OPT>
-  requires (o2::soa::is_binding_compatible_v<C, T>())
+  requires(o2::soa::is_binding_compatible_v<C, T>())
 auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, framework::PreslicePolicySorted, OPT> const& container, int value)
 {
   if constexpr (OPT) {
