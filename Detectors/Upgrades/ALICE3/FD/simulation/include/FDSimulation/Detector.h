@@ -12,13 +12,13 @@
 /// \file Detector.h
 /// \brief Definition of the Detector class
 
-#ifndef ALICEO2_FVD_DETECTOR_H_
-#define ALICEO2_FVD_DETECTOR_H_
+#ifndef ALICEO2_FD_DETECTOR_H_
+#define ALICEO2_FD_DETECTOR_H_
 
 #include "SimulationDataFormat/BaseHits.h"
 #include "DetectorsBase/Detector.h"
-#include "FVDBase/GeometryTGeo.h"
-#include "FVDBase/FVDBaseParam.h"
+#include "FDBase/GeometryTGeo.h"
+#include "FDBase/FDBaseParam.h"
 #include "ITSMFTSimulation/Hit.h"
 #include "Rtypes.h"
 #include "TGeoManager.h"
@@ -30,7 +30,7 @@ class TGeoVolume;
 
 namespace o2
 {
-namespace fvd
+namespace fd
 {
 class GeometryTGeo;
 }
@@ -38,7 +38,7 @@ class GeometryTGeo;
 
 namespace o2
 {
-namespace fvd
+namespace fd
 {
 
 class Detector : public o2::base::DetImpl<Detector>
@@ -131,7 +131,7 @@ class Detector : public o2::base::DetImpl<Detector>
 std::ostream& operator<<(std::ostream& os, Detector& source);
 std::istream& operator>>(std::istream& os, Detector& source);
 
-} // namespace fvd
+} // namespace fd
 } // namespace o2
 
 #ifdef USESHM
@@ -140,7 +140,7 @@ namespace o2
 namespace base
 {
 template <>
-struct UseShm<o2::fvd::Detector> {
+struct UseShm<o2::fd::Detector> {
   static constexpr bool value = true;
 };
 } // namespace base

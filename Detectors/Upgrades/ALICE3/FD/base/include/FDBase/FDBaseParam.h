@@ -9,18 +9,18 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_FVD_FVDBASEPARAM_
-#define ALICEO2_FVD_FVDBASEPARAM_
+#ifndef ALICEO2_FD_FDBASEPARAM_
+#define ALICEO2_FD_FDBASEPARAM_
 
-#include "FVDBase/GeometryTGeo.h"
-#include "FVDBase/Constants.h"
+#include "FDBase/GeometryTGeo.h"
+#include "FDBase/Constants.h"
 #include "CommonUtils/ConfigurableParamHelper.h"
 
 namespace o2
 {
-namespace fvd
+namespace fd
 {
-struct FVDBaseParam : public o2::conf::ConfigurableParamHelper<FVDBaseParam> {
+struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
 
   float ringsA[Constants::nringsA + 1] = {3., 14.8, 26.6, 38.4, 50.2, 62.};
   float ringsC[Constants::nringsC + 1] = {3.5, 14.75, 26.0, 37.25, 48.5, 59.75, 71.};
@@ -29,10 +29,10 @@ struct FVDBaseParam : public o2::conf::ConfigurableParamHelper<FVDBaseParam> {
   float zmodC = -1950;
   float dzscint = 4.;
 
-  O2ParamDef(FVDBaseParam, "FVDBase");
+  O2ParamDef(FDBaseParam, "FDBase");
 };
 
-} // namespace fvd
+} // namespace fd
 } // namespace o2
 
 #endif

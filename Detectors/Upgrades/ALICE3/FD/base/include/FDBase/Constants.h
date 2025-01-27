@@ -14,12 +14,12 @@
 ///
 /// \author Maciej Slupecki, University of Jyvaskyla, Finland
 
-#ifndef ALICEO2_FVD_CONSTANTS_
-#define ALICEO2_FVD_CONSTANTS_
+#ifndef ALICEO2_FD_CONSTANTS_
+#define ALICEO2_FD_CONSTANTS_
 
 namespace o2
 {
-namespace fvd
+namespace fd
 {
 struct Constants {
   static constexpr int nsect = 8;
@@ -27,6 +27,6 @@ struct Constants {
   static constexpr int nringsC = 6;
 };
 
-} // namespace fvd
+} // namespace fd
 } // namespace o2
 #endif

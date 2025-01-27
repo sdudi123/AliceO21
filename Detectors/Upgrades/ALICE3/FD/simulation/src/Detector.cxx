@@ -13,10 +13,10 @@
 /// \brief Implementation of the Detector class
 
 #include "ITSMFTSimulation/Hit.h"
-#include "FVDSimulation/Detector.h"
-#include "FVDBase/GeometryTGeo.h"
-#include "FVDBase/FVDBaseParam.h"
-#include "FVDBase/Constants.h"
+#include "FDSimulation/Detector.h"
+#include "FDBase/GeometryTGeo.h"
+#include "FDBase/FDBaseParam.h"
+#include "FDBase/Constants.h"
 
 #include "DetectorsBase/Stack.h"
 #include "SimulationDataFormat/TrackReference.h"
@@ -46,11 +46,11 @@ class FairModule;
 
 class TGeoMedium;
 
-using namespace o2::fvd;
+using namespace o2::fd;
 using o2::itsmft::Hit;
 
 Detector::Detector(bool active)
-  : o2::base::DetImpl<Detector>("FVD", true),
+  : o2::base::DetImpl<Detector>("FD", true),
     mHits(o2::utils::createSimVector<o2::itsmft::Hit>()),
     mGeometryTGeo(nullptr),
     mTrackData()
@@ -59,7 +59,7 @@ Detector::Detector(bool active)
   mNumberOfRingsC = Constants::nringsC;
   mNumberOfSectors = Constants::nsect;
 
-  auto& baseParam = FVDBaseParam::Instance();
+  auto& baseParam = FDBaseParam::Instance();
 
   mDzScint = baseParam.dzscint / 2;
 
@@ -105,7 +105,7 @@ Detector::~Detector()
 
 void Detector::InitializeO2Detector()
 {
-  LOG(info) << "Initialize FVD detector";
+  LOG(info) << "Initialize FD detector";
   mGeometryTGeo = GeometryTGeo::Instance();
   defineSensitiveVolumes();
 }
@@ -262,7 +262,7 @@ void Detector::createMaterials()
   float epsil = 0.03;   // tracking precision [cm]
   float stmin = -0.001; // minimum step due to continuous processes [cm] (negative value: choose it automatically)
 
-  LOG(info) << "FVD: CreateMaterials(): fieldType " << fieldType << ", maxField " << maxField;
+  LOG(info) << "FD: CreateMaterials(): fieldType " << fieldType << ", maxField " << maxField;
 
   o2::base::Detector::Mixture(++matId, "Scintillator", aScint, zScint, dScint, nScint, wScint);
   o2::base::Detector::Medium(Scintillator, "Scintillator", matId, unsens, fieldType, maxField,
@@ -271,7 +271,7 @@ void Detector::createMaterials()
 
 void Detector::buildModules()
 {
-  LOGP(info, "Creating FVD geometry");
+  LOGP(info, "Creating FD geometry");
 
   TGeoVolume* vCave = gGeoManager->GetVolume("cave");
 
@@ -279,27 +279,27 @@ void Detector::buildModules()
     LOG(fatal) << "Could not find the top volume (cave)!";
   }
 
-  TGeoVolumeAssembly* vFVDA = buildModuleA();
-  TGeoVolumeAssembly* vFVDC = buildModuleC();
+  TGeoVolumeAssembly* vFDA = buildModuleA();
+  TGeoVolumeAssembly* vFDC = buildModuleC();
 
-  vCave->AddNode(vFVDA, 1, new TGeoTranslation(0., 0., mZmodA /* - mDzScint/2.*/));
-  vCave->AddNode(vFVDC, 1, new TGeoTranslation(0., 0., mZmodC /* + mDzScint/2.*/));
+  vCave->AddNode(vFDA, 1, new TGeoTranslation(0., 0., mZmodA /* - mDzScint/2.*/));
+  vCave->AddNode(vFDC, 1, new TGeoTranslation(0., 0., mZmodC /* + mDzScint/2.*/));
 }
 
 TGeoVolumeAssembly* Detector::buildModuleA()
 {
-  TGeoVolumeAssembly* mod = new TGeoVolumeAssembly("FVDA");
+  TGeoVolumeAssembly* mod = new TGeoVolumeAssembly("FDA");
 
-  const TGeoMedium* medium = gGeoManager->GetMedium("FVD_Scintillator");
+  const TGeoMedium* medium = gGeoManager->GetMedium("FD_Scintillator");
 
   float dphiDeg = 360. / mNumberOfSectors;
 
   for (int ir = 0; ir < mNumberOfRingsA; ir++) {
-    std::string rName = "fvd_ring" + std::to_string(ir + 1);
+    std::string rName = "fd_ring" + std::to_string(ir + 1);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * ir;
-      std::string nodeName = "fvd_node" + std::to_string(cellId);
+      std::string nodeName = "fd_node" + std::to_string(cellId);
       float rmin = mRingRadiiA[ir];
       float rmax = mRingRadiiA[ir + 1];
       float phimin = dphiDeg * ic;
@@ -317,18 +317,18 @@ TGeoVolumeAssembly* Detector::buildModuleA()
 
 TGeoVolumeAssembly* Detector::buildModuleC()
 {
-  TGeoVolumeAssembly* mod = new TGeoVolumeAssembly("FVDC");
+  TGeoVolumeAssembly* mod = new TGeoVolumeAssembly("FDC");
 
-  const TGeoMedium* medium = gGeoManager->GetMedium("FVD_Scintillator");
+  const TGeoMedium* medium = gGeoManager->GetMedium("FD_Scintillator");
 
   float dphiDeg = 360. / mNumberOfSectors;
 
   for (int ir = 0; ir < mNumberOfRingsC; ir++) {
-    std::string rName = "fvd_ring" + std::to_string(ir + 1 + mNumberOfRingsA);
+    std::string rName = "fd_ring" + std::to_string(ir + 1 + mNumberOfRingsA);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * (ir + mNumberOfRingsA);
-      std::string nodeName = "fvd_node" + std::to_string(cellId);
+      std::string nodeName = "fd_node" + std::to_string(cellId);
       float rmin = mRingRadiiC[ir];
       float rmax = mRingRadiiC[ir + 1];
       float phimin = dphiDeg * ic;
@@ -346,7 +346,7 @@ TGeoVolumeAssembly* Detector::buildModuleC()
 
 void Detector::defineSensitiveVolumes()
 {
-  LOG(info) << "Adding FVD Sentitive Volumes";
+  LOG(info) << "Adding FD Sentitive Volumes";
 
   TGeoVolume* v;
   TString volumeName;
@@ -355,9 +355,9 @@ void Detector::defineSensitiveVolumes()
   int nCellC = mNumberOfRingsC * mNumberOfSectors;
 
   for (int iv = 0; iv < nCellA + nCellC; iv++) {
-    volumeName = "fvd_node" + std::to_string(iv);
+    volumeName = "fd_node" + std::to_string(iv);
     v = gGeoManager->GetVolume(volumeName);
-    LOG(info) << "Adding FVD Sensitive Volume => " << v->GetName();
+    LOG(info) << "Adding FD Sensitive Volume => " << v->GetName();
     AddSensitiveVolume(v);
   }
 }
@@ -387,4 +387,4 @@ int Detector::getChannelId(TVector3 vec)
   return ir * mNumberOfSectors + isect + noff;
 }
 
-ClassImp(o2::fvd::Detector);
+ClassImp(o2::fd::Detector);

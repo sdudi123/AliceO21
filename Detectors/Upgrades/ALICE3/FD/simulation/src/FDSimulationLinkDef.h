@@ -15,9 +15,7 @@
 #pragma link off all classes;
 #pragma link off all functions;
 
-#pragma link C++ class o2::fvd::Constants + ;
-#pragma link C++ class o2::fvd::GeometryTGeo + ;
-#pragma link C++ class o2::fvd::FVDBaseParam + ;
-#pragma link C++ class o2::conf::ConfigurableParamHelper < o2::fvd::FVDBaseParam> + ;
+#pragma link C++ class o2::fd::Detector + ;
+#pragma link C++ class o2::base::DetImpl < o2::fd::Detector> + ;
 
 #endif

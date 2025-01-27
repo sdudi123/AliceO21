@@ -9,25 +9,25 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#include "FVDBase/GeometryTGeo.h"
-#include "FVDBase/FVDBaseParam.h"
+#include "FDBase/GeometryTGeo.h"
+#include "FDBase/FDBaseParam.h"
 
 #include <cmath>
 
 #include <fairlogger/Logger.h>
 
-using namespace o2::fvd;
+using namespace o2::fd;
 namespace o2
 {
-namespace fvd
+namespace fd
 {
 
-std::unique_ptr<o2::fvd::GeometryTGeo> GeometryTGeo::sInstance;
+std::unique_ptr<o2::fd::GeometryTGeo> GeometryTGeo::sInstance;
 
 GeometryTGeo::GeometryTGeo(bool build, int loadTrans) : DetMatrixCache()
 {
   if (sInstance) {
-    LOGP(fatal, "Invalid use of public constructor: o2::fvd::GeometryTGeo instance exists");
+    LOGP(fatal, "Invalid use of public constructor: o2::fd::GeometryTGeo instance exists");
   }
   if (build) {
     Build(loadTrans);
@@ -62,5 +62,5 @@ void GeometryTGeo::fillMatrixCache(int mask)
 {
 }
 
-} // namespace fvd
+} // namespace fd
 } // namespace o2

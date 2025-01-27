@@ -4,7 +4,7 @@
 
 # ALICE 3 FORVARD DETECTOR
 
-This is top page for the FVD detector documentation.
+This is top page for the FD detector documentation.
 
 <!-- doxy
 /doxy -->

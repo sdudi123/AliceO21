@@ -9,12 +9,13 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-o2_add_library(FVDBase
-        SOURCES src/GeometryTGeo.cxx
-                src/FVDBaseParam.cxx
-                PUBLIC_LINK_LIBRARIES  O2::DetectorsBase)
+o2_add_library(FDSimulation
+               SOURCES src/Detector.cxx
+               PUBLIC_LINK_LIBRARIES O2::FDBase
+                                     O2::ITSMFTSimulation
+                                     ROOT::Physics)
 
-o2_target_root_dictionary(FVDBase
-        HEADERS include/FVDBase/GeometryTGeo.h
-                include/FVDBase/Constants.h
-                include/FVDBase/FVDBaseParam.h)
+o2_target_root_dictionary(FDSimulation
+                          HEADERS include/FDSimulation/Detector.h)
+
+o2_data_file(COPY data  DESTINATION Detectors/FD/simulation)
