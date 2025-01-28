@@ -1540,22 +1540,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
   return doSliceByHelper(table, selection);
 }
 
-auto sliceSelection(SelectionVector const& mSelectedRows, int64_t nrows, uint64_t offset);
-
-template <soa::is_table T>
-  requires(!soa::is_filtered_table<T>)
-auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
-{
-  if (offset >= static_cast<uint64_t>(table->tableSize())) {
-    typename T::self_t fresult{{{slice}}, SelectionVector{}, 0};
-    table->copyIndexBindings(fresult);
-    return fresult;
-  }
-  auto slicedSelection = sliceSelection(table->getSelectedRows(), slice->num_rows(), offset);
-  typename T::self_t fresult{{{slice}}, std::move(slicedSelection), offset};
-  table->copyIndexBindings(fresult);
-  return fresult;
-}
+SelectionVector sliceSelection(gsl::span<int64_t const> const& mSelectedRows, int64_t nrows, uint64_t offset);
 
 template <soa::is_filtered_table T>
 auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
@@ -1571,7 +1556,7 @@ auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, u
   return fresult;
 }
 
-template <typename T, typename C, bool OPT>
+template <soa::is_filtered_table T, typename C, bool OPT>
   requires(o2::soa::is_binding_compatible_v<C, T>())
 auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, framework::PreslicePolicySorted, OPT> const& container, int value)
 {
