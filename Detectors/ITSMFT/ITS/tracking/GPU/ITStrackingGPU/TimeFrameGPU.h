@@ -152,6 +152,9 @@ class TimeFrameGPU : public TimeFrame
   gsl::span<Tracklet*> getDeviceTracklet() { return mTrackletsDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
 
+  // Overridden getters
+  int getNumberOfCells() const;
+
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
   bool mHostRegistered = false;
@@ -251,6 +254,12 @@ inline std::vector<unsigned int> TimeFrameGPU<nLayers>::getClusterSizes()
   std::transform(mUnsortedClusters.begin(), mUnsortedClusters.end(), sizes.begin(),
                  [](const auto& v) { return static_cast<unsigned int>(v.size()); });
   return sizes;
+}
+
+template <int nLayers>
+inline int TimeFrameGPU<nLayers>::getNumberOfCells() const
+{
+  return std::accumulate(mNCells.begin(), mNCells.end(), 0);
 }
 
 } // namespace gpu
