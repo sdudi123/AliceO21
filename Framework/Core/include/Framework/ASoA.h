@@ -1419,7 +1419,7 @@ struct PresliceBase : public Policy {
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(binding, std::string{index_.name})}, {}}
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
   {
   }
 
