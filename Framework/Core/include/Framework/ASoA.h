@@ -1540,19 +1540,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
   return doSliceByHelper(table, selection);
 }
 
-auto sliceSelection(SelectionVector const& mSelectedRows, int64_t nrows, uint64_t offset)
-{
-  auto start = offset;
-  auto end = start + nrows;
-  auto start_iterator = std::lower_bound(mSelectedRows.begin(), mSelectedRows.end(), start);
-  auto stop_iterator = std::lower_bound(start_iterator, mSelectedRows.end(), end);
-  SelectionVector slicedSelection{start_iterator, stop_iterator};
-  std::transform(slicedSelection.begin(), slicedSelection.end(), slicedSelection.begin(),
-                 [&start](int64_t idx) {
-                   return idx - static_cast<int64_t>(start);
-                 });
-  return slicedSelection;
-}
+auto sliceSelection(SelectionVector const& mSelectedRows, int64_t nrows, uint64_t offset);
 
 template <soa::is_table T>
   requires(!soa::is_filtered_table<T>)
