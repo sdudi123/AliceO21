@@ -77,7 +77,8 @@ class TimeFrameGPU : public TimeFrame
   void createCellsDevice();
   void createCellsLUTDevice();
   void createNeighboursIndexTablesDevice();
-  void createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
+  void createNeighboursDevice(const unsigned int layer, const unsigned int nNeighbours);
+  void createNeighboursDevice(const unsigned int layer, std::vector<std::pair<int, int>>& neighbours);
   void createNeighboursLUTDevice(const int, const unsigned int);
   void createNeighboursDeviceArray();
   void createTrackITSExtDevice(std::vector<CellSeed>&);
