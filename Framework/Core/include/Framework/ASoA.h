@@ -1414,13 +1414,12 @@ struct PreslicePolicyGeneral : public PreslicePolicyBase {
 
 template <typename T, typename Policy, bool OPT = false>
 struct PresliceBase : public Policy {
-  constexpr static bool sorted = std::same_as<Policy, PreslicePolicySorted>;
   constexpr static bool optional = OPT;
   using target_t = T;
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(index_.name)}, {binding, index_.name}}, {}}
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(binding, std::string{index_.name})}, {}}
   {
   }
 
@@ -1541,23 +1540,10 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
   return doSliceByHelper(table, selection);
 }
 
-template <typename T>
-auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
+auto sliceSelection(SelectionVector const& mSelectedRows, int64_t nrows, uint64_t offset)
 {
-  if (offset >= static_cast<uint64_t>(table->tableSize())) {
-    if constexpr (soa::is_filtered_table<T>) {
-      Filtered<typename T::base_t> fresult{{{slice}}, SelectionVector{}, 0};
-      table->copyIndexBindings(fresult);
-      return fresult;
-    } else {
-      typename T::self_t fresult{{{slice}}, SelectionVector{}, 0};
-      table->copyIndexBindings(fresult);
-      return fresult;
-    }
-  }
   auto start = offset;
-  auto end = start + slice->num_rows();
-  auto mSelectedRows = table->getSelectedRows();
+  auto end = start + nrows;
   auto start_iterator = std::lower_bound(mSelectedRows.begin(), mSelectedRows.end(), start);
   auto stop_iterator = std::lower_bound(start_iterator, mSelectedRows.end(), end);
   SelectionVector slicedSelection{start_iterator, stop_iterator};
@@ -1565,15 +1551,36 @@ auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, u
                  [&start](int64_t idx) {
                    return idx - static_cast<int64_t>(start);
                  });
-  if constexpr (soa::is_filtered_table<T>) {
-    Filtered<typename T::base_t> fresult{{{slice}}, std::move(slicedSelection), start};
-    table->copyIndexBindings(fresult);
-    return fresult;
-  } else {
-    typename T::self_t fresult{{{slice}}, std::move(slicedSelection), start};
+  return slicedSelection;
+}
+
+template <soa::is_table T>
+  requires(!soa::is_filtered_table<T>)
+auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
+{
+  if (offset >= static_cast<uint64_t>(table->tableSize())) {
+    typename T::self_t fresult{{{slice}}, SelectionVector{}, 0};
     table->copyIndexBindings(fresult);
     return fresult;
   }
+  auto slicedSelection = sliceSelection(table->getSelectedRows(), slice->num_rows(), offset);
+  typename T::self_t fresult{{{slice}}, std::move(slicedSelection), offset};
+  table->copyIndexBindings(fresult);
+  return fresult;
+}
+
+template <soa::is_filtered_table T>
+auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
+{
+  if (offset >= static_cast<uint64_t>(table->tableSize())) {
+    Filtered<typename T::base_t> fresult{{{slice}}, SelectionVector{}, 0};
+    table->copyIndexBindings(fresult);
+    return fresult;
+  }
+  auto slicedSelection = sliceSelection(table->getSelectedRows(), slice->num_rows(), offset);
+  Filtered<typename T::base_t> fresult{{{slice}}, std::move(slicedSelection), offset};
+  table->copyIndexBindings(fresult);
+  return fresult;
 }
 
 template <typename T, typename C, bool OPT>
