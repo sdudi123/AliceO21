@@ -9,29 +9,24 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <algorithm>
+
 #include "GLOQC/MatchITSTPCQC.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 #include "DataFormatsTPC/TrackTPC.h"
-#include "Framework/InputSpec.h"
-#include "ReconstructionDataFormats/TrackParametrization.h"
 #include "DetectorsBase/Propagator.h"
 #include "SimulationDataFormat/MCUtils.h"
-#include <algorithm>
-#include "TGraphAsymmErrors.h"
 #include "GlobalTracking/TrackCuts.h"
 #include <DetectorsBase/GRPGeomHelper.h>
 #include <TEfficiency.h>
 #include "ReconstructionDataFormats/PrimaryVertex.h"
 #include "ReconstructionDataFormats/V0.h"
-// #include "GlobalTrackingStudy/V0Ext.h"
 #include "DetectorsVertexing/SVertexerParams.h"
 #include "Framework/InputRecord.h"
 #include "Framework/TimingInfo.h"
 #include "GPUO2InterfaceUtils.h"
 #include "CommonConstants/LHCConstants.h"
-#include "DataFormatsTPC/Constants.h"
 #include "DetectorsCommonDataFormats/DetID.h"
-
 #include "GPUO2InterfaceRefit.h"
 
 using namespace o2::gloqc;
@@ -41,7 +36,6 @@ using DetID = o2::detectors::DetID;
 
 MatchITSTPCQC::~MatchITSTPCQC()
 {
-
   deleteHistograms();
 }
 
@@ -467,7 +461,7 @@ void MatchITSTPCQC::initDataRequest()
 
   mSrc &= mAllowedSources;
 
-  if (mSrc[GID::Source::ITSTPC] == 0 || mSrc[GID::Source::TPC] == 0 || mSrc[GID::Source::ITS] == 0) {
+  if (!mSrc[GID::Source::ITSTPC] || !mSrc[GID::Source::TPC] || !mSrc[GID::Source::ITS]) {
     LOG(fatal) << "We cannot do ITSTPC QC, some sources are missing, check sources in " << mSrc;
   }
 
@@ -518,7 +512,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
   }
 
   static int evCount = 0;
-  mRecoCont.collectData(ctx, *mDataRequest.get());
+  mRecoCont.collectData(ctx, *mDataRequest);
   mTPCTracks = mRecoCont.getTPCTracks();
   mITSTracks = mRecoCont.getITSTracks();
   mITSTPCTracks = mRecoCont.getTPCITSTracks();
@@ -581,7 +575,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
       if (trk.getRefITS().getSource() != GID::ITS) {
         continue;
       }
-      if (isTPCTrackSelectedEntry[idxTrkTpc] == true) {
+      if (isTPCTrackSelectedEntry[idxTrkTpc]) {
         auto lbl = mRecoCont.getTrackMCLabel({(unsigned int)(itrk), GID::Source::ITSTPC});
         if (!lbl.isValid()) {
           continue;
@@ -592,9 +586,9 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
           const std::vector<o2::MCTrack>& pcontainer = mcReader.getTracks(source, event);
           const o2::MCTrack& p = pcontainer[lbl.getTrackID()];
           if (MCTrackNavigator::isPhysicalPrimary(p, pcontainer)) {
-            mMapLabels[matchType::TPC].insert({lbl, {itrk, true}});
+            mMapLabels[matchType::TPC].insert({lbl, {.mIdx = itrk, .mIsPhysicalPrimary = true}});
           } else {
-            mMapLabels[matchType::TPC].insert({lbl, {itrk, false}});
+            mMapLabels[matchType::TPC].insert({lbl, {.mIdx = itrk, .mIsPhysicalPrimary = false}});
           }
         } else {
           // winner (if more tracks have the same label) has the highest pt
@@ -604,7 +598,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
         }
       }
       auto idxTrkIts = trk.getRefITS().getIndex();
-      if (isITSTrackSelectedEntry[idxTrkIts] == true) {
+      if (isITSTrackSelectedEntry[idxTrkIts]) {
         auto lbl = mRecoCont.getTrackMCLabel({(unsigned int)(itrk), GID::Source::ITSTPC});
         if (!lbl.isValid()) {
           continue;
@@ -615,9 +609,9 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
           const std::vector<o2::MCTrack>& pcontainer = mcReader.getTracks(source, event);
           const o2::MCTrack& p = pcontainer[lbl.getTrackID()];
           if (MCTrackNavigator::isPhysicalPrimary(p, pcontainer)) {
-            mMapLabels[matchType::ITS].insert({lbl, {itrk, true}});
+            mMapLabels[matchType::ITS].insert({lbl, {.mIdx = itrk, .mIsPhysicalPrimary = true}});
           } else {
-            mMapLabels[matchType::ITS].insert({lbl, {itrk, false}});
+            mMapLabels[matchType::ITS].insert({lbl, {.mIdx = itrk, .mIsPhysicalPrimary = false}});
           }
         } else {
           // winner (if more tracks have the same label) has the highest pt
@@ -725,13 +719,13 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     std::array<std::string, 2> title{"TPC", "ITS"};
     for (int i = 0; i < matchType::SIZE; ++i) {
       o2::track::TrackParCov trkRef;
-      int idxTrkRef;
+      unsigned int idxTrkRef{0};
       bool fillHisto = false;
       bool isEtaITSOk = true;
       if (i == matchType::TPC) {
         trkRef = mTPCTracks[trk.getRefTPC()];
         idxTrkRef = trk.getRefTPC().getIndex();
-        if (isTPCTrackSelectedEntry[idxTrkRef] == true) {
+        if (isTPCTrackSelectedEntry[idxTrkRef]) {
           fillHisto = true;
           ++mNITSTPCSelectedTracks[i];
         }
@@ -747,7 +741,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
         }
         trkRef = mITSTracks[trk.getRefITS()];
         LOG(debug) << "Checking track (ITS) with id " << idxTrkRef << " for ITSTPC track " << iITSTPC << " and pt = " << trkRef.getPt();
-        if (isITSTrackSelectedEntry[idxTrkRef] == true) {
+        if (isITSTrackSelectedEntry[idxTrkRef]) {
           LOG(debug) << "Track was selected (ITS), with id " << idxTrkRef << " for ITSTPC track " << iITSTPC << " , we keep it in the numerator, pt = " << trkRef.getPt();
           fillHisto = true;
           ++mNITSTPCSelectedTracks[i];
@@ -760,7 +754,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
           LOG(debug) << "Track (ITS), with id " << idxTrkRef << " for ITSTPC track " << iITSTPC << " will be discarded when filling pt of phi related histograms, since eta = " << trkRef.getEta() << " , we don't keep it in the numerator, pt = " << trkRef.getPt();
         }
       }
-      if (fillHisto == true) {
+      if (fillHisto) {
         if (!mUseMC) {
           LOG(debug) << "Filling num (" << title[i] << ") with track with id " << idxTrkRef << " for ITSTPC track " << iITSTPC << " with pt = " << trkRef.getPt();
           if (isEtaITSOk) {
@@ -800,7 +794,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
           mChi2Refit->Fill(trk.getChi2Refit());
           mTimeResVsPt->Fill(trkRef.getPt(), trk.getTimeMUS().getTimeStampError());
           math_utils::Point3D<float> v{};
-          std::array<float, 2> dca;
+          std::array<float, 2> dca{-999, -999};
           if (trkRef.propagateParamToDCA(v, mBz, &dca)) {
             mDCAr->Fill(dca[0]);
             if (!mUseMC) {
@@ -825,7 +819,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     // track with the highest number of TPC clusters
     for (int itrk = 0; itrk < static_cast<int>(mTPCTracks.size()); ++itrk) {
       auto const& trk = mTPCTracks[itrk];
-      if (isTPCTrackSelectedEntry[itrk] == true) {
+      if (isTPCTrackSelectedEntry[itrk]) {
         auto lbl = mRecoCont.getTrackMCLabel({(unsigned int)(itrk), GID::Source::TPC});
         if (!lbl.isValid()) {
           continue;
@@ -857,7 +851,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     // track with the highest number of ITS clusters
     for (int itrk = 0; itrk < static_cast<int>(mITSTracks.size()); ++itrk) {
       auto const& trk = mITSTracks[itrk];
-      if (isITSTrackSelectedEntry[itrk] == true) {
+      if (isITSTrackSelectedEntry[itrk]) {
         auto lbl = mRecoCont.getTrackMCLabel({(unsigned int)(itrk), GID::Source::ITS});
         if (!lbl.isValid()) {
           continue;
@@ -945,7 +939,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     // if we are in data, we loop over all tracks (no check on the label)
     for (size_t itrk = 0; itrk < mTPCTracks.size(); ++itrk) {
       auto const& trk = mTPCTracks[itrk];
-      if (isTPCTrackSelectedEntry[itrk] == true) {
+      if (isTPCTrackSelectedEntry[itrk]) {
         LOG(debug) << "Filling den (TPC) with track with pt = " << trk.getPt();
         mPtDen[matchType::TPC]->Fill(trk.getPt());
         if (std::abs(trk.getEta()) > mEtaNo0Cut) {
@@ -972,7 +966,7 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     for (size_t itrk = 0; itrk < mITSTracks.size(); ++itrk) {
       auto const& trk = mITSTracks[itrk];
       LOG(debug) << "Checking den for track (ITS) " << itrk << " with pt " << trk.getPt() << " and eta = " << trk.getEta();
-      if (isITSTrackSelectedEntry[itrk] == true) {
+      if (isITSTrackSelectedEntry[itrk]) {
         if (std::abs(trk.getEta()) < mEtaITSCut) {
           LOG(debug) << "Filling den for track (ITS) " << itrk << " with pt = " << trk.getPt() << " and eta = " << trk.getEta();
           mPtDen[matchType::ITS]->Fill(trk.getPt());
@@ -1427,4 +1421,31 @@ void MatchITSTPCQC::getHistos(TObjArray& objar)
   // V0
   objar.Add(mK0MassVsPtVsOccpp);
   objar.Add(mK0MassVsPtVsOccPbPb);
+}
+
+void MatchITSTPCQC::printParams() const
+{
+  LOG(info) << "MatchITSTPCQC parameters:";
+  LOG(info) << " - minPtBins            = " << mPtBins;
+  LOG(info) << " - minPtITSCut          = " << mPtITSCut;
+  LOG(info) << " - etaITSCut            = " << mEtaITSCut;
+  LOG(info) << " - minNITSClustersCut   = " << mMinNClustersITS;
+  LOG(info) << " - maxChi2PerClusterITS = " << mMaxChi2PerClusterITS;
+  LOG(info) << " - minPtTPCCut          = " << mPtTPCCut;
+  LOG(info) << " - etaTPCCut            = " << mEtaTPCCut;
+  LOG(info) << " - minNTPCClustersCut   = " << mNTPCClustersCut;
+  LOG(info) << " - mEtaNo0Cut           = " << mEtaNo0Cut;
+  LOG(info) << " - minDCACut            = " << mDCATPCCut;
+  LOG(info) << " - minDCACutY           = " << mDCATPCCutY;
+  LOG(info) << " - minPtCut             = " << mPtCut;
+  LOG(info) << " - maxPtCut             = " << mPtMaxCut;
+  LOG(info) << " - etaCut               = " << mEtaCut;
+  LOG(info) << " - cutK0Mass            = " << mCutK0Mass;
+  LOG(info) << " - maxEtaK0             = " << mMaxEtaK0;
+  LOG(info) << " - minTPCOccpp          = " << mMinTPCOccpp;
+  LOG(info) << " - maxTPCOccpp          = " << mMaxTPCOccpp;
+  LOG(info) << " - nBinsTPCOccpp        = " << mNBinsTPCOccpp;
+  LOG(info) << " - minTPCOccPbPb        = " << mMinTPCOccPbPb;
+  LOG(info) << " - maxTPCOccPbPb        = " << mMaxTPCOccPbPb;
+  LOG(info) << " - nBinsTPCOccPbPb      = " << mNBinsTPCOccPbPb;
 }
