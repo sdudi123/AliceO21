@@ -1147,13 +1147,7 @@ struct TableIterator : IP, C... {
   template <typename... CL, typename TA>
   void doSetCurrentIndex(framework::pack<CL...>, TA* current)
   {
-    (framework::overloaded{
-      [&current, this]<is_index_column CI>
-        requires(!is_self_index_column<CI>)
-      () { CI::setCurrent(current); },
-      []<typename CI>() {}}
-        .template operator()<CL>(),
-      ...);
+    (doSetCurrentIndexImpl<CL>(current), ...);
   }
 
   template <typename CL>
@@ -1166,15 +1160,7 @@ struct TableIterator : IP, C... {
   auto getIndexBindingsImpl(framework::pack<Cs...>) const
   {
     std::vector<o2::soa::Binding> result;
-    (framework::overloaded{
-      [this, &result]<is_index_column CI>
-        requires(!is_self_index_column<CI>)
-      () mutable {
-        result.emplace_back(CI::getCurrentRaw());
-      },
-      []<typename CI>() {}}
-        .template operator()<Cs>(),
-      ...);
+    (doGetIndexBindingImpl<Cs>(result), ...);
     return result;
   }
 
@@ -1190,15 +1176,9 @@ struct TableIterator : IP, C... {
   }
 
   template <typename... Cs>
-  void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& ptrs)
+  void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& bindings)
   {
-    (framework::overloaded{
-      [&ptrs, p, this]<is_self_index_column CI>
-        requires(!is_self_index_column<CI>)
-      () { CI::setCurrentRaw(ptrs[framework::has_type_at_v<CI>(p)]); },
-      []<typename CI>() {}}
-        .template operator()<Cs>(),
-      ...);
+    (doSetCurrentIndexRawImpl<Cs>(bindings[framework::has_type_at_v<Cs>(p)]), ...);
   }
 
   template <typename... Cs, typename I>
@@ -1206,16 +1186,12 @@ struct TableIterator : IP, C... {
   {
     o2::soa::Binding b;
     b.bind(ptr);
-    (framework::overloaded{
-       [&ptr, &b, this]<is_self_index_column CI>() { CI::setCurrentRaw(b); },
-       []<typename CI>() {}}
-       .template operator()<Cs>(),
-     ...);
+    (doSetCurrentInternalImpl<Cs>(b), ...);
   }
 
-  void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
+  void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& bindings)
   {
-    doSetCurrentIndexRaw(all_columns{}, std::forward<std::vector<o2::soa::Binding>>(ptrs));
+    doSetCurrentIndexRaw(all_columns{}, std::forward<std::vector<o2::soa::Binding>>(bindings));
   }
 
   template <typename I>
@@ -1225,6 +1201,78 @@ struct TableIterator : IP, C... {
   }
 
  private:
+  /// Overloaded helpers for index manipulations
+  template <soa::is_index_column CL, typename TA>
+    requires(!soa::is_self_index_column<CL>)
+  void doSetCurrentIndexImpl(TA* current)
+  {
+    CL::setCurrent(current);
+  }
+
+  template <soa::is_column CL, typename TA>
+    requires(!soa::is_index_column<CL>)
+  void doSetCurrentIndexImpl(TA*)
+  {
+  }
+
+  template <soa::is_index_column CL>
+    requires(!soa::is_self_index_column<CL>)
+  auto doGetIndexBindingImpl(std::vector<o2::soa::Binding>& bindings) const
+  {
+    bindings.emplace_back(CL::getCurrentRaw());
+  }
+
+  template <soa::is_column CL>
+    requires(!soa::is_index_column<CL>)
+  auto doGetIndexBindingImpl(std::vector<o2::soa::Binding>& bindings) const
+  {
+    bindings.emplace_back();
+  }
+
+  template <soa::is_index_column CL>
+    requires(!soa::is_self_index_column<CL>)
+  void doSetCurrentIndexRawImpl(o2::soa::Binding const& b)
+  {
+    CL::setCurrentRaw(b);
+  }
+
+  template <soa::is_column CL>
+    requires(!soa::is_index_column<CL>)
+  void doSetCurrentIndexRawImpl(o2::soa::Binding const&)
+  {
+  }
+
+  template <soa::is_self_index_column CL>
+  void doSetCurrentInternalImpl(o2::soa::Binding const& b)
+  {
+    CL::setCurrentRaw(b);
+  }
+
+  template <soa::is_column CL>
+    requires(!soa::is_self_index_column<CL>)
+  void doSetCurrentInternalImpl(o2::soa::Binding const&)
+  {
+  }
+
+  ///Overloaded helpers for column binding
+  template <soa::is_persistent_column CL>
+  void doBind()
+  {
+    CL::mColumnIterator.mCurrentPos = &this->mRowIndex;
+  }
+
+  template <soa::is_dynamic_column CL>
+  void doBind()
+  {
+    bindDynamicColumn<CL>(typename CL::bindings_t{});
+  }
+
+  template <soa::is_column CL>
+    requires(!soa::is_persistent_column<CL> && !soa::is_dynamic_column<CL>)
+  void doBind()
+  {
+  }
+
   /// Helper to move at the end of columns which actually have an iterator.
   template <typename... PC>
   void doMoveToEnd(framework::pack<PC...>)
@@ -1237,12 +1285,7 @@ struct TableIterator : IP, C... {
   void bind()
   {
     using namespace o2::soa;
-    auto f = framework::overloaded{
-      [this]<soa::is_persistent_column T>(T*) -> void { T::mColumnIterator.mCurrentPos = &this->mRowIndex; },
-      [this]<soa::is_dynamic_column T>(T*) -> void { bindDynamicColumn<T>(typename T::bindings_t{}); },
-      [this]<typename T>(T*) -> void {},
-    };
-    (f(static_cast<C*>(nullptr)), ...);
+    (doBind<C>(), ...);
     if constexpr (has_index<C...>) {
       this->setIndices(this->getIndices());
       this->setOffsets(this->getOffsets());
@@ -1402,28 +1445,44 @@ static constexpr std::string getLabelFromTypeForKey(std::string const& key)
   O2_BUILTIN_UNREACHABLE();
 }
 
+template <soa::is_index_column CL, typename B>
+  requires(!soa::is_self_index_column<CL>)
+consteval static bool hasIndexToImpl()
+{
+  return o2::soa::is_binding_compatible_v<B, typename CL::binding_t>();
+}
+
+template <soa::is_column CL, typename B>
+  requires(!soa::is_index_column<CL>)
+consteval static bool hasIndexToImpl()
+{
+  return false;
+}
+
 template <typename B, typename... C>
 consteval static bool hasIndexTo(framework::pack<C...>&&)
 {
-  return (framework::overloaded{
-    []<is_index_column CI>
-      requires(!is_self_index_column<CI>)
-    () { return o2::soa::is_binding_compatible_v<B, typename CI::binding_t>(); },
-    []<typename CI>() { return false; }}
-      .template operator()<C>() ||
-    ...);
+  return (hasIndexToImpl<C, B>() || ...);
+}
+
+template <soa::is_index_column CL, typename B>
+  requires(!soa::is_self_index_column<CL>)
+consteval static bool hasSortedIndexToImpl()
+{
+  return CL::sorted && o2::soa::is_binding_compatible_v<B, typename CL::binding_t>();
+}
+
+template <soa::is_column CL, typename B>
+  requires(!soa::is_index_column<CL>)
+consteval static bool hasSortedIndexToImpl()
+{
+  return false;
 }
 
 template <typename B, typename... C>
 consteval static bool hasSortedIndexTo(framework::pack<C...>&&)
 {
-  return (framework::overloaded{
-    []<is_index_column CI>
-      requires(!is_self_index_column<CI>)
-    () { return (CI::sorted && o2::soa::is_binding_compatible_v<B, typename CI::binding_t>()); },
-    []<typename CI>() {}}
-      .template operator()<C>() ||
-    ...);
+  return (hasSortedIndexToImpl<C, B>() || ...);
 }
 
 template <typename B, typename Z>
@@ -2090,14 +2149,22 @@ class Table
     doBindInternalIndicesExplicit(columns_t{}, binding);
   }
 
+  template <soa::is_self_index_column CL>
+  void doBindInternalIndicesExplicitImpl(o2::soa::Binding binding)
+  {
+    static_cast<CL>(mBegin).setCurrentRaw(binding);
+  }
+
+  template <soa::is_column CL>
+    requires(!soa::is_self_index_column<CL>)
+  void doBindInternalIndicesExplicitImpl(o2::soa::Binding)
+  {
+  }
+
   template <typename... Cs>
   void doBindInternalIndicesExplicit(framework::pack<Cs...>, o2::soa::Binding binding)
   {
-    (framework::overloaded{
-       [this, &binding]<is_self_index_column CI>() { static_cast<CI>(mBegin).setCurrentRaw(binding); },
-       []<typename CI>() {}}
-       .template operator()<Cs>(),
-     ...);
+    (doBindInternalIndicesExplicitImpl<Cs>(binding), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& ptrs)
