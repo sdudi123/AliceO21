@@ -1254,7 +1254,7 @@ struct TableIterator : IP, C... {
   {
   }
 
-  ///Overloaded helpers for column binding
+  /// Overloaded helpers for column binding
   template <soa::is_persistent_column CL>
   void doBind()
   {
