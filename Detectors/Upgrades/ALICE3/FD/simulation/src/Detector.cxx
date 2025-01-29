@@ -365,8 +365,10 @@ void Detector::defineSensitiveVolumes()
 int Detector::getChannelId(TVector3 vec)
 {
   float phi = vec.Phi();
-  if (phi < 0)
+  if (phi < 0) {
     phi += TMath::TwoPi();
+  }
+
   float r = vec.Perp();
   float z = vec.Z();
 
@@ -378,10 +380,12 @@ int Detector::getChannelId(TVector3 vec)
   int ir = 0;
 
   for (int i = 1; i < rd.size(); i++) {
-    if (r < rd[i])
+    if (r < rd[i]) {
       break;
-    else
+    }
+    else {
       ir++;
+    }
   }
 
   return ir * mNumberOfSectors + isect + noff;

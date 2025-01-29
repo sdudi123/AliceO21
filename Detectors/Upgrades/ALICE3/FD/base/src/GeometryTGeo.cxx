@@ -34,7 +34,7 @@ GeometryTGeo::GeometryTGeo(bool build, int loadTrans) : DetMatrixCache()
   }
 }
 
-GeometryTGeo::~GeometryTGeo() {}
+GeometryTGeo::~GeometryTGeo() = default;
 
 GeometryTGeo* GeometryTGeo::Instance()
 {
