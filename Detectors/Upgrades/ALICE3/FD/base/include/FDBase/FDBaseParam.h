@@ -22,12 +22,11 @@ namespace fd
 {
 struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
 
-  float ringsA[Constants::nringsA + 1] = {3., 14.8, 26.6, 38.4, 50.2, 62.};
-  float ringsC[Constants::nringsC + 1] = {3.5, 14.75, 26.0, 37.25, 48.5, 59.75, 71.};
+  float zmodA = 1700.0f;
+  float zmodC = -1950.0f;
+  float dzscint = 4.0f;
 
-  float zmodA = 1700;
-  float zmodC = -1950;
-  float dzscint = 4.;
+  bool withFCT = true;
 
   O2ParamDef(FDBaseParam, "FDBase");
 };

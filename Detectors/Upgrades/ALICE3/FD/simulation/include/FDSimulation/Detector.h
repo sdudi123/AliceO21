@@ -98,6 +98,8 @@ class Detector : public o2::base::DetImpl<Detector>
   TGeoVolumeAssembly* buildModuleA();
   TGeoVolumeAssembly* buildModuleC();
 
+  float ringRadius(float zmod, float eta);
+
   int mNumberOfSectors;
   int mNumberOfRingsA;
   int mNumberOfRingsC;
@@ -106,6 +108,7 @@ class Detector : public o2::base::DetImpl<Detector>
   std::vector<float> mRingRadiiA = {};
   std::vector<float> mRingRadiiC = {};
 
+  float mEtaMax, mEtaMin, mEtaMinA;
   float mZmodA;
   float mZmodC;
 

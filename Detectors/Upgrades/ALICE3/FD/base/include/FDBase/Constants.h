@@ -25,6 +25,12 @@ struct Constants {
   static constexpr int nsect = 8;
   static constexpr int nringsA = 5;
   static constexpr int nringsC = 6;
+
+  static constexpr float etaMax = 7.0f;
+  static constexpr float etaMin = 4.0f;
+
+  static constexpr int nringsA_withFCT = 4;
+  static constexpr float etaMinA_withFCT = 5.0f;
 };
 
 } // namespace fd

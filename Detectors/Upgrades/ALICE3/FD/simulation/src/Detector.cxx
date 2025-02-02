@@ -55,23 +55,37 @@ Detector::Detector(bool active)
     mGeometryTGeo(nullptr),
     mTrackData()
 {
-  mNumberOfRingsA = Constants::nringsA;
   mNumberOfRingsC = Constants::nringsC;
   mNumberOfSectors = Constants::nsect;
 
+  mEtaMax = Constants::etaMax;
+  mEtaMin = Constants::etaMin;
+
   auto& baseParam = FDBaseParam::Instance();
 
+  if (baseParam.withFCT) {
+    mNumberOfRingsA = Constants::nringsA_withFCT;
+    mEtaMinA = Constants::etaMinA_withFCT;
+  } else {
+    mNumberOfRingsA = Constants::nringsA;
+    mEtaMinA = mEtaMin;
+  }
+
   mDzScint = baseParam.dzscint / 2;
-
-  for (int i = 0; i <= mNumberOfRingsA + 1; i++) {
-    mRingRadiiA.emplace_back(baseParam.ringsA[i]);
-  }
-  for (int i = 0; i <= mNumberOfRingsC + 1; i++) {
-    mRingRadiiC.emplace_back(baseParam.ringsC[i]);
-  }
-
   mZmodA = baseParam.zmodA;
   mZmodC = baseParam.zmodC;
+
+  for (int i = 0; i <= mNumberOfRingsA + 1; i++) {
+    float eta = mEtaMax - i * (mEtaMax - mEtaMinA) / mNumberOfRingsA;
+    float r = ringRadius(mZmodA, eta);
+    mRingRadiiA.emplace_back(r);
+  }
+
+  for (int i = 0; i <= mNumberOfRingsC + 1; i++) {
+    float eta = -mEtaMax + i * (mEtaMax - mEtaMin) / mNumberOfRingsC;
+    float r = ringRadius(mZmodC, eta);
+    mRingRadiiC.emplace_back(r);
+  }
 }
 
 Detector::Detector(const Detector& rhs)
@@ -297,11 +311,12 @@ TGeoVolumeAssembly* Detector::buildModuleA()
   for (int ir = 0; ir < mNumberOfRingsA; ir++) {
     std::string rName = "fd_ring" + std::to_string(ir + 1);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
+    float rmin = mRingRadiiA[ir];
+    float rmax = mRingRadiiA[ir + 1];
+    LOG(info) << "ring" << ir << ": from " << rmin << " to " << rmax;
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * ir;
       std::string nodeName = "fd_node" + std::to_string(cellId);
-      float rmin = mRingRadiiA[ir];
-      float rmax = mRingRadiiA[ir + 1];
       float phimin = dphiDeg * ic;
       float phimax = dphiDeg * (ic + 1);
       auto tbs = new TGeoTubeSeg("tbs", rmin, rmax, mDzScint, phimin, phimax);
@@ -326,11 +341,12 @@ TGeoVolumeAssembly* Detector::buildModuleC()
   for (int ir = 0; ir < mNumberOfRingsC; ir++) {
     std::string rName = "fd_ring" + std::to_string(ir + 1 + mNumberOfRingsA);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
+    float rmin = mRingRadiiC[ir];
+    float rmax = mRingRadiiC[ir + 1];
+    LOG(info) << "ring" << ir + mNumberOfRingsA << ": from " << rmin << " to " << rmax;
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * (ir + mNumberOfRingsA);
       std::string nodeName = "fd_node" + std::to_string(cellId);
-      float rmin = mRingRadiiC[ir];
-      float rmax = mRingRadiiC[ir + 1];
       float phimin = dphiDeg * ic;
       float phimax = dphiDeg * (ic + 1);
       auto tbs = new TGeoTubeSeg("tbs", rmin, rmax, mDzScint, phimin, phimax);
@@ -353,6 +369,8 @@ void Detector::defineSensitiveVolumes()
 
   int nCellA = mNumberOfRingsA * mNumberOfSectors;
   int nCellC = mNumberOfRingsC * mNumberOfSectors;
+
+  LOG(info) << "number of A rings = " << mNumberOfRingsA << " number of cells = " << nCellA;
 
   for (int iv = 0; iv < nCellA + nCellC; iv++) {
     volumeName = "fd_node" + std::to_string(iv);
@@ -388,6 +406,11 @@ int Detector::getChannelId(TVector3 vec)
   }
 
   return ir * mNumberOfSectors + isect + noff;
+}
+
+float Detector::ringRadius(float z, float eta)
+{
+  return z * TMath::Tan(2 * TMath::ATan(TMath::Exp(-eta)));
 }
 
 ClassImp(o2::fd::Detector);
