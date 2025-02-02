@@ -22,7 +22,7 @@
 #include "utils/strtag.h"
 #include <fstream>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 int32_t GPUChainTracking::GlobalTracking(uint32_t iSlice, int32_t threadId, bool synchronizeOutput)
 {
@@ -83,11 +83,9 @@ int32_t GPUChainTracking::RunTPCTrackingSlices_internal()
     int32_t offset = 0;
     for (uint32_t i = 0; i < NSLICES; i++) {
       processors()->tpcTrackers[i].Data().SetClusterData(mIOPtrs.clusterData[i], mIOPtrs.nClusterData[i], offset);
-#ifdef GPUCA_HAVE_O2HEADERS
       if (doGPU && GetRecoSteps().isSet(RecoStep::TPCConversion)) {
         processorsShadow()->tpcTrackers[i].Data().SetClusterData(processorsShadow()->tpcConverter.mClusters + processors()->tpcTrackers[i].Data().ClusterIdOffset(), processors()->tpcTrackers[i].NHitsTotal(), processors()->tpcTrackers[i].Data().ClusterIdOffset());
       }
-#endif
       offset += mIOPtrs.nClusterData[i];
     }
     mRec->MemoryScalers()->nTPCHits = offset;
