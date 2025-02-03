@@ -29,7 +29,7 @@ struct Constants {
   static constexpr float etaMax = 7.0f;
   static constexpr float etaMin = 4.0f;
 
-  static constexpr int nringsA_withFCT = 4;
+  static constexpr int nringsA_withFCT = 3;
   static constexpr float etaMinA_withFCT = 5.0f;
 };
 
