@@ -9,11 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_PASSIVE_PIPE_H
-#define ALICEO2_PASSIVE_PIPE_H
+#ifndef ALICEO2_PASSIVE_PIPERUN4_H
+#define ALICEO2_PASSIVE_PIPERUN4_H
 
 #include "DetectorsPassive/PassiveBase.h"
-#include "Rtypes.h"     // for Pipe::Class, ClassDef, Pipe::Streamer
+#include "Rtypes.h" // for PipeRun4::Class, ClassDef, PipeRun4::Streamer
 
 class TGeoPcon;
 
@@ -21,13 +21,13 @@ namespace o2
 {
 namespace passive
 {
-class Pipe : public PassiveBase
+class PipeRun4 : public PassiveBase
 {
  public:
-  Pipe(const char* name, const char* Title = "Alice Pipe", float rho = 0.f, float thick = 0.f);
-  Pipe();
+  PipeRun4(const char* name, const char* Title = "Alice Pipe", float rho = 0.f, float thick = 0.f);
+  PipeRun4();
 
-  ~Pipe() override;
+  ~PipeRun4() override;
   void ConstructGeometry() override;
 
   /// Clone this object (used in MT mode only)
@@ -40,22 +40,24 @@ class Pipe : public PassiveBase
 
  private:
   void createMaterials();
-  Pipe(const Pipe& orig);
-  Pipe& operator=(const Pipe&);
+  PipeRun4(const PipeRun4& orig);
+  PipeRun4& operator=(const PipeRun4&);
 
-  TGeoPcon* MakeMotherFromTemplate(const TGeoPcon* shape, Int_t imin = -1, Int_t imax = -1, Float_t r0 = 0.,
-                                   Int_t nz = -1);
-  TGeoPcon* MakeInsulationFromTemplate(TGeoPcon* shape);
-  TGeoVolume* MakeBellow(const char* ext, Int_t nc, Float_t rMin, Float_t rMax, Float_t dU, Float_t rPlie,
-                         Float_t dPlie);
-  TGeoVolume* MakeBellowCside(const char* ext, Int_t nc, Float_t rMin, Float_t rMax, Float_t rPlie, Float_t dPlie);
+  TGeoPcon* makeMotherFromTemplate(const TGeoPcon* shape, int imin = -1, int imax = -1, float r0 = 0.,
+                                   int nz = -1);
+  TGeoPcon* makeInsulationFromTemplate(TGeoPcon* shape);
+  TGeoVolume* makeBellow(const char* ext, int nc, float rMin, float rMax, float dU, float rPlie,
+                         float dPlie);
+  TGeoVolume* makeBellowCside(const char* ext, int nc, float rMin, float rMax, float rPlie, float dPlie);
+
+  TGeoVolume* makeSupportBar(const char* tag, float Rin, float Rout, float length, float skinLength);
 
   float mBePipeRmax = 0.;  // outer diameter of the Be section
   float mBePipeThick = 0.; // Be section thickness
   float mIpHLength = 0.;   // half length of the beampipe around the IP // FixMe: up to now, hardcoded to 57.25cm
 
-  ClassDefOverride(Pipe, 1);
+  ClassDefOverride(PipeRun4, 1);
 };
 } // namespace passive
 } // namespace o2
-#endif // PIPE_H
+#endif // ALICEO2_PASSIVE_PIPERUN4_H
