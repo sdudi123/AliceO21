@@ -2821,7 +2821,8 @@ consteval auto getIndexTargets()
     o2::soa::Binding getCurrentRaw() const { return mBinding; }                                            \
     o2::soa::Binding mBinding;                                                                             \
 >>>>>>> d058635d65 (DPL Analysis: reduce amount of base types for columns)
-  };
+}
+;
 
 #define DECLARE_SOA_ARRAY_INDEX_COLUMN_FULL(_Name_, _Getter_, _Type_, _Table_, _Suffix_) DECLARE_SOA_ARRAY_INDEX_COLUMN_FULL_CUSTOM(_Name_, _Getter_, _Type_, _Table_, #_Table_, _Suffix_)
 #define DECLARE_SOA_ARRAY_INDEX_COLUMN(_Name_, _Getter_) DECLARE_SOA_ARRAY_INDEX_COLUMN_FULL(_Name_, _Getter_, int32_t, _Name_##s, "")
@@ -3032,77 +3033,77 @@ consteval auto getIndexTargets()
 #define DECLARE_SOA_SELF_SLICE_INDEX_COLUMN_FULL(_Name_, _Getter_, _Type_, _Label_) DECLARE_SOA_SELF_SLICE_INDEX_COLUMN_COMPLETE(_Name_, _Getter_, _Type_, _Label_, void)
 #define DECLARE_SOA_SELF_SLICE_INDEX_COLUMN(_Name_, _Getter_) DECLARE_SOA_SELF_SLICE_INDEX_COLUMN_FULL(_Name_, _Getter_, int32_t, "_" #_Name_)
 /// SELF ARRAY
-#define DECLARE_SOA_SELF_ARRAY_INDEX_COLUMN_COMPLETE(_Name_, _Getter_, _Type_, _Label_, _IndexTarget_)             \
-  struct _Name_##Ids : o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids> {                               \
-    static_assert(std::is_integral_v<_Type_>, "Index type must be integral");                                      \
-    static constexpr const char* mLabel = "fIndexArray" _Label_;                                                   \
-    using base = o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids>;                                      \
-    using type = std::vector<_Type_>;                                                                              \
-    using column_t = _Name_##Ids;                                                                                  \
-    using self_index_t = std::true_type;                                                                           \
-    using compatible_signature = std::conditional<aod::is_aod_hash<_IndexTarget_>, _IndexTarget_, void>;           \
-    _Name_##Ids(arrow::ChunkedArray const* column)                                                                 \
-      : o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids>(o2::soa::ColumnIterator<type>(column))         \
-    {                                                                                                              \
-    }                                                                                                              \
-                                                                                                                   \
-    _Name_##Ids() = default;                                                                                       \
-    _Name_##Ids(_Name_##Ids const& other) = default;                                                               \
-    _Name_##Ids& operator=(_Name_##Ids const& other) = default;                                                    \
-    gsl::span<const _Type_> inline getIds() const                                                                  \
-    {                                                                                                              \
-      return _Getter_##Ids();                                                                                      \
-    }                                                                                                              \
-                                                                                                                   \
-    gsl::span<const _Type_> _Getter_##Ids() const                                                                  \
-    {                                                                                                              \
-      return *mColumnIterator;                                                                                     \
-    }                                                                                                              \
-                                                                                                                   \
-    bool has_##_Getter_() const                                                                                    \
-    {                                                                                                              \
-      return !(*mColumnIterator).empty();                                                                          \
-    }                                                                                                              \
-                                                                                                                   \
-    template <typename T>                                                                                          \
-    auto _Getter_##_as() const                                                                                     \
-    {                                                                                                              \
-      auto t = mBinding.get<T>();                                                                                  \
-      if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                                     \
-        o2::soa::dereferenceWithWrongType(#_Getter_, "self");                                                      \
-      }                                                                                                            \
-      return getIterators<T>();                                                                                    \
-    }                                                                                                              \
-                                                                                                                   \
-    template <typename T>                                                                                          \
-    auto getIterators() const                                                                                      \
-    {                                                                                                              \
-      auto result = std::vector<typename T::unfiltered_iterator>();                                                \
-      for (auto& i : *mColumnIterator) {                                                                           \
-        result.push_back(mBinding.get<T>()->rawIteratorAt(i));                                                     \
-      }                                                                                                            \
-      return result;                                                                                               \
-    }                                                                                                              \
-                                                                                                                   \
-    template <typename T>                                                                                          \
-    auto _Getter_##_first_as() const                                                                               \
-    {                                                                                                              \
-      return mBinding.get<T>()->rawIteratorAt((*mColumnIterator)[0]);                                              \
-    }                                                                                                              \
-                                                                                                                   \
-    template <typename T>                                                                                          \
-    auto _Getter_##_last_as() const                                                                                \
-    {                                                                                                              \
-      return mBinding.get<T>()->rawIteratorAt((*mColumnIterator).back());                                          \
-    }                                                                                                              \
-                                                                                                                   \
-    bool setCurrentRaw(o2::soa::Binding current)                                                                   \
-    {                                                                                                              \
-      this->mBinding = current;                                                                                    \
-      return true;                                                                                                 \
-    }                                                                                                              \
-    o2::soa::Binding getCurrentRaw() const { return mBinding; }                                                    \
-    o2::soa::Binding mBinding;                                                                                     \
+#define DECLARE_SOA_SELF_ARRAY_INDEX_COLUMN_COMPLETE(_Name_, _Getter_, _Type_, _Label_, _IndexTarget_)     \
+  struct _Name_##Ids : o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids> {                       \
+    static_assert(std::is_integral_v<_Type_>, "Index type must be integral");                              \
+    static constexpr const char* mLabel = "fIndexArray" _Label_;                                           \
+    using base = o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids>;                              \
+    using type = std::vector<_Type_>;                                                                      \
+    using column_t = _Name_##Ids;                                                                          \
+    using self_index_t = std::true_type;                                                                   \
+    using compatible_signature = std::conditional<aod::is_aod_hash<_IndexTarget_>, _IndexTarget_, void>;   \
+    _Name_##Ids(arrow::ChunkedArray const* column)                                                         \
+      : o2::soa::PersistentColumn<std::vector<_Type_>, _Name_##Ids>(o2::soa::ColumnIterator<type>(column)) \
+    {                                                                                                      \
+    }                                                                                                      \
+                                                                                                           \
+    _Name_##Ids() = default;                                                                               \
+    _Name_##Ids(_Name_##Ids const& other) = default;                                                       \
+    _Name_##Ids& operator=(_Name_##Ids const& other) = default;                                            \
+    gsl::span<const _Type_> inline getIds() const                                                          \
+    {                                                                                                      \
+      return _Getter_##Ids();                                                                              \
+    }                                                                                                      \
+                                                                                                           \
+    gsl::span<const _Type_> _Getter_##Ids() const                                                          \
+    {                                                                                                      \
+      return *mColumnIterator;                                                                             \
+    }                                                                                                      \
+                                                                                                           \
+    bool has_##_Getter_() const                                                                            \
+    {                                                                                                      \
+      return !(*mColumnIterator).empty();                                                                  \
+    }                                                                                                      \
+                                                                                                           \
+    template <typename T>                                                                                  \
+    auto _Getter_##_as() const                                                                             \
+    {                                                                                                      \
+      auto t = mBinding.get<T>();                                                                          \
+      if (O2_BUILTIN_UNLIKELY(t == nullptr)) {                                                             \
+        o2::soa::dereferenceWithWrongType(#_Getter_, "self");                                              \
+      }                                                                                                    \
+      return getIterators<T>();                                                                            \
+    }                                                                                                      \
+                                                                                                           \
+    template <typename T>                                                                                  \
+    auto getIterators() const                                                                              \
+    {                                                                                                      \
+      auto result = std::vector<typename T::unfiltered_iterator>();                                        \
+      for (auto& i : *mColumnIterator) {                                                                   \
+        result.push_back(mBinding.get<T>()->rawIteratorAt(i));                                             \
+      }                                                                                                    \
+      return result;                                                                                       \
+    }                                                                                                      \
+                                                                                                           \
+    template <typename T>                                                                                  \
+    auto _Getter_##_first_as() const                                                                       \
+    {                                                                                                      \
+      return mBinding.get<T>()->rawIteratorAt((*mColumnIterator)[0]);                                      \
+    }                                                                                                      \
+                                                                                                           \
+    template <typename T>                                                                                  \
+    auto _Getter_##_last_as() const                                                                        \
+    {                                                                                                      \
+      return mBinding.get<T>()->rawIteratorAt((*mColumnIterator).back());                                  \
+    }                                                                                                      \
+                                                                                                           \
+    bool setCurrentRaw(o2::soa::Binding current)                                                           \
+    {                                                                                                      \
+      this->mBinding = current;                                                                            \
+      return true;                                                                                         \
+    }                                                                                                      \
+    o2::soa::Binding getCurrentRaw() const { return mBinding; }                                            \
+    o2::soa::Binding mBinding;                                                                             \
   };
 
 #define DECLARE_SOA_SELF_ARRAY_INDEX_COLUMN_FULL(_Name_, _Getter_, _Type_, _Label_) DECLARE_SOA_SELF_ARRAY_INDEX_COLUMN_COMPLETE(_Name_, _Getter_, _Type_, _Label_, void)
