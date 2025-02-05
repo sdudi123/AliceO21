@@ -698,17 +698,28 @@ namespace o2::soa
 template <soa::is_table T, soa::is_spawnable_column... Cs>
 auto Extend(T const& table)
 {
-  using output_t = Join<T, soa::Table<o2::aod::Hash<"JOIN"_h>, o2::aod::Hash<"JOIN/0"_h>, o2::aod::Hash<"JOIN"_h>, Cs...>>;
+  using output_t = Join<T, soa::Table<o2::aod::Hash<"EXT"_h>, o2::aod::Hash<"EXT/0"_h>, o2::aod::Hash<"EXT"_h>, Cs...>>;
   return output_t{{o2::framework::spawner(framework::pack<Cs...>{}, {table.asArrowTable()}, "dynamicExtension"), table.asArrowTable()}, 0};
 }
 
 /// Template function to attach dynamic columns on-the-fly (e.g. inside
 /// process() function). Dynamic columns need to be compatible with the table.
 template <soa::is_table T, soa::is_dynamic_column... Cs>
+  requires(!soa::is_filtered_table<T>)
 auto Attach(T const& table)
 {
-  using output_t = Join<T, o2::soa::Table<o2::aod::Hash<"JOIN"_h>, o2::aod::Hash<"JOIN/0"_h>, o2::aod::Hash<"JOIN"_h>, Cs...>>;
+  using output_t = Join<T, o2::soa::Table<o2::aod::Hash<"ATT"_h>, o2::aod::Hash<"ATT/0"_h>, o2::aod::Hash<"ATT"_h>, Cs...>>;
   return output_t{{table.asArrowTable()}, table.offset()};
+}
+
+template <soa::is_filtered_table T, soa::is_dynamic_column... Cs>
+auto Attach(T const& table)
+{
+  using output_t = soa::Filtered<soa::Join<typename T::table_t, o2::soa::Table<o2::aod::Hash<"ATT"_h>, o2::aod::Hash<"ATT/0"_h>, o2::aod::Hash<"ATT"_h>, Cs...>>>;
+  SelectionVector selection;
+  selection.reserve(table->getSelectedRows().size());
+  std::copy(table->getSelectedRows().begin(), table->getSelectedRows().end(), std::back_inserter(selection));
+  return output_t{{table.asArrowTable()}, std::move(selection), table.offset()};
 }
 }  // namespace o2::soa
 

@@ -2283,6 +2283,10 @@ O2ORIGIN("CONC");
 O2HASH("CONC/0");
 O2ORIGIN("TEST");
 O2HASH("TEST/0");
+O2HASH("ATT/0");
+O2ORIGIN("ATT");
+O2HASH("EXT/0");
+O2ORIGIN("EXT");
 } // namespace o2::aod
 
 #define DECLARE_EQUIVALENT_FOR_INDEX(_Base_, _Equiv_)                                                     \
