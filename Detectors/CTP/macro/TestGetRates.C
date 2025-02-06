@@ -19,20 +19,20 @@ using namespace o2::ctp;
 void TestGetRates(int runN = 0)
 {
   std::vector<int> runs;
-  std::vector<std::string> codes = {"T0VTX", "T0VTX","ZNChadronic","ZNChadronic","T0VTX"};
-  if(runN == 0) {
-    runs = {529066,539218,544013,544518,557251};
+  std::vector<std::string> codes = {"T0VTX", "T0VTX", "ZNChadronic", "ZNChadronic", "T0VTX"};
+  if (runN == 0) {
+    runs = {529066, 539218, 544013, 544518, 557251};
   } else {
     runs.push_back(runN);
   }
   auto& ccdb = o2::ccdb::BasicCCDBManager::instance();
   int i = 0;
-  for(auto const& runNumber: runs) {
+  for (auto const& runNumber : runs) {
     // Opening run
     std::pair<int64_t, int64_t> pp = ccdb.getRunDuration(runNumber);
     long ts = pp.first + 60;
-    //std::cout << "Run duration:" << pp.first << " " << pp.second << std::endl;
-    std::cout << "===> RUN:" << runNumber << " duration:" << (pp.second - pp.first)/1000. << std::endl;
+    // std::cout << "Run duration:" << pp.first << " " << pp.second << std::endl;
+    std::cout << "===> RUN:" << runNumber << " duration:" << (pp.second - pp.first) / 1000. << std::endl;
 
     CTPRateFetcher fetcher;
     fetcher.setupRun(runNumber, &ccdb, ts, 1);

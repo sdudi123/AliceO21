@@ -145,7 +145,7 @@ class CTPRunScalers
   }
   /// retrieves integral - same interface as getRate, no pileup correction
   uint64_t getLumiNoPuCorr(int classindex, int type) const;
-  /// retrieves vector of counters - same interface as getRate, needed for 
+  /// retrieves vector of counters - same interface as getRate, needed for
   std::vector<std::pair<double_t, double_t>> getRatesForIndex(int classindex, int type) const;
   /// retrieves time boundaries of this scaler object from O2 scalers
   std::pair<unsigned long, unsigned long> getTimeLimit() const

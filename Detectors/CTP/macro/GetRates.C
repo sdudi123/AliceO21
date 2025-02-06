@@ -17,11 +17,11 @@
 #endif
 using namespace o2::ctp;
 
-void GetRates(int run=559617)
+void GetRates(int run = 559617)
 {
   uint64_t inputmaskCum = 0, classmackCum = 0;
   int ntrigSel = 0;
-  
+
   auto& cmb = o2::ccdb::BasicCCDBManager::instance();
   auto ctpcfg = cmb.getSpecificForRun<o2::ctp::CTPConfiguration>("CTP/Config/Config", run);
   if (!ctpcfg) {
@@ -38,7 +38,7 @@ void GetRates(int run=559617)
     uint64_t inputmask = 0;
     if (trgclass.descriptor != nullptr) {
       inputmask = trgclass.descriptor->getInputsMask();
-      //LOGP(info, "inputmask: {:#x}", inputmask);
+      // LOGP(info, "inputmask: {:#x}", inputmask);
     }
     trgclass.printStream(std::cout);
     //    std::cout << indexInList << ": " << trgclass.name << ", input mask 0x" << std::hex << inputmask << ", class mask 0x" << trgclass.classMask << std::dec << std::endl;

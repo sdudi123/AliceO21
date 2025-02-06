@@ -33,10 +33,10 @@ class CTPRateFetcher
   void setupRun(int runNumber, o2::ccdb::BasicCCDBManager* ccdb, uint64_t timeStamp, bool initScalers);
   void updateScalers(ctp::CTPRunScalers& scalers);
   int getRates(std::array<double, 3>& rates, o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName); // rates at start,stop and middle of the run
-  double getLumi(o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName, int puCorr = 0); // total lumi for a run
+  double getLumi(o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName, int puCorr = 0);             // total lumi for a run
   double getLumiNoPuCorr(const std::string& classname, int type = 1);
   double getLumiWPuCorr(const std::string& classname, int type = 1);
-  void setOrbit(bool orb) { mOrbit = orb; } // use orbit instead of time
+  void setOrbit(bool orb) { mOrbit = orb; }               // use orbit instead of time
   void setOutsideLimits(bool qc) { mOutsideLimits = qc; } // return first/last rate of time outside of run
 
  private:
@@ -44,7 +44,7 @@ class CTPRateFetcher
   double fetchCTPratesClasses(uint64_t timeStamp, const std::string& className, int inputType = 1);
   double fetchCTPratesInputsNoPuCorr(uint64_t timeStamp, int input);
   double fetchCTPratesClassesNoPuCorr(uint64_t timeStamp, const std::string& className, int inputType = 1);
-  double getLumi(const std::string& classname,int type = 1, int puCorr = 0);
+  double getLumi(const std::string& classname, int type = 1, int puCorr = 0);
   double pileUpCorrection(double rate);
   int mRunNumber = -1;
   bool mOutsideLimits = 0;
