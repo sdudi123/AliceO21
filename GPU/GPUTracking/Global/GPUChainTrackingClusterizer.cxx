@@ -901,7 +901,11 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerAddIndexData = GetProcessingSettings().nnClusterizerAddIndexData;
           clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
-          clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
+          if (GetProcessingSettings().nnClusterizerVerbosity < 0){
+            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
+          } else {
+            clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
+          }
 
           // Settings for the NN evaluation
           clusterer.nnClassThreshold = GetProcessingSettings().nnClassThreshold;

@@ -111,12 +111,13 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
     return;
   }
 
-  std::vector<float> central_charges(clusterer.nnClusterizerBatchedMode, -1.f);
-  std::vector<T> input_data(clusterer.nnClusterizerElementSize * clusterer.nnClusterizerBatchedMode, (T)-1.f);
-  std::vector<ChargePos> peak_positions(clusterer.nnClusterizerBatchedMode);
+  uint numElements = CAMath::Min(glo_idx + clusterer.nnClusterizerBatchedMode, clusternum - glo_idx);
+  std::vector<float> central_charges(numElements, -1.f);
+  std::vector<T> input_data(clusterer.nnClusterizerElementSize * numElements, (T)-1.f);
+  std::vector<ChargePos> peak_positions(numElements);
   unsigned int write_idx = 0;
 
-  for (int batch_counter = 0; batch_counter < clusterer.nnClusterizerBatchedMode; batch_counter++) {
+  for (int batch_counter = 0; batch_counter < numElements; batch_counter++) {
 
     uint cls = CAMath::Min(glo_idx + batch_counter, clusternum - 1);
 
@@ -166,8 +167,8 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
   int num_output_classes = clusterer.model_class.getNumOutputNodes()[0][1];
 
   if (num_output_classes > 1) {
-    std::vector<float> tmp_out_class(clusterer.nnClusterizerBatchedMode);
-    for (int cls_idx = 0; cls_idx < clusterer.nnClusterizerBatchedMode; cls_idx++) {
+    std::vector<float> tmp_out_class(numElements);
+    for (int cls_idx = 0; cls_idx < numElements; cls_idx++) {
       auto elem_iterator = out_class.begin() + (unsigned int)(cls_idx * num_output_classes);
       tmp_out_class[cls_idx] = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + num_output_classes)) - 1; // -1 since 2-class classifier will have 3 outputs: classes 0, 1, 2
       if (tmp_out_class[cls_idx] > 1) {
@@ -195,7 +196,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
 
     input_data.clear();
 
-    if ((clusterer.nnClusterizerVerbosity >= 4) && glo_idx == 0) {
+    if ((clusterer.nnClusterizerVerbosity < 1) && glo_idx == 0) {
       LOG(info) << "[CF] Classification model: " << out_class[0] << " (>? " << clusterer.nnClassThreshold << ")";
       LOG(info) << "[CF] Regression model: " << out_reg[0] << "; " << out_reg[1] << "; " << out_reg[2] << "; " << out_reg[3] << "; " << out_reg[4];
     }
@@ -205,7 +206,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
       num_outputs_2 = clusterer.model_reg_2.getNumOutputNodes()[0][1];
     }
 
-    for (int element = 0; element < clusterer.nnClusterizerBatchedMode; element++) {
+    for (int element = 0; element < numElements; element++) {
 
       if (glo_idx + element >= clusternum) {
         return;
@@ -244,7 +245,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           tpc::ClusterNative myCluster;
           bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
           if (rejectCluster) {
-            if (clusterer.nnClusterizerVerbosity > 3) {
+            if (clusterer.nnClusterizerVerbosity < 1) {
               LOG(warning) << "[CF] Cluster rejected!";
             }
             if (clusterPosInRow) {
@@ -290,7 +291,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           tpc::ClusterNative myCluster;
           bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
           if (rejectCluster) {
-            if (clusterer.nnClusterizerVerbosity > 3) {
+            if (clusterer.nnClusterizerVerbosity < 1) {
               LOG(warning) << "[CF] Cluster rejected!";
             }
             if (clusterPosInRow) {
@@ -322,7 +323,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
           // LOG(info) << "Example: " << num_outputs_2 << " " << out_reg.size() << ";; " << out_reg[model_output_index + 4] << "; " << out_reg[model_output_index + 0] << "; " << out_reg[model_output_index + 2] << "; " << out_reg[model_output_index + 1] << "; " << out_reg[model_output_index + 3];
           rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
           if (rejectCluster) {
-            if (clusterer.nnClusterizerVerbosity > 3) {
+            if (clusterer.nnClusterizerVerbosity < 1) {
               LOG(warning) << "[CF] Cluster rejected!";
             }
             if (clusterPosInRow) {
@@ -354,7 +355,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
   } else {
 
     input_data.clear();
-    for (int element = 0; element < clusterer.nnClusterizerBatchedMode; element++) {
+    for (int element = 0; element < numElements; element++) {
       if (glo_idx + element >= clusternum) {
         return;
       }
@@ -386,7 +387,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
         bool rejectCluster = !pc.toNative(peak_positions[element], central_charges[element], myCluster, clusterer.Param());
 
         if (rejectCluster) {
-          if (clusterer.nnClusterizerVerbosity > 3) {
+          if (clusterer.nnClusterizerVerbosity < 1) {
             LOG(warning) << "[CF] Cluster rejected!";
           }
           if (clusterPosInRow) {
@@ -416,7 +417,7 @@ GPUd() void GPUTPCNNClusterizer::nn_clusterizer(int nBlocks, int nThreads, int i
     }
   }
 
-  if (clusterer.nnClusterizerVerbosity > 4) {
+  if (clusterer.nnClusterizerVerbosity < 2) {
     LOG(info) << "[CF] Clusterization done!";
   }
 }
