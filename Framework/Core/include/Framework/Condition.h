@@ -43,7 +43,7 @@ struct Condition {
 };
 
 template <typename T>
-concept is_condition = requires (T t) {
+concept is_condition = requires(T t) {
   typename T::type;
   std::same_as<T*, decltype(t.instance)>;
   std::same_as<std::string, decltype(t.path)>;

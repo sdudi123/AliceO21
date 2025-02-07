@@ -241,7 +241,7 @@ struct GroupedCombinationsGenerator {
 };
 
 template <typename T>
-concept is_combinations_generator = requires (T t) {
+concept is_combinations_generator = requires(T t) {
   typename T::GroupedIterator;
   &T::begin;
   &T::end;

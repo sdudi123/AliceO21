@@ -191,7 +191,7 @@ struct Produces : WritingCursor<T> {
 };
 
 template <typename T>
-concept is_produces = requires (T t) { typename T::cursor_t; typename T::persistent_table_t; &T::cursor; };
+concept is_produces = requires(T t) { typename T::cursor_t; typename T::persistent_table_t; &T::cursor; };
 
 /// Use this to group together produces. Useful to separate them logically
 /// or simply to stay within the 100 elements per Task limit.
@@ -572,7 +572,7 @@ struct OutputObj {
 };
 
 template <typename T>
-concept is_outputobj = requires (T t) { &T::setObject; std::same_as<decltype(t.object), std::shared_ptr<typename T::obj_t>>; };
+concept is_outputobj = requires(T t) { &T::setObject; std::same_as<decltype(t.object), std::shared_ptr<typename T::obj_t>>; };
 
 /// This helper allows you to fetch a Sevice from the context or
 /// by using some singleton. This hopefully will hide the Singleton and
@@ -593,7 +593,7 @@ struct Service {
 };
 
 template <typename T>
-concept is_service = requires (T t) { std::same_as<decltype(t.service), typename T::service_t*>; &T::operator->;};
+concept is_service = requires(T t) { std::same_as<decltype(t.service), typename T::service_t*>; &T::operator->; };
 
 auto getTableFromFilter(soa::is_filtered_table auto const& table, soa::SelectionVector&& selection)
 {
@@ -721,7 +721,7 @@ struct Partition {
 };
 
 template <typename T>
-concept is_partition = requires (T t) {&T::updatePlaceholders; std::same_as<decltype(t.filter), expressions::Filter>; std::same_as<decltype(t.mFiltered), std::unique_ptr<o2::soa::Filtered<typename T::content_t>>>;};
+concept is_partition = requires(T t) {&T::updatePlaceholders; std::same_as<decltype(t.filter), expressions::Filter>; std::same_as<decltype(t.mFiltered), std::unique_ptr<o2::soa::Filtered<typename T::content_t>>>; };
 }  // namespace o2::framework
 
 namespace o2::soa

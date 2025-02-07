@@ -31,7 +31,8 @@
 namespace o2::framework
 {
 
-namespace {
+namespace
+{
 template <typename O>
 static inline auto extractOriginal(ProcessingContext& pc)
 {
@@ -51,9 +52,10 @@ static inline auto extractOriginals(ProcessingContext& pc)
     return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
   }(std::make_index_sequence<refs.size()>());
 }
-}
+} // namespace
 
-namespace analysis_task_parsers {
+namespace analysis_task_parsers
+{
 
 /// Options handling
 template <typename O>
@@ -442,7 +444,7 @@ void setPartition(P&, T&...)
 template <is_partition P, typename... T>
 void setPartition(P& partition, T&... tables)
 {
-  ([&](){ if constexpr (std::same_as<typename P::content_t, T>) {partition.bindTable(tables);} }(), ...);
+  ([&]() { if constexpr (std::same_as<typename P::content_t, T>) {partition.bindTable(tables);} }(), ...);
 }
 
 template <typename P, typename T>
@@ -507,7 +509,7 @@ static void setGroupedCombination(C& comb, TG& grouping, std::tuple<Ts...>& asso
   }
 }
 
-} // analysis_task_parsers
+} // namespace analysis_task_parsers
 
 template <typename ANY>
 struct UpdateProcessSwitches {

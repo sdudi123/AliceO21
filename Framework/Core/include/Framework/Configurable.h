@@ -89,7 +89,11 @@ concept is_configurable = requires(T& t) { typename T::type; std::same_as<std::s
 using ConfigurableAxis = Configurable<std::vector<double>, ConfigParamKind::kAxisSpec, ConfigurablePolicyConst<std::vector<double>, ConfigParamKind::kAxisSpec>>;
 
 template <typename T>
-concept is_configurable_axis = is_configurable<T> && requires() {T::kind == ConfigParamKind::kAxisSpec;};
+concept is_configurable_axis = is_configurable<T>&&
+  requires()
+{
+  T::kind == ConfigParamKind::kAxisSpec;
+};
 
 template <typename R, typename T, typename... As>
 struct ProcessConfigurable : Configurable<bool, ConfigParamKind::kProcessFlag> {

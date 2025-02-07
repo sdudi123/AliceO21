@@ -580,7 +580,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
       homogeneous_apply_refs([&eosContext](auto& element) {
           analysis_task_parsers::postRunService(eosContext, element);
           analysis_task_parsers::postRunOutput(eosContext, element);
-          return true;},
+          return true; },
                              *task.get());
       eosContext.services().get<ControlService>().readyToQuit(QuitRequest::Me);
     };
