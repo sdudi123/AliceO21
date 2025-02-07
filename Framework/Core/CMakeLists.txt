@@ -100,6 +100,7 @@ o2_add_library(Framework
                        src/LifetimeHelpers.cxx
                        src/LocalRootFileService.cxx
                        src/RootConfigParamHelpers.cxx
+                       src/StringHelpers.cxx
                        src/StringContext.cxx
                        src/LogParsingHelpers.cxx
                        src/MessageContext.cxx
