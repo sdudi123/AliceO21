@@ -19,7 +19,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUTPCClusterOccupancyMapBin;
 
@@ -29,11 +29,11 @@ class GPUTPCCreateOccupancyMap : public GPUKernelTemplate
   enum K { defaultKernel = 0,
            fill = 0,
            fold = 1 };
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
   template <int32_t iKernel = defaultKernel, typename... Args>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& processors, Args... args);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -20,7 +20,7 @@
 
 #include "clusterFinderDefs.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCCFCheckPadBaseline : public GPUKernelTemplate
@@ -37,15 +37,13 @@ class GPUTPCCFCheckPadBaseline : public GPUKernelTemplate
     tpccf::Charge charges[PadsPerCacheline][NumOfCachedTimebins];
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep()
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
@@ -58,6 +56,6 @@ class GPUTPCCFCheckPadBaseline : public GPUKernelTemplate
   GPUd() static void updatePadBaseline(int32_t pad, const GPUTPCClusterFinder&, int32_t totalCharges, int32_t consecCharges, tpccf::Charge maxCharge);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

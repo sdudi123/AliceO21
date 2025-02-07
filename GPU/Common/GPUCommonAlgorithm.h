@@ -17,15 +17,14 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(GPUCA_GPUCODE)
-//&& (!defined __cplusplus || __cplusplus < 201402L) // This would enable to custom search also on the CPU if available by the compiler, but it is not always faster, so we stick to std::sort
+#if !defined(GPUCA_GPUCODE) // Could also enable custom search on the CPU, but it is not always faster, so we stick to std::sort
 #include <algorithm>
 #define GPUCA_ALGORITHM_STD
 #endif
 
 // ----------------------------- SORTING -----------------------------
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -73,9 +72,9 @@ class GPUCommonAlgorithm
   GPUd() static void IterSwap(I a, I b) noexcept;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -219,7 +218,7 @@ GPUdi() void GPUCommonAlgorithm::QuickSort(I f, I l) noexcept
 typedef GPUCommonAlgorithm CAAlgo;
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #if (((defined(__CUDACC__) && !defined(__clang__)) || defined(__HIPCC__))) && !defined(GPUCA_GPUCODE_GENRTC) && !defined(GPUCA_GPUCODE_HOSTONLY)
 
@@ -227,7 +226,7 @@ typedef GPUCommonAlgorithm CAAlgo;
 
 #else
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -249,12 +248,12 @@ GPUdi() void GPUCommonAlgorithm::sortDeviceDynamic(T* begin, T* end, const S& co
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // THRUST
 // sort and sortInBlock below are not taken from Thrust, since our implementations are faster
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -330,7 +329,7 @@ GPUdi() void GPUCommonAlgorithm::swap(T& a, T& b)
 #endif
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 // ----------------------------- WORK GROUP FUNCTIONS -----------------------------
 

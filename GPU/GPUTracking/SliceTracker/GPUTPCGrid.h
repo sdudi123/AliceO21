@@ -17,7 +17,7 @@
 
 #include "GPUTPCDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -29,7 +29,6 @@ namespace gpu
  * used by GPUTPCTracker to speed-up the hit operations
  * grid axis are named Z,Y to be similar to TPC row coordinates.
  */
-MEM_CLASS_PRE()
 class GPUTPCGrid
 {
  public:
@@ -68,6 +67,6 @@ class GPUTPCGrid
   float mStepZInv;  //* inverse bin size in Z
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCGRID_H

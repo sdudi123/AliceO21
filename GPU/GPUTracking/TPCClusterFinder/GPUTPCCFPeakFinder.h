@@ -22,7 +22,7 @@
 #include "Array2D.h"
 #include "PackedCharge.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct ChargePos;
@@ -36,15 +36,13 @@ class GPUTPCCFPeakFinder : public GPUKernelTemplate
     PackedCharge buf[SCRATCH_PAD_WORK_GROUP_SIZE * SCRATCH_PAD_SEARCH_N];
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep()
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
@@ -58,6 +56,6 @@ class GPUTPCCFPeakFinder : public GPUKernelTemplate
   static GPUd() bool isPeak(GPUSharedMemory&, tpccf::Charge, const ChargePos&, uint16_t, const Array2D<PackedCharge>&, const GPUSettingsRec&, ChargePos*, PackedCharge*);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

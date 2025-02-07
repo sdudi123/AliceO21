@@ -95,7 +95,7 @@
   #define GPUprivate() __private
   #define GPUgeneric() __generic
   #define GPUconstexprref() GPUconstexpr()
-  #if defined(__OPENCLCPP__) && !defined(__clang__)
+  #if defined(__OPENCL__) && !defined(__clang__)
     #define GPUbarrier() work_group_barrier(mem_fence::global | mem_fence::local);
     #define GPUbarrierWarp()
     #define GPUAtomic(type) atomic<type>
@@ -103,25 +103,25 @@
   #else
     #define GPUbarrier() barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE)
     #define GPUbarrierWarp()
-    #if defined(__OPENCLCPP__) && defined(GPUCA_OPENCL_CPP_CLANG_C11_ATOMICS)
-      namespace GPUCA_NAMESPACE { namespace gpu {
+    #if defined(__OPENCL__) && defined(GPUCA_OPENCL_CLANG_C11_ATOMICS)
+      namespace o2 { namespace gpu {
       template <class T> struct oclAtomic;
       template <> struct oclAtomic<uint32_t> {typedef atomic_uint t;};
       static_assert(sizeof(oclAtomic<uint32_t>::t) == sizeof(uint32_t), "Invalid size of atomic type");
       }}
-      #define GPUAtomic(type) GPUCA_NAMESPACE::gpu::oclAtomic<type>::t
+      #define GPUAtomic(type) o2::gpu::oclAtomic<type>::t
     #else
       #define GPUAtomic(type) volatile type
     #endif
   #endif
-  #if !defined(__OPENCLCPP__) // Other special defines for OpenCL 1
+  #if !defined(__OPENCL__) // Other special defines for OpenCL 1
     #define GPUCA_USE_TEMPLATE_ADDRESS_SPACES // TODO: check if we can make this (partially, where it is already implemented) compatible with OpenCL CPP
     #define GPUsharedref() GPUshared()
     #define GPUglobalref() GPUglobal()
     #undef GPUgeneric
     #define GPUgeneric()
   #endif
-  #if (!defined(__OPENCLCPP__) || !defined(GPUCA_NO_CONSTANT_MEMORY))
+  #if (!defined(__OPENCL__) || !defined(GPUCA_NO_CONSTANT_MEMORY))
     #define GPUconstantref() GPUconstant()
   #endif
 #elif defined(__HIPCC__) //Defines for HIP

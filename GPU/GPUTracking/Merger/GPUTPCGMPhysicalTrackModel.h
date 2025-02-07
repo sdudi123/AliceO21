@@ -27,14 +27,14 @@
  *
  */
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
 class GPUTPCGMPhysicalTrackModel
 {
  public:
-  GPUdDefault() GPUTPCGMPhysicalTrackModel() CON_DEFAULT;
+  GPUdDefault() GPUTPCGMPhysicalTrackModel() = default;
   GPUd() GPUTPCGMPhysicalTrackModel(const GPUTPCGMTrackParam& t);
 
   GPUd() void Set(const GPUTPCGMTrackParam& t);
@@ -273,6 +273,6 @@ GPUdi() void GPUTPCGMPhysicalTrackModel::Rotate(float alpha)
   UpdateValues();
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

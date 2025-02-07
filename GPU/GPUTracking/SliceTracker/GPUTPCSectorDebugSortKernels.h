@@ -19,7 +19,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUTPCTracker;
 
@@ -30,7 +30,7 @@ class GPUTPCSectorDebugSortKernels : public GPUKernelTemplate
            hitData = 0,
            startHits = 1,
            sliceTracks = 2 };
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCSliceTracking; }
   typedef GPUTPCTracker processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors) { return processors.tpcTrackers; }
 
@@ -38,6 +38,6 @@ class GPUTPCSectorDebugSortKernels : public GPUKernelTemplate
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& tracker);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif // GPUTPCSECTORDEBUGSORTKERNELS_H

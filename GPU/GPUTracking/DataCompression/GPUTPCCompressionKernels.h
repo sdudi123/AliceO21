@@ -22,12 +22,12 @@ namespace o2::tpc
 struct ClusterNative;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUTPCCompressionKernels : public GPUKernelTemplate
 {
  public:
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCCompression; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCCompression; }
 
   enum K : int32_t {
     step0attached = 0,
@@ -124,6 +124,6 @@ class GPUTPCCompressionGatherKernels : public GPUKernelTemplate
   GPUdii() static void gatherMulti(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

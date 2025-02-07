@@ -30,7 +30,7 @@
 #include "GPUTrackParamConvert.h"
 #include "GPUCommonTypeTraits.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::track;
 using namespace o2::base;
 using namespace o2::tpc;
@@ -431,7 +431,7 @@ template GPUdni() int32_t GPUTrackingRefit::RefitTrack<GPUTrackingRefit::TrackPa
 #endif
 
 #ifndef GPUCA_GPUCODE
-void GPUTrackingRefit::SetPtrsFromGPUConstantMem(const GPUConstantMem* v, MEM_CONSTANT(GPUParam) * p)
+void GPUTrackingRefit::SetPtrsFromGPUConstantMem(const GPUConstantMem* v, GPUParam* p)
 {
   mPclusterState = v->ioPtrs.mergedTrackHitStates;
   mPclusterNative = v->ioPtrs.clustersNative;

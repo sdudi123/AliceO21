@@ -44,7 +44,7 @@ class TimeFrame;
 } // namespace its
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -390,7 +390,7 @@ class GPUReconstruction
     void* mGPULib;
     void* mGPUEntry;
   };
-  static std::shared_ptr<LibraryLoader> sLibCUDA, sLibHIP, sLibOCL, sLibOCL2;
+  static std::shared_ptr<LibraryLoader> sLibCUDA, sLibHIP, sLibOCL;
 
   static GPUReconstruction* GPUReconstruction_Create_CPU(const GPUSettingsDeviceBackend& cfg);
 };
@@ -645,6 +645,6 @@ inline int32_t GPUReconstruction::ReadStructFromFile(const char* file, T* obj)
   return 0;
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

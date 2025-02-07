@@ -30,7 +30,7 @@
 
 //#define GPUCA_GPUCODE // uncomment to test "GPU" mode
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -179,12 +179,12 @@ class FlatObject
 
   /// Default constructor / destructor
 #ifndef GPUCA_GPUCODE
-  FlatObject() CON_DEFAULT; // No object derrived from FlatObject should be created on the GPU
+  FlatObject() = default; // No object derrived from FlatObject should be created on the GPU
   ~FlatObject();
-  FlatObject(const FlatObject&) CON_DELETE;
-  FlatObject& operator=(const FlatObject&) CON_DELETE;
+  FlatObject(const FlatObject&) = delete;
+  FlatObject& operator=(const FlatObject&) = delete;
 #else
-  FlatObject() CON_DELETE;
+  FlatObject() = delete;
 #endif
 
  protected:
@@ -324,9 +324,7 @@ class FlatObject
   char* mFlatBufferContainer = nullptr;                               //[mFlatBufferSize]  Optional container for the flat buffer
   char* mFlatBufferPtr = nullptr;                                     //!  Pointer to the flat buffer
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(FlatObject, 1);
-#endif
 };
 
 /// ========================================================================================================
@@ -574,6 +572,6 @@ inline void FlatObject::setFutureBufferAddress(char* futureFlatBufferPtr)
 #endif //GPUCA_GPUCODE_DEVICE
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

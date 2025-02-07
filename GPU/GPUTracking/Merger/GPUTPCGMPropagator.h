@@ -29,7 +29,7 @@ class MatLayerCylSet;
 } // namespace base
 } // namespace o2
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -65,7 +65,7 @@ class GPUTPCGMPropagator
     rejectInterReject = 3
   };
 
-  GPUdDefault() GPUTPCGMPropagator() CON_DEFAULT;
+  GPUdDefault() GPUTPCGMPropagator() = default;
 
   struct MaterialCorrection {
     GPUhd() MaterialCorrection() : radLen(28811.7f), rho(1.025e-3f), radLenInv(1.f / radLen), DLMax(0.f), EP2(0.f), sigmadE2(0.f), k22(0.f), k33(0.f), k43(0.f), k44(0.f) {}
@@ -276,6 +276,6 @@ GPUdi() float GPUTPCGMPropagator::getGlobalY(float X, float Y) const
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

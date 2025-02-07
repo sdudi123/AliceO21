@@ -20,7 +20,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -37,10 +37,10 @@ class RegularSpline1D
   /// _____________  Constructors / destructors __________________________
 
   /// Default constructor
-  RegularSpline1D() CON_DEFAULT;
+  RegularSpline1D() = default;
 
   /// Destructor
-  ~RegularSpline1D() CON_DEFAULT;
+  ~RegularSpline1D() = default;
 
   /// Constructor. Number of knots will be set to at least 5
   void construct(int32_t numberOfKnots);
@@ -174,6 +174,6 @@ inline void RegularSpline1D::correctEdges(T* data) const
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

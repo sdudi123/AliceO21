@@ -22,11 +22,12 @@
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 #include <vector>
+#include <functional>
 #endif
 
 class TFile;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 #if !defined(GPUCA_GPUCODE)
@@ -91,10 +92,10 @@ class NDPiecewisePolynomials : public FlatObject
   };
 #endif // !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// default constructor
-  NDPiecewisePolynomials() CON_DEFAULT;
+  NDPiecewisePolynomials() = default;
 
   /// default destructor
-  ~NDPiecewisePolynomials() CON_DEFAULT;
+  ~NDPiecewisePolynomials() = default;
 
   /// Copy constructor
   NDPiecewisePolynomials(const NDPiecewisePolynomials& obj) { cloneFromObject(obj, nullptr); }
@@ -294,9 +295,7 @@ class NDPiecewisePolynomials : public FlatObject
   // construct the object (flatbuffer)
   void construct();
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(NDPiecewisePolynomials, 1);
-#endif
 };
 
 //=================================================================================
@@ -308,21 +307,15 @@ template <uint32_t Dim, uint32_t Degree, bool InteractionOnly>
 void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::setFromContainer(const NDPiecewisePolynomialContainer& container)
 {
   if (Dim != container.mDim) {
-#ifndef GPUCA_ALIROOT_LIB
     LOGP(info, "wrong number of dimensions! this {} container {}", Dim, container.mDim);
-#endif
     return;
   }
   if (Degree != container.mDegree) {
-#ifndef GPUCA_ALIROOT_LIB
     LOGP(info, "wrong number of degrees! this {} container {}", Degree, container.mDegree);
-#endif
     return;
   }
   if (InteractionOnly != container.mInteractionOnly) {
-#ifndef GPUCA_ALIROOT_LIB
     LOGP(info, "InteractionOnly is set for this object to {}, but stored as {} in the container", InteractionOnly, container.mInteractionOnly);
-#endif
     return;
   }
   init(container.mMin.data(), container.mMax.data(), container.mN.data());
@@ -478,6 +471,6 @@ GPUdi() void NDPiecewisePolynomials<Dim, Degree, InteractionOnly>::clamp(float x
   }
 }
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

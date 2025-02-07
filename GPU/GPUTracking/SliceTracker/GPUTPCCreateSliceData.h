@@ -20,7 +20,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -33,17 +33,16 @@ class GPUTPCCreateSliceData : public GPUKernelTemplate
     float tmp[4];
   };
 
-  typedef GPUconstantref() MEM_GLOBAL(GPUTPCTracker) processorType;
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUCA_RECO_STEP::TPCSliceTracking; }
-  MEM_TEMPLATE()
-  GPUhdi() static processorType* Processor(MEM_TYPE(GPUConstantMem) & processors)
+  typedef GPUconstantref() GPUTPCTracker processorType;
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUCA_RECO_STEP::TPCSliceTracking; }
+  GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcTrackers;
   }
   template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() MEM_LOCAL(GPUSharedMemory) & smem, processorType& tracker);
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& tracker);
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCCREATESLICEDATA_H

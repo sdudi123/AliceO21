@@ -27,7 +27,7 @@
 #include <cstring>
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -133,13 +133,13 @@ class IrregularSpline1D : public FlatObject
   IrregularSpline1D();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject instead
-  IrregularSpline1D(const IrregularSpline1D&) CON_DELETE;
+  IrregularSpline1D(const IrregularSpline1D&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject instead
-  IrregularSpline1D& operator=(const IrregularSpline1D&) CON_DELETE;
+  IrregularSpline1D& operator=(const IrregularSpline1D&) = delete;
 
   /// Destructor
-  ~IrregularSpline1D() CON_DEFAULT;
+  ~IrregularSpline1D() = default;
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
 
@@ -266,9 +266,7 @@ class IrregularSpline1D : public FlatObject
   int32_t mNumberOfAxisBins;   ///< number of axis bins
   uint32_t mBin2KnotMapOffset; ///< pointer to (axis bin) -> (knot) map in mFlatBufferPtr array
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(IrregularSpline1D, 1);
-#endif
 };
 
 /// ====================================================
@@ -401,6 +399,6 @@ GPUdi() void IrregularSpline1D::correctEdges(T* data) const
   data[i] = c0 * data[i - 0] + c1 * data[i - 1] + c2 * data[i - 2] + c3 * data[i - 3];
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

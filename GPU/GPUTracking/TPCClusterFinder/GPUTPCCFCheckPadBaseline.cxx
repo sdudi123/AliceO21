@@ -25,8 +25,8 @@
 #endif
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 
 template <>
 GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
@@ -132,7 +132,7 @@ GPUd() void GPUTPCCFCheckPadBaseline::Thread<0>(int32_t nBlocks, int32_t nThread
           maxConsecCharges[localpad] = CAMath::Max(maxConsecCharges[localpad], consecCharges[localpad]);
 
           const Charge unpackedCharge = Charge(packedCharge) / Charge(1 << PackedCharge::DecimalBits);
-          maxCharge[localPadId] = CAMath::Max<Charge>(maxCharge[localPad], unpackedCharge);
+          maxCharge[localpad] = CAMath::Max<Charge>(maxCharge[localpad], unpackedCharge);
         } else {
           consecCharges[localpad] = 0;
         }

@@ -63,8 +63,6 @@ class GeneratorHybrid : public Generator
   Bool_t importParticles() override;
   void updateHeader(o2::dataformats::MCEventHeader* eventHeader) override;
 
-  void setNEvents(int n) { mNEvents = n; }
-
   Bool_t parseJSON(const std::string& path);
   Bool_t confSetter(const auto& gen);
   template <typename T>
@@ -103,6 +101,11 @@ class GeneratorHybrid : public Generator
   bool mCocktailMode = false;
   std::vector<std::vector<int>> mGroups;
 
+  // Trigger configuration
+  std::vector<ETriggerMode_t> mTriggerModes;            // trigger mode for each generator
+  std::vector<std::vector<std::string>> mTriggerMacros; // trigger macros for each generator (multiple triggers for each generator possible)
+  std::vector<std::vector<std::string>> mTriggerFuncs;  // trigger functions for each generator (multiple triggers for each generator possible)
+
   // Create a task arena with a specified number of threads
   std::thread mTBBTaskPoolRunner;
   tbb::concurrent_bounded_queue<int> mInputTaskQueue;
@@ -111,7 +114,6 @@ class GeneratorHybrid : public Generator
   std::atomic<bool> mStopFlag;
   bool mIsInitialized = false;
 
-  int mNEvents = -1; // the number of events to be done, if known (helps initiating cleanup)
   o2::dataformats::MCEventHeader mMCEventHeader; // to capture event headers
 
   enum class GenMode {

@@ -61,17 +61,17 @@ class CalibdEdxContainer : public o2::gpu::FlatObject
  public:
   /// Default constructor: creates an empty uninitialized object
 #ifndef GPUCA_GPUCODE
-  CalibdEdxContainer() CON_DEFAULT;
+  CalibdEdxContainer() = default;
 #endif
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject() instead
-  CalibdEdxContainer(const CalibdEdxContainer&) CON_DELETE;
+  CalibdEdxContainer(const CalibdEdxContainer&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject() instead
-  CalibdEdxContainer& operator=(const CalibdEdxContainer&) CON_DELETE;
+  CalibdEdxContainer& operator=(const CalibdEdxContainer&) = delete;
 
   /// Destructor
-  ~CalibdEdxContainer() CON_DEFAULT;
+  ~CalibdEdxContainer() = default;
 
   /// \return returns the topology correction for the cluster charge
   /// \param region region of the TPC
@@ -280,9 +280,7 @@ class CalibdEdxContainer : public o2::gpu::FlatObject
   CalDet<float> processThresholdMap(const CalDet<float>& thresholdMap, const float maxThreshold, const int32_t nPadsInRowCl = 2, const int32_t nPadsInPadCl = 2) const;
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(CalibdEdxContainer, 2);
-#endif
 };
 
 } // namespace o2::tpc

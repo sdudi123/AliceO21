@@ -33,7 +33,7 @@ template <class T>
 class SpaceCharge;
 }
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -41,7 +41,7 @@ namespace gpu
 /// simple struct to hold the space charge object which can be used for CPU reconstruction only
 struct TPCSlowSpaceChargeCorrection {
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// destructor
   ~TPCSlowSpaceChargeCorrection();
 
@@ -50,7 +50,7 @@ struct TPCSlowSpaceChargeCorrection {
 
   o2::tpc::SpaceCharge<float>* mCorr{nullptr}; ///< reference space charge corrections
 #else
-  ~TPCSlowSpaceChargeCorrection() CON_DEFAULT;
+  ~TPCSlowSpaceChargeCorrection() = default;
 
   /// setting dummy corrections for GPU
   GPUd() void getCorrections(const float gx, const float gy, const float gz, const int32_t slice, float& gdxC, float& gdyC, float& gdzC) const
@@ -61,9 +61,7 @@ struct TPCSlowSpaceChargeCorrection {
   }
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(TPCSlowSpaceChargeCorrection, 2);
-#endif
 };
 
 ///
@@ -104,10 +102,10 @@ class TPCFastTransform : public FlatObject
   TPCFastTransform();
 
   /// Copy constructor: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransform(const TPCFastTransform&) CON_DELETE;
+  TPCFastTransform(const TPCFastTransform&) = delete;
 
   /// Assignment operator: disabled to avoid ambiguity. Use cloneFromObject() instead
-  TPCFastTransform& operator=(const TPCFastTransform&) CON_DELETE;
+  TPCFastTransform& operator=(const TPCFastTransform&) = delete;
 
   inline void destroy()
   {
@@ -122,7 +120,7 @@ class TPCFastTransform : public FlatObject
     delete mCorrectionSlow;
   }
 #else
-  ~TPCFastTransform() CON_DEFAULT;
+  ~TPCFastTransform() = default;
 #endif
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
@@ -268,7 +266,7 @@ class TPCFastTransform : public FlatObject
   /// maximal possible drift time of the active area
   GPUd() float getMaxDriftTime(int32_t slice) const;
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 
   int32_t writeToFile(std::string outFName = "", std::string name = "");
 
@@ -341,9 +339,7 @@ class TPCFastTransform : public FlatObject
 
   GPUd() void TransformInternal(int32_t slice, int32_t row, float& u, float& v, float& x, const TPCFastTransform* ref, const TPCFastTransform* ref2, float scale, float scale2, int32_t scaleMode) const;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(TPCFastTransform, 3);
-#endif
 };
 
 // =======================================================================
@@ -887,6 +883,6 @@ GPUdi() void TPCFastTransform::InverseTransformXYZtoNominalXYZ(int32_t slice, in
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

@@ -18,7 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUTPCGrid.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -29,10 +29,8 @@ namespace gpu
  * It is the internal class of the GPUTPCTracker algorithm.
  *
  */
-MEM_CLASS_PRE()
 class GPUTPCRow
 {
-  MEM_CLASS_PRE2()
   friend class GPUTPCSliceData;
 
  public:
@@ -46,7 +44,7 @@ class GPUTPCRow
   }
   GPUhd() float X() const { return mX; }
   GPUhd() float MaxY() const { return mMaxY; }
-  GPUhd() MakeType(const MEM_LG(GPUTPCGrid) &) Grid() const { return mGrid; }
+  GPUhd() const GPUTPCGrid& Grid() const { return mGrid; }
 
   GPUhd() float Hy0() const { return mHy0; }
   GPUhd() float Hz0() const { return mHz0; }
@@ -66,8 +64,7 @@ class GPUTPCRow
   int32_t mNHits; // number of hits
   float mX;    // X coordinate of the row
   float mMaxY; // maximal Y coordinate of the row
-  MEM_LG(GPUTPCGrid)
-  mGrid; // grid of hits
+  GPUTPCGrid mGrid; // grid of hits
 
   // hit packing:
   float mHy0;     // offset
@@ -82,6 +79,6 @@ class GPUTPCRow
   uint32_t mFirstHitInBinOffset; // offset in Tracker::mRowData to find the FirstHitInBin
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif // GPUTPCROW_H

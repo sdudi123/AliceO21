@@ -22,14 +22,14 @@
 #include "GPUCommonDef.h"
 #include "SplineUtil.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC) && defined(__cplusplus) && __cplusplus >= 201703L
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -58,13 +58,13 @@ class Spline2DContainer : public FlatObject
   /// _____________  C++ constructors / destructors __________________________
 
   /// Default constructor
-  Spline2DContainer() CON_DEFAULT;
+  Spline2DContainer() = default;
 
   /// Disable all other constructors
-  Spline2DContainer(const Spline2DContainer&) CON_DELETE;
+  Spline2DContainer(const Spline2DContainer&) = delete;
 
   /// Destructor
-  ~Spline2DContainer() CON_DEFAULT;
+  ~Spline2DContainer() = default;
 
   /// _______________  Construction interface  ________________________
 
@@ -159,7 +159,7 @@ class Spline2DContainer : public FlatObject
 
   ///_______________  Test tools  _______________
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the class functionality
   static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
@@ -196,9 +196,7 @@ class Spline2DContainer : public FlatObject
   Spline1D<DataT> mGridX2;      ///< grid for V axis
   DataT* mParameters = nullptr; //! (transient!!) F-dependent parameters of the spline
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline2DContainer, 1);
-#endif
 };
 
 /// ==================================================================================================
@@ -537,6 +535,6 @@ class Spline2DSpec<DataT, 1, 3>
   using TBase::interpolate;
 };
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

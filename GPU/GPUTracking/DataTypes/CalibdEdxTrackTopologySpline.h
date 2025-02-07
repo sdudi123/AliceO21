@@ -20,9 +20,7 @@
 #include "FlatObject.h"
 #include "Spline.h"
 #include "GPUCommonRtypes.h"
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/Defs.h"
-#endif
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
 #include <fmt/format.h>
@@ -76,7 +74,7 @@ class CalibdEdxTrackTopologySpline : public o2::gpu::FlatObject
 
 #if !defined(GPUCA_GPUCODE)
   /// Default constructor
-  CalibdEdxTrackTopologySpline() CON_DEFAULT;
+  CalibdEdxTrackTopologySpline() = default;
 
   /// constructor with initialization of the splines from file
   /// \param dEdxSplinesFile path to root file containing the splines
@@ -92,13 +90,13 @@ class CalibdEdxTrackTopologySpline : public o2::gpu::FlatObject
 #else
   /// Disable constructors for the GPU implementation
 
-  CalibdEdxTrackTopologySpline() CON_DELETE;
-  CalibdEdxTrackTopologySpline(const CalibdEdxTrackTopologySpline&) CON_DELETE;
-  CalibdEdxTrackTopologySpline& operator=(const CalibdEdxTrackTopologySpline&) CON_DELETE;
+  CalibdEdxTrackTopologySpline() = delete;
+  CalibdEdxTrackTopologySpline(const CalibdEdxTrackTopologySpline&) = delete;
+  CalibdEdxTrackTopologySpline& operator=(const CalibdEdxTrackTopologySpline&) = delete;
 #endif
 
   /// Destructor
-  ~CalibdEdxTrackTopologySpline() CON_DEFAULT;
+  ~CalibdEdxTrackTopologySpline() = default;
 
   /// _____________  FlatObject functionality, see FlatObject class for description  ____________
 
@@ -185,7 +183,6 @@ class CalibdEdxTrackTopologySpline : public o2::gpu::FlatObject
     return mScalingFactorsqTot[region] * mCalibSplinesqTot[region].interpolate(x);
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   /// \return returns the track topology correction
   /// \param region region of the TPC
   /// \param charge correction for maximum or total charge
@@ -199,7 +196,6 @@ class CalibdEdxTrackTopologySpline : public o2::gpu::FlatObject
   /// \param charge correction for maximum or total charge
   /// \param x coordinates where the correction is evaluated
   GPUd() float getCorrection(const int32_t region, const ChargeType charge, const float x[/*inpXdim*/]) const { return (charge == ChargeType::Tot) ? mCalibSplinesqTot[region].interpolate(x) : mCalibSplinesqMax[region].interpolate(x); }
-#endif
 
   /// \param region index of the spline (region)
   /// \return returns the spline for qMax

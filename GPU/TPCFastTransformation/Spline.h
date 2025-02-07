@@ -19,7 +19,7 @@
 
 #include "SplineSpec.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -95,11 +95,11 @@ class Spline
   }
 #else
   /// Disable constructors for the GPU implementation
-  Spline() CON_DELETE;
-  Spline(const Spline&) CON_DELETE;
+  Spline() = delete;
+  Spline(const Spline&) = delete;
 #endif
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// read a class object from the file
   static Spline* readFromFile(TFile& inpf, const char* name)
   {
@@ -107,12 +107,10 @@ class Spline
   }
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

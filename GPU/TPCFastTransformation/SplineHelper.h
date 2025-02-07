@@ -28,7 +28,7 @@
 #include "Spline1DHelperOld.h"
 #include <functional>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -46,13 +46,13 @@ class SplineHelper
   SplineHelper();
 
   /// Copy constructor: disabled
-  SplineHelper(const SplineHelper&) CON_DELETE;
+  SplineHelper(const SplineHelper&) = delete;
 
   /// Assignment operator: disabled
-  SplineHelper& operator=(const SplineHelper&) CON_DELETE;
+  SplineHelper& operator=(const SplineHelper&) = delete;
 
   /// Destructor
-  ~SplineHelper() CON_DEFAULT;
+  ~SplineHelper() = default;
 
   /// _______________  Main functionality  ________________________
 
@@ -160,6 +160,6 @@ int32_t SplineHelper<DataT>::setSpline(
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif
