@@ -278,24 +278,9 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
   if (!(mRecoSteps.stepsGPUMask & GPUDataTypes::RecoStep::TPCMerging)) {
     mProcessingSettings.mergerSortTracks = false;
   }
-  if (!IsGPU()) {
-    mProcessingSettings.nDeviceHelperThreads = 0;
-  }
 
-  if (param().rec.nonConsecutiveIDs) {
-    param().rec.tpc.disableRefitAttachment = 0xFF;
-  }
-  if (!(mRecoSteps.stepsGPUMask & RecoStep::TPCMerging) || !param().rec.tpc.mergerReadFromTrackerDirectly) {
-    mProcessingSettings.fullMergerOnGPU = false;
-  }
-  if (mProcessingSettings.debugLevel > 3 || !IsGPU() || !mProcessingSettings.fullMergerOnGPU || mProcessingSettings.deterministicGPUReconstruction) {
+  if (mProcessingSettings.debugLevel > 3 || !IsGPU() || mProcessingSettings.deterministicGPUReconstruction) {
     mProcessingSettings.delayedOutput = false;
-  }
-  if (!mProcessingSettings.fullMergerOnGPU && (GetRecoStepsGPU() & RecoStep::TPCMerging)) {
-    param().rec.tpc.looperInterpolationInExtraPass = 0;
-    if (param().rec.tpc.retryRefit == 1) {
-      param().rec.tpc.retryRefit = 2;
-    }
   }
 
   UpdateAutomaticProcessingSettings();
