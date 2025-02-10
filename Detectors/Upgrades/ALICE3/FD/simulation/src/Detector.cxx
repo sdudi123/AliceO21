@@ -59,16 +59,16 @@ Detector::Detector(bool active)
   mNumberOfSectors = Constants::nsect;
 
   mEtaMax = Constants::etaMax;
-  mEtaMin = Constants::etaMin;
+  mEtaMinC = Constants::etaMinC;
 
   auto& baseParam = FDBaseParam::Instance();
 
-  if (baseParam.withFCT) {
-    mNumberOfRingsA = Constants::nringsA_withFCT;
-    mEtaMinA = Constants::etaMinA_withFCT;
+  if (baseParam.noFCT) {
+    mNumberOfRingsA = Constants::nringsA_noFCT;
+    mEtaMinA = Constants::etaMinA_noFCT;
   } else {
     mNumberOfRingsA = Constants::nringsA;
-    mEtaMinA = mEtaMin;
+    mEtaMinA = Constants::etaMinA;
   }
 
   mDzScint = baseParam.dzscint / 2;
@@ -82,7 +82,7 @@ Detector::Detector(bool active)
   }
 
   for (int i = 0; i <= mNumberOfRingsC + 1; i++) {
-    float eta = -mEtaMax + i * (mEtaMax - mEtaMin) / mNumberOfRingsC;
+    float eta = -mEtaMax + i * (mEtaMax - mEtaMinC) / mNumberOfRingsC;
     float r = ringRadius(mZmodC, eta);
     mRingRadiiC.emplace_back(r);
   }

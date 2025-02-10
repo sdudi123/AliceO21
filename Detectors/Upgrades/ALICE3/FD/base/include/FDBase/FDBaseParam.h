@@ -23,10 +23,10 @@ namespace fd
 struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
 
   float zmodA = 1700.0f;
-  float zmodC = -1950.0f;
+  float zmodC = -1850.0f;
   float dzscint = 4.0f;
 
-  bool withFCT = true;
+  bool noFCT = false;
 
   O2ParamDef(FDBaseParam, "FDBase");
 };
