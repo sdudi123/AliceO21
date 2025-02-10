@@ -127,13 +127,7 @@ void Detector::InitializeO2Detector()
 bool Detector::ProcessHits(FairVolume* vol)
 {
   // This method is called from the MC stepping
-  // Track only charged particles and photons
-  bool isPhotonTrack = false;
-  int particlePdg = fMC->TrackPid();
-  if (particlePdg == 22) { // If particle is standard PDG photon
-    isPhotonTrack = true;
-  }
-  if (!(isPhotonTrack || fMC->TrackCharge())) {
+  if (!(fMC->TrackCharge())) {
     return kFALSE;
   }
 
