@@ -80,9 +80,9 @@ void Detector::configDefault()
   mLayers.clear();
 
   LOGP(warning, "Loading Scoping Document configuration for ALICE3 TRK");
-  mLayers.emplace_back(0, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)}, 0.5f, 50.f, 100.e-4);
-  mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 1.2f, 50.f, 100.e-4);
-  mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 2.5f, 50.f, 100.e-4);
+  // mLayers.emplace_back(0, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)}, 0.5f, 50.f, 100.e-4);
+  // mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 1.2f, 50.f, 100.e-4);
+  // mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 2.5f, 50.f, 100.e-4);
   mLayers.emplace_back(3, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(3)}, 3.78f, 124.f, 100.e-3);
   mLayers.emplace_back(4, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(4)}, 7.f, 124.f, 100.e-3);
   mLayers.emplace_back(5, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(5)}, 12.f, 124.f, 100.e-3);
@@ -103,9 +103,9 @@ void Detector::buildTRKNewVacuumVessel()
   mLayers.clear();
 
   LOGP(warning, "Loading \"After Upgrade Days March 2024\" configuration for ALICE3 TRK");
-  mLayers.emplace_back(0, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)}, 0.5f, 50.f, 100.e-4);
-  mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 1.2f, 50.f, 100.e-4);
-  mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 2.5f, 50.f, 100.e-4);
+  // mLayers.emplace_back(0, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)}, 0.5f, 50.f, 100.e-4);
+  // mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 1.2f, 50.f, 100.e-4);
+  // mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 2.5f, 50.f, 100.e-4);
   mLayers.emplace_back(3, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(3)}, 7.f, 124.f, 100.e-3);
   mLayers.emplace_back(4, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(4)}, 9.f, 124.f, 100.e-3);
   mLayers.emplace_back(5, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(5)}, 12.f, 124.f, 100.e-3);
@@ -164,7 +164,7 @@ void Detector::configToFile(std::string fileName)
 
 void Detector::configServices()
 {
-  mServices = TRKServices{2.6f, 50.f, 150.e-3};
+  mServices = TRKServices();
 }
 
 void Detector::createMaterials()
@@ -228,6 +228,14 @@ void Detector::createGeometry()
 
   // Add service for inner tracker
   mServices.createServices(vTRK);
+  mPetalCases.clear();
+  // Add petal cases (the sensitive layers inside the petal cases get constructed here too)
+  auto& trkPars = TRKBaseParam::Instance();
+  for (Int_t petalCaseNumber = 0; petalCaseNumber < 4; ++petalCaseNumber) {
+    mPetalCases.emplace_back(petalCaseNumber, vTRK, trkPars.irisOpen);
+    mServices.excavateFromVacuum(mPetalCases[petalCaseNumber].getFullName());
+  }
+  mServices.registerVacuum(vTRK);
 }
 
 void Detector::InitializeO2Detector()
@@ -244,6 +252,26 @@ void Detector::defineSensitiveVolumes()
 
   TString volumeName;
   LOGP(info, "Adding TRK Sensitive Volumes");
+
+  // Add petal case sensitive volumes
+  for (int petalCase = 0; petalCase < 4; ++petalCase) {
+    // Petal layers
+    for (int petalLayer = 0; petalLayer < mPetalCases[petalCase].mPetalLayers.size(); ++petalLayer) {
+      volumeName = mPetalCases[petalCase].mPetalLayers[petalLayer].getName();
+      LOGP(info, "Trying {}", volumeName.Data());
+      v = geoManager->GetVolume(volumeName.Data());
+      LOGP(info, "Adding TRK Sensitive Volume {}", v->GetName());
+      AddSensitiveVolume(v);
+    }
+    // Petal disks
+    for (int petalDisk = 0; petalDisk < mPetalCases[petalCase].mPetalDisks.size(); ++petalDisk) {
+      volumeName = mPetalCases[petalCase].mPetalDisks[petalDisk].getName();
+      LOGP(info, "Trying {}", volumeName.Data());
+      v = geoManager->GetVolume(volumeName.Data());
+      LOGP(info, "Adding TRK Sensitive Volume {}", v->GetName());
+      AddSensitiveVolume(v);
+    }
+  }
 
   // The names of the TRK sensitive volumes have the format: TRKLayer(0...mLayers.size()-1)
   for (int j{0}; j < mLayers.size(); j++) {
