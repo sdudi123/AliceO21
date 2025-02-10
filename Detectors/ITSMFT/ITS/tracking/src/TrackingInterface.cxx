@@ -48,12 +48,14 @@ void ITSTrackingInterface::initialise()
     trackParams[2].CellDeltaTanLambdaSigma *= 4.;
     trackParams[2].MinTrackLength = 4;
     trackParams[2].MinPt[3] = 0.2f;
-    trackParams[2].StartLayerMask = (1 << 6) + (1 << 3);
+    trackParams[2].StartLayerMask = std::vector<unsigned short>(trackParams[2].NLayers - trackParams[2].MinTrackLength + 1, 0x7F);
+    trackParams[2].StartLayerMask[3] = (1 << 6) + (1 << 3);
     if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
       trackParams[3].TrackletMinPt = 0.1f;
       trackParams[3].CellDeltaTanLambdaSigma *= 4.;
       trackParams[3].MinTrackLength = 4;
       trackParams[3].DeltaROF = 0; // UPC specific setting
+      trackParams[3].StartLayerMask = std::vector<unsigned short>(trackParams[2].NLayers - trackParams[2].MinTrackLength + 1, 0x7F);
     }
     for (auto& param : trackParams) {
       param.ZBins = 64;

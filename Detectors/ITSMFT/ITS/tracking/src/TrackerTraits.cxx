@@ -573,7 +573,7 @@ void TrackerTraits::findRoads(const int iteration)
     const int minimumLayer{startLevel - 1};
     std::vector<CellSeed> trackSeeds;
     for (int startLayer{mTrkParams[iteration].CellsPerRoad() - 1}; startLayer >= minimumLayer; --startLayer) {
-      if ((mTrkParams[iteration].StartLayerMask & (1 << (startLayer + 2))) == 0) {
+      if ((mTrkParams[iteration].StartLayerMask[mTrkParams[iteration].NLayers - (startLevel + 2)] & (1 << (startLayer + 2))) == 0) {
         continue;
       }
       CA_DEBUGGER(std::cout << "\t\t > Starting processing layer " << startLayer << std::endl);

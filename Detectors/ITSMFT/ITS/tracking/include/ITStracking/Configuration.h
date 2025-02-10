@@ -95,7 +95,7 @@ struct TrackingParameters {
   float MaxChi2ClusterAttachment = 60.f;
   float MaxChi2NDF = 30.f;
   std::vector<float> MinPt = {0.f, 0.f, 0.f, 0.f};
-  unsigned char StartLayerMask = 0x7F;
+  std::vector<unsigned short> StartLayerMask = std::vector<unsigned short>(1, 0xFFFF);
   bool FindShortTracks = false;
   bool PerPrimaryVertexProcessing = false;
   bool SaveTimeBenchmarks = false;
