@@ -18,5 +18,6 @@ add_subdirectory(calibration)
 add_subdirectory(condition)
 add_subdirectory(assessment)
 add_subdirectory(alignment)
+add_subdirectory(matching)
 
 o2_data_file(COPY data DESTINATION Detectors/Geometry/MFT/)
