@@ -77,7 +77,8 @@ class TimeFrameGPU : public TimeFrame
   void createCellsDevice();
   void createCellsLUTDevice();
   void createNeighboursIndexTablesDevice();
-  void createNeighboursDevice(const unsigned int& layer, std::vector<std::pair<int, int>>& neighbours);
+  void createNeighboursDevice(const unsigned int layer, const unsigned int nNeighbours);
+  void createNeighboursDevice(const unsigned int layer, std::vector<std::pair<int, int>>& neighbours);
   void createNeighboursLUTDevice(const int, const unsigned int);
   void createNeighboursDeviceArray();
   void createTrackITSExtDevice(std::vector<CellSeed>&);
@@ -116,6 +117,7 @@ class TimeFrameGPU : public TimeFrame
   int* getDeviceNeighboursLUT(const int layer) { return mNeighboursLUTDevice[layer]; }
   gsl::span<int*> getDeviceNeighboursLUTs() { return mNeighboursLUTDevice; }
   gpuPair<int, int>* getDeviceNeighbourPairs(const int layer) { return mNeighbourPairsDevice[layer]; }
+  std::array<int*, nLayers - 2>& getDeviceNeighboursAll() { return mNeighboursDevice; }
   int* getDeviceNeighbours(const int layer) { return mNeighboursDevice[layer]; }
   int** getDeviceNeighboursArray() { return mNeighboursDeviceArray; }
   TrackingFrameInfo* getDeviceTrackingFrameInfo(const int);
@@ -142,12 +144,16 @@ class TimeFrameGPU : public TimeFrame
   // Host-specific getters
   gsl::span<int, nLayers - 1> getNTracklets() { return mNTracklets; }
   gsl::span<int, nLayers - 2> getNCells() { return mNCells; }
+  std::array<int, nLayers - 2>& getArrayNCells() { return mNCells; }
 
   // Host-available device getters
   gsl::span<int*> getDeviceTrackletsLUTs() { return mTrackletsLUTDevice; }
   gsl::span<int*> getDeviceCellLUTs() { return mCellsLUTDevice; }
   gsl::span<Tracklet*> getDeviceTracklet() { return mTrackletsDevice; }
   gsl::span<CellSeed*> getDeviceCells() { return mCellsDevice; }
+
+  // Overridden getters
+  int getNumberOfCells() const;
 
  private:
   void allocMemAsync(void**, size_t, Stream*, bool); // Abstract owned and unowned memory allocations
@@ -248,6 +254,12 @@ inline std::vector<unsigned int> TimeFrameGPU<nLayers>::getClusterSizes()
   std::transform(mUnsortedClusters.begin(), mUnsortedClusters.end(), sizes.begin(),
                  [](const auto& v) { return static_cast<unsigned int>(v.size()); });
   return sizes;
+}
+
+template <int nLayers>
+inline int TimeFrameGPU<nLayers>::getNumberOfCells() const
+{
+  return std::accumulate(mNCells.begin(), mNCells.end(), 0);
 }
 
 } // namespace gpu

@@ -148,19 +148,19 @@ void computeCellsHandler(const Cluster** sortedClusters,
                          const int nBlocks,
                          const int nThreads);
 
-void countCellNeighboursHandler(CellSeed** cellsLayersDevice,
-                                int* neighboursLUTs,
-                                int** cellsLUTs,
-                                gpuPair<int, int>* cellNeighbours,
-                                int* neighboursIndexTable,
-                                const float maxChi2ClusterAttachment,
-                                const float bz,
-                                const int layerIndex,
-                                const unsigned int nCells,
-                                const unsigned int nCellsNext,
-                                const int maxCellNeighbours,
-                                const int nBlocks,
-                                const int nThreads);
+unsigned int countCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                        int* neighboursLUTs,
+                                        int** cellsLUTs,
+                                        gpuPair<int, int>* cellNeighbours,
+                                        int* neighboursIndexTable,
+                                        const float maxChi2ClusterAttachment,
+                                        const float bz,
+                                        const int layerIndex,
+                                        const unsigned int nCells,
+                                        const unsigned int nCellsNext,
+                                        const int maxCellNeighbours,
+                                        const int nBlocks,
+                                        const int nThreads);
 
 void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
                                   int* neighboursLUTs,
@@ -186,19 +186,17 @@ void processNeighboursHandler(const int startLayer,
                               const int startLevel,
                               CellSeed** allCellSeeds,
                               CellSeed* currentCellSeeds,
-                              const unsigned int nCurrentCells,
+                              std::array<int, nLayers - 2>& nCells,
                               const unsigned char** usedClusters,
-                              int* neighbours,
+                              std::array<int*, nLayers - 2>& neighbours,
                               gsl::span<int*> neighboursDeviceLUTs,
                               const TrackingFrameInfo** foundTrackingFrameInfo,
+                              std::vector<CellSeed>& seedsHost,
                               const float bz,
                               const float MaxChi2ClusterAttachment,
+                              const float maxChi2NDF,
                               const o2::base::Propagator* propagator,
                               const o2::base::PropagatorF::MatCorrType matCorrType,
-                              const std::vector<int>& lastCellIdHost,        // temporary host vector
-                              const std::vector<CellSeed>& lastCellSeedHost, // temporary host vector
-                              std::vector<int>& updatedCellIdHost,           // temporary host vector
-                              std::vector<CellSeed>& updatedCellSeedHost,    // temporary host vector
                               const int nBlocks,
                               const int nThreads);
 

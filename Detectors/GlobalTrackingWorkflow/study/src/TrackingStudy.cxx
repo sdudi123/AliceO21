@@ -293,13 +293,18 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           clRowP = clRow;
         }
         unsigned int absoluteIndex = tpcClusAcc.clusterOffset[clSect][clRow] + clIdx;
-        if (shMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+        if (shMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
           trExt.nClTPCShared++;
         }
       }
       trc.getClusterReference(clRefs, trc.getNClusterReferences() - 1, clSect, clRow, clIdx);
       trExt.rowMinTPC = clRow;
       const auto& clus = tpcClusAcc.clusters[clSect][clRow][clIdx];
+      trExt.padFromEdge = uint8_t(clus.getPad());
+      int npads = mTPCRefitter->getParam()->tpcGeometry.NPads(clRow);
+      if (trExt.padFromEdge > npads / 2) {
+        trExt.padFromEdge = npads - 1 - trExt.padFromEdge;
+      }
       this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos0[0], trExt.innerTPCPos0[1], trExt.innerTPCPos0[2], trc.getTime0()); // nominal time of the track
       if (timestampTB > -1e8) {
         this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos[0], trExt.innerTPCPos[1], trExt.innerTPCPos[2], timestampTB); // time assigned from the global track track
