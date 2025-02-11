@@ -138,9 +138,6 @@ bool Detector::ProcessHits(FairVolume* vol)
   // Check track status to define when hit is started and when it is stopped
   bool startHit = false, stopHit = false;
   unsigned char status = 0;
-
-  int currVolId, offId;
-
   if (fMC->IsTrackEntering()) {
     status |= Hit::kTrackEntering;
   }
@@ -186,8 +183,8 @@ bool Detector::ProcessHits(FairVolume* vol)
   if (stopHit) {
     TLorentzVector positionStop;
     fMC->TrackPosition(positionStop);
-    int trackId = fMC->GetStack()->GetCurrentTrackNumber();
-    int chId = getChannelId(mTrackData.mPositionStart.Vect());
+    int trackId = stack->GetCurrentTrackNumber();
+    unsigned int chId = getChannelId(mTrackData.mPositionStart.Vect());
 
     Hit* p = addHit(trackId, chId /*cellId*/, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
                     mTrackData.mMomentumStart.Vect(), mTrackData.mMomentumStart.E(),
@@ -374,7 +371,7 @@ void Detector::defineSensitiveVolumes()
   }
 }
 
-int Detector::getChannelId(TVector3 vec)
+unsigned int Detector::getChannelId(TVector3 vec)
 {
   float phi = vec.Phi();
   if (phi < 0) {
@@ -384,7 +381,7 @@ int Detector::getChannelId(TVector3 vec)
   float r = vec.Perp();
   float z = vec.Z();
 
-  int isect = int(phi / (TMath::Pi() / 4));
+  int isect = int(phi / (TMath::TwoPi() / mNumberOfSectors));
 
   std::vector<float> rd = z > 0 ? mRingRadiiA : mRingRadiiC;
   int noff = z > 0 ? 0 : mNumberOfRingsA * mNumberOfSectors;

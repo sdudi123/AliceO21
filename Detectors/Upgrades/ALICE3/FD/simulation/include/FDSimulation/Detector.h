@@ -100,9 +100,9 @@ class Detector : public o2::base::DetImpl<Detector>
 
   float ringRadius(float zmod, float eta);
 
-  int mNumberOfSectors;
-  int mNumberOfRingsA;
-  int mNumberOfRingsC;
+  unsigned int mNumberOfSectors;
+  unsigned int mNumberOfRingsA;
+  unsigned int mNumberOfRingsC;
   float mDzScint;
 
   std::vector<float> mRingRadiiA = {};
@@ -115,7 +115,7 @@ class Detector : public o2::base::DetImpl<Detector>
 
   void defineSensitiveVolumes();
 
-  int getChannelId(TVector3 vec);
+  unsigned int getChannelId(TVector3 vec);
 
   /// Transient data about track passing the sensor, needed by ProcessHits()
   struct TrackData {               // this is transient
