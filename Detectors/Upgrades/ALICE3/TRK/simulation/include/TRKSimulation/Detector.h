@@ -91,6 +91,9 @@ class Detector : public o2::base::DetImpl<Detector>
   TRKServices mServices;                 // Houses the services of the TRK, but not the Iris tracker
   std::vector<TRKPetalCase> mPetalCases; // Houses the Iris tracker and its services. Created fully in the beam pipe
 
+  std::vector<std::string> mFirstOrLastLayers; // Names of the first or last layers
+  bool InsideFirstOrLastLayer(std::string layerName);
+
   void defineSensitiveVolumes();
 
   template <typename Det>

@@ -55,8 +55,10 @@ void TRKPetalDisk::createDisk(TGeoVolume* motherVolume, TGeoCombiTrans* combiTra
 {
   // Create tube, set sensitive volume, add to mother volume
   Double_t toDeg = 180 / TMath::Pi();
-  std::string chipName = o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mDiskNumber),
-              sensName = Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mDiskNumber);
+  std::string chipName = mDiskName + "_" + o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mDiskNumber),
+              sensName = mDiskName + "_" + Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mDiskNumber);
+  
+  mSensorName = sensName;
 
   TGeoTubeSeg* sensor = new TGeoTubeSeg(mInnerRadius, mOuterRadius, mChipThickness / 2., -0.5 * mAngularCoverage * toDeg, 0.5 * mAngularCoverage * toDeg);
   TGeoTubeSeg* chip = new TGeoTubeSeg(mInnerRadius, mOuterRadius, mChipThickness / 2., -0.5 * mAngularCoverage * toDeg, 0.5 * mAngularCoverage * toDeg);

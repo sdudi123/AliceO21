@@ -36,14 +36,14 @@ class TRKPetalLayer
   auto getChipThickness() const { return mChipThickness; }
   auto getNumber() const { return mLayerNumber; }
   auto getName() const { return mLayerName; }
-
-  auto getShapeName() const { return mLayer->GetName(); }
+  auto getSensorName() const { return mSensorName; }
 
   void createLayer(TGeoVolume* motherVolume, TGeoCombiTrans* combiTrans);
 
  private:
   Int_t mLayerNumber;
   std::string mLayerName;
+  std::string mSensorName;
   Float_t mInnerRadius;
   Float_t mZ;
   Float_t mX2X0;

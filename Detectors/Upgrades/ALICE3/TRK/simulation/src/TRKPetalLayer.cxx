@@ -39,13 +39,14 @@ void TRKPetalLayer::createLayer(TGeoVolume* motherVolume, TGeoCombiTrans* combiT
   TGeoMedium* medSi = gGeoManager->GetMedium("TRK_SILICON$");
   TGeoMedium* medAir = gGeoManager->GetMedium("TRK_AIR$");
 
-  std::string staveName = o2::trk::GeometryTGeo::getTRKStavePattern() + std::to_string(mLayerNumber),
-              chipName = o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mLayerNumber),
-              sensName = Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mLayerNumber);
+  std::string staveName = mLayerName + "_" + o2::trk::GeometryTGeo::getTRKStavePattern() + std::to_string(mLayerNumber),
+              chipName = mLayerName + "_" + o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mLayerNumber),
+              sensName = mLayerName + "_" + Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mLayerNumber);
+  
+  mSensorName = sensName;
 
   Double_t toDeg = 180 / TMath::Pi();
   mLayer = new TGeoTubeSeg(mInnerRadius, mInnerRadius + mChipThickness, mZ / 2., -0.5 * mAngularCoverage * toDeg, 0.5 * mAngularCoverage * toDeg);
-  LOGP(info, "mLayerName: {}", mLayerName);
   TGeoVolume* layerVol = new TGeoVolume(mLayerName.c_str(), mLayer, medAir);
   layerVol->SetLineColor(kYellow);
 

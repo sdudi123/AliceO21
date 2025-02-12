@@ -160,18 +160,14 @@ void TRKServices::createVacuumCompositeShape()
 
 void TRKServices::excavateFromVacuum(TString shapeToExcavate)
 {
-  LOGP(info, "vacuumCompositeFormula: {}", mVacuumCompositeFormula.Data());
   mVacuumCompositeFormula += "-";
   mVacuumCompositeFormula += shapeToExcavate;
-  LOGP(info, "vacuumCompositeFormula: {}", mVacuumCompositeFormula.Data());
 }
 
 void TRKServices::registerVacuum(TGeoVolume* motherVolume)
 {
   auto& matmgr = o2::base::MaterialManager::Instance();
   const TGeoMedium* kMedVac = matmgr.getTGeoMedium("ALICE3_PIPE_VACUUM");
-
-  LOGP(info, "vacuumCompositeFormula: {}", mVacuumCompositeFormula.Data());
 
   TGeoCompositeShape* vacuumComposite = new TGeoCompositeShape("A3IP_VACUUMsh", mVacuumCompositeFormula);
   TGeoVolume* vacuumVolume = new TGeoVolume("A3IP_VACUUM", vacuumComposite, kMedVac);

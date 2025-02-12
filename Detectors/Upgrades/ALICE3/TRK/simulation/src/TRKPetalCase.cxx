@@ -165,7 +165,6 @@ void TRKPetalCase::constructDetectionPetals(TGeoVolume* motherVolume)
 
 void TRKPetalCase::addDetectionPetelsToFullComposite()
 {
-  LOGP(info, "Excavating layers from vacuum");
   for (Int_t i = 0; i < mPetalLayers.size(); ++i) {
     Double_t zLength = mPetalLayers[i].getZLength();
     Double_t rIn = mPetalLayers[i].getInnerRadius();
@@ -179,7 +178,6 @@ void TRKPetalCase::addDetectionPetelsToFullComposite()
     addToPetalCaseComposite(layerForExcavationCompositeFormula);
   }
 
-  LOGP(info, "Excavating disks vacuum");
   for (Int_t i = 0; i < mPetalDisks.size(); ++i) {
     Double_t zPos = mPetalDisks[i].getZ();
     Double_t rIn = mPetalDisks[i].getInnerRadius();

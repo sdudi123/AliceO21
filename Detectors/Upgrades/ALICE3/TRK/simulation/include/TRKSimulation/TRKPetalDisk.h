@@ -39,6 +39,7 @@ class TRKPetalDisk
   auto getZ() const { return mZ; }
   auto getx2X0() const { return mx2X0; }
   auto getName() const { return mDiskName; }
+  auto getSensorName() const { return mSensorName; }
 
   /// Creates the actual Disk and places inside its mother volume
   /// \param motherVolume the TGeoVolume owing the volume structure
@@ -47,6 +48,7 @@ class TRKPetalDisk
  private:
   Int_t mDiskNumber = -1; ///< Current disk number
   std::string mDiskName;  ///< Current disk name
+  std::string mSensorName;
   Double_t mInnerRadius;  ///< Inner radius of this disk
   Double_t mOuterRadius;  ///< Outer radius of this disk
   Double_t mAngularCoverage;
