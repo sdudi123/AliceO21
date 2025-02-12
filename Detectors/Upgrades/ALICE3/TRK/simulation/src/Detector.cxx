@@ -107,7 +107,7 @@ void Detector::buildTRKNewVacuumVessel()
   // mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 1.2f, 50.f, 100.e-4);
   // mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 2.5f, 50.f, 100.e-4);
   mLayers.emplace_back(0, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)}, 7.f, 124.f, 100.e-3);
-  LOGP(info, "TRKLayer created. Name: {}",  std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)});
+  LOGP(info, "TRKLayer created. Name: {}", std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(0)});
   mLayers.emplace_back(1, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(1)}, 9.f, 124.f, 100.e-3);
   mLayers.emplace_back(2, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(2)}, 12.f, 124.f, 100.e-3);
   mLayers.emplace_back(3, std::string{GeometryTGeo::getTRKLayerPattern() + std::to_string(3)}, 20.f, 124.f, 100.e-3);
@@ -268,7 +268,9 @@ void Detector::defineSensitiveVolumes()
     // Petal layers
     for (int petalLayer = 0; petalLayer < mPetalCases[petalCase].mPetalLayers.size(); ++petalLayer) {
       volumeName = mPetalCases[petalCase].mPetalLayers[petalLayer].getSensorName();
-      if(petalLayer == 0){mFirstOrLastLayers.push_back(volumeName.Data());}
+      if (petalLayer == 0) {
+        mFirstOrLastLayers.push_back(volumeName.Data());
+      }
       LOGP(info, "Trying {}", volumeName.Data());
       v = geoManager->GetVolume(volumeName.Data());
       LOGP(info, "Adding TRK Sensitive Volume {}", v->GetName());
@@ -287,7 +289,9 @@ void Detector::defineSensitiveVolumes()
   // The names of the TRK sensitive volumes have the format: TRKLayer(0...mLayers.size()-1)
   for (int j{0}; j < mLayers.size(); j++) {
     volumeName = GeometryTGeo::getTRKSensorPattern() + TString::Itoa(j, 10);
-    if(j == mLayers.size() - 1){mFirstOrLastLayers.push_back(volumeName.Data());}
+    if (j == mLayers.size() - 1) {
+      mFirstOrLastLayers.push_back(volumeName.Data());
+    }
     LOGP(info, "Trying {}", volumeName.Data());
     v = geoManager->GetVolume(volumeName.Data());
     LOGP(info, "Adding TRK Sensitive Volume {}", v->GetName());
@@ -315,10 +319,11 @@ void Detector::Reset()
   }
 }
 
-bool Detector::InsideFirstOrLastLayer(std::string layerName){
+bool Detector::InsideFirstOrLastLayer(std::string layerName)
+{
   bool inside = false;
-  for(auto &firstOrLastLayer: mFirstOrLastLayers){
-    if(firstOrLastLayer == layerName){
+  for (auto& firstOrLastLayer : mFirstOrLastLayers) {
+    if (firstOrLastLayer == layerName) {
       inside = true;
       break;
     }

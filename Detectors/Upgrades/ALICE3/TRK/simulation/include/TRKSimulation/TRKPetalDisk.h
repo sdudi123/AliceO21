@@ -49,8 +49,8 @@ class TRKPetalDisk
   Int_t mDiskNumber = -1; ///< Current disk number
   std::string mDiskName;  ///< Current disk name
   std::string mSensorName;
-  Double_t mInnerRadius;  ///< Inner radius of this disk
-  Double_t mOuterRadius;  ///< Outer radius of this disk
+  Double_t mInnerRadius; ///< Inner radius of this disk
+  Double_t mOuterRadius; ///< Outer radius of this disk
   Double_t mAngularCoverage;
   Double_t mZ;             ///< Z position of the disk
   Double_t mChipThickness; ///< Chip thickness

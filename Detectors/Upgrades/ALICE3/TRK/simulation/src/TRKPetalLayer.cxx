@@ -42,7 +42,7 @@ void TRKPetalLayer::createLayer(TGeoVolume* motherVolume, TGeoCombiTrans* combiT
   std::string staveName = mLayerName + "_" + o2::trk::GeometryTGeo::getTRKStavePattern() + std::to_string(mLayerNumber),
               chipName = mLayerName + "_" + o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mLayerNumber),
               sensName = mLayerName + "_" + Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mLayerNumber);
-  
+
   mSensorName = sensName;
 
   Double_t toDeg = 180 / TMath::Pi();

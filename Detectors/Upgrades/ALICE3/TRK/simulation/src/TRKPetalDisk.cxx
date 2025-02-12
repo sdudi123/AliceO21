@@ -57,7 +57,7 @@ void TRKPetalDisk::createDisk(TGeoVolume* motherVolume, TGeoCombiTrans* combiTra
   Double_t toDeg = 180 / TMath::Pi();
   std::string chipName = mDiskName + "_" + o2::trk::GeometryTGeo::getTRKChipPattern() + std::to_string(mDiskNumber),
               sensName = mDiskName + "_" + Form("%s%d", GeometryTGeo::getTRKSensorPattern(), mDiskNumber);
-  
+
   mSensorName = sensName;
 
   TGeoTubeSeg* sensor = new TGeoTubeSeg(mInnerRadius, mOuterRadius, mChipThickness / 2., -0.5 * mAngularCoverage * toDeg, 0.5 * mAngularCoverage * toDeg);
