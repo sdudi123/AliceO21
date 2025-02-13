@@ -45,8 +45,8 @@ struct Condition {
 template <typename T>
 concept is_condition = requires(T t) {
   typename T::type;
-  std::same_as<T*, decltype(t.instance)>;
-  std::same_as<std::string, decltype(t.path)>;
+  requires std::same_as<T*, decltype(t.instance)>;
+  requires std::same_as<std::string, decltype(t.path)>;
 };
 
 /// Can be used to group together a number of Configurables

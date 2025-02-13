@@ -287,7 +287,7 @@ struct Spawns : decltype(transformBase<T>()) {
 template <typename T>
 concept is_spawns = requires(T t) {
   typename T::metadata;
-  std::same_as<decltype(t.pack()), typename T::expression_pack_t>;
+  requires std::same_as<decltype(t.pack()), typename T::expression_pack_t>;
 };
 
 /// Policy to control index building
@@ -473,7 +473,7 @@ template <typename T>
 concept is_builds = requires(T t) {
   typename T::metadata;
   typename T::Key;
-  std::same_as<decltype(t.pack()), typename T::index_pack_t>;
+  requires std::same_as<decltype(t.pack()), typename T::index_pack_t>;
 };
 
 /// This helper class allows you to declare things which will be created by a
@@ -572,7 +572,10 @@ struct OutputObj {
 };
 
 template <typename T>
-concept is_outputobj = requires(T t) { &T::setObject; std::same_as<decltype(t.object), std::shared_ptr<typename T::obj_t>>; };
+concept is_outputobj = requires(T t) {
+  &T::setObject;
+  requires std::same_as<decltype(t.object), std::shared_ptr<typename T::obj_t>>;
+};
 
 /// This helper allows you to fetch a Sevice from the context or
 /// by using some singleton. This hopefully will hide the Singleton and
@@ -593,7 +596,10 @@ struct Service {
 };
 
 template <typename T>
-concept is_service = requires(T t) { std::same_as<decltype(t.service), typename T::service_t*>; &T::operator->; };
+concept is_service = requires(T t) {
+  requires std::same_as<decltype(t.service), typename T::service_t*>;
+  &T::operator->;
+};
 
 auto getTableFromFilter(soa::is_filtered_table auto const& table, soa::SelectionVector&& selection)
 {
@@ -721,7 +727,11 @@ struct Partition {
 };
 
 template <typename T>
-concept is_partition = requires(T t) {&T::updatePlaceholders; std::same_as<decltype(t.filter), expressions::Filter>; std::same_as<decltype(t.mFiltered), std::unique_ptr<o2::soa::Filtered<typename T::content_t>>>; };
+concept is_partition = requires(T t) {
+  &T::updatePlaceholders;
+  requires std::same_as<decltype(t.filter), expressions::Filter>;
+  requires std::same_as<decltype(t.mFiltered), std::unique_ptr<o2::soa::Filtered<typename T::content_t>>>;
+};
 }  // namespace o2::framework
 
 namespace o2::soa

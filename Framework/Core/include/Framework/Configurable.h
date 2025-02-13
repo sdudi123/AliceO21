@@ -84,7 +84,11 @@ template <typename T, ConfigParamKind K = ConfigParamKind::kGeneric>
 using MutableConfigurable = Configurable<T, K, ConfigurablePolicyMutable<T, K>>;
 
 template <typename T>
-concept is_configurable = requires(T& t) { typename T::type; std::same_as<std::string, decltype(t.name)>; &T::operator typename T::type; };
+concept is_configurable = requires(T& t) {
+  typename T::type;
+  requires std::same_as<std::string, decltype(t.name)>;
+  &T::operator typename T::type;
+};
 
 using ConfigurableAxis = Configurable<std::vector<double>, ConfigParamKind::kAxisSpec, ConfigurablePolicyConst<std::vector<double>, ConfigParamKind::kAxisSpec>>;
 

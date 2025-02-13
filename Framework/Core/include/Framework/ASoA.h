@@ -1456,8 +1456,8 @@ using PresliceOptional = PresliceBase<T, PreslicePolicySorted, true>;
 
 template <typename T>
 concept is_preslice = requires(T t) {
-  std::same_as<decltype(t.binding), std::string>;
-  std::same_as<decltype(t.bindingKey), StringPair>;
+  requires std::same_as<decltype(t.binding), std::string>;
+  requires std::same_as<decltype(t.bindingKey), StringPair>;
   &T::isMising;
   &T::updateSliceInfo;
   &T::getSliceFor;
