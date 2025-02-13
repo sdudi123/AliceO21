@@ -509,98 +509,95 @@ static void setGroupedCombination(C& comb, TG& grouping, std::tuple<Ts...>& asso
   }
 }
 
-} // namespace analysis_task_parsers
+/// Preslice handling
+template <typename T>
+bool registerCache(T&, std::vector<StringPair>&, std::vector<StringPair>&)
+{
+  return false;
+}
 
-template <typename ANY>
-struct UpdateProcessSwitches {
-  static bool set(std::pair<std::string, bool>, ANY&)
-  {
-    return false;
-  }
-};
-
-template <typename R, typename T, typename... As>
-struct UpdateProcessSwitches<ProcessConfigurable<R, T, As...>> {
-  static bool set(std::pair<std::string, bool> setting, ProcessConfigurable<R, T, As...>& what)
-  {
-    if (what.name == setting.first) {
-      what.value = setting.second;
+template <is_preslice T>
+  requires std::same_as<typename T::policy_t, framework::PreslicePolicySorted>
+bool registerCache(T& preslice, std::vector<StringPair>& bsks, std::vector<StringPair>&)
+{
+  if constexpr (T::optional) {
+    if (preslice.binding == "[MISSING]") {
       return true;
     }
-    return false;
   }
-};
+  auto locate = std::find_if(bsks.begin(), bsks.end(), [&](auto const& entry) { return (entry.first == preslice.bindingKey.first) && (entry.second == preslice.bindingKey.second); });
+  if (locate == bsks.end()) {
+    bsks.emplace_back(preslice.getBindingKey());
+  }
+  return true;
+}
 
-/// Manager template to handle slice caching
+template <is_preslice T>
+  requires std::same_as<typename T::policy_t, framework::PreslicePolicyGeneral>
+bool registerCache(T& preslice, std::vector<StringPair>&, std::vector<StringPair>& bsksU)
+{
+  if constexpr (T::optional) {
+    if (preslice.binding == "[MISSING]") {
+      return true;
+    }
+  }
+  auto locate = std::find_if(bsksU.begin(), bsksU.end(), [&](auto const& entry) { return (entry.first == preslice.bindingKey.first) && (entry.second == preslice.bindingKey.second); });
+  if (locate == bsksU.end()) {
+    bsksU.emplace_back(preslice.getBindingKey());
+  }
+  return true;
+}
+
 template <typename T>
-struct PresliceManager {
-  static bool registerCache(T&, std::vector<StringPair>&, std::vector<StringPair>&)
-  {
-    return false;
-  }
+bool updateSliceInfo(T&, ArrowTableSlicingCache&)
+{
+  return false;
+}
 
-  static bool updateSliceInfo(T&, ArrowTableSlicingCache&)
-  {
-    return false;
+template <is_preslice T>
+static bool updateSliceInfo(T& preslice, ArrowTableSlicingCache& cache)
+  requires std::same_as<typename T::policy_t, framework::PreslicePolicySorted>
+{
+  if constexpr (T::optional) {
+    if (preslice.binding == "[MISSING]") {
+      return true;
+    }
   }
-};
+  preslice.updateSliceInfo(cache.getCacheFor(preslice.getBindingKey()));
+  return true;
+}
 
-template <typename T, typename Policy, bool OPT>
-struct PresliceManager<PresliceBase<T, Policy, OPT>> {
-  static bool registerCache(PresliceBase<T, Policy, OPT>& container, std::vector<StringPair>& bsks, std::vector<StringPair>&)
-    requires std::same_as<Policy, framework::PreslicePolicySorted>
-  {
-    if constexpr (OPT) {
-      if (container.binding == "[MISSING]") {
-        return true;
-      }
+template <is_preslice T>
+static bool updateSliceInfo(T& preslice, ArrowTableSlicingCache& cache)
+  requires std::same_as<typename T::policy_t, framework::PreslicePolicyGeneral>
+{
+  if constexpr (T::optional) {
+    if (preslice.binding == "[MISSING]") {
+      return true;
     }
-    auto locate = std::find_if(bsks.begin(), bsks.end(), [&](auto const& entry) { return (entry.first == container.bindingKey.first) && (entry.second == container.bindingKey.second); });
-    if (locate == bsks.end()) {
-      bsks.emplace_back(container.getBindingKey());
-    }
+  }
+  preslice.updateSliceInfo(cache.getCacheUnsortedFor(preslice.getBindingKey()));
+  return true;
+}
+
+/// Process switches handling
+template <typename T>
+static bool setProcessSwitch(std::pair<std::string, bool>, T&)
+{
+  return false;
+}
+
+template <is_process_configurable T>
+static bool setProcessSwitch(std::pair<std::string, bool> setting, T& pc)
+{
+  if (pc.name == setting.first) {
+    pc.value = setting.second;
     return true;
   }
+  return false;
+}
 
-  static bool registerCache(PresliceBase<T, Policy, OPT>& container, std::vector<StringPair>&, std::vector<StringPair>& bsksU)
-    requires std::same_as<Policy, framework::PreslicePolicyGeneral>
-  {
-    if constexpr (OPT) {
-      if (container.binding == "[MISSING]") {
-        return true;
-      }
-    }
-    auto locate = std::find_if(bsksU.begin(), bsksU.end(), [&](auto const& entry) { return (entry.first == container.bindingKey.first) && (entry.second == container.bindingKey.second); });
-    if (locate == bsksU.end()) {
-      bsksU.emplace_back(container.getBindingKey());
-    }
-    return true;
-  }
-
-  static bool updateSliceInfo(PresliceBase<T, Policy, OPT>& container, ArrowTableSlicingCache& cache)
-    requires std::same_as<Policy, framework::PreslicePolicySorted>
-  {
-    if constexpr (OPT) {
-      if (container.binding == "[MISSING]") {
-        return true;
-      }
-    }
-    container.updateSliceInfo(cache.getCacheFor(container.getBindingKey()));
-    return true;
-  }
-
-  static bool updateSliceInfo(PresliceBase<T, Policy, OPT>& container, ArrowTableSlicingCache& cache)
-    requires std::same_as<Policy, framework::PreslicePolicyGeneral>
-  {
-    if constexpr (OPT) {
-      if (container.binding == "[MISSING]") {
-        return true;
-      }
-    }
-    container.updateSliceInfo(cache.getCacheUnsortedFor(container.getBindingKey()));
-    return true;
-  }
-};
+} // namespace analysis_task_parsers
 } // namespace o2::framework
 
 #endif // ANALYSISMANAGERS_H

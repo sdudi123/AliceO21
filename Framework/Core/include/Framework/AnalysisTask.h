@@ -444,8 +444,8 @@ auto getTaskNameSetProcesses(std::string& outputName, TaskName first, SetDefault
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : second.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -459,8 +459,8 @@ auto getTaskNameSetProcesses(std::string& outputName, SetDefaultProcesses first,
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : first.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -474,8 +474,8 @@ auto getTaskNameSetProcesses(std::string& outputName, SetDefaultProcesses first,
   auto task = std::make_shared<T>(std::forward<A>(args)...);
   for (auto& setting : first.map) {
     homogeneous_apply_refs(
-      [&](auto& x) {
-        return UpdateProcessSwitches<std::decay_t<decltype(x)>>::set(setting, x);
+      [&](auto& element) {
+        return analysis_task_parsers::setProcessSwitch(setting, element);
       },
       *task.get());
   }
@@ -550,7 +550,7 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     *task.get());
 
   // add preslice declarations to slicing cache definition
-  homogeneous_apply_refs([&bindingsKeys, &bindingsKeysUnsorted](auto& x) { return PresliceManager<std::decay_t<decltype(x)>>::registerCache(x, bindingsKeys, bindingsKeysUnsorted); }, *task.get());
+  homogeneous_apply_refs([&bindingsKeys, &bindingsKeysUnsorted](auto& element) { return analysis_task_parsers::registerCache(element, bindingsKeys, bindingsKeysUnsorted); }, *task.get());
 
   // request base tables for spawnable extended tables and indices to be built
   // this checks for duplications
@@ -620,8 +620,8 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
       }
       // reset pre-slice for the next dataframe
       auto slices = pc.services().get<ArrowTableSlicingCache>();
-      homogeneous_apply_refs([&pc, &slices](auto& x) {
-        return PresliceManager<std::decay_t<decltype(x)>>::updateSliceInfo(x, slices);
+      homogeneous_apply_refs([&pc, &slices](auto& element) {
+        return analysis_task_parsers::updateSliceInfo(element, slices);
       },
                              *(task.get()));
       // initialize local caches
