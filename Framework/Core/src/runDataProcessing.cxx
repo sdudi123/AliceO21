@@ -2959,7 +2959,11 @@ int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& workflow,
     for (auto& dp : importedWorkflow) {
       auto found = std::find_if(physicalWorkflow.begin(), physicalWorkflow.end(),
                                 [&name = dp.name](DataProcessorSpec const& spec) { return spec.name == name; });
-      if (found == physicalWorkflow.end()) {
+      // also checking the workflow for processors with the same name but from a different executable,
+      // adding them to the workflow to trigger the check for duplicate names in the MATERIALISE_WORKFLOW state
+      auto duplicate_name = std::find_if(dataProcessorInfos.begin(), dataProcessorInfos.end(),
+                                         [&name = dp.name, &exec = currentWorkflow.executable](DataProcessorInfo const& info) { return (info.name == name && info.executable != exec); });
+      if (found == physicalWorkflow.end() || duplicate_name != dataProcessorInfos.end()) {
         physicalWorkflow.push_back(dp);
         rankIndex.insert(std::make_pair(dp.name, workflowHashB));
       }
