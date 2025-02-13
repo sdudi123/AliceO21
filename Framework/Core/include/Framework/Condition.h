@@ -45,7 +45,7 @@ struct Condition {
 template <typename T>
 concept is_condition = requires(T t) {
   typename T::type;
-  requires std::same_as<T*, decltype(t.instance)>;
+  requires std::same_as<typename T::type*, decltype(t.instance)>;
   requires std::same_as<std::string, decltype(t.path)>;
 };
 
