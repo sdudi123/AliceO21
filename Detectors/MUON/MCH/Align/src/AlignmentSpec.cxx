@@ -159,10 +159,6 @@ class AlignmentTask
     }
 
     doReAlign = ic.options().get<bool>("do-realign");
-    if (doReAlign) {
-      LOG(info) << "Re-alignment mode";
-      NewGeoFileName = ic.options().get<string>("geo-file-new");
-    }
 
     if (mCCDBRequest) {
       LOG(info) << "Loading magnetic field and reference geometry from CCDB";
@@ -204,6 +200,22 @@ class AlignmentTask
         }
       } else {
         LOG(fatal) << "No reference geometry";
+      }
+
+      if (doReAlign) {
+        LOG(info) << "Re-alignment mode";
+        LOG(info) << "Loading re-alignment geometry";
+        NewGeoFileName = ic.options().get<string>("geo-file-new");
+        if (std::filesystem::exists(NewGeoFileName)) {
+          base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
+          transformation = geo::transformationFromTGeoManager(*gGeoManager);
+          for (int i = 0; i < 156; i++) {
+            int iDEN = GetDetElemId(i);
+            transformNew[iDEN] = transformation(iDEN);
+          }
+        } else {
+          LOG(fatal) << "No re-alignment geometry";
+        }
       }
     }
 
@@ -385,21 +397,6 @@ class AlignmentTask
       for (int i = 0; i < 156; i++) {
         int iDEN = GetDetElemId(i);
         transformIdeal[iDEN] = transformation(iDEN);
-      }
-    }
-
-    // Load new geometry if we need to do re-align
-    if (doReAlign) {
-      LOG(info) << "Loading re-alignment geometry";
-      if (std::filesystem::exists(NewGeoFileName)) {
-        base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
-        transformation = geo::transformationFromTGeoManager(*gGeoManager);
-        for (int i = 0; i < 156; i++) {
-          int iDEN = GetDetElemId(i);
-          transformNew[iDEN] = transformation(iDEN);
-        }
-      } else {
-        LOG(fatal) << "No re-alignment geometry";
       }
     }
 
