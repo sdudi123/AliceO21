@@ -44,17 +44,19 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   if (!optionsMap.contains("model-path")) {
     LOG(fatal) << "(ORT) Model path cannot be empty!";
   }
-  modelPath = optionsMap["model-path"];
-  device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
-  dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
-  deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
-  allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
-  intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
-  loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 2);
-  enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
-  enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
+  
+  if (!optionsMap["model-path"].empty()) {
+    modelPath = optionsMap["model-path"];
+    device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
+    dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
+    deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
+    allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
+    intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
+    loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
+    enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
+    enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
 
-  std::string dev_mem_str = "Hip";
+    std::string dev_mem_str = "Hip";
 #if defined(ORT_ROCM_BUILD)
 #if ORT_ROCM_BUILD == 1
   if (device == "ROCM") {
@@ -81,89 +83,85 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 #endif
 #endif
 
-  if (allocateDeviceMemory) {
-    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
-    LOG(info) << "(ORT) Memory info set to on-device memory";
-  }
-
-  if (device == "CPU") {
-    (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
-    if (intraOpNumThreads > 1) {
-      (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
-    } else if (intraOpNumThreads == 1) {
-      (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    if (allocateDeviceMemory) {
+      pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
+      LOG(info) << "(ORT) Memory info set to on-device memory";
     }
-    LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
-  }
 
-  (pImplOrt->sessionOptions).DisableMemPattern();
-  (pImplOrt->sessionOptions).DisableCpuMemArena();
+    if (device == "CPU") {
+      (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
+      if (intraOpNumThreads > 1) {
+        (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+      } else if (intraOpNumThreads == 1) {
+        (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+      }
+      if (loggingLevel < 2) {
+        LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
+      }
+    }
 
-  if (enableProfiling) {
-    if (optionsMap.contains("profiling-output-path")) {
-      (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
+    (pImplOrt->sessionOptions).DisableMemPattern();
+    (pImplOrt->sessionOptions).DisableCpuMemArena();
+
+    if (enableProfiling) {
+      if (optionsMap.contains("profiling-output-path")) {
+        (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
+      } else {
+        LOG(warning) << "(ORT) If profiling is enabled, optionsMap[\"profiling-output-path\"] should be set. Disabling profiling for now.";
+        (pImplOrt->sessionOptions).DisableProfiling();
+      }
     } else {
-      LOG(warning) << "(ORT) If profiling is enabled, optionsMap[\"profiling-output-path\"] should be set. Disabling profiling for now.";
       (pImplOrt->sessionOptions).DisableProfiling();
     }
-  } else {
-    (pImplOrt->sessionOptions).DisableProfiling();
-  }
-  (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
-  (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
 
-  pImplOrt->env = std::make_shared<Ort::Env>(
-    OrtLoggingLevel(loggingLevel),
-    (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
-    // Integrate ORT logging into Fairlogger
-    [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
-      if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
-        LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_INFO) {
-        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_WARNING) {
-        LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_ERROR) {
-        LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else if (severity == ORT_LOGGING_LEVEL_FATAL) {
-        LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      } else {
-        LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
-      }
-    },
-    (void*)3);
-  (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
-  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
+    mInitialized = true;
 
-  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-    mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
-    mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-    mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
-  }
-  for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
-    mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
-  }
+    (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
+    (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
 
-  inputNamesChar.resize(mInputNames.size(), nullptr);
-  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
-                 [&](const std::string& str) { return str.c_str(); });
-  outputNamesChar.resize(mOutputNames.size(), nullptr);
-  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
-                 [&](const std::string& str) { return str.c_str(); });
+    pImplOrt->env = std::make_shared<Ort::Env>(
+      OrtLoggingLevel(loggingLevel),
+      (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
+      // Integrate ORT logging into Fairlogger
+      [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
+        if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
+          LOG(debug) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_INFO) {
+          LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_WARNING) {
+          LOG(warning) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_ERROR) {
+          LOG(error) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else if (severity == ORT_LOGGING_LEVEL_FATAL) {
+          LOG(fatal) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        } else {
+          LOG(info) << "(ORT) [" << logid << "|" << category << "|" << code_location << "]: " << message;
+        }
+      },
+      (void*)3);
+    (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
+    pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
-  // Print names
-  LOG(info) << "\tInput Nodes:";
-  for (size_t i = 0; i < mInputNames.size(); i++) {
-    LOG(info) << "\t\t" << mInputNames[i] << " : " << printShape(mInputShapes[i]);
-  }
+    for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
+      mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
+    }
+    for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
+      mInputShapes.emplace_back((pImplOrt->session)->GetInputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    }
+    for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
+      mOutputNames.push_back((pImplOrt->session)->GetOutputNameAllocated(i, pImplOrt->allocator).get());
+    }
+    for (size_t i = 0; i < (pImplOrt->session)->GetOutputCount(); ++i) {
+      mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
+    }
 
-  LOG(info) << "\tOutput Nodes:";
-  for (size_t i = 0; i < mOutputNames.size(); i++) {
-    LOG(info) << "\t\t" << mOutputNames[i] << " : " << printShape(mOutputShapes[i]);
+    inputNamesChar.resize(mInputNames.size(), nullptr);
+    std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
+    outputNamesChar.resize(mOutputNames.size(), nullptr);
+    std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
+                  [&](const std::string& str) { return str.c_str(); });
+
   }
 }
 
