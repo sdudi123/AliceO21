@@ -31,6 +31,9 @@ GPUdii() void GPUTPCNNClusterizer::Thread<0>(int32_t nBlocks, int32_t nThreads, 
 {
   uint glo_idx = get_global_id(0);
   if (mode == -1) {
+    if (clusterer.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
+      return;
+    }
     Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
     CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
     tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;

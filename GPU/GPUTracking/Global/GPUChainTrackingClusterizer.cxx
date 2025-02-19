@@ -943,7 +943,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           
           float time_clusterizer = 0, time_fill = 0;
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
-          clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters);
+          clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
 
           for(int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
@@ -953,9 +953,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             clusterer.centralCharges.resize(iSize);
 
             if (evalDtype == 1) {
-              clusterer.inputData32.resize(iSize * clusterer.nnClusterizerElementSize);
+              clusterer.inputData32.resize(iSize * clusterer.nnClusterizerElementSize, GetProcessingSettings().nnClusterizerBoundaryFillValue);
             } else {
-              clusterer.inputData16.resize(iSize * clusterer.nnClusterizerElementSize);
+              clusterer.inputData16.resize(iSize * clusterer.nnClusterizerElementSize, GetProcessingSettings().nnClusterizerBoundaryFillValue);
             }
 
             auto start0 = std::chrono::high_resolution_clock::now();
@@ -989,7 +989,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
 
           if (clusterer.nnClusterizerVerbosity < 3) {
-            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s";
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
         } else {
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
