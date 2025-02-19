@@ -2933,8 +2933,9 @@ int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& workflow,
     workflowHashA += hash_fn(dp.name);
   }
 
-  for (auto& dp : workflow) {
+  for (auto& dp : physicalWorkflow) {
     rankIndex.insert(std::make_pair(dp.name, workflowHashA));
+    dp.metadata.emplace(dp.metadata.begin(), std::string{"executable"}, currentWorkflow.executable);
   }
 
   std::vector<DataProcessorInfo> dataProcessorInfos;
@@ -2956,11 +2957,10 @@ int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& workflow,
     // We remove the duplicates because for the moment child get themself twice:
     // once from the actual definition in the child, a second time from the
     // configuration they get passed by their parents.
-    std::regex pipe_pattern{"_t[0-9][0-9]*$"};
     for (auto& dp : importedWorkflow) {
-      auto found = std::find_if(dataProcessorInfos.begin(), dataProcessorInfos.end(),
-                                [&name = dp.name, &pipe_pattern, &exec = currentWorkflow.executable](DataProcessorInfo const& info) { return (std::regex_replace(info.name, pipe_pattern, "") == name && info.executable == exec); });
-      if (found == dataProcessorInfos.end()) {
+      auto found = std::find_if(physicalWorkflow.begin(), physicalWorkflow.end(),
+                                [&name = dp.name](DataProcessorSpec const& spec) { return spec.name == name; });
+      if (found == physicalWorkflow.end() || (*dp.metadata.begin()).value != currentWorkflow.executable) {
         physicalWorkflow.push_back(dp);
         rankIndex.insert(std::make_pair(dp.name, workflowHashB));
       }
