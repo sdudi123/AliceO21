@@ -573,7 +573,10 @@ struct OutputObj {
 
 template <typename T>
 concept is_outputobj = requires(T t) {
-  &T::setObject;
+  &T::setHash;
+  &T::spec;
+  &T::ref;
+  requires std::same_as<decltype(t.operator->()), typename T::obj_t*>;
   requires std::same_as<decltype(t.object), std::shared_ptr<typename T::obj_t>>;
 };
 
