@@ -793,8 +793,8 @@ std::string CTPConfiguration::getClassNameFromHWIndex(int index)
 const CTPClass* CTPConfiguration::getCTPClassFromHWIndex(int index) const
 {
   const CTPClass* clsfound = nullptr;
-  for(auto const& cls: mCTPClasses){
-    if(index == cls.getIndex()){
+  for (auto const& cls : mCTPClasses) {
+    if (index == cls.getIndex()) {
       clsfound = &cls;
       break;
     }

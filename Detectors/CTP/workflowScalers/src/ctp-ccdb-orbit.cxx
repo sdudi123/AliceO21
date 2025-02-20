@@ -133,7 +133,7 @@ int main(int argc, char** argv)
     TFile* f = TFile::Open(file.c_str(), "RECREATE");
     if (f == nullptr) {
       std::cout << "Error: File" << file << " could not be open for writing !!!" << std::endl;
-      ret++;;
+      ret++;
     } else {
       std::cout << "File" << file << " being writen." << std::endl;
       f->WriteObject(&vect, "ccdb_object");
