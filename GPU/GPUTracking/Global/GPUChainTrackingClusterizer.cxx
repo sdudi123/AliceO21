@@ -953,9 +953,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             clusterer.centralCharges.resize(iSize);
 
             if (evalDtype == 1) {
-              clusterer.inputData32.resize(iSize * clusterer.nnClusterizerElementSize, GetProcessingSettings().nnClusterizerBoundaryFillValue);
+              clusterer.inputData32.resize(iSize * clusterer.nnClusterizerElementSize, (float)(GetProcessingSettings().nnClusterizerBoundaryFillValue));
             } else {
-              clusterer.inputData16.resize(iSize * clusterer.nnClusterizerElementSize, GetProcessingSettings().nnClusterizerBoundaryFillValue);
+              clusterer.inputData16.resize(iSize * clusterer.nnClusterizerElementSize, (OrtDataType::Float16_t)((float)GetProcessingSettings().nnClusterizerBoundaryFillValue));
             }
 
             auto start0 = std::chrono::high_resolution_clock::now();
@@ -989,7 +989,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
 
           if (clusterer.nnClusterizerVerbosity < 3) {
-            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSlice << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
         } else {
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, 0);
