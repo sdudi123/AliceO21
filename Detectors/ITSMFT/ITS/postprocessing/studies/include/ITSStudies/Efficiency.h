@@ -31,7 +31,6 @@ o2::framework::DataProcessorSpec getEfficiencyStudy(mask_t srcTracksMask, mask_t
 float mEtaCuts[2] = {-1.0, 1.0};
 float mPtCuts[2] = {0, 10}; /// no cut for B=0
 
-
 // values obtained from the dca study for B=5
 // float dcaXY[3] = {-0.000326, -0.000217, -0.000187};
 // float dcaZ[3] = {0.000020, -0.000004, 0.000032};
