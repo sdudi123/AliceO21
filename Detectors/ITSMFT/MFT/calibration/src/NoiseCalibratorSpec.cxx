@@ -83,6 +83,7 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
         sendOutputCcdbDcs(pc.outputs());
+	sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
     }
