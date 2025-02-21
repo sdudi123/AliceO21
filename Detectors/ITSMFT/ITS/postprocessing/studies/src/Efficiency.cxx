@@ -63,7 +63,7 @@ class EfficiencyStudy : public Task
                   mask_t src,
                   bool useMC,
                   std::shared_ptr<o2::steer::MCKinematicsReader> kineReader,
-                  std::shared_ptr<o2::base::GRPGeomRequest> gr) : mDataRequest(dr), mTracksSrc(src), mUseMC(useMC), mKineReader(kineReader), mGGCCDBRequest(gr) {};
+                  std::shared_ptr<o2::base::GRPGeomRequest> gr) : mDataRequest(dr), mTracksSrc(src), mUseMC(useMC), mKineReader(kineReader), mGGCCDBRequest(gr){};
 
   ~EfficiencyStudy() final = default;
   void init(InitContext&) final;
@@ -254,7 +254,6 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> DCAxyRejected[NLAYERS];
   std::unique_ptr<TH1D> DCAzRejected[NLAYERS];
 
-
   TH1D* denPt[NLAYERS];
   TH1D* numPt[NLAYERS];
   TH1D* numPtGood[NLAYERS];
@@ -285,7 +284,7 @@ class EfficiencyStudy : public Task
   TH1D* numZFake[NLAYERS];
 
   TH1D* numLayers;
-  TH1D* denLayers;  
+  TH1D* denLayers;
   TH1D* numGoodLayers;
   TH1D* numFakeLayers;
 
@@ -314,14 +313,13 @@ class EfficiencyStudy : public Task
   TH1D* radiusNotFound[NLAYERS];
   std::unique_ptr<TH2D> m2DClusterFoundPositions;
   std::unique_ptr<TH2D> m2DClusterNotFoundPositions;
-  std::unique_ptr<TH1D> mChipNotFound; 
-  std::unique_ptr<TH1D> mChipFound; 
+  std::unique_ptr<TH1D> mChipNotFound;
+  std::unique_ptr<TH1D> mChipFound;
   std::unique_ptr<TH2D> l0_00;
   std::unique_ptr<TH2D> l1_15;
   std::unique_ptr<TH2D> l2_19;
-  std::unique_ptr<TH2D> chipOrigVsOverlap; 
+  std::unique_ptr<TH2D> chipOrigVsOverlap;
   std::unique_ptr<TH2D> chipmap;
-
 };
 
 void EfficiencyStudy::init(InitContext& ic)
@@ -430,16 +428,16 @@ void EfficiencyStudy::init(InitContext& ic)
 
     mDuplicatedCol[i] = new TH1D(Form("mDuplicatedCol_L%d", i), Form("; Col; Number of duplciated clusters L%d", i), 128, -0.5, 1023.5);
     mDuplicatedCol[i]->Sumw2();
-    mNGoodMatchesCol[i] = new TH1D(Form("mNGoodMatchesCol_L%d", i), Form("; Col; Number of good matches L%d", i),  128, -0.5, 1023.5);
+    mNGoodMatchesCol[i] = new TH1D(Form("mNGoodMatchesCol_L%d", i), Form("; Col; Number of good matches L%d", i), 128, -0.5, 1023.5);
     mNGoodMatchesCol[i]->Sumw2();
-    mNFakeMatchesCol[i] = new TH1D(Form("mNFakeMatchesCol_L%d", i), Form(";Col; Number of fake matches L%d", i),  128, -0.5, 1023.5);
+    mNFakeMatchesCol[i] = new TH1D(Form("mNFakeMatchesCol_L%d", i), Form(";Col; Number of fake matches L%d", i), 128, -0.5, 1023.5);
     mNFakeMatchesCol[i]->Sumw2();
 
     mDuplicatedZ[i] = new TH1D(Form("mDuplicatedZ_L%d", i), Form("; Z (cm); Number of duplciated clusters L%d", i), 100, -15, 15);
     mDuplicatedZ[i]->Sumw2();
-    mNGoodMatchesZ[i] = new TH1D(Form("mNGoodMatchesZ_L%d", i), Form("; Z (cm); Number of good matches L%d", i),  100, -15, 15);
+    mNGoodMatchesZ[i] = new TH1D(Form("mNGoodMatchesZ_L%d", i), Form("; Z (cm); Number of good matches L%d", i), 100, -15, 15);
     mNGoodMatchesZ[i]->Sumw2();
-    mNFakeMatchesZ[i] = new TH1D(Form("mNFakeMatchesZ_L%d", i), Form(";Z (cm); Number of fake matches L%d", i),  100, -15, 15);
+    mNFakeMatchesZ[i] = new TH1D(Form("mNFakeMatchesZ_L%d", i), Form(";Z (cm); Number of fake matches L%d", i), 100, -15, 15);
     mNFakeMatchesZ[i]->Sumw2();
 
     mDuplicatedPtEta[i] = new TH2D(Form("mDuplicatedPtEta_log_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
@@ -629,7 +627,7 @@ int EfficiencyStudy::getDCAClusterTrackMC(int countDuplicated = 0)
         continue;
       }
 
-      float ip[2];  // IP from 0,0,0 and the track should be the deplacement of the primary vertex
+      float ip[2]; // IP from 0,0,0 and the track should be the deplacement of the primary vertex
       track.getImpactParams(0, 0, 0, 0, ip);
 
       // if (abs(ip[0])>0.001 ) continue; ///pv not in (0,0,0)
@@ -670,7 +668,7 @@ int EfficiencyStudy::getDCAClusterTrackMC(int countDuplicated = 0)
         o2::math_utils::Point3D<float> clusOriginalPointTrack = {clusOriginalPoint.getX(), clusOriginalPoint.getY(), clusOriginalPoint.getZ()};
         o2::math_utils::Point3D<float> clusOriginalPointGlob = mGeometry->getMatrixT2G(clusOriginal.getSensorID()) * clusOriginalPointTrack;
 
-        phioriginal = clusOriginalPointGlob.phi();// * 180 / M_PI;
+        phioriginal = clusOriginalPointGlob.phi(); // * 180 / M_PI;
 
         mPhiOriginal[layer]->Fill(phioriginal);
         mPtOriginal[layer]->Fill(pt);
@@ -697,7 +695,7 @@ int EfficiencyStudy::getDCAClusterTrackMC(int countDuplicated = 0)
               o2::math_utils::Point3D<float> clusDuplicatedPointTrack = {clusDuplicatedPoint.getX(), clusDuplicatedPoint.getY(), clusDuplicatedPoint.getZ()};
               o2::math_utils::Point3D<float> clusDuplicatedPointGlob = mGeometry->getMatrixT2G(clusDuplicated.getSensorID()) * clusDuplicatedPointTrack;
               // phiduplicated = std::atan2(clusDuplicatedPointGlob.y(), clusDuplicatedPointGlob.x()) * 180 / M_PI + 180;
-              phiduplicated = clusDuplicatedPointGlob.phi();// * 180 / M_PI;
+              phiduplicated = clusDuplicatedPointGlob.phi(); // * 180 / M_PI;
 
               auto labsClus = mClustersMCLCont->getLabels(iClus); // ideally I can have more than one label per cluster
               for (auto labC : labsClus) {
@@ -882,7 +880,7 @@ void EfficiencyStudy::countDuplicatedAfterCuts()
 
       if (eta < mEtaCuts[0] || eta >= mEtaCuts[1]) {
         continue;
-      }      
+      }
 
       float phi = -999.;
       float phiOriginal = -999.;
@@ -902,8 +900,7 @@ void EfficiencyStudy::countDuplicatedAfterCuts()
 
         o2::math_utils::Point3D<float> clusOriginalPointTrack = {clusOriginalPoint.getX(), clusOriginalPoint.getY(), clusOriginalPoint.getZ()};
         o2::math_utils::Point3D<float> clusOriginalPointGlob = mGeometry->getMatrixT2G(clusOriginal.getSensorID()) * clusOriginalPointTrack;
-        phiOriginal = clusOriginalPointGlob.phi();// * 180 / M_PI;
-
+        phiOriginal = clusOriginalPointGlob.phi(); // * 180 / M_PI;
 
         if (abs(clusOriginalPointGlob.y()) < 0.5) { ///// excluding gap between bottom and top barrels
           continue;
@@ -913,15 +910,13 @@ void EfficiencyStudy::countDuplicatedAfterCuts()
           continue;
         }
 
-        if (clusOriginal.getRow() <2 || (clusOriginal.getRow() > 15 && clusOriginal.getRow() < 496) || clusOriginal.getRow()>509) { ////  cutting on the row
+        if (clusOriginal.getRow() < 2 || (clusOriginal.getRow() > 15 && clusOriginal.getRow() < 496) || clusOriginal.getRow() > 509) { ////  cutting on the row
           continue;
         }
 
-        
-        if (clusOriginal.getCol() <160 || clusOriginal.getCol() >870){ /// excluding the gap between two chips in the same stave (comment to obtain the plot efficiency col vs eta)
+        if (clusOriginal.getCol() < 160 || clusOriginal.getCol() > 870) { /// excluding the gap between two chips in the same stave (comment to obtain the plot efficiency col vs eta)
           continue;
         }
-        
 
         for (auto& labT : labsTrack) { // for each valid label iterate over ALL the clusters in the ROF to see if there are duplicates
           if (labT != tracklab) {
@@ -1676,7 +1671,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
     legRow->Draw("same");
     effRow[l]->Write();
 
-
     // Col
     effCol[l] = new TCanvas(Form("effCol_L%d", l));
 
@@ -1708,7 +1702,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
     legCol->AddEntry(mEffColFake[l].get(), "#frac{# fake matches}{# tot duplicated clusters}", "pl");
     legCol->Draw("same");
     effCol[l]->Write();
-
 
     // Z
     effZ[l] = new TCanvas(Form("effZ_L%d", l));
@@ -2018,7 +2011,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effPhiAllPt[l]->Write();
   }
 
-
   /// all Row
   TCanvas* effRowAll = new TCanvas("effRowAll");
   TH1D* numRowGoodAll = (TH1D*)mNGoodMatchesRow[0]->Clone("numRowGoodAll");
@@ -2035,9 +2027,9 @@ void EfficiencyStudy::studyClusterSelectionMC()
   denRowAll->Write();
 
   std::unique_ptr<TEfficiency> mEffRowGoodAll = std::make_unique<TEfficiency>(*numRowGoodAll, *denRowAll);
-  stileEfficiencyGraph(mEffRowGoodAll, "mEffRowGoodAll","L0 + L1 + L2;Row;Efficiency", false, kFullDiamond, 1, kGreen +3, kGreen +3);
+  stileEfficiencyGraph(mEffRowGoodAll, "mEffRowGoodAll", "L0 + L1 + L2;Row;Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
   std::unique_ptr<TEfficiency> mEffRowFakeAll = std::make_unique<TEfficiency>(*numRowFakeAll, *denRowAll);
-  stileEfficiencyGraph(mEffRowFakeAll, "mEffRowFakeAll","L0 + L1 + L2;Row;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
+  stileEfficiencyGraph(mEffRowFakeAll, "mEffRowFakeAll", "L0 + L1 + L2;Row;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
   axRow->SetTitle("L0 + L1 + L2;Row;Efficiency");
   axRow->GetYaxis()->SetRangeUser(-0.1, 1.1);
   axRow->Draw();
@@ -2049,7 +2041,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
   legRow->AddEntry(mEffRowFakeAll.get(), "#frac{# fake matches}{# tot duplicated clusters}", "pl");
   legRow->Draw("same");
   effRowAll->Write();
-
 
   /// all Col
   TCanvas* effColAll = new TCanvas("effColAll");
@@ -2067,9 +2058,9 @@ void EfficiencyStudy::studyClusterSelectionMC()
   denColAll->Write();
 
   std::unique_ptr<TEfficiency> mEffColGoodAll = std::make_unique<TEfficiency>(*numColGoodAll, *denColAll);
-  stileEfficiencyGraph(mEffColGoodAll, "mEffColGoodAll","L0 + L1 + L2;Column;Efficiency", false, kFullDiamond, 1, kGreen +3, kGreen +3);
+  stileEfficiencyGraph(mEffColGoodAll, "mEffColGoodAll", "L0 + L1 + L2;Column;Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
   std::unique_ptr<TEfficiency> mEffColFakeAll = std::make_unique<TEfficiency>(*numColFakeAll, *denColAll);
-  stileEfficiencyGraph(mEffColFakeAll, "mEffColFakeAll","L0 + L1 + L2;Column;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
+  stileEfficiencyGraph(mEffColFakeAll, "mEffColFakeAll", "L0 + L1 + L2;Column;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
   axCol->SetTitle("L0 + L1 + L2;Col;Efficiency");
   axCol->GetYaxis()->SetRangeUser(-0.1, 1.1);
   axCol->Draw();
@@ -2081,7 +2072,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
   legCol->AddEntry(mEffColFakeAll.get(), "#frac{# fake matches}{# tot duplicated clusters}", "pl");
   legCol->Draw("same");
   effColAll->Write();
-
 
   /// all Z
   TCanvas* effZAll = new TCanvas("effZAll");
@@ -2099,9 +2089,9 @@ void EfficiencyStudy::studyClusterSelectionMC()
   denZAll->Write();
 
   std::unique_ptr<TEfficiency> mEffZGoodAll = std::make_unique<TEfficiency>(*numZGoodAll, *denZAll);
-  stileEfficiencyGraph(mEffZGoodAll, "mEffZGoodAll","L0 + L1 + L2;Z;Efficiency", false, kFullDiamond, 1, kGreen+ 3, kGreen + 3);
+  stileEfficiencyGraph(mEffZGoodAll, "mEffZGoodAll", "L0 + L1 + L2;Z;Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
   std::unique_ptr<TEfficiency> mEffZFakeAll = std::make_unique<TEfficiency>(*numZFakeAll, *denZAll);
-  stileEfficiencyGraph(mEffZFakeAll, "mEffZFakeAll","L0 + L1 + L2;Z;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
+  stileEfficiencyGraph(mEffZFakeAll, "mEffZFakeAll", "L0 + L1 + L2;Z;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
   axZ->SetTitle("L0 + L1 + L2;Z;Efficiency");
   axZ->GetYaxis()->SetRangeUser(-0.1, 1.1);
   axZ->Draw();
@@ -2113,7 +2103,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
   legZ->AddEntry(mEffZFakeAll.get(), "#frac{# fake matches}{# tot duplicated clusters}", "pl");
   legZ->Draw("same");
   effZAll->Write();
-
 
   /// all Eta
   TCanvas* effEtaAll = new TCanvas("effEtaAll");
@@ -2131,9 +2120,10 @@ void EfficiencyStudy::studyClusterSelectionMC()
   denEtaAll->Write();
 
   std::unique_ptr<TEfficiency> mEffEtaGoodAll = std::make_unique<TEfficiency>(*numEtaGoodAll, *denEtaAll);
-  stileEfficiencyGraph(mEffEtaGoodAll, "mEffEtaGoodAll","L0 + L1 + L2;#Eta;Efficiency", false, kFullDiamond, 1, kGreen + 3 , kGreen + 3);
+  stileEfficiencyGraph(mEffEtaGoodAll, "mEffEtaGoodAll", "L0 + L1 + L2;#Eta;Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
   std::unique_ptr<TEfficiency> mEffEtaFakeAll = std::make_unique<TEfficiency>(*numEtaFakeAll, *denEtaAll);
-  stileEfficiencyGraph(mEffEtaFakeAll, "mEffEtaFakeAll","L0 + L1 + L2;#Eta;Efficiency", false, kFullDiamond, 1,  kRed + 1, kRed + 1); axetaAllPt->SetTitle("L0 + L1 + L2;Eta;Efficiency");
+  stileEfficiencyGraph(mEffEtaFakeAll, "mEffEtaFakeAll", "L0 + L1 + L2;#Eta;Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
+  axetaAllPt->SetTitle("L0 + L1 + L2;Eta;Efficiency");
   axetaAllPt->GetYaxis()->SetRangeUser(-0.1, 1.1);
   axetaAllPt->Draw();
   mEffEtaGoodAll->Draw("same p");
@@ -2144,7 +2134,6 @@ void EfficiencyStudy::studyClusterSelectionMC()
   legEta->AddEntry(mEffEtaFakeAll.get(), "#frac{# fake matches}{# tot duplicated clusters}", "pl");
   legEta->Draw("same");
   effEtaAll->Write();
-
 
   /// all Phi
   TCanvas* effPhiAll = new TCanvas("effPhiAll");
@@ -2162,9 +2151,9 @@ void EfficiencyStudy::studyClusterSelectionMC()
   denPhiAll->Write();
 
   std::unique_ptr<TEfficiency> mEffPhiGoodAll = std::make_unique<TEfficiency>(*numPhiGoodAll, *denPhiAll);
-  stileEfficiencyGraph(mEffPhiGoodAll, "mEffPhiGoodAll","L0 + L1 + L2;#Phi (rad);Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
+  stileEfficiencyGraph(mEffPhiGoodAll, "mEffPhiGoodAll", "L0 + L1 + L2;#Phi (rad);Efficiency", false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
   std::unique_ptr<TEfficiency> mEffPhiFakeAll = std::make_unique<TEfficiency>(*numPhiFakeAll, *denPhiAll);
-  stileEfficiencyGraph(mEffPhiFakeAll, "mEffPhiFakeAll","L0 + L1 + L2;#Phi (rad);Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
+  stileEfficiencyGraph(mEffPhiFakeAll, "mEffPhiFakeAll", "L0 + L1 + L2;#Phi (rad);Efficiency", false, kFullDiamond, 1, kRed + 1, kRed + 1);
   axphiAllPt->SetTitle("L0 + L1 + L2;Phi;Efficiency");
   axphiAllPt->GetYaxis()->SetRangeUser(-0.1, 1.1);
   axphiAllPt->Draw();
@@ -2218,7 +2207,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
       auto track = mTracks[iTrack];
       o2::track::TrackParCov trackParCov = mTracks[iTrack];
 
-      auto pt = trackParCov.getPt();  // Always 0.6 GeV/c for B = 0 T
+      auto pt = trackParCov.getPt(); // Always 0.6 GeV/c for B = 0 T
       auto eta = trackParCov.getEta();
       float phi = -999.;
       float phiOriginal = -999.;
@@ -2234,7 +2223,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
       if (eta < mEtaCuts[0] || eta >= mEtaCuts[1]) {
         continue;
       }
-  
+
       int firstClus = track.getFirstClusterEntry(); // get the first cluster of the track
       int ncl = track.getNumberOfClusters();        // get the number of clusters of the track
 
@@ -2265,22 +2254,22 @@ void EfficiencyStudy::getEfficiency(bool isMC)
         UShort_t colOriginal = clusOriginal.getCol();
 
         /// filling some chip maps
-        if (clusOriginal.getChipID()>=0 && clusOriginal.getChipID() <= 8) {
-          l0_00->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)),clusOriginal.getRow());
-        } 
-        if (clusOriginal.getChipID()>=252 && clusOriginal.getChipID() <= 260) {
-          l1_15->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)),clusOriginal.getRow());
-        }       
-        if (clusOriginal.getChipID()>=423 && clusOriginal.getChipID() <= 431) {
-          l2_19->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)),clusOriginal.getRow());
-        } 
+        if (clusOriginal.getChipID() >= 0 && clusOriginal.getChipID() <= 8) {
+          l0_00->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)), clusOriginal.getRow());
+        }
+        if (clusOriginal.getChipID() >= 252 && clusOriginal.getChipID() <= 260) {
+          l1_15->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)), clusOriginal.getRow());
+        }
+        if (clusOriginal.getChipID() >= 423 && clusOriginal.getChipID() <= 431) {
+          l2_19->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)), clusOriginal.getRow());
+        }
 
         //// only IB
         if (layerOriginal >= NLAYERS) {
           continue;
         }
 
-        chipmap->Fill(clusOriginal.getCol(),clusOriginal.getRow());
+        chipmap->Fill(clusOriginal.getCol(), clusOriginal.getRow());
 
         IPOriginalxy[layerOriginal]->Fill(ip[0]);
         IPOriginalz[layerOriginal]->Fill(ip[1]);
@@ -2288,7 +2277,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
         ///// cluster point and conversion from track local coordinates to global coordinates
         o2::math_utils::Point3D<float> clusOriginalPointTrack = {clusOriginalPoint.getX(), clusOriginalPoint.getY(), clusOriginalPoint.getZ()};
         o2::math_utils::Point3D<float> clusOriginalPointGlob = mGeometry->getMatrixT2G(clusOriginal.getSensorID()) * clusOriginalPointTrack;
-        phiOriginal = clusOriginalPointGlob.phi();// * 180 / M_PI;
+        phiOriginal = clusOriginalPointGlob.phi(); // * 180 / M_PI;
 
         if (abs(clusOriginalPointGlob.y()) < 0.5) { ///// excluding gap between bottom and top barrels
           continue;
@@ -2298,21 +2287,20 @@ void EfficiencyStudy::getEfficiency(bool isMC)
           continue;
         }
 
-        if (rowOriginal <2 || (rowOriginal > 15 && rowOriginal < 496) || rowOriginal>509) { ////  cutting on the row
+        if (rowOriginal < 2 || (rowOriginal > 15 && rowOriginal < 496) || rowOriginal > 509) { ////  cutting on the row
           continue;
         }
 
-
-        if (mUseMC){ //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
+        if (mUseMC) { //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
           if (std::find(mExcludedChipMC->begin(), mExcludedChipMC->end(), clusOriginal.getChipID()) != mExcludedChipMC->end()) {
             continue;
           }
         }
-        
-        if (clusOriginal.getCol() <160 || clusOriginal.getCol() >870){ /// excluding the gap between two chips in the same stave (comment to obtain the plot efficiency col vs eta)
+
+        if (clusOriginal.getCol() < 160 || clusOriginal.getCol() > 870) { /// excluding the gap between two chips in the same stave (comment to obtain the plot efficiency col vs eta)
           continue;
         }
-        
+
         /// if the track passes the cuts, fill the den and go ahead
         m2DClusterOriginalPositions->Fill(clusOriginalPointGlob.x(), clusOriginalPointGlob.y());
         m3DClusterPositions->Fill(clusOriginalPointGlob.x(), clusOriginalPointGlob.y(), clusOriginalPointGlob.z());
@@ -2328,7 +2316,6 @@ void EfficiencyStudy::getEfficiency(bool isMC)
         mDenRowPhi[layerOriginal]->Fill(clusOriginal.getRow(), clusOriginalPointGlob.z());
         mDenRowCol[layerOriginal]->Fill(clusOriginal.getRow(), clusOriginal.getCol());
         denLayers->Fill(layerOriginal);
-      
 
         /// if the cuts up to here are passed, then search for the duplicated cluster, otherwise go to the next cluster
         gsl::span<const o2::MCCompLabel> labsOriginal = {};
@@ -2356,7 +2343,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
 
           o2::math_utils::Point3D<float> clusDuplicatedPointTrack = {clusDuplicatedPoint.getX(), clusDuplicatedPoint.getY(), clusDuplicatedPoint.getZ()};
           o2::math_utils::Point3D<float> clusDuplicatedPointGlob = mGeometry->getMatrixT2G(clusDuplicated.getSensorID()) * clusDuplicatedPointTrack;
-          phi = clusDuplicatedPointGlob.phi();// * 180 / M_PI;
+          phi = clusDuplicatedPointGlob.phi(); // * 180 / M_PI;
 
           //// applying constraints: the cluster should be on the same layer, should be on an adjacent stave and on the same or adjacent chip position
           if (clusDuplicated.getSensorID() == clusOriginal.getSensorID()) {
@@ -2391,10 +2378,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
           DCAzData[layerDuplicated]->Fill(clusDuplicatedDCA[1]);
 
           // Imposing that the distance between the duplicated cluster and the track is less than x sigma
-          if (!(clusDuplicatedDCA[0] > mDCACutsXY[layerDuplicated][0] 
-                && clusDuplicatedDCA[0] < mDCACutsXY[layerDuplicated][1] 
-                && clusDuplicatedDCA[1] > mDCACutsZ[layerDuplicated][0] 
-                && clusDuplicatedDCA[1] < mDCACutsZ[layerDuplicated][1])) {
+          if (!(clusDuplicatedDCA[0] > mDCACutsXY[layerDuplicated][0] && clusDuplicatedDCA[0] < mDCACutsXY[layerDuplicated][1] && clusDuplicatedDCA[1] > mDCACutsZ[layerDuplicated][0] && clusDuplicatedDCA[1] < mDCACutsZ[layerDuplicated][1])) {
             DCAxyRejected[layerDuplicated]->Fill(clusDuplicatedDCA[0]);
             DCAzRejected[layerDuplicated]->Fill(clusDuplicatedDCA[1]);
             continue;
@@ -2427,19 +2411,19 @@ void EfficiencyStudy::getEfficiency(bool isMC)
         // here clusID_rDCA_label is updated with the closest cluster to the track other than the original one
 
         if (!adjacentFound) {
-          radiusNotFound[layerOriginal]->Fill(sqrt(clusOriginalPointGlob.x() * clusOriginalPointGlob.x() + clusOriginalPointGlob.y() *clusOriginalPointGlob.y()));
-          colNotFound[layerOriginal]->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)));
+          radiusNotFound[layerOriginal]->Fill(sqrt(clusOriginalPointGlob.x() * clusOriginalPointGlob.x() + clusOriginalPointGlob.y() * clusOriginalPointGlob.y()));
+          colNotFound[layerOriginal]->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)));
           rowNotFound[layerOriginal]->Fill(rowOriginal);
           phiNotFound[layerOriginal]->Fill(phiOriginal);
           continue;
         }
 
-        chipOrigVsOverlap->Fill(clusOriginal.getChipID()%9, clusDuplicatedSelected.getChipID()%9);
+        chipOrigVsOverlap->Fill(clusOriginal.getChipID() % 9, clusDuplicatedSelected.getChipID() % 9);
         mChipFound->Fill(clusOriginal.getChipID());
         zFound[layerOriginal]->Fill(clusOriginalPointGlob.z());
-        radiusFound[layerOriginal]->Fill(sqrt(clusOriginalPointGlob.x() * clusOriginalPointGlob.x() + clusOriginalPointGlob.y() *clusOriginalPointGlob.y()));
-        colFoundOriginalVsDuplicated[layerOriginal]->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)), clusDuplicatedSelected.getCol()+(1024*(clusDuplicatedSelected.getChipID()%9)));
-        colFoundOriginal[layerOriginal]->Fill(clusOriginal.getCol()+(1024*(clusOriginal.getChipID()%9)));
+        radiusFound[layerOriginal]->Fill(sqrt(clusOriginalPointGlob.x() * clusOriginalPointGlob.x() + clusOriginalPointGlob.y() * clusOriginalPointGlob.y()));
+        colFoundOriginalVsDuplicated[layerOriginal]->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)), clusDuplicatedSelected.getCol() + (1024 * (clusDuplicatedSelected.getChipID() % 9)));
+        colFoundOriginal[layerOriginal]->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)));
         m2DClusterFoundPositions->Fill(clusOriginalPointGlob.x(), clusOriginalPointGlob.y());
         phiFound[layerOriginal]->Fill(phiOriginal);
         rowFound[layerOriginal]->Fill(rowOriginal);
@@ -2456,7 +2440,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
         mNumRowPhi[layerOriginal]->Fill(clusOriginal.getRow(), clusOriginalPointGlob.z());
         mNumRowCol[layerOriginal]->Fill(clusOriginal.getRow(), clusOriginal.getCol());
         numLayers->Fill(layerOriginal);
-     
+
         // checking if it is a good or fake match looking at the labels (only if isMC)
         if (isMC) {
           bool isGood = false;
@@ -2496,7 +2480,6 @@ void EfficiencyStudy::getEfficiency(bool isMC)
   std::cout << " --------- N duplicated clusters: " << nDuplClusters << std::endl;
 }
 
-
 void EfficiencyStudy::process(o2::globaltracking::RecoContainer& recoData)
 {
   LOGP(info, "--------------- process");
@@ -2509,8 +2492,7 @@ void EfficiencyStudy::process(o2::globaltracking::RecoContainer& recoData)
     // studyClusterSelectionMC();
     // countDuplicatedAfterCuts();
     // getEfficiency(mUseMC);
-  } 
-  else{
+  } else {
     getEfficiency(mUseMC);
   }
 
@@ -2606,23 +2588,23 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
   chi2trackAccepted->Write();
 
   mOutFile->cd("EfficiencyFinal/");
-  TList * listNum = new TList;
-  TList * listDen = new TList;
+  TList* listNum = new TList;
+  TList* listDen = new TList;
   TH1D* numPhiAll = (TH1D*)numPhi[0]->Clone("numPhiAll");
   TH1D* denPhiAll = (TH1D*)denPhi[0]->Clone("denPhiAll");
 
-  TList * listNumColEta = new TList;
-  TList * listDenColEta = new TList;
+  TList* listNumColEta = new TList;
+  TList* listDenColEta = new TList;
   TH1D* numColEtaAll = (TH1D*)mNumColEta[0]->Clone("numColEtaAll");
   TH1D* denColEtaAll = (TH1D*)mDenColEta[0]->Clone("denColEtaAll");
 
-  TList * listNumRowPhi = new TList;
-  TList * listDenRowPhi = new TList;
+  TList* listNumRowPhi = new TList;
+  TList* listDenRowPhi = new TList;
   TH1D* numRowPhiAll = (TH1D*)mNumRowPhi[0]->Clone("numRowPhiAll");
   TH1D* denRowPhiAll = (TH1D*)mDenRowPhi[0]->Clone("denRowPhiAll");
 
-  TList * listNumRowCol = new TList;
-  TList * listDenRowCol = new TList;
+  TList* listNumRowCol = new TList;
+  TList* listDenRowCol = new TList;
   TH1D* numRowColAll = (TH1D*)mNumRowCol[0]->Clone("numRowColAll");
   TH1D* denRowColAll = (TH1D*)mDenRowCol[0]->Clone("denRowColAll");
 
@@ -2733,7 +2715,6 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
     listNumColEta->Add(mNumColEta[l]);
     listDenColEta->Add(mDenColEta[l]);
 
-
     TEfficiency* effRowPhi = new TEfficiency(*mNumRowPhi[l], *mDenRowPhi[l]);
     effRowPhi->SetName(Form("effRowPhi_layer%d", l));
     effRowPhi->SetTitle(Form("L%d;Column;#eta", l));
@@ -2769,8 +2750,6 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
     numZ[l]->Write();
     denZ[l]->Write();
   }
-
-
 
   numPhiAll->Merge(listNum);
   denPhiAll->Merge(listDen);
@@ -2835,8 +2814,6 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
     colFoundOriginalVsDuplicated[l]->Write();
     colFoundOriginal[l]->Write();
     colNotFound[l]->Write();
-
-
   }
   mChipFound->Write();
   mChipNotFound->Write();
@@ -2847,7 +2824,6 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
   chipOrigVsOverlap->Write();
   chipmap->SetContour(100);
   chipmap->Write();
- 
 
   mOutFile->Close();
 }
