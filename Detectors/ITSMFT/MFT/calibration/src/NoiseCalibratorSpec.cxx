@@ -1,4 +1,4 @@
-// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+ // Copyright 2019-2020 CERN and copyright holders of ALICE O2.
 // See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
@@ -27,7 +27,7 @@
 #include "Framework/CCDBParamSpec.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
 
-using namespace o2::framework;
+  using namespace o2::framework;
 using namespace o2::utils;
 
 namespace o2
@@ -83,8 +83,8 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
         sendOutputCcdbDcs(pc.outputs());
-	LOG(info) << "Sending an object to Production-CCDBMerge";
-        sendOutputCcdbMerge(pc.outputs());	
+        LOG(info) << "Sending an object to Production-CCDBMerge";
+        sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
     }
@@ -106,8 +106,8 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
         sendOutputDcs(pc.outputs());
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
-        sendOutputCcdbDcs(pc.outputs());
-        LOG(info) << "Sending an object to Production-CCDBMerge";
+        sendOutputCcdbDcs(pc.outputs());
+         LOG(info) << "Sending an object to Production-CCDBMerge";
         sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
