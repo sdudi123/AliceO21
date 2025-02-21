@@ -27,7 +27,7 @@
 #include "Framework/CCDBParamSpec.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
 
-  using namespace o2::framework;
+using namespace o2::framework;
 using namespace o2::utils;
 
 namespace o2
