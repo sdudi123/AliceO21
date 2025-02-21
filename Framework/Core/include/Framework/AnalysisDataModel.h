@@ -1138,29 +1138,28 @@ using CPVCluster = CPVClusters::iterator;
 
 namespace pmd
 {
-DECLARE_SOA_INDEX_COLUMN(BC, bc); //! BC index
-DECLARE_SOA_COLUMN(X, clsx, float); //! cluster x position
-DECLARE_SOA_COLUMN(Y, clsy, float); //! cluster y position
-DECLARE_SOA_COLUMN(Z, clsz, float); //! cluster z position
-DECLARE_SOA_COLUMN(CluADC, clsadc, float); //! cluster energy in ADC
-DECLARE_SOA_COLUMN(CluPID, clspid, float); //! cluster probability, 1: photon, 0:hadron
-DECLARE_SOA_COLUMN(Det, det, uint8_t); //! Detector, 0:PRE, 1:CPV
-DECLARE_SOA_COLUMN(Ncell, ncell, uint8_t); //! cluster cells
-DECLARE_SOA_COLUMN(Smn, pmdmodule, int32_t); //! module number
-DECLARE_SOA_COLUMN(TrackNo, trackno, int32_t); //! Track number assigned to clus from simulation
-DECLARE_SOA_COLUMN(TrackPid, trackpid, int32_t); //! Track PID assigned to clus from simulation
-DECLARE_SOA_COLUMN(SigX, sigx, float); //! Cluster x-width
-DECLARE_SOA_COLUMN(SigY, sigy, float); //! Cluster y-width
+DECLARE_SOA_INDEX_COLUMN(BC, bc);                    //! BC index
+DECLARE_SOA_COLUMN(X, clsx, float);                  //! cluster x position
+DECLARE_SOA_COLUMN(Y, clsy, float);                  //! cluster y position
+DECLARE_SOA_COLUMN(Z, clsz, float);                  //! cluster z position
+DECLARE_SOA_COLUMN(CluADC, clsadc, float);           //! cluster energy in ADC
+DECLARE_SOA_COLUMN(CluPID, clspid, float);           //! cluster probability, 1: photon, 0:hadron
+DECLARE_SOA_COLUMN(Det, det, uint8_t);               //! Detector, 0:PRE, 1:CPV
+DECLARE_SOA_COLUMN(Ncell, ncell, uint8_t);           //! cluster cells
+DECLARE_SOA_COLUMN(Smn, pmdmodule, int32_t);         //! module number
+DECLARE_SOA_COLUMN(TrackNo, trackno, int32_t);       //! Track number assigned to clus from simulation
+DECLARE_SOA_COLUMN(TrackPid, trackpid, int32_t);     //! Track PID assigned to clus from simulation
+DECLARE_SOA_COLUMN(SigX, sigx, float);               //! Cluster x-width
+DECLARE_SOA_COLUMN(SigY, sigy, float);               //! Cluster y-width
 DECLARE_SOA_COLUMN(ClMatching, clmatching, int32_t); //! Cluster of PRE matching with CPV
 } // namespace pmd
 
 DECLARE_SOA_TABLE(Pmds, "AOD", "PMD", //! Photon information from PMD detector
-         o2::soa::Index<>, pmd::BCId, pmd::X, pmd::Y,
-         pmd::Z, pmd::CluADC, pmd::CluPID, pmd::Det,
-         pmd::Ncell, pmd::Smn, pmd::TrackNo, pmd::TrackPid,
-         pmd::SigX, pmd::SigY, pmd::ClMatching);
+                  o2::soa::Index<>, pmd::BCId, pmd::X, pmd::Y,
+                  pmd::Z, pmd::CluADC, pmd::CluPID, pmd::Det,
+                  pmd::Ncell, pmd::Smn, pmd::TrackNo, pmd::TrackPid,
+                  pmd::SigX, pmd::SigY, pmd::ClMatching);
 using Pmd = Pmds::iterator;
-
 
 namespace zdc
 {
