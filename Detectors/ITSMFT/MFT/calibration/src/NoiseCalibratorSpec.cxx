@@ -1,4 +1,4 @@
-// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
 // See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
@@ -100,13 +100,15 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
         LOG(info) << "Sending an object to Production-CCDB";
         sendOutputCcdb(pc.outputs());
         LOG(info) << "Sending an object to Production-CCDBMerge";
-        sendOutputCcdbMerge(pc.outputs());
+        sendOutputCcdbMerge(pc.outputs());
       } else if (mOutputType.compare("DCS") == 0) {
         LOG(info) << "Sending an object to DCS-CCDB";
         sendOutputDcs(pc.outputs());
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
-        sendOutputCcdbDcs(pc.outputs());
+        sendOutputCcdbDcs(pc.outputs());
+        LOG(info) << "Sending an object to Production-CCDBMerge";
+        sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
     }
