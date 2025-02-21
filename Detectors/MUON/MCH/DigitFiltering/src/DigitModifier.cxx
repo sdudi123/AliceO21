@@ -187,6 +187,113 @@ o2::mch::DigitModifier createST1MappingCorrector(int runNumber)
     updateDigitMapping(digit, padsRemapping);
   };
 }
+
+/** Initialization of the pad remapping table for Station 2 DEs
+ *  See https://its.cern.ch/jira/browse/MCH-5 for details
+ */
+void initST2PadsRemappingTable(PadRemappingTables& fullTable)
+{
+  // Remapping of ST2 DS boards near the rounded part
+  std::array<int, 8> deToRemap{300, 301, 302, 303, 400, 401, 402, 403};
+  std::array<int, 5> dsToRemap{99, 100, 101, 102, 103};
+
+  for (auto deId : deToRemap) {
+
+    // create an empty table, or reset the existing one
+    fullTable[deId] = PadRemappingTablesForDE();
+    // get a reference to the table for the current DE
+    auto& tableForDE = fullTable[deId];
+
+    const o2::mch::mapping::Segmentation& segment = o2::mch::mapping::segmentation(deId);
+    for (auto dsId : dsToRemap) {
+
+      auto& tableForDSWithLimits = tableForDE.emplace_back();
+      auto& tableForDS = tableForDSWithLimits.first;
+
+      // double loop on DS channels
+      // 1. find the minimum pad index of the DS board
+      int padIdMin = -1;
+      int channelForPadIdMin = -1;
+      for (int channel = 0; channel < 64; channel++) {
+        auto padId = segment.findPadByFEE(dsId, int(channel));
+        if (padId < 0) {
+          // this should never occur in this specific case, as all channels of this group of boards
+          // is connected to pads, hence we rise an exception
+          throw std::out_of_range(fmt::format("Unknown padId for DE{} DS{} channel {}", deId, dsId, channel));
+        }
+        if (padIdMin < 0 || padId < padIdMin) {
+          padIdMin = padId;
+          channelForPadIdMin = channel;
+        }
+      }
+
+      int padIdMax = -1;
+      // 2. build the re-mapping table
+      for (int channel = 0; channel < 64; channel++) {
+        auto padId = segment.findPadByFEE(dsId, int(channel));
+        if (padId < padIdMin) {
+          // something is wrong here...
+          continue;
+        }
+
+        // update maximum padId value
+        padIdMax = std::max(padIdMax, padId);
+
+        int padIdInDS = padId - padIdMin;
+        int padColumn = padIdInDS / 16;
+        int padRow = padIdInDS % 16;
+
+        int padIdRemapped = -1;
+
+        switch (padColumn) {
+          case 0:
+            // shift right by 3 columns
+            padIdRemapped = padId + 16 * 3;
+            break;
+          case 1:
+            // shift right by 1 column
+            padIdRemapped = padId + 16;
+            break;
+          case 2:
+            // shift left by 1 column
+            padIdRemapped = padId - 16;
+            break;
+          case 3:
+            // shift left by 3 columns
+            padIdRemapped = padId - 16 * 3;
+            break;
+        }
+
+        // padsRemapping[deId][padId] = padIdRemapped;
+        tableForDS[padId] = padIdRemapped;
+      }
+
+      tableForDSWithLimits.second.first = padIdMin;
+      tableForDSWithLimits.second.second = padIdMax;
+    }
+  }
+}
+
+o2::mch::DigitModifier createST2MappingCorrector(int runNumber)
+{
+  // static std::unordered_map<int, std::unordered_map<int, int>> padsRemapping;
+  static PadRemappingTables padsRemapping;
+
+  constexpr int lastRunToBeFixed = 560402;
+  // ST2 mapping needs to be corrected only for data collected up to the end of 2024 Pb-Pb
+  if (runNumber > lastRunToBeFixed) {
+    // do not modify digits collected after 2024 Pb-Pb
+    return {};
+  }
+
+  if (padsRemapping.empty()) {
+    initST2PadsRemappingTable(padsRemapping);
+  }
+
+  return [](o2::mch::Digit& digit) {
+    updateDigitMapping(digit, padsRemapping);
+  };
+}
 } // namespace
 
 namespace o2::mch
@@ -196,7 +303,7 @@ DigitModifier createDigitModifier(int runNumber,
                                   bool updateST2)
 {
   DigitModifier modifierST1 = updateST1 ? createST1MappingCorrector(runNumber) : DigitModifier{};
-  DigitModifier modifierST2{};
+  DigitModifier modifierST2 = updateST2 ? createST2MappingCorrector(runNumber) : DigitModifier{};
 
   if (modifierST1 || modifierST2) {
     return [modifierST1, modifierST2](Digit& digit) {
