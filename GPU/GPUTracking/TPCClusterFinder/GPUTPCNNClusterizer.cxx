@@ -108,16 +108,16 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
 {
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
-  } else if (row <= 62) {
-    if (pad < 0 || pad > geo.NPads(row)) {
+  } else if (row < 63) {
+    if (pad >= geo.NPads(row)) {
       return true;
     } else {
       return false;
     }
-  } else if (row <= 62 + global_shift) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
+  } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
     return true;
   } else if (row <= o2::tpc::constants::MAXGLOBALPADROW - 1 + global_shift) {
-    if (pad < 0 || pad > geo.NPads(row)) {
+    if (pad >= geo.NPads(row - global_shift)) {
       return true;
     } else {
       return false;
@@ -156,7 +156,13 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
     for (int p = -clusterer.nnClusterizerSizeInputPad + pad_offset; p <= clusterer.nnClusterizerSizeInputPad + pad_offset; p++) {
       is_boundary = is_boundary || GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
-        if (!is_boundary) {
+        if (is_boundary) {
+          if(dtype == 0){
+            clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)clusterer.nnClusterizerBoundaryFillValue);
+          } else {
+            clusterer.inputData32[write_idx] = (float)clusterer.nnClusterizerBoundaryFillValue;
+          }
+        } else {
           ChargePos tmp_pos(row + r, pad + p, time + t);
           if(dtype == 0){
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)chargeMap[tmp_pos].unpack() / central_charge);
