@@ -126,9 +126,9 @@ void TRKServices::createServices(TGeoVolume* motherVolume)
 {
   createMaterials();
   createVacuumCompositeShape();
-  // createMiddleServices(motherVolume);
-  // createOuterDisksServices(motherVolume);
-  // createOuterBarrelServices(motherVolume);
+  createMiddleServices(motherVolume);
+  createOuterDisksServices(motherVolume);
+  createOuterBarrelServices(motherVolume);
 }
 
 void TRKServices::createVacuumCompositeShape()
