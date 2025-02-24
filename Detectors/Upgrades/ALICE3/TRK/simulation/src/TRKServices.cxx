@@ -140,17 +140,17 @@ void TRKServices::createVacuumCompositeShape()
   Double_t vacuumVesselLength = 76.f;
 
   // Vacuum for A and C Side
-  Double_t vacuumASideLength = A3IPLength / 2. - vacuumVesselThickness - vacuumVesselLength/2.;
-  Double_t vacuumCSideLength = A3IPLength / 2. + vacuumVesselLength/2.;
+  Double_t vacuumASideLength = A3IPLength / 2. - vacuumVesselThickness - vacuumVesselLength / 2.;
+  Double_t vacuumCSideLength = A3IPLength / 2. + vacuumVesselLength / 2.;
 
   // Vacuum tubes
   TGeoTube* vacuumASide = new TGeoTube("VACUUM_Ash", 0., pipeRIn, vacuumASideLength / 2.);
   TGeoTube* vacuumCSide = new TGeoTube("VACUUM_Csh", 0., vacuumVesselRIn, vacuumCSideLength / 2.);
 
   // Vacuum positions
-  TGeoTranslation* posVacuumASide = new TGeoTranslation("VACUUM_ASIDE_POSITION", 0, 0, vacuumVesselLength/2. + vacuumVesselThickness + vacuumASideLength / 2.);
+  TGeoTranslation* posVacuumASide = new TGeoTranslation("VACUUM_ASIDE_POSITION", 0, 0, vacuumVesselLength / 2. + vacuumVesselThickness + vacuumASideLength / 2.);
   posVacuumASide->RegisterYourself();
-  TGeoTranslation* posVacuumCSide = new TGeoTranslation("VACUUM_CSIDE_POSITION", 0, 0, vacuumVesselLength/2. - vacuumCSideLength / 2.);
+  TGeoTranslation* posVacuumCSide = new TGeoTranslation("VACUUM_CSIDE_POSITION", 0, 0, vacuumVesselLength / 2. - vacuumCSideLength / 2.);
   posVacuumCSide->RegisterYourself();
 
   mVacuumCompositeFormula =

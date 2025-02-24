@@ -94,8 +94,8 @@ void Alice3Pipe::ConstructGeometry()
   // - pipe C Side (which hosts the primary vacuum vessel and covers all C Side as well)
 
   // A3IP update
-  Double_t pipeASideLength = mA3IPLength / 2. - mVacuumVesselThick - mVacuumVesselASideLength/2.;
-  Double_t pipeCSideLength = mA3IPLength / 2. + mVacuumVesselASideLength/2.;
+  Double_t pipeASideLength = mA3IPLength / 2. - mVacuumVesselThick - mVacuumVesselASideLength / 2.;
+  Double_t pipeCSideLength = mA3IPLength / 2. + mVacuumVesselASideLength / 2.;
 
   // Pipe tubes
   TGeoTube* pipeASide = new TGeoTube("PIPE_Ash", mPipeRIn, mPipeRIn + mPipeThick, pipeASideLength / 2.);
@@ -103,11 +103,11 @@ void Alice3Pipe::ConstructGeometry()
   TGeoTube* vacuumVesselWall = new TGeoTube("VACUUM_VESSEL_WALLsh", mPipeRIn, mVacuumVesselRIn + mVacuumVesselThick, mVacuumVesselThick / 2.);
 
   // Pipe and vacuum vessel positions
-  TGeoTranslation* posPipeASide = new TGeoTranslation("PIPE_ASIDE_POSITION", 0, 0, mVacuumVesselASideLength/2. + mVacuumVesselThick + pipeASideLength / 2.);
+  TGeoTranslation* posPipeASide = new TGeoTranslation("PIPE_ASIDE_POSITION", 0, 0, mVacuumVesselASideLength / 2. + mVacuumVesselThick + pipeASideLength / 2.);
   posPipeASide->RegisterYourself();
-  TGeoTranslation* posPipeCSide = new TGeoTranslation("PIPE_CSIDE_POSITION", 0, 0, mVacuumVesselASideLength/2. - pipeCSideLength / 2.);
+  TGeoTranslation* posPipeCSide = new TGeoTranslation("PIPE_CSIDE_POSITION", 0, 0, mVacuumVesselASideLength / 2. - pipeCSideLength / 2.);
   posPipeCSide->RegisterYourself();
-  TGeoTranslation* posVacuumVesselWall = new TGeoTranslation("WALL_POSITION", 0, 0, mVacuumVesselASideLength/2. + mVacuumVesselThick / 2.);
+  TGeoTranslation* posVacuumVesselWall = new TGeoTranslation("WALL_POSITION", 0, 0, mVacuumVesselASideLength / 2. + mVacuumVesselThick / 2.);
   posVacuumVesselWall->RegisterYourself();
 
   // Pipe composite shape and volume
