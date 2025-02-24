@@ -457,7 +457,7 @@ void TRKServices::createOuterBarrelServices(TGeoVolume* motherVolume)
   // Fiber 0.269 cm
   const float siO2FiberThick = 0.5 * 0.269;
   const float peFiberThick = 0.5 * 0.269;
-  float rMinOuterBarrelServices = ((TGeoTube*)motherVolume->GetNode(Form("%s10_1", GeometryTGeo::getTRKLayerPattern()))->GetVolume()->GetShape())->GetRmax();
+  float rMinOuterBarrelServices = ((TGeoTube*)motherVolume->GetNode(Form("%s7_1", GeometryTGeo::getTRKLayerPattern()))->GetVolume()->GetShape())->GetRmax();
   const float zLengthOuterBarrelServices = 350.f; // 175cm
 
   TGeoTube* outerBarrelFiberSIO2 = new TGeoTube("TRK_OUTERBARREL_FIBER_SIO2sh", rMinOuterBarrelServices, rMinOuterBarrelServices + siO2FiberThick, zLengthOuterBarrelServices);
