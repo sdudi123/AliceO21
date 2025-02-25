@@ -55,14 +55,22 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
 
-  // Float16 inmplementation
-  template <int32_t iKernel = defaultKernel>
-  GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, int8_t = 0, int8_t = 0, int8_t = 0, uint = 0);
+  enum K : int32_t {
+    runCfClusterizer = 0,
+    fillInputNN = 1,
+    determineClass1Labels = 2,
+    determineClass2Labels = 3,
+    publishClass1Regression = 4,
+    publishClass2Regression = 5,
+  };
+
+  template <int32_t iKernel = defaultKernel, typename... Args>
+  GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, int8_t = 0, int8_t = 0, uint = 0, Args...);
 
   static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
 
-  static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, int8_t, uint);
-  static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, int8_t, uint);
+  static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
+  static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
 
   static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
 
