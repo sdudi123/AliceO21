@@ -123,19 +123,11 @@ bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const G
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
-    if (pad >= geo.NPads(row)) {
-      return true;
-    } else {
-      return false;
-    }
+    return (pad >= static_cast<int>(geo.NPads(row)))
   } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
     return true;
   } else if (row <= o2::tpc::constants::MAXGLOBALPADROW - 1 + global_shift) {
-    if (pad >= geo.NPads(row - global_shift)) {
-      return true;
-    } else {
-      return false;
-    }
+    return (pad >= static_cast<int>(geo.NPads(row - global_shift)));
   } else {
     return true;
   }
@@ -148,40 +140,35 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
 
   uint glo_idx = get_global_id(0);
-  // SHouldn't be needed
-  // if (glo_idx + batchStart >= clusterer.mPmemory->counters.nClusters)
-  // {
-  //   return;
-  // }
 
   uint write_idx = glo_idx * clusterer.nnClusterizerElementSize; // For optimization: Either choose nnClusterizerBatchedMode as a power of 2 or calculate from threadId and blockId
 
   ChargePos peak = clusterer.mPfilteredPeakPositions[glo_idx + batchStart];
-  int row = peak.row(), pad = peak.pad(), time = peak.time();
-  float central_charge = chargeMap[peak].unpack();
+  int row = static_cast<int>(peak.row()), pad = static_cast<int>(peak.pad()), time = static_cast<int>(peak.time());
+  float central_charge = static_cast<float>(chargeMap[peak].unpack());
 
   clusterer.peakPositions[glo_idx] = peak;
   clusterer.centralCharges[glo_idx] = central_charge;
 
   int row_offset = GPUTPCNNClusterizer::rowOffset(row, clusterer.nnClusterizerSizeInputRow);
   for (int r = -clusterer.nnClusterizerSizeInputRow; r <= clusterer.nnClusterizerSizeInputRow; r++) {
-    bool is_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
-    int pad_offset = is_boundary ? 0 : GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
+    bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
+    int pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizer::padOffset(row, row + r, clusterer.Param().tpcGeometry);
     for (int p = -clusterer.nnClusterizerSizeInputPad + pad_offset; p <= clusterer.nnClusterizerSizeInputPad + pad_offset; p++) {
-      is_boundary = is_boundary || GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
+      bool is_boundary = is_row_boundary || GPUTPCNNClusterizer::isBoundary(row + r + row_offset, pad + p, clusterer.nnClusterizerSizeInputRow, clusterer.Param().tpcGeometry);
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
-        if (is_boundary) {
-          if(dtype == 0){
-            clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)clusterer.nnClusterizerBoundaryFillValue);
-          } else {
-            clusterer.inputData32[write_idx] = (float)clusterer.nnClusterizerBoundaryFillValue;
-          }
-        } else {
+        if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
           if(dtype == 0){
-            clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)((float)chargeMap[tmp_pos].unpack() / central_charge);
+            clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
           } else {
-            clusterer.inputData32[write_idx] = (float)chargeMap[tmp_pos].unpack() / central_charge;
+            clusterer.inputData32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
+          }
+        } else {
+          if(dtype == 0){
+            clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(clusterer.nnClusterizerBoundaryFillValue));
+          } else {
+            clusterer.inputData32[write_idx] = static_cast<float>(clusterer.nnClusterizerBoundaryFillValue);
           }
         }
         write_idx++;
@@ -192,11 +179,11 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
     if(dtype == 0){
       clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISlice / 36.f);
       clusterer.inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
-      clusterer.inputData16[write_idx + 2] = (OrtDataType::Float16_t)((float)pad / clusterer.Param().tpcGeometry.NPads(row));
+      clusterer.inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
     } else {
       clusterer.inputData32[write_idx] = clusterer.mISlice / 36.f;
       clusterer.inputData32[write_idx + 1] = row / 152.f;
-      clusterer.inputData32[write_idx + 2] = (float)pad / clusterer.Param().tpcGeometry.NPads(row);
+      clusterer.inputData32[write_idx + 2] = static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row);
     }
   }
 }
@@ -238,7 +225,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
       return;
     }
 
-    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], clusterer.peakPositions[glo_idx].pad() + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], (clusterer.mPmemory->fragment).start + clusterer.peakPositions[glo_idx].time() + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
+    pc.setFull(clusterer.centralCharges[glo_idx] * clusterer.outputDataReg1[model_output_index + 4], static_cast<float>clusterer.peakPositions[glo_idx].pad() + clusterer.outputDataReg1[model_output_index], clusterer.outputDataReg1[model_output_index + 2], static_cast<float>(clusterer.mPmemory->fragment).start + static_cast<float>clusterer.peakPositions[glo_idx].time() + clusterer.outputDataReg1[model_output_index + 1], clusterer.outputDataReg1[model_output_index + 3], 0, 0);
 
     tpc::ClusterNative myCluster;
     bool rejectCluster = !pc.toNative(clusterer.peakPositions[glo_idx], clusterer.centralCharges[glo_idx], myCluster, clusterer.Param());
