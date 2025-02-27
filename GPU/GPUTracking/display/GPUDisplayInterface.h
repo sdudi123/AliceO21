@@ -18,9 +18,7 @@
 #include <stdint.h>
 #include "GPUSettings.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUChainTracking;
@@ -34,7 +32,7 @@ class GPUDisplayInterface
   virtual int32_t StartDisplay() = 0;
   virtual void ShowNextEvent(const GPUTrackingInOutPointers* ptrs = nullptr) = 0;
   virtual void WaitForNextEvent() = 0;
-  virtual void SetCollisionFirstCluster(uint32_t collision, int32_t slice, int32_t cluster) = 0;
+  virtual void SetCollisionFirstCluster(uint32_t collision, int32_t sector, int32_t cluster) = 0;
   virtual void UpdateCalib(const GPUCalibObjectsConst* calib) = 0;
   virtual void UpdateParam(const GPUParam* param) = 0;
   static GPUDisplayInterface* getDisplay(GPUDisplayFrontendInterface* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param = nullptr, const GPUCalibObjectsConst* calib = nullptr, const GPUSettingsDisplay* config = nullptr);
@@ -62,7 +60,6 @@ class GPUDisplayFrontendInterface
   GPUDisplayFrontendInterface();
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUDISPLAYINTERFACE_H
