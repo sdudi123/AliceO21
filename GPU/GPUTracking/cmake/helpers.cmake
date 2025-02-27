@@ -17,8 +17,8 @@ function(create_binary_resource RESOURCE OUTPUTFILE)
   FILE(RELATIVE_PATH input-file-rel ${CMAKE_CURRENT_BINARY_DIR} ${input-file-abs})
   add_custom_command(
     OUTPUT ${OUTPUTFILE}
-    COMMAND ${CMAKE_LINKER} --relocatable --format binary --output ${OUTPUTFILE} ${input-file-rel}
-    DEPENDS ${RESOURCE}
+    COMMAND ${CMAKE_LINKER} -z noexecstack --relocatable --format binary --output ${OUTPUTFILE} ${input-file-rel}
+    DEPENDS ${input-file-rel}
     COMMENT "Adding binary resource ${input-file-rel}"
     VERBATIM
   )

@@ -100,7 +100,7 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
         LOG(info) << "Sending an object to Production-CCDB";
         sendOutputCcdb(pc.outputs());
         LOG(info) << "Sending an object to Production-CCDBMerge";
-        sendOutputCcdbMerge(pc.outputs());
+        sendOutputCcdbMerge(pc.outputs());
       } else if (mOutputType.compare("DCS") == 0) {
         LOG(info) << "Sending an object to DCS-CCDB";
         sendOutputDcs(pc.outputs());

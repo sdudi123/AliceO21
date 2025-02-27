@@ -11,12 +11,20 @@
 #include "Framework/TableTreeHelpers.h"
 #include "Framework/Logger.h"
 #include "Framework/Endian.h"
+#include "Framework/Signpost.h"
 
 #include "arrow/type_traits.h"
+#include <arrow/dataset/file_base.h>
+#include <arrow/record_batch.h>
+#include <arrow/type.h>
 #include <arrow/util/key_value_metadata.h>
 #include <TBufferFile.h>
 
+#include <memory>
 #include <utility>
+
+O2_DECLARE_DYNAMIC_LOG(tabletree_helpers);
+
 namespace TableTreeHelpers
 {
 static constexpr char const* sizeBranchSuffix = "_size";
@@ -128,56 +136,9 @@ BranchToColumn::BranchToColumn(TBranch* branch, bool VLA, std::string name, EDat
   }
 }
 
-template <typename T>
-inline T doSwap(T)
-{
-  static_assert(always_static_assert_v<T>, "Unsupported type");
-}
-
-template <>
-inline uint16_t doSwap(uint16_t x)
-{
-  return swap16_(x);
-}
-
-template <>
-inline uint32_t doSwap(uint32_t x)
-{
-  return swap32_(x);
-}
-
-template <>
-inline uint64_t doSwap(uint64_t x)
-{
-  return swap64_(x);
-}
-
-template <typename T>
-void doSwapCopy_(void* dest, void* source, int size) noexcept
-{
-  auto tdest = static_cast<T*>(dest);
-  auto tsrc = static_cast<T*>(source);
-  for (auto i = 0; i < size; ++i) {
-    tdest[i] = doSwap<T>(tsrc[i]);
-  }
-}
-
-void swapCopy(unsigned char* dest, char* source, int size, int typeSize) noexcept
-{
-  switch (typeSize) {
-    case 1:
-      return (void)std::memcpy(dest, source, size);
-    case 2:
-      return doSwapCopy_<uint16_t>(dest, source, size);
-    case 4:
-      return doSwapCopy_<uint32_t>(dest, source, size);
-    case 8:
-      return doSwapCopy_<uint64_t>(dest, source, size);
-  }
-}
-
 std::pair<std::shared_ptr<arrow::ChunkedArray>, std::shared_ptr<arrow::Field>> BranchToColumn::read(TBuffer* buffer)
 {
+  O2_SIGNPOST_ID_FROM_POINTER(sid, tabletree_helpers, buffer);
   auto totalEntries = mBranch->GetEntries();
   arrow::Status status;
   int readEntries = 0;
@@ -214,7 +175,9 @@ std::pair<std::shared_ptr<arrow::ChunkedArray>, std::shared_ptr<arrow::Field>> B
     }
   } else {
     // other types: use serialized read to build arrays directly
+    size_t branchSize = mBranch->GetTotBytes();
     auto&& result = arrow::AllocateResizableBuffer(mBranch->GetTotBytes(), mPool);
+    O2_SIGNPOST_EVENT_EMIT(tabletree_helpers, sid, "BranchToColumn", "Allocating %ld bytes for %{public}s", branchSize, mBranch->GetName());
     if (!result.ok()) {
       throw runtime_error("Cannot allocate values buffer");
     }
@@ -454,9 +417,23 @@ std::shared_ptr<TTree> TableToTree::process()
   }
 
   for (auto& reader : mColumnReaders) {
-    int idealBasketSize = 1024 + reader->fieldSize() * mRows; // minimal additional size needed, otherwise we get 2 baskets
-    int basketSize = std::max(32000, idealBasketSize);        // keep a minimum value
+    int idealBasketSize = 1024 + reader->fieldSize() * reader->columnEntries(); // minimal additional size needed, otherwise we get 2 baskets
+    int basketSize = std::max(32000, idealBasketSize);                          // keep a minimum value
+    // std::cout << "Setting baskets size for " << reader->branchName() << " to " << basketSize << " =  1024 + "
+    //           << reader->fieldSize() << " * " << reader->columnEntries() << ". mRows was " << mRows << std::endl;
     mTree->SetBasketSize(reader->branchName(), basketSize);
+    // If it starts with fIndexArray, also set the size branch basket size
+    if (strncmp(reader->branchName(), "fIndexArray", strlen("fIndexArray")) == 0) {
+      std::string sizeBranch = reader->branchName();
+      sizeBranch += "_size";
+      //  std::cout << "Setting baskets size for " << sizeBranch << " to " << basketSize << " =  1024 + "
+      //            << reader->fieldSize() << " * " << reader->columnEntries() << ". mRows was " << mRows << std::endl;
+      // One int per array to keep track of the size
+      int idealBasketSize = 4 * mRows + 1024 + reader->fieldSize() * reader->columnEntries(); // minimal additional size needed, otherwise we get 2 baskets
+      int basketSize = std::max(32000, idealBasketSize);                                      // keep a minimum value
+      mTree->SetBasketSize(sizeBranch.c_str(), basketSize);
+      mTree->SetBasketSize(reader->branchName(), basketSize);
+    }
   }
 
   while (row < mRows) {
@@ -533,14 +510,22 @@ void TreeToTable::addAllColumns(TTree* tree, std::vector<std::string>&& names)
   if (mBranchReaders.empty()) {
     throw runtime_error("No columns will be read");
   }
-  //tree->SetCacheSize(50000000);
-  // FIXME: see https://github.com/root-project/root/issues/8962 and enable
-  // again once fixed.
-  //tree->SetClusterPrefetch(true);
-  //for (auto& reader : mBranchReaders) {
-  //  tree->AddBranchToCache(reader->branch());
-  //}
-  //tree->StopCacheLearningPhase();
+  // Was affected by https://github.com/root-project/root/issues/8962
+  // Re-enabling this seems to cut the number of IOPS in half
+  tree->SetCacheSize(25000000);
+  // tree->SetClusterPrefetch(true);
+  for (auto& reader : mBranchReaders) {
+    tree->AddBranchToCache(reader->branch());
+    if (strncmp(reader->branch()->GetName(), "fIndexArray", strlen("fIndexArray")) == 0) {
+      std::string sizeBranchName = reader->branch()->GetName();
+      sizeBranchName += "_size";
+      auto* sizeBranch = (TBranch*)tree->GetBranch(sizeBranchName.c_str());
+      if (sizeBranch) {
+        tree->AddBranchToCache(sizeBranch);
+      }
+    }
+  }
+  tree->StopCacheLearningPhase();
 }
 
 void TreeToTable::setLabel(const char* label)
@@ -548,17 +533,20 @@ void TreeToTable::setLabel(const char* label)
   mTableLabel = label;
 }
 
-void TreeToTable::fill(TTree*)
+void TreeToTable::fill(TTree*tree)
 {
   std::vector<std::shared_ptr<arrow::ChunkedArray>> columns;
   std::vector<std::shared_ptr<arrow::Field>> fields;
   static TBufferFile buffer{TBuffer::EMode::kWrite, 4 * 1024 * 1024};
+  O2_SIGNPOST_ID_FROM_POINTER(sid, tabletree_helpers, &buffer);
+  O2_SIGNPOST_START(tabletree_helpers, sid, "TreeToTable", "Filling %{public}s", tree->GetName());
   for (auto& reader : mBranchReaders) {
     buffer.Reset();
     auto arrayAndField = reader->read(&buffer);
     columns.push_back(arrayAndField.first);
     fields.push_back(arrayAndField.second);
   }
+  O2_SIGNPOST_END(tabletree_helpers, sid, "TreeToTable", "Done filling.");
 
   auto schema = std::make_shared<arrow::Schema>(fields, std::make_shared<arrow::KeyValueMetadata>(std::vector{std::string{"label"}}, std::vector{mTableLabel}));
   mTable = arrow::Table::Make(schema, columns);
@@ -579,6 +567,30 @@ void TreeToTable::addReader(TBranch* branch, std::string const& name, bool VLA)
 std::shared_ptr<arrow::Table> TreeToTable::finalize()
 {
   return mTable;
+}
+
+FragmentToBatch::FragmentToBatch(arrow::MemoryPool* pool)
+  : mArrowMemoryPool{pool}
+{
+}
+
+void FragmentToBatch::setLabel(const char* label)
+{
+  mTableLabel = label;
+}
+
+void FragmentToBatch::fill(std::shared_ptr<arrow::dataset::FileFragment> fragment, std::shared_ptr<arrow::Schema> schema, std::shared_ptr<arrow::dataset::FileFormat> format)
+{
+  auto options = std::make_shared<arrow::dataset::ScanOptions>();
+  options->dataset_schema = schema;
+  auto scanner = format->ScanBatchesAsync(options, fragment);
+  auto batch = (*scanner)();
+  mRecordBatch = *batch.result();
+}
+
+std::shared_ptr<arrow::RecordBatch> FragmentToBatch::finalize()
+{
+  return mRecordBatch;
 }
 
 } // namespace o2::framework

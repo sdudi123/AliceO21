@@ -17,6 +17,7 @@
 #include "Generators/Generator.h"
 #include "Pythia8/Pythia.h"
 #include <functional>
+#include "Generators/GeneratorPythia8Param.h"
 
 namespace o2
 {
@@ -88,6 +89,8 @@ class GeneratorPythia8 : public Generator
  public:
   /** default constructor **/
   GeneratorPythia8();
+  /** constructor **/
+  GeneratorPythia8(Pythia8GenConfig const&);
   /** constructor **/
   GeneratorPythia8(const Char_t* name, const Char_t* title = "ALICEo2 Pythia8 Generator");
   /** destructor **/
@@ -162,6 +165,12 @@ class GeneratorPythia8 : public Generator
   };
 
   typedef std::function<bool(const Pythia8::Particle&)> UserFilterFcn;
+
+  /// A function allowing to set the initial value used in seeding Pythia.
+  /// The function needs to be called before GeneratorPythia8::Init is invoked.
+  /// The function value will be true upon success, or false if either Init has already been called or if the see is smaller than 0.
+  /// For values of seed >= 0, a truncation to the range [0:90000000] will automatically take place via a modulus operation.
+  bool setInitialSeed(long seed);
 
  protected:
   /** copy constructor **/
@@ -251,6 +260,9 @@ class GeneratorPythia8 : public Generator
   void getNfreeSpec(const Pythia8::Info& info, int& nFreenProj, int& nFreepProj, int& nFreenTarg, int& nFreepTarg);
   /** @} */
 
+  /// performs seeding of the random state of Pythia (called from Init)
+  void seedGenerator();
+
   /** Pythia8 **/
   Pythia8::Pythia mPythia; //!
 
@@ -269,6 +281,16 @@ class GeneratorPythia8 : public Generator
   void initUserFilterCallback();
 
   bool mApplyPruning = false;
+  bool mIsInitialized = false; // if Init function has been called
+  long mInitialRNGSeed = -1;   // initial seed for Pythia random number state;
+                               // will be transported to Pythia in the Init function through the Pythia::readString("Random:seed") mechanism.
+                               // Value of -1 means unitialized; 0 will be time-dependent and values >1 <= MAX_SEED concrete reproducible seeding
+  Pythia8GenConfig mGenConfig; // configuration object
+
+  static std::atomic<int> Pythia8InstanceCounter;
+  int mThisPythia8InstanceID = 0;
+
+  constexpr static long MAX_SEED = 900000000;
 
   ClassDefOverride(GeneratorPythia8, 1);
 

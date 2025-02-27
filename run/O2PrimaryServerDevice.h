@@ -27,6 +27,7 @@
 #include <SimulationDataFormat/PrimaryChunk.h>
 #include <Generators/GeneratorFromFile.h>
 #include <Generators/PrimaryGenerator.h>
+#include <Generators/Generator.h>
 #include <SimConfig/SimConfig.h>
 #include <CommonUtils/ConfigurableParam.h>
 #include <CommonUtils/RngHelper.h>
@@ -87,6 +88,10 @@ class O2PrimaryServerDevice final : public fair::mq::Device
     ccdbmgr.setURL(conf.getConfigData().mCCDBUrl);
     ccdbmgr.setTimestamp(conf.getTimestamp());
 
+    // set the global information about the number of events to be generated
+    unsigned int nTotalEvents = conf.getNEvents();
+    o2::eventgen::Generator::setTotalNEvents(nTotalEvents);
+
     // init magnetic field as it might be needed by the generator
     if (TGeoGlobalMagField::Instance()->GetField() == nullptr) {
       TGeoGlobalMagField::Instance()->SetField(o2::base::SimFieldUtils::createMagField());
@@ -105,7 +110,7 @@ class O2PrimaryServerDevice final : public fair::mq::Device
     if (conf.getGenerator().compare("extkin") != 0 || conf.getGenerator().compare("extkinO2") != 0) {
       auto iter = mPrimGeneratorCache.find(conf.getGenerator());
       if (iter != mPrimGeneratorCache.end()) {
-        mPrimGen = iter->second;
+        mPrimGen = iter->second.get();
         LOG(info) << "Found cached generator for " << conf.getGenerator();
       }
     }
@@ -122,6 +127,8 @@ class O2PrimaryServerDevice final : public fair::mq::Device
       } else if (vtxMode == VertexMode::kCCDB) {
         // we need to fetch the CCDB object
         mPrimGen->setVertexMode(vtxMode, ccdbmgr.getForTimeStamp<o2::dataformats::MeanVertexObject>("GLO/Calib/MeanVertex", conf.getTimestamp()));
+      } else if (vtxMode == VertexMode::kCollCxt) {
+        // The vertex will be injected from the outside via setExternalVertex
       } else {
         LOG(fatal) << "Unsupported vertex mode";
       }
@@ -133,12 +140,15 @@ class O2PrimaryServerDevice final : public fair::mq::Device
 
       mPrimGen->Init();
 
-      mPrimGeneratorCache[conf.getGenerator()] = mPrimGen;
+      std::unique_ptr<o2::eventgen::PrimaryGenerator> ptr_wrapper;
+      ptr_wrapper.reset(mPrimGen);
+      mPrimGeneratorCache[conf.getGenerator()] = std::move(ptr_wrapper);
     }
     mPrimGen->SetEvent(&mEventHeader);
 
     // A good moment to couple to collision context
-    auto collContextFileName = mSimConfig.getConfigData().mFromCollisionContext;
+    auto collContextFileName_PrefixPair = mSimConfig.getCollContextFilenameAndEventPrefix();
+    auto collContextFileName = collContextFileName_PrefixPair.first;
     if (collContextFileName.size() > 0) {
       LOG(info) << "Simulation has collission context";
       mCollissionContext = o2::steer::DigitizationContext::loadFromFile(collContextFileName);
@@ -147,7 +157,7 @@ class O2PrimaryServerDevice final : public fair::mq::Device
         LOG(info) << "We found " << vertices.size() << " vertices included ";
 
         // initialize the eventID to collID mapping
-        const auto source = mCollissionContext->findSimPrefix(mSimConfig.getOutPrefix());
+        const auto source = mCollissionContext->findSimPrefix(collContextFileName_PrefixPair.second);
         if (source == -1) {
           LOG(fatal) << "Wrong simulation prefix";
         }
@@ -178,13 +188,14 @@ class O2PrimaryServerDevice final : public fair::mq::Device
       const int MAX_RETRY = 100;
       do {
         mStack->Reset();
+        const auto& conf = mSimConfig;
         // see if we the vertex comes from the collision context
-        if (mCollissionContext) {
+        if (mCollissionContext && conf.getVertexMode() == o2::conf::VertexMode::kCollCxt) {
           const auto& vertices = mCollissionContext->getInteractionVertices();
           if (vertices.size() > 0) {
             auto collisionindex = mEventID_to_CollID.at(mEventCounter);
             auto& vertex = vertices.at(collisionindex);
-            LOG(info) << "Setting vertex " << vertex << " for event " << mEventCounter << " for prefix " << mSimConfig.getOutPrefix();
+            LOG(info) << "Setting vertex " << vertex << " for event " << mEventCounter << " for prefix " << mSimConfig.getOutPrefix() << " from CollContext";
             mPrimGen->setExternalVertexForNextEvent(vertex.X(), vertex.Y(), vertex.Z());
           }
         }
@@ -667,11 +678,11 @@ class O2PrimaryServerDevice final : public fair::mq::Device
 
   // Keeps various generators instantiated in memory
   // useful when running simulation as a service (when generators
-  // change between batches)
+  // change between batches). Also takes care of resource management of Primary generators via unique ptr
   // TODO: some care needs to be taken (or the user warned) that the caching is based on generator name
   //       and that parameter-based reconfiguration is not yet implemented (for which we would need to hash all
   //       configuration parameters as well)
-  std::map<std::string, o2::eventgen::PrimaryGenerator*> mPrimGeneratorCache;
+  std::map<std::string, std::unique_ptr<o2::eventgen::PrimaryGenerator>> mPrimGeneratorCache;
 
   std::atomic<O2PrimaryServerState> mState{O2PrimaryServerState::Initializing};
   std::atomic<int> mWaitingControlInput{0};

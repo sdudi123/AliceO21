@@ -26,8 +26,8 @@ Line::Line(std::array<float, 3> firstPoint, std::array<float, 3> secondPoint)
     cosinesDirector[index] = secondPoint[index] - firstPoint[index];
   }
 
-  float inverseNorm{1.f / std::sqrt(cosinesDirector[0] * cosinesDirector[0] + cosinesDirector[1] * cosinesDirector[1] +
-                                    cosinesDirector[2] * cosinesDirector[2])};
+  float inverseNorm{1.f / o2::gpu::CAMath::Sqrt(cosinesDirector[0] * cosinesDirector[0] + cosinesDirector[1] * cosinesDirector[1] +
+                                                cosinesDirector[2] * cosinesDirector[2])};
   for (int index{0}; index < 3; ++index) {
     cosinesDirector[index] *= inverseNorm;
   }
@@ -73,9 +73,9 @@ std::array<float, 6> Line::getDCAComponents(const Line& line, const std::array<f
   components[0] = line.originPoint[0] - point[0] + line.cosinesDirector[0] * cdelta;
   components[3] = line.originPoint[1] - point[1] + line.cosinesDirector[1] * cdelta;
   components[5] = line.originPoint[2] - point[2] + line.cosinesDirector[2] * cdelta;
-  components[1] = std::sqrt(components[0] * components[0] + components[3] * components[3]);
-  components[2] = std::sqrt(components[0] * components[0] + components[5] * components[5]);
-  components[4] = std::sqrt(components[3] * components[3] + components[5] * components[5]);
+  components[1] = o2::gpu::CAMath::Sqrt(components[0] * components[0] + components[3] * components[3]);
+  components[2] = o2::gpu::CAMath::Sqrt(components[0] * components[0] + components[5] * components[5]);
+  components[4] = o2::gpu::CAMath::Sqrt(components[3] * components[3] + components[5] * components[5]);
 
   return components;
 }
@@ -84,6 +84,9 @@ ClusterLines::ClusterLines(const int firstLabel, const Line& firstLine, const in
                            const bool weight)
 
 {
+  updateROFPoll(firstLine);
+  updateROFPoll(secondLine);
+
   mLabels.push_back(firstLabel);
   if (secondLabel > 0) {
     mLabels.push_back(secondLabel); // don't add info in case of beamline used
@@ -188,7 +191,8 @@ ClusterLines::ClusterLines(const Line& firstLine, const Line& secondLine)
 
   std::array<float, 3> covarianceFirst{1., 1., 1.};
   std::array<float, 3> covarianceSecond{1., 1., 1.};
-
+  updateROFPoll(firstLine);
+  updateROFPoll(secondLine);
   for (int i{0}; i < 6; ++i) {
     mWeightMatrix[i] = firstLine.weightMatrix[i] + secondLine.weightMatrix[i];
   }
@@ -274,6 +278,7 @@ ClusterLines::ClusterLines(const Line& firstLine, const Line& secondLine)
 void ClusterLines::add(const int& lineLabel, const Line& line, const bool& weight)
 {
   mLabels.push_back(lineLabel);
+  updateROFPoll(line);
   std::array<float, 3> covariance{1., 1., 1.};
 
   for (int i{0}; i < 6; ++i) {
@@ -361,5 +366,30 @@ bool ClusterLines::operator==(const ClusterLines& rhs) const
   }
   return retval && this->mAvgDistance2 == rhs.mAvgDistance2;
 }
+
+GPUhdi() void ClusterLines::updateROFPoll(const Line& line)
+{
+  // option 1: Boyer-Moore voting for rof label
+  // if (mROFWeight == 0) {
+  //   mROF = line.getMinROF();
+  //   mROFWeight = 1;
+  // } else {
+  //   if (mROF == line.getMinROF()) {
+  //     mROFWeight++;
+  //   } else {
+  //     mROFWeight--;
+  //   }
+  // }
+
+  // option 2
+  if (mROF == -1) {
+    mROF = line.getMinROF();
+  } else {
+    if (line.getMinROF() < mROF) {
+      mROF = line.getMinROF();
+    }
+  }
+}
+
 } // namespace its
 } // namespace o2

@@ -23,10 +23,9 @@
 #include <memory>
 #include <string>
 
-namespace GPUCA_NAMESPACE
+namespace o2::gpu
 {
-namespace gpu
-{
+
 #define GPUFailedMsg(x) GPUFailedMsgA(x, __FILE__, __LINE__)
 #define GPUFailedMsgI(x) GPUFailedMsgAI(x, __FILE__, __LINE__)
 
@@ -35,9 +34,6 @@ struct GPUReconstructionCUDAInternals {
   std::vector<std::unique_ptr<CUfunction>> kernelFunctions; // vector of ptrs to RTC kernels
   std::vector<std::string> kernelNames;                     // names of kernels
   cudaStream_t Streams[GPUCA_MAX_STREAMS];                  // Pointer to array of CUDA Streams
-
-  template <bool multi, class T, int I = 0>
-  static int getRTCkernelNum(int k = -1);
 
   static void getArgPtrs(const void** pArgs) {}
   template <typename T, typename... Args>
@@ -51,11 +47,11 @@ struct GPUReconstructionCUDAInternals {
 class GPUDebugTiming
 {
  public:
-  GPUDebugTiming(bool d, void** t, cudaStream_t* s, GPUReconstruction::krnlSetup& x, GPUReconstructionCUDABackend* r) : mDeviceTimers(t), mStreams(s), mXYZ(x), mRec(r), mDo(d)
+  GPUDebugTiming(bool d, gpu_reconstruction_kernels::deviceEvent* t, cudaStream_t* s, const gpu_reconstruction_kernels::krnlSetupTime& x, GPUReconstructionCUDABackend* r) : mDeviceTimers(t), mStreams(s), mXYZ(x), mRec(r), mDo(d)
   {
     if (mDo) {
       if (mDeviceTimers) {
-        mRec->GPUFailedMsg(cudaEventRecord((cudaEvent_t)mDeviceTimers[0], mStreams[mXYZ.x.stream]));
+        mRec->GPUFailedMsg(cudaEventRecord(mDeviceTimers[0].get<cudaEvent_t>(), mStreams[mXYZ.x.stream]));
       } else {
         mTimer.ResetStart();
       }
@@ -63,13 +59,13 @@ class GPUDebugTiming
   }
   ~GPUDebugTiming()
   {
-    if (mDo) {
+    if (mDo && mXYZ.t == 0.) {
       if (mDeviceTimers) {
-        mRec->GPUFailedMsg(cudaEventRecord((cudaEvent_t)mDeviceTimers[1], mStreams[mXYZ.x.stream]));
-        mRec->GPUFailedMsg(cudaEventSynchronize((cudaEvent_t)mDeviceTimers[1]));
+        mRec->GPUFailedMsg(cudaEventRecord(mDeviceTimers[1].get<cudaEvent_t>(), mStreams[mXYZ.x.stream]));
+        mRec->GPUFailedMsg(cudaEventSynchronize(mDeviceTimers[1].get<cudaEvent_t>()));
         float v;
-        mRec->GPUFailedMsg(cudaEventElapsedTime(&v, (cudaEvent_t)mDeviceTimers[0], (cudaEvent_t)mDeviceTimers[1]));
-        mXYZ.t = v * 1.e-3;
+        mRec->GPUFailedMsg(cudaEventElapsedTime(&v, mDeviceTimers[0].get<cudaEvent_t>(), mDeviceTimers[1].get<cudaEvent_t>()));
+        mXYZ.t = v * 1.e-3f;
       } else {
         mRec->GPUFailedMsg(cudaStreamSynchronize(mStreams[mXYZ.x.stream]));
         mXYZ.t = mTimer.GetCurrentElapsedTime();
@@ -78,9 +74,9 @@ class GPUDebugTiming
   }
 
  private:
-  GPUReconstruction::deviceEvent* mDeviceTimers;
+  gpu_reconstruction_kernels::deviceEvent* mDeviceTimers;
   cudaStream_t* mStreams;
-  GPUReconstruction::krnlSetup& mXYZ;
+  const gpu_reconstruction_kernels::krnlSetupTime& mXYZ;
   GPUReconstructionCUDABackend* mRec;
   HighResTimer mTimer;
   bool mDo;
@@ -88,7 +84,6 @@ class GPUDebugTiming
 
 static_assert(std::is_convertible<cudaEvent_t, void*>::value, "CUDA event type incompatible to deviceEvent");
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

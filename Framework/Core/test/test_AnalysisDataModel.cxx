@@ -12,17 +12,15 @@
 #include "Framework/ASoA.h"
 #include "Framework/TableBuilder.h"
 #include "Framework/AnalysisDataModel.h"
-#include "gandiva/tree_expr_builder.h"
-#include "arrow/status.h"
-#include "gandiva/filter.h"
 #include <catch_amalgamated.hpp>
 
 using namespace o2::framework;
 using namespace arrow;
+using namespace o2::soa;
+using namespace o2::aod;
 
-DECLARE_SOA_METADATA();
-DECLARE_SOA_VERSIONING();
-
+namespace o2::aod
+{
 namespace col
 {
 DECLARE_SOA_COLUMN(X, x, float);
@@ -33,6 +31,7 @@ DECLARE_SOA_COLUMN(D, d, float);
 
 DECLARE_SOA_TABLE(XY, "AOD", "XY", col::X, col::Y);
 DECLARE_SOA_TABLE(ZD, "AOD", "ZD", col::Z, col::D);
+} // namespace o2::aod
 
 TEST_CASE("TestJoinedTablesContains")
 {
@@ -50,12 +49,12 @@ TEST_CASE("TestJoinedTablesContains")
 
   using Test = o2::soa::Join<XY, ZD>;
 
-  Test tests{0, tXY, tZD};
+  Test tests{{tXY, tZD}, 0};
   REQUIRE(tests.asArrowTable()->num_columns() != 0);
   REQUIRE(tests.asArrowTable()->num_columns() ==
           tXY->num_columns() + tZD->num_columns());
   auto tests2 = join(XY{tXY}, ZD{tZD});
-  static_assert(std::is_same_v<Test::table_t, decltype(tests2)>,
+  static_assert(std::same_as<Test::table_t, decltype(tests2)::table_t>,
                 "Joined tables should have the same type, regardless how we construct them");
 
   using FullTracks = o2::soa::Join<o2::aod::Tracks, o2::aod::TracksExtra, o2::aod::TracksCov>;

@@ -18,16 +18,19 @@
 // o2 includes
 #include "CCDB/CcdbApi.h"
 #include "CCDB/CcdbObjectInfo.h"
-#include "CommonUtils/NameConf.h"
+// #include "CommonUtils/NameConf.h"
 #include "DataFormatsTPC/TrackTPC.h"
-#include "DataFormatsParameters/GRPObject.h"
+// #include "DataFormatsParameters/GRPObject.h"
 #include "DetectorsCalibration/Utils.h"
 #include "Framework/Task.h"
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/ConfigParamRegistry.h"
+#include "Framework/CCDBParamSpec.h"
+#include "GPUO2InterfaceConfigurableParam.h"
 #include "TPCCalibration/CalibdEdx.h"
 #include "TPCWorkflow/ProcessingHelpers.h"
-#include "TPCBase/CDBInterface.h"
+#include "TPCBase/CDBTypes.h"
+#include "TPCBase/Utils.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 
 using namespace o2::framework;
@@ -55,6 +58,7 @@ class CalibdEdxDevice : public Task
     const auto maxdEdx = ic.options().get<float>("max-dedx");
     const auto angularBins = ic.options().get<int>("angularbins");
     const auto fitSnp = ic.options().get<bool>("fit-snp");
+    mMakeGaussianFits = !ic.options().get<bool>("disable-gaussian-fits");
 
     mDumpToFile = ic.options().get<int>("file-dump");
 
@@ -65,16 +69,48 @@ class CalibdEdxDevice : public Task
     mCalib->set2DFitThreshold(minEntries2D);
     mCalib->setElectronCut(fitThreshold, fitPasses, fitThresholdLowFactor);
     mCalib->setMaterialType(mMatType);
+
+    mCustomdEdxFileName = o2::gpu::GPUConfigurableParamGPUSettingsO2::Instance().dEdxCorrFile;
+    mDisableTimeGain = o2::gpu::GPUConfigurableParamGPUSettingsO2::Instance().dEdxDisableResidualGain;
+
+    if (mDisableTimeGain) {
+      LOGP(info, "TimeGain correction was disabled via GPU_global.dEdxDisableResidualGain=1");
+    }
+
+    if (!mDisableTimeGain && !mCustomdEdxFileName.empty()) {
+      std::unique_ptr<TFile> fdEdxCustom(TFile::Open(mCustomdEdxFileName.data()));
+      if (!fdEdxCustom || !fdEdxCustom->IsOpen() || fdEdxCustom->IsZombie()) {
+        LOGP(error, "Could not open custom TimeGain file {}", mCustomdEdxFileName);
+      } else {
+        const auto timeGain = fdEdxCustom->Get<o2::tpc::CalibdEdxCorrection>("CalibdEdxCorrection");
+        if (!timeGain) {
+          LOGP(error, "Could not load 'CalibdEdxCorrection' from file {}", mCustomdEdxFileName);
+        } else {
+          const auto meanParamTot = timeGain->getMeanParams(ChargeType::Tot);
+          LOGP(info, "Loaded custom TimeGain from file {} with {} dimensions and mean qTot Params {}", mCustomdEdxFileName, timeGain->getDims(), utils::elementsToString(meanParamTot));
+          mCalib->setCalibrationInput(*timeGain);
+        }
+      }
+    }
   }
 
   void finaliseCCDB(o2::framework::ConcreteDataMatcher& matcher, void* obj) final
   {
-    o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
+    if (o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj)) {
+      return;
+    }
+    if ((mDisableTimeGain == 0) && mCustomdEdxFileName.empty() && (matcher == ConcreteDataMatcher("TPC", "TIMEGAIN", 0))) {
+      mCalib->setCalibrationInput(*(o2::tpc::CalibdEdxCorrection*)obj);
+      const auto meanParamTot = mCalib->getCalibrationInput().getMeanParams(ChargeType::Tot);
+      LOGP(info, "Updating TimeGain with {} dimensions and mean qTot Params {}", mCalib->getCalibrationInput().getDims(), utils::elementsToString(meanParamTot));
+      return;
+    }
   }
 
   void run(ProcessingContext& pc) final
   {
     o2::base::GRPGeomHelper::instance().checkUpdates(pc);
+    checkUpdates(pc);
     const auto tfcounter = o2::header::get<DataProcessingHeader*>(pc.inputs().get("tracks").header)->startTime;
     const auto tracks = pc.inputs().get<gsl::span<TrackTPC>>("tracks");
 
@@ -92,11 +128,12 @@ class CalibdEdxDevice : public Task
   void endOfStream(EndOfStreamContext& eos) final
   {
     LOGP(info, "Finalizing calibration");
-    mCalib->finalize();
+    mCalib->finalize(mMakeGaussianFits);
     mCalib->print();
     sendOutput(eos.outputs());
 
     if (mDumpToFile) {
+      mCalib->dumpToFile("calibdEdx_Obj.root", "calib");
       mCalib->getCalib().writeToFile("calibdEdx.root");
       if (mDumpToFile > 1) {
         mCalib->writeTTree("calibdEdx.histo.tree.root");
@@ -115,12 +152,24 @@ class CalibdEdxDevice : public Task
     output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, "TPC_CalibdEdx", 0}, info);
   }
 
+  void checkUpdates(ProcessingContext& pc) const
+  {
+    if (pc.inputs().isValid("tpctimegain")) {
+      pc.inputs().get<o2::tpc::CalibdEdxCorrection*>("tpctimegain");
+    } else {
+      return;
+    }
+  }
+
   std::shared_ptr<o2::base::GRPGeomRequest> mCCDBRequest;
   const o2::base::Propagator::MatCorrType mMatType{};
   int mDumpToFile{};
   uint64_t mRunNumber{0};      ///< processed run number
   uint64_t mTimeStampStart{0}; ///< time stamp for first TF for CCDB output
   std::unique_ptr<CalibdEdx> mCalib;
+  bool mMakeGaussianFits{true};      ///< make gaussian fits or take the mean
+  bool mDisableTimeGain{false};      ///< if time gain is disabled via GPU_global.dEdxDisableResidualGain=1
+  std::string mCustomdEdxFileName{}; ///< name of the custom dE/dx file configured via GPU_global.dEdxCorrFile
 };
 
 DataProcessorSpec getCalibdEdxSpec(const o2::base::Propagator::MatCorrType matType)
@@ -129,7 +178,9 @@ DataProcessorSpec getCalibdEdxSpec(const o2::base::Propagator::MatCorrType matTy
   std::vector<OutputSpec> outputs;
   outputs.emplace_back(ConcreteDataTypeMatcher{o2::calibration::Utils::gDataOriginCDBPayload, "TPC_CalibdEdx"}, Lifetime::Sporadic);
   outputs.emplace_back(ConcreteDataTypeMatcher{o2::calibration::Utils::gDataOriginCDBWrapper, "TPC_CalibdEdx"}, Lifetime::Sporadic);
-  std::vector<InputSpec> inputs{{"tracks", "TPC", "MIPS"}};
+  std::vector<InputSpec> inputs{{"tracks", "TPC", "MIPS", Lifetime::Sporadic}};
+  inputs.emplace_back("tpctimegain", "TPC", "TIMEGAIN", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalTimeGain), {}, 1)); // time-dependent
+
   auto ccdbRequest = std::make_shared<o2::base::GRPGeomRequest>(true,                           // orbitResetTime
                                                                 false,                          // GRPECS=true
                                                                 false,                          // GRPLHCIF
@@ -153,11 +204,12 @@ DataProcessorSpec getCalibdEdxSpec(const o2::base::Propagator::MatCorrType matTy
       {"fit-threshold", VariantType::Float, 0.2f, {"dEdx width around the MIP peak used in the fit"}},
       {"fit-threshold-low-factor", VariantType::Float, 1.5f, {"factor for low dEdx width around the MIP peak used in the fit"}},
 
-      {"dedxbins", VariantType::Int, 60, {"number of dEdx bins"}},
-      {"min-dedx", VariantType::Float, 20.0f, {"minimum value for dEdx histograms"}},
+      {"dedxbins", VariantType::Int, 70, {"number of dEdx bins"}},
+      {"min-dedx", VariantType::Float, 10.0f, {"minimum value for dEdx histograms"}},
       {"max-dedx", VariantType::Float, 90.0f, {"maximum value for dEdx histograms"}},
       {"angularbins", VariantType::Int, 36, {"number of angular bins: Tgl and Snp"}},
       {"fit-snp", VariantType::Bool, false, {"enable Snp correction"}},
+      {"disable-gaussian-fits", VariantType::Bool, false, {"disable calibration with gaussian fits and use mean instead"}},
 
       {"file-dump", VariantType::Int, 0, {"directly dump calibration to file"}}}};
 }

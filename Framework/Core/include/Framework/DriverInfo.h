@@ -111,6 +111,9 @@ struct DriverInfo {
   /// These are the policies which can be applied to decide how
   /// we send data.
   std::vector<SendingPolicy> sendingPolicies;
+  /// These are the policies which can be applied to decide how
+  /// we forward data.
+  std::vector<ForwardingPolicy> forwardingPolicies;
   /// The argc with which the driver was started.
   int argc;
   /// The argv with which the driver was started.
@@ -150,8 +153,6 @@ struct DriverInfo {
   unsigned short resourcesMonitoringDumpInterval = 0;
   /// Port used by the websocket control. 0 means not initialised.
   unsigned short port = 0;
-  /// Last port used for tracy
-  short tracyPort = 8086;
   /// The minimum level after which the device will exit with 1
   LogParsingHelpers::LogLevel minFailureLevel = LogParsingHelpers::LogLevel::Fatal;
 

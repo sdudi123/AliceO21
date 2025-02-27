@@ -56,7 +56,7 @@ class TrackCuts
   /// ITS
   void setMinPtITSCut(float value) { mPtITSCut = value; }
   void setEtaITSCut(float value) { mEtaITSCut = value; }
-  void setMinNClustersITS(float value) { mMinNClustersITS = value; }
+  void setMinNClustersITS(int32_t value) { mMinNClustersITS = value; }
   void setMaxChi2PerClusterITS(float value) { mMaxChi2PerClusterITS = value; }
   void setRequireHitsInITSLayers(int8_t minNRequiredHits, std::set<uint8_t> requiredLayers)
   {
@@ -104,12 +104,11 @@ class TrackCuts
       const auto& tpcTrk = data.getTPCTrack(contributorsGID[GID::TPC]);
       math_utils::Point3D<float> v{}; // vertex not defined?!
       std::array<float, 2> dca;
-      if (tpcTrk.getPt() < mPtTPCCut ||
-          std::abs(tpcTrk.getEta()) > mEtaTPCCut || // TODO: define 2 different values for min and max (***)
-          tpcTrk.getNClusters() < mNTPCClustersCut ||
-          (!(const_cast<o2::tpc::TrackTPC&>(tpcTrk).propagateParamToDCA(v, mBz, &dca, mDCATPCCut)) ||
-           std::abs(dca[0]) > mDCATPCCutY) ||
-          std::hypot(dca[0], dca[1]) > mDCATPCCut) {
+      if (tpcTrk.getPt() < mPtTPCCut || std::abs(tpcTrk.getEta()) > mEtaTPCCut || tpcTrk.getNClusters() < mNTPCClustersCut) { // TODO: define 2 different values for min and max (***)
+        return false;
+      }
+      o2::track::TrackPar trTmp(tpcTrk);
+      if (!trTmp.propagateParamToDCA(v, mBz, &dca, mDCATPCCut) || std::abs(dca[0]) > mDCATPCCutY || std::hypot(dca[0], dca[1]) > mDCATPCCut) {
         return false;
       }
     }

@@ -100,7 +100,7 @@ class TrackResiduals
     LocalResid(short dyIn, short dzIn, short tgSlpIn, std::array<unsigned char, VoxDim> bvoxIn) : dy(dyIn), dz(dzIn), tgSlp(tgSlpIn), bvox(bvoxIn) {}
     short dy{0};                              ///< residual in y, ranges from -param::sMaxResid to +param::sMaxResid
     short dz{0};                              ///< residual in z, ranges from -param::sMaxResid to +param::sMaxResid
-    short tgSlp{0};                           ///< tangens of the phi angle between padrow and track, ranges from -param::sMaxAngle to +param::sMaxAngle
+    short tgSlp{0};                           ///< tangens of the phi angle between padrow and track, ranges from -param::MaxTgSlp to +param::MaxTgSlp
     std::array<unsigned char, VoxDim> bvox{}; ///< voxel identifier: VoxZ, VoxF, VoxX
     ClassDefNV(LocalResid, 1);
   };
@@ -299,12 +299,12 @@ class TrackResiduals
   /// \param ip Bin index in Y/X
   /// \param iz Bin index in Z/X
   /// \return global bin number
-  unsigned short getGlbVoxBin(int ix, int ip, int iz) const;
+  size_t getGlbVoxBin(int ix, int ip, int iz) const;
 
   /// Calculates the global bin number
   /// \param bvox Array with the voxels bin indices in X, Y/X and Z/X
   /// \return global bin number
-  unsigned short getGlbVoxBin(const std::array<unsigned char, VoxDim>& bvox) const;
+  size_t getGlbVoxBin(const std::array<unsigned char, VoxDim>& bvox) const;
 
   /// Calculates the coordinates of the center for a given voxel.
   /// These are not global TPC coordinates, but the coordinates for the given global binning system.
@@ -449,7 +449,6 @@ class TrackResiduals
   // some constants
   static constexpr float sFloatEps{1.e-7f}; ///< float epsilon for robust linear fitting
   static constexpr float sDeadZone{1.5f};   ///< dead zone for TPC in between sectors
-  static constexpr float sMaxZ2X{1.f};      ///< max value for Z2X
   static constexpr int sSmtLinDim{4};       ///< max matrix size for smoothing (pol1)
   static constexpr int sMaxSmtDim{7};       ///< max matrix size for smoothing (pol2)
 
@@ -498,7 +497,7 @@ class TrackResiduals
   float mEffVdriftCorr{0.f}; ///< global correction factor for vDrift based on d(delta(z))/dz fit
   float mEffT0Corr{0.f};     ///< global correction for T0 shift from offset of d(delta(z))/dz fit
   // (intermediate) results
-  std::array<std::bitset<param::NPadRows>, SECTORSPERSIDE * SIDES> mXBinsIgnore{};          ///< flags which X bins to ignore
+  std::array<std::bitset<param::NPadRows>, SECTORSPERSIDE * SIDES> mXBinsIgnore{};          ///<! flags which X bins to ignore
   std::array<std::array<float, param::NPadRows>, SECTORSPERSIDE * SIDES> mValidFracXBins{}; ///< for each sector for each X-bin the fraction of validated voxels
   std::array<std::vector<VoxRes>, SECTORSPERSIDE * SIDES> mVoxelResults{};                  ///< results per sector and per voxel for 3-D distortions
   VoxRes mVoxelResultsOut{};                                                                ///< the results from mVoxelResults are copied in here to be able to stream them
@@ -508,13 +507,13 @@ class TrackResiduals
 };
 
 //_____________________________________________________
-inline unsigned short TrackResiduals::getGlbVoxBin(const std::array<unsigned char, VoxDim>& bvox) const
+inline size_t TrackResiduals::getGlbVoxBin(const std::array<unsigned char, VoxDim>& bvox) const
 {
   return bvox[VoxX] + (bvox[VoxF] + bvox[VoxZ] * mNY2XBins) * mNXBins;
 }
 
 //_____________________________________________________
-inline unsigned short TrackResiduals::getGlbVoxBin(int ix, int ip, int iz) const
+inline size_t TrackResiduals::getGlbVoxBin(int ix, int ip, int iz) const
 {
   return ix + (ip + iz * mNY2XBins) * mNXBins;
 }
@@ -564,7 +563,7 @@ inline float TrackResiduals::getY2X(int ix, int ip) const
   if (mUniformBins[VoxF]) {
     return (0.5f + ip) * mDY2X[ix] - mMaxY2X[ix];
   }
-  return mMaxY2X[ix] * (mY2XBinsCenter[ip] - mY2XBinsDH[ip]);
+  return mMaxY2X[ix] * mY2XBinsCenter[ip];
 }
 
 //_____________________________________________________

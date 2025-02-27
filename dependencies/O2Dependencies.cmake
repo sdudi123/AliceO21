@@ -30,16 +30,39 @@ include(FeatureSummary)
 include(FindThreads)
 
 find_package(Arrow CONFIG)
-if(${Arrow_VERSION} VERSION_LESS 11)
-find_package(Gandiva CONFIG PATHS ${Arrow_DIR} QUIET)
-else()
 find_package(Gandiva CONFIG)
-endif()
 set_package_properties(Arrow PROPERTIES TYPE REQUIRED)
 set_package_properties(Gandiva PROPERTIES TYPE REQUIRED)
 
 if (NOT TARGET Arrow::arrow_shared)
  add_library(Arrow::arrow_shared ALIAS arrow_shared)
+endif()
+
+if(NOT TARGET ArrowDataset::arrow_dataset_shared)
+  # ArrowDataset::arrow_dataset_shared is linked for no reason to parquet
+  # so we cannot use it because we do not want to build parquet itself.
+  # For that reason at the moment we need to do the lookup by hand.
+  get_target_property(ARROW_SHARED_LOCATION Arrow::arrow_shared LOCATION)
+  get_filename_component(ARROW_SHARED_DIR ${ARROW_SHARED_LOCATION} DIRECTORY)
+
+  find_library(ARROW_DATASET_SHARED arrow_dataset
+      PATHS ${ARROW_SHARED_DIR}
+      NO_DEFAULT_PATH
+  )
+
+  if(ARROW_DATASET_SHARED)
+    message(STATUS
+            "Found arrow_dataset_shared library at: ${ARROW_DATASET_SHARED}")
+  else()
+    message(FATAL_ERROR
+            "arrow_dataset_shared library not found in ${ARROW_SHARED_DIR}")
+  endif()
+
+  # Step 3: Create a target for ArrowDataset::arrow_dataset_shared
+  add_library(ArrowDataset::arrow_dataset_shared SHARED IMPORTED)
+  set_target_properties(ArrowDataset::arrow_dataset_shared PROPERTIES
+      IMPORTED_LOCATION ${ARROW_DATASET_SHARED}
+  )
 endif()
 
 if (NOT TARGET Gandiva::gandiva_shared)
@@ -103,6 +126,9 @@ set_package_properties(Configuration PROPERTIES TYPE REQUIRED)
 find_package(Monitoring CONFIG)
 set_package_properties(Monitoring PROPERTIES TYPE REQUIRED)
 
+find_package(BookkeepingApi CONFIG)
+set_package_properties(BookeepingApi PROPERTIES TYPE REQUIRED)
+
 find_package(Common CONFIG)
 set_package_properties(Common PROPERTIES TYPE REQUIRED)
 
@@ -114,6 +140,12 @@ set_package_properties(CURL PROPERTIES TYPE REQUIRED)
 
 find_package(TBB)
 set_package_properties(TBB PROPERTIES TYPE REQUIRED)
+
+# The Ifdef is to avoid merging at the same time alidist and AliceO2 PRs.
+if (ALICE_GRID_UTILS_INCLUDE_DIR)
+find_package(AliceGridUtils MODULE)
+set_package_properties(AliceGridUtils PROPERTIES TYPE RECOMMENDED)
+endif()
 
 find_package(JAliEnROOT MODULE)
 set_package_properties(JAliEnROOT PROPERTIES TYPE RECOMMENDED)

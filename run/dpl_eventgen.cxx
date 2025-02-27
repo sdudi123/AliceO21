@@ -16,6 +16,7 @@
 #include "SimulationDataFormat/MCTrack.h"
 #include "Framework/runDataProcessing.h"
 #include <Generators/GeneratorService.h>
+#include <Generators/Generator.h>
 #include <CommonUtils/ConfigurableParam.h>
 #include <CommonUtils/RngHelper.h>
 #include <TStopwatch.h> // simple timer from ROOT
@@ -27,8 +28,10 @@
 using namespace o2::framework;
 
 struct GeneratorTask {
+  // For readability to indicate where counting certain things (such as events or timeframes) should be of the same order of magnitude
+  typedef uint64_t GenCount;
   Configurable<std::string> generator{"generator", "boxgen", "Name of generator"};
-  Configurable<int> eventNum{"nEvents", 1, "Number of events"};
+  Configurable<GenCount> eventNum{"nEvents", 1, "Number of events"};
   Configurable<std::string> trigger{"trigger", "", "Trigger type"}; //
   Configurable<std::string> iniFile{"configFile", "", "INI file containing configurable parameters"};
   Configurable<std::string> params{"configKeyValues", "", "configurable params - configuring event generation internals"};
@@ -37,9 +40,9 @@ struct GeneratorTask {
   Configurable<std::string> vtxModeArg{"vertexMode", "kDiamondParam", "Where the beam-spot vertex should come from. Must be one of kNoVertex, kDiamondParam, kCCDB"};
   Configurable<int64_t> ttl{"time-limit", -1, "Maximum run time limit in seconds (default no limit)"};
   Configurable<std::string> outputPrefix{"output", "", "Optional prefix for kinematics files written on disc. If non-empty, files <prefix>_Kine.root + <prefix>_MCHeader.root will be created."};
-  int nEvents = 0;
-  int eventCounter = 0;
-  int tfCounter = 0;
+  GenCount nEvents = 0;
+  GenCount eventCounter = 0;
+  GenCount tfCounter = 0;
   std::unique_ptr<TFile> outfile{};
   std::unique_ptr<TTree> outtree{};
 
@@ -61,6 +64,12 @@ struct GeneratorTask {
     // update config key params
     o2::conf::ConfigurableParam::updateFromFile(iniFile);
     o2::conf::ConfigurableParam::updateFromString((std::string)params);
+    // set the number of events in the static Generator variable gTotalNEvents.
+    // Variable is unset if nEvents exceeds the uint maximum value
+    if (nEvents <= std::numeric_limits<unsigned int>::max()) {
+      unsigned int castNEvents = static_cast<unsigned int>(nEvents);
+      o2::eventgen::Generator::setTotalNEvents(castNEvents);
+    }
     // initialize the service
     if (vtxmode == o2::conf::VertexMode::kDiamondParam) {
       genservice->initService(generator, trigger, o2::eventgen::DiamondParamVertexOption());
@@ -88,7 +97,7 @@ struct GeneratorTask {
       br->SetAddress(&mctrack_ptr);
     }
 
-    for (auto i = 0; i < std::min((int)aggregate, nEvents - eventCounter); ++i) {
+    for (auto i = 0; i < std::min((GenCount)aggregate, nEvents - eventCounter); ++i) {
       mctracks.clear();
       genservice->generateEvent_MCTracks(mctracks, mcheader);
       pc.outputs().snapshot(Output{"MC", "MCHEADER", 0}, mcheader);
@@ -101,8 +110,8 @@ struct GeneratorTask {
     }
 
     // report number of TFs injected for the rate limiter to work
-    pc.services().get<o2::monitoring::Monitoring>().send(o2::monitoring::Metric{(uint64_t)tfCounter, "df-sent"}.addTag(o2::monitoring::tags::Key::Subsystem, o2::monitoring::tags::Value::DPL));
     ++tfCounter;
+    pc.services().get<o2::monitoring::Monitoring>().send(o2::monitoring::Metric{(uint64_t)tfCounter, "df-sent"}.addTag(o2::monitoring::tags::Key::Subsystem, o2::monitoring::tags::Value::DPL));
     bool time_expired = false;
     if (ttl > 0) {
       timer.Stop();

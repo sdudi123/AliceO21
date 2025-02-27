@@ -77,7 +77,13 @@ class Detector : public o2::base::DetImpl<Detector>
   /// Name : Detector Name
   /// Active: kTRUE for active detectors (ProcessHits() will be called)
   ///         kFALSE for inactive detectors
-  Detector(Bool_t active, TString name = "ITS", TString its3Version = "");
+  Detector(Bool_t active, TString name = "ITS");
+
+  // Factory method
+  static o2::base::Detector* create(const char* name, bool active)
+  {
+    return new Detector(active, name);
+  }
 
   /// Default constructor
   Detector();
@@ -152,6 +158,9 @@ class Detector : public o2::base::DetImpl<Detector>
 
   /// Add alignable top volumes
   void addAlignableVolumes() const override;
+
+  /// Add ITS chip volumes to parallel world geometry
+  void fillParallelWorld() const override;
 
   /// Add alignable Layer volumes
   /// \param lr layer number

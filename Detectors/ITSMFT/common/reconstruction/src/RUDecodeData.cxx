@@ -57,11 +57,19 @@ void RUDecodeData::fillChipStatistics(int icab, const ChipPixelData* chipData)
   cableLinkPtr[icab]->chipStat.nHits += chipData->getData().size();
   uint32_t action = 0;
   if (chipData->getErrorFlags()) {
-    cableLinkPtr[icab]->chipStat.addErrors(*chipData, verbosity);
+    action = cableLinkPtr[icab]->chipStat.addErrors(*chipData, verbosity);
     auto compid = ChipError::composeID(cableLinkPtr[icab]->feeID, chipData->getChipID());
     auto& chErr = chipErrorsTF[compid];
     chErr.first++;
     chErr.second |= chipData->getErrorFlags();
+
+    if (chipData->isErrorSet(ChipStat::RepeatingPixel)) {
+      auto& errMsg = errMsgVecTF.emplace_back();
+      errMsg.id = chipData->getChipID();
+      errMsg.errType = ChipStat::RepeatingPixel;
+      errMsg.errInfo0 = chipData->getErrorInfo() & 0xffff;         // row
+      errMsg.errInfo1 = (chipData->getErrorInfo() >> 16) & 0xffff; // row
+    }
   }
   if (action & ChipStat::ErrActDump) {
     linkHBFToDump[(uint64_t(cableLinkPtr[icab]->subSpec) << 32) + cableLinkPtr[icab]->hbfEntry] = cableLinkPtr[icab]->irHBF.orbit;

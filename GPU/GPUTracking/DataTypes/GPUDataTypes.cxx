@@ -15,7 +15,7 @@
 #include "GPUDataTypes.h"
 #include <cstring>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 constexpr const char* const GPUDataTypes::DEVICE_TYPE_NAMES[];
 constexpr const char* const GPUDataTypes::RECO_STEP_NAMES[];
@@ -23,7 +23,7 @@ constexpr const char* const GPUDataTypes::GENERAL_STEP_NAMES[];
 
 GPUDataTypes::DeviceType GPUDataTypes::GetDeviceType(const char* type)
 {
-  for (unsigned int i = 1; i < sizeof(DEVICE_TYPE_NAMES) / sizeof(DEVICE_TYPE_NAMES[0]); i++) {
+  for (uint32_t i = 1; i < sizeof(DEVICE_TYPE_NAMES) / sizeof(DEVICE_TYPE_NAMES[0]); i++) {
     if (strcmp(DEVICE_TYPE_NAMES[i], type) == 0) {
       return (DeviceType)i;
     }

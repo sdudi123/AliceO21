@@ -25,6 +25,7 @@ o2_add_library(MCHIO
            O2::DataFormatsMCH
            O2::Framework
            O2::MCHBase
+           O2::MCHDigitFiltering
            O2::SimulationDataFormat
            )
 
@@ -97,3 +98,19 @@ o2_add_executable(tracks-writer-workflow
         COMPONENT_NAME mch
         PUBLIC_LINK_LIBRARIES O2::MCHIO)
 
+o2_add_executable(statusmaps-reader-workflow
+        SOURCES src/StatusMapReaderSpec.cxx src/statusmaps-reader-workflow.cxx
+        COMPONENT_NAME mch
+        PUBLIC_LINK_LIBRARIES
+          O2::DPLUtils
+          O2::DetectorsRaw
+          O2::MCHStatus
+          )
+
+o2_add_executable(statusmaps-writer-workflow
+        SOURCES src/StatusMapWriterSpec.cxx src/statusmaps-writer-workflow.cxx
+        COMPONENT_NAME mch
+        PUBLIC_LINK_LIBRARIES
+          O2::DPLUtils
+          O2::MCHStatus
+          )

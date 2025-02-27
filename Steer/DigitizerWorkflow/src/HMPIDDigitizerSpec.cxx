@@ -30,10 +30,10 @@
 #include "DetectorsBase/BaseDPLDigitizer.h"
 #include "DetectorsCommonDataFormats/DetID.h"
 #include <SimConfig/DigiParams.h>
+#include "DetectorsRaw/HBFUtils.h"
 
 using namespace o2::framework;
 using SubSpecificationType = o2::framework::DataAllocator::SubSpecificationType;
-
 
 namespace o2
 {
@@ -96,40 +96,50 @@ class HMPIDDPLDigitizerTask : public o2::base::BaseDPLDigitizer
       mIntRecord.push_back(o2::hmpid::Trigger(o2::InteractionRecord(mDigitizer.getBc(), mDigitizer.getOrbit()), first, digitsAccum.size() - first));
     };
 
+    // the interaction record marking the timeframe start
+    auto firstTF = InteractionTimeRecord(o2::raw::HBFUtils::Instance().getFirstSampledTFIR(), 0);
+
     // loop over all composite collisions given from context
     // (aka loop over all the interaction records)
     for (int collID = 0; collID < irecords.size(); ++collID) {
+      // Note: Very crude filter to neglect collisions coming before
+      // the first interaction record of the timeframe. Remove this, once these collisions can be handled
+      // within the digitization routine. Collisions before this timeframe might impact digits of this timeframe.
+      // See https://its.cern.ch/jira/browse/O2-5395.
+      if (irecords[collID] < firstTF) {
+        LOG(info) << "Too early: Not digitizing collision " << collID;
+        continue;
+      }
+
       // try to start new readout cycle by setting the trigger time
       auto triggeraccepted = mDigitizer.setTriggerTime(irecords[collID].getTimeNS());
       if (triggeraccepted) {
-        flushDigitsAndLabels(); // flush previous readout cycle
-      }
-      auto withinactivetime = mDigitizer.setEventTime(irecords[collID].getTimeNS());
-      if (withinactivetime) {
-        // for each collision, loop over the constituents event and source IDs
-        // (background signal merging is basically taking place here)
-        for (auto& part : eventParts[collID]) {
-          mDigitizer.setEventID(part.entryID);
-          mDigitizer.setSrcID(part.sourceID);
+        auto withinactivetime = mDigitizer.setEventTime(irecords[collID].getTimeNS());
+        if (withinactivetime) {
+          // for each collision, loop over the constituents event and source IDs
+          // (background signal merging is basically taking place here)
+          for (auto& part : eventParts[collID]) {
+            mDigitizer.setEventID(part.entryID);
+            mDigitizer.setSrcID(part.sourceID);
 
-          // get the hits for this event and this source
-          std::vector<o2::hmpid::HitType> hits;
-          context->retrieveHits(mSimChains, "HMPHit", part.sourceID, part.entryID, &hits);
-          LOG(info) << "For collision " << collID << " eventID " << part.entryID << " found HMP " << hits.size() << " hits ";
+            // get the hits for this event and this source
+            std::vector<o2::hmpid::HitType> hits;
+            context->retrieveHits(mSimChains, "HMPHit", part.sourceID, part.entryID, &hits);
+            LOG(info) << "For collision " << collID << " eventID " << part.entryID << " found HMP " << hits.size() << " hits ";
 
-          mDigitizer.setLabelContainer(&mLabels);
-          mLabels.clear();
-          mDigits.clear();
+            mDigitizer.setLabelContainer(&mLabels);
+            mLabels.clear();
+            mDigits.clear();
 
-          mDigitizer.process(hits, mDigits);
+            mDigitizer.process(hits, mDigits);
+          }
+
+          flushDigitsAndLabels(); // flush previous readout cycle
+        } else {
+          LOG(info) << "COLLISION " << collID << "FALLS WITHIN A DEAD TIME";
         }
-
-      } else {
-        LOG(info) << "COLLISION " << collID << "FALLS WITHIN A DEAD TIME";
       }
     }
-    // final flushing step; getting everything not yet written out
-    flushDigitsAndLabels();
 
     // send out to next stage
     pc.outputs().snapshot(Output{"HMP", "DIGITS", 0}, digitsAccum);

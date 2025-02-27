@@ -35,8 +35,7 @@
 #include <array>
 #include <unistd.h>
 #include <atomic>
-#include "GPUParam.h"
-#include "GPUReconstructionConvert.h"
+#include "GPUO2InterfaceUtils.h"
 #include "DetectorsRaw/RawFileWriter.h"
 #include "DetectorsRaw/HBFUtils.h"
 #include "DetectorsRaw/RDHUtils.h"
@@ -67,7 +66,7 @@ DataProcessorSpec getZSEncoderSpec(std::vector<int> const& tpcSectors, bool outR
   using DigitArray = std::array<gsl::span<const o2::tpc::Digit>, NSectors>;
 
   struct ProcessAttributes {
-    std::unique_ptr<unsigned long long int[]> zsoutput;
+    std::unique_ptr<uint64_t[]> zsoutput;
     std::unique_ptr<IonTailCorrection> itcorr;
     std::vector<unsigned int> sizes;
     std::vector<int> tpcSectors;
@@ -100,10 +99,7 @@ DataProcessorSpec getZSEncoderSpec(std::vector<int> const& tpcSectors, bool outR
       auto& sizes = processAttributes->sizes;
       auto& verbosity = processAttributes->verbosity;
 
-      GPUParam _GPUParam;
-
-      processAttributes->config.configGRP.solenoidBz = 5.00668;
-      _GPUParam.SetDefaults(&processAttributes->config.configGRP, &processAttributes->config.configReconstruction, &processAttributes->config.configProcessing, nullptr);
+      processAttributes->config.configGRP.solenoidBzNominalGPU = 5.00668;
       std::function<void(std::vector<o2::tpc::Digit>&)> digitsFilter = nullptr;
       if (processAttributes->globalConfig.zsOnTheFlyDigitsFilter) {
         digitsFilter = [processAttributes](std::vector<o2::tpc::Digit>& digits) {
@@ -119,7 +115,7 @@ DataProcessorSpec getZSEncoderSpec(std::vector<int> const& tpcSectors, bool outR
       const auto& inputs = getWorkflowTPCInput(pc, 0, false, false, tpcSectorMask, true);
       sizes.resize(NSectors * NEndpoints);
       o2::InteractionRecord ir{0, pc.services().get<o2::framework::TimingInfo>().firstTForbit};
-      o2::gpu::GPUReconstructionConvert::RunZSEncoder<DigitArray>(inputs->inputDigits, &zsoutput, sizes.data(), nullptr, &ir, _GPUParam, 4, verify, processAttributes->config.configReconstruction.tpc.zsThreshold, false, digitsFilter);
+      o2::gpu::GPUO2InterfaceUtils::RunZSEncoder<DigitArray>(inputs->inputDigits, &zsoutput, sizes.data(), nullptr, &ir, processAttributes->config, 4, verify, false, digitsFilter);
       ZeroSuppressedContainer8kb* page = reinterpret_cast<ZeroSuppressedContainer8kb*>(zsoutput.get());
       unsigned int offset = 0;
       for (unsigned int i = 0; i < NSectors; i++) {
@@ -172,7 +168,7 @@ DataProcessorSpec getZSEncoderSpec(std::vector<int> const& tpcSectors, bool outR
           writer.useCaching();
         }
         ir = o2::raw::HBFUtils::Instance().getFirstSampledTFIR();
-        o2::gpu::GPUReconstructionConvert::RunZSEncoder(inputs->inputDigits, nullptr, nullptr, &writer, &ir, _GPUParam, 4, false, processAttributes->config.configReconstruction.tpc.zsThreshold, false, digitsFilter);
+        o2::gpu::GPUO2InterfaceUtils::RunZSEncoder(inputs->inputDigits, nullptr, nullptr, &writer, &ir, processAttributes->config, 4, false, false, digitsFilter);
         writer.writeConfFile("TPC", "RAWDATA", fmt::format("{}tpcraw.cfg", outDir));
       }
       zsoutput.reset(nullptr);
@@ -220,7 +216,7 @@ DataProcessorSpec getZStoDigitsSpec(std::vector<int> const& tpcSectors)
 
   struct ProcessAttributes {
     std::array<std::vector<Digit>, NSectors> outDigits;
-    std::unique_ptr<unsigned long long int[]> zsinput;
+    std::unique_ptr<unsigned long[]> zsinput;
     std::vector<unsigned int> sizes;
     std::unique_ptr<o2::tpc::ZeroSuppress> decoder;
     std::vector<int> tpcSectors;

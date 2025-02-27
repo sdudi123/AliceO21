@@ -15,6 +15,8 @@
 #include <TGeoManager.h>
 #include <Rtypes.h>
 
+#include "TRKBase/TRKBaseParam.h"
+
 namespace o2
 {
 namespace trk
@@ -27,6 +29,8 @@ class TRKLayer
   TRKLayer(int layerNumber, std::string layerName, float rInn, float zLength, float thick);
   ~TRKLayer() = default;
 
+  void setLayout(eLayout layout) { mLayout = layout; };
+
   auto getInnerRadius() const { return mInnerRadius; }
   auto getOuterRadius() const { return mOuterRadius; }
   auto getZ() const { return mZ; }
@@ -35,6 +39,9 @@ class TRKLayer
   auto getNumber() const { return mLayerNumber; }
   auto getName() const { return mLayerName; }
 
+  TGeoVolume* createSensor(std::string type, double width = -1);
+  TGeoVolume* createChip(std::string type, double width = -1);
+  TGeoVolume* createStave(std::string type, double width = -1);
   void createLayer(TGeoVolume* motherVolume);
 
  private:
@@ -45,8 +52,10 @@ class TRKLayer
   float mZ;
   float mX2X0;
   float mChipThickness;
+  float mModuleWidth; // u.m. = cm
+  eLayout mLayout;
 
-  ClassDef(TRKLayer, 0);
+  ClassDef(TRKLayer, 1);
 };
 
 } // namespace trk

@@ -46,6 +46,7 @@ struct STFDecoderInp {
   bool doSquashing = false;
   bool askSTFDist = true;
   bool allowReporting = true;
+  bool verifyDecoder = false;
   o2::header::DataOrigin origin{"NIL"};
   std::string deviceName{};
   std::string inputSpec{};
@@ -79,15 +80,20 @@ class STFDecoder : public Task
   bool mAllowReporting = true;
   bool mApplyNoiseMap = true;
   bool mUseClusterDictionary = true;
+  bool mVerifyDecoder = false;
+  bool mDumpFrom1stPipeline = false;
   int mDumpOnError = 0;
   int mNThreads = 1;
   int mVerbosity = 0;
+  long mROFErrRepIntervalMS = 0;
   size_t mTFCounter = 0;
   size_t mEstNDig = 0;
   size_t mEstNClus = 0;
   size_t mEstNClusPatt = 0;
   size_t mEstNCalib = 0;
   size_t mEstNROF = 0;
+  size_t mMaxRawDumpsSize = 0;
+  size_t mRawDumpedSize = 0;
   std::string mInputSpec;
   std::string mSelfName;
   std::unique_ptr<RawPixelDecoder<Mapping>> mDecoder;

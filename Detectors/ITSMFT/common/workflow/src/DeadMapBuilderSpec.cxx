@@ -46,30 +46,52 @@ void ITSMFTDeadMapBuilder::init(InitContext& ic)
 
   LOG(info) << "ITSMFTDeadMapBuilder init... " << mSelfName;
 
+  mTFSampling = ic.options().get<int>("tf-sampling");
+  mTFSamplingTolerance = ic.options().get<int>("tf-sampling-tolerance");
+  if (mTFSamplingTolerance > mTFSampling) {
+    LOG(warning) << "Invalid request tf-sampling-tolerance larger or equal than tf-sampling. Setting tolerance to " << mTFSampling - 1;
+    mTFSamplingTolerance = mTFSampling - 1;
+  }
+  mSampledSlidingWindowSize = ic.options().get<int>("tf-sampling-history-size");
+  mTFLength = ic.options().get<int>("tf-length");
+  mDoLocalOutput = ic.options().get<bool>("local-output");
+  mObjectName = ic.options().get<std::string>("outfile");
+  mCCDBUrl = ic.options().get<std::string>("ccdb-url");
+  if (mCCDBUrl == "none") {
+    mCCDBUrl = "";
+  }
+
+  mLocalOutputDir = ic.options().get<std::string>("output-dir");
+  mSkipStaticMap = ic.options().get<bool>("skip-static-map");
+  mNoGroupITSLanes = ic.options().get<bool>("no-group-its-lanes");
+
+  isEnded = false;
+  mTimeStart = o2::ccdb::getCurrentTimestamp();
+
   if (mRunMFT) {
     N_CHIPS = o2::itsmft::ChipMappingMFT::getNChips();
   } else {
     N_CHIPS = o2::itsmft::ChipMappingITS::getNChips();
   }
 
+  mSampledTFs.clear();
+  mSampledHistory.clear();
   mDeadMapTF.clear();
-
+  mStaticChipStatus.clear();
   mMapObject.clear();
   mMapObject.setMapVersion(MAP_VERSION);
 
-  mTFSampling = ic.options().get<int>("tf-sampling");
-  mTFLength = ic.options().get<int>("tf-length");
-  mDoLocalOutput = ic.options().get<bool>("local-output");
-  mObjectName = ic.options().get<std::string>("outfile");
-  mLocalOutputDir = ic.options().get<std::string>("output-dir");
+  if (!mSkipStaticMap) {
+    mStaticChipStatus.resize(N_CHIPS, false);
+  }
 
-  LOG(info) << "Sampling one TF every " << mTFSampling;
+  LOG(info) << "Sampling one TF every " << mTFSampling << " with " << mTFSamplingTolerance << " TF tolerance";
 
   return;
 }
 
 ///////////////////////////////////////////////////////////////////
-// TODO: can ChipMappingITS help here?
+// TODO:  can ChipMappingITS help here?
 std::vector<uint16_t> ITSMFTDeadMapBuilder::getChipIDsOnSameCable(uint16_t chip)
 {
   if (mRunMFT || chip < N_CHIPS_ITSIB) {
@@ -82,10 +104,67 @@ std::vector<uint16_t> ITSMFTDeadMapBuilder::getChipIDsOnSameCable(uint16_t chip)
   }
 }
 
+bool ITSMFTDeadMapBuilder::acceptTF(long orbit)
+{
+
+  // Description of the algorithm:
+  // Return true if the TF index (calculated as orbit/TF_length) falls within any interval [k * tf_sampling, k * tf_sampling + tolerance) for some integer k, provided no other TFs have been found in the same interval.
+
+  if (mTFSamplingTolerance < 1) {
+    return ((orbit / mTFLength) % mTFSampling == 0);
+  }
+
+  if ((orbit / mTFLength) % mTFSampling > mTFSamplingTolerance) {
+    return false;
+  }
+
+  long sampling_index = orbit / mTFLength / mTFSampling;
+
+  if (mSampledTFs.find(sampling_index) == mSampledTFs.end()) {
+
+    mSampledTFs.insert(sampling_index);
+    mSampledHistory.push_back(sampling_index);
+
+    if (mSampledHistory.size() > mSampledSlidingWindowSize) {
+      long oldIndex = mSampledHistory.front();
+      mSampledHistory.pop_front();
+      mSampledTFs.erase(oldIndex);
+    }
+
+    return true;
+  }
+
+  return false;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 void ITSMFTDeadMapBuilder::finalizeOutput()
 {
+
+  if (!mSkipStaticMap) {
+    std::vector<uint16_t> staticmap{};
+    int staticmap_chipcounter = 0;
+    for (uint16_t el = 0; el < mStaticChipStatus.size(); el++) {
+      if (mStaticChipStatus[el]) {
+        continue;
+      }
+      staticmap_chipcounter++;
+      bool previous_dead = (el > 0 && !mStaticChipStatus[el - 1]);
+      bool next_dead = (el < mStaticChipStatus.size() - 1 && !mStaticChipStatus[el + 1]);
+      if (!previous_dead && next_dead) {
+        staticmap.push_back(el | (uint16_t)(0x8000));
+      } else if (previous_dead && next_dead) {
+        continue;
+      } else {
+        staticmap.push_back(el);
+      }
+    }
+
+    LOG(info) << "Filling static part of the map with " << staticmap_chipcounter << " dead chips, saved into " << staticmap.size() << " words";
+
+    mMapObject.fillMap(staticmap);
+  }
 
   if (mDoLocalOutput) {
     std::string localoutfilename = mLocalOutputDir + "/" + mObjectName;
@@ -100,7 +179,10 @@ void ITSMFTDeadMapBuilder::finalizeOutput()
 // Main running function
 void ITSMFTDeadMapBuilder::run(ProcessingContext& pc)
 {
-  if (mRunStopRequested) { // give up when run stop request arrived
+
+  // Skip everything in case of garbage (potentially at EoS)
+  if (pc.services().get<o2::framework::TimingInfo>().firstTForbit == -1U) {
+    LOG(info) << "Skipping the processing of inputs for timeslice " << pc.services().get<o2::framework::TimingInfo>().timeslice << " (firstTForbit is " << pc.services().get<o2::framework::TimingInfo>().firstTForbit << ")";
     return;
   }
 
@@ -109,16 +191,29 @@ void ITSMFTDeadMapBuilder::run(ProcessingContext& pc)
 
   start = std::chrono::high_resolution_clock::now();
 
+  const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
+
+  if (tinfo.globalRunNumberChanged || mFirstOrbitRun == 0x0) { // new run is starting
+    mRunNumber = tinfo.runNumber;
+    mFirstOrbitRun = mFirstOrbitTF;
+    mTFCounter = 0;
+    isEnded = false;
+  }
+
+  if (isEnded) {
+    return;
+  }
+  mFirstOrbitTF = tinfo.firstTForbit;
   mTFCounter++;
 
-  mFirstOrbitTF = pc.services().get<o2::framework::TimingInfo>().firstTForbit;
+  long sampled_orbit = mFirstOrbitTF - mFirstOrbitRun;
 
-  if ((unsigned long)(mFirstOrbitTF / mTFLength) % mTFSampling != 0) {
+  if (!acceptTF(sampled_orbit)) {
     return;
   }
 
   mStepCounter++;
-  LOG(info) << "Processing step #" << mStepCounter << " out of " << mTFCounter << " TF received. First orbit " << mFirstOrbitTF;
+  LOG(info) << "Processing step #" << mStepCounter << " out of " << mTFCounter << " good TF received. First orbit " << mFirstOrbitTF;
 
   mDeadMapTF.clear();
 
@@ -151,8 +246,15 @@ void ITSMFTDeadMapBuilder::run(ProcessingContext& pc)
     }
   }
 
-  // for ITS, declaring dead only chips belonging to lane with no hits
-  if (!mRunMFT) {
+  // Save status of single chips in static map before unmasking the full ITS lane
+  if (!mSkipStaticMap) {
+    for (size_t el = 0; el < mStaticChipStatus.size(); el++) {
+      mStaticChipStatus[el] = mStaticChipStatus[el] || ChipStatus[el];
+    }
+  }
+
+  // for ITS, if requested: declaring dead only chips belonging to lanes with no alive chips
+  if (!mRunMFT && !mNoGroupITSLanes) {
     for (uint16_t el = N_CHIPS_ITSIB; el < ChipStatus.size(); el++) {
       if (ChipStatus.at(el)) {
         std::vector<uint16_t> chipincable = getChipIDsOnSameCable(el);
@@ -192,40 +294,68 @@ void ITSMFTDeadMapBuilder::run(ProcessingContext& pc)
 
   LOG(info) << "Elapsed time in TF processing: " << difference / 1000. << " ms";
 
+  if (pc.transitionState() == TransitionHandlingState::Requested && !isEnded) {
+    std::string detname = mRunMFT ? "MFT" : "ITS";
+    LOG(warning) << "Transition state requested for " << detname << " process, calling stop() and stopping the process of new data.";
+    stop();
+  }
+
   return;
 }
 
 //////////////////////////////////////////////////////////////////////////////
-void ITSMFTDeadMapBuilder::PrepareOutputCcdb(DataAllocator& output)
+void ITSMFTDeadMapBuilder::PrepareOutputCcdb(EndOfStreamContext* ec, std::string ccdburl = "")
 {
 
-  long tstart = o2::ccdb::getCurrentTimestamp();
-  long secinyear = 365L * 24 * 3600;
-  long tend = o2::ccdb::getFutureTimestamp(secinyear);
+  // if ccdburl is specified, the object is sent to ccdb from this workflow
 
-  std::map<std::string, std::string> md = {
-    {"map_version", MAP_VERSION}};
+  long tend = o2::ccdb::getCurrentTimestamp();
+
+  std::map<std::string, std::string> md = {{"map_version", MAP_VERSION}, {"runNumber", std::to_string(mRunNumber)}};
 
   std::string path = mRunMFT ? "MFT/Calib/" : "ITS/Calib/";
   std::string name_str = "TimeDeadMap";
 
-  o2::ccdb::CcdbObjectInfo info((path + name_str), name_str, mObjectName, md, tstart, tend);
+  o2::ccdb::CcdbObjectInfo info((path + name_str), name_str, mObjectName, md, mTimeStart - 120 * 1000, tend + 60 * 1000);
 
   auto image = o2::ccdb::CcdbApi::createObjectImage(&mMapObject, &info);
   info.setFileName(mObjectName);
 
   info.setAdjustableEOV();
 
-  LOG(info) << "Sending object " << info.getPath() << "/" << info.getFileName()
-            << " of size " << image->size() << "bytes, valid for "
-            << info.getStartValidityTimestamp() << " : " << info.getEndValidityTimestamp();
+  if (ec != nullptr) {
 
-  if (mRunMFT) {
-    output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, "TimeDeadMap", 1}, *image.get());
-    output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, "TimeDeadMap", 1}, info);
-  } else {
-    output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, "TimeDeadMap", 0}, *image.get());
-    output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, "TimeDeadMap", 0}, info);
+    LOG(important) << "Sending object " << info.getPath() << "/" << info.getFileName()
+                   << " to ccdb-populator, of size " << image->size() << " bytes, valid for "
+                   << info.getStartValidityTimestamp() << " : " << info.getEndValidityTimestamp();
+
+    if (mRunMFT) {
+      ec->outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, "TimeDeadMap", 1}, *image.get());
+      ec->outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, "TimeDeadMap", 1}, info);
+    } else {
+      ec->outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, "TimeDeadMap", 0}, *image.get());
+      ec->outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, "TimeDeadMap", 0}, info);
+    }
+  }
+
+  else if (!ccdburl.empty()) { // send from this workflow
+
+    LOG(important) << mSelfName << " sending object " << ccdburl << "/browse/" << info.getPath() << "/" << info.getFileName()
+                   << " of size " << image->size() << " bytes, valid for "
+                   << info.getStartValidityTimestamp() << " : " << info.getEndValidityTimestamp();
+
+    o2::ccdb::CcdbApi mApi;
+    mApi.init(ccdburl);
+    mApi.storeAsBinaryFile(
+      &image->at(0), image->size(), info.getFileName(), info.getObjectType(),
+      info.getPath(), info.getMetaData(),
+      info.getStartValidityTimestamp(), info.getEndValidityTimestamp());
+    o2::ccdb::adjustOverriddenEOV(mApi, info);
+  }
+
+  else {
+
+    LOG(warning) << "PrepareOutputCcdb called with empty arguments. Doing nothing.";
   }
 
   return;
@@ -236,10 +366,15 @@ void ITSMFTDeadMapBuilder::PrepareOutputCcdb(DataAllocator& output)
 // tells that there will be no more input data
 void ITSMFTDeadMapBuilder::endOfStream(EndOfStreamContext& ec)
 {
-  if (!isEnded && !mRunStopRequested) {
-    LOG(info) << "endOfStream report:" << mSelfName;
+  if (!isEnded) {
+    LOG(info) << "endOfStream report: " << mSelfName;
     finalizeOutput();
-    PrepareOutputCcdb(ec.outputs());
+    if (mMapObject.getEvolvingMapSize() > 0) {
+      PrepareOutputCcdb(&ec);
+    } else {
+      LOG(warning) << "Time-dependent dead map is empty and will not be forwarded as output";
+    }
+    LOG(info) << "Stop process of new data because of endOfStream";
     isEnded = true;
   }
   return;
@@ -250,13 +385,16 @@ void ITSMFTDeadMapBuilder::endOfStream(EndOfStreamContext& ec)
 void ITSMFTDeadMapBuilder::stop()
 {
   if (!isEnded) {
-    LOG(info) << "stop() report:" << mSelfName;
+    LOG(info) << "stop() report: " << mSelfName;
     finalizeOutput();
-    if (mDoLocalOutput) {
-      LOG(info) << "stop() not sending object as output. ccdb will not be populated.";
+    if (!mCCDBUrl.empty()) {
+      std::string detname = mRunMFT ? "MFT" : "ITS";
+      LOG(warning) << "endOfStream not processed. Sending output to ccdb from the " << detname << " deadmap builder workflow.";
+      PrepareOutputCcdb(nullptr, mCCDBUrl);
     } else {
-      LOG(error) << "stop() not sending object as output. ccdb will not be populated.";
+      LOG(alarm) << "endOfStream not processed. Nothing forwarded as output.";
     }
+    LOG(info) << "Stop process of new data because of stop() call.";
     isEnded = true;
   }
   return;
@@ -298,8 +436,13 @@ DataProcessorSpec getITSMFTDeadMapBuilderSpec(std::string datasource, bool doMFT
     inputs,
     outputs,
     AlgorithmSpec{adaptFromTask<ITSMFTDeadMapBuilder>(datasource, doMFT)},
-    Options{{"tf-sampling", VariantType::Int, 1000, {"Process every Nth TF. Selection according to first TF orbit."}},
+    Options{{"tf-sampling", VariantType::Int, 350, {"Process every Nth TF. Selection according to first TF orbit."}},
+            {"tf-sampling-tolerance", VariantType::Int, 20, {"Tolerance on the tf-sampling value (sliding window size)."}},
+            {"tf-sampling-history-size", VariantType::Int, 1000, {"Do not check if new TF is contained in a window that is older than N steps."}},
             {"tf-length", VariantType::Int, 32, {"Orbits per TF."}},
+            {"skip-static-map", VariantType::Bool, false, {"Do not fill static part of the map."}},
+            {"no-group-its-lanes", VariantType::Bool, false, {"Do not group ITS OB chips into lanes."}},
+            {"ccdb-url", VariantType::String, "", {"CCDB url. Ignored if endOfStream is processed."}},
             {"outfile", VariantType::String, objectname_default, {"ROOT object file name."}},
             {"local-output", VariantType::Bool, false, {"Save ROOT tree file locally."}},
             {"output-dir", VariantType::String, "./", {"ROOT tree local output directory."}}}};

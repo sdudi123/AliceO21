@@ -23,10 +23,12 @@
 using namespace o2::base;
 using flatObject = o2::gpu::FlatObject;
 
+#ifndef GPUCA_GPUCODE
 //________________________________________________________________________________
 MatLayerCyl::MatLayerCyl() : mNZBins(0), mNPhiBins(0), mNPhiSlices(0), mZHalf(0.f), mRMin2(0.f), mRMax2(0.f), mDZ(0.f), mDZInv(0.f), mDPhi(0.f), mDPhiInv(0.f), mPhiBin2Slice(nullptr), mSliceCos(nullptr), mSliceSin(nullptr), mCells(nullptr)
 {
 }
+#endif
 
 #ifndef GPUCA_ALIGPUCODE // this part is unvisible on GPU version
 //________________________________________________________________________________
@@ -97,8 +99,8 @@ void MatLayerCyl::initSegmentation(float rMin, float rMax, float zHalfSpan, int 
   offs = alignSize(offs + nphi * sizeof(float), getBufferAlignmentBytes());                  // account for alignment
 
   for (int i = nphi; i--;) {
-    mSliceCos[i] = std::cos(getPhiBinMin(i));
-    mSliceSin[i] = std::sin(getPhiBinMin(i));
+    mSliceCos[i] = o2::math_utils::cos(getPhiBinMin(i));
+    mSliceSin[i] = o2::math_utils::sin(getPhiBinMin(i));
   }
 
   o2::gpu::resizeArray(mCells, 0, getNCells(), reinterpret_cast<MatCell*>(mFlatBufferPtr + offs));
@@ -273,8 +275,8 @@ void MatLayerCyl::getMeanRMS(MatCell& mean, MatCell& rms) const
   rms.meanX2X0 /= nc;
   rms.meanRho -= mean.meanRho * mean.meanRho;
   rms.meanX2X0 -= mean.meanX2X0 * mean.meanX2X0;
-  rms.meanRho = rms.meanRho > 0.f ? std::sqrt(rms.meanRho) : 0.f;
-  rms.meanX2X0 = rms.meanX2X0 > 0.f ? std::sqrt(rms.meanX2X0) : 0.f;
+  rms.meanRho = rms.meanRho > 0.f ? o2::math_utils::sqrt(rms.meanRho) : 0.f;
+  rms.meanX2X0 = rms.meanX2X0 > 0.f ? o2::math_utils::sqrt(rms.meanX2X0) : 0.f;
 }
 
 //________________________________________________________________________________

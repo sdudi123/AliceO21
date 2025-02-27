@@ -15,10 +15,8 @@
 #include "../src/DeviceSpecHelpers.h"
 #include "../src/SimpleResourceManager.h"
 #include "../src/ComputingResourceHelpers.h"
-#include "Framework/DataAllocator.h"
 #include "Framework/DeviceControl.h"
 #include "Framework/DeviceSpec.h"
-#include "Framework/ProcessingContext.h"
 #include "Framework/WorkflowSpec.h"
 #include "Framework/DriverConfig.h"
 #include "Framework/O2ControlParameters.h"
@@ -42,15 +40,18 @@ WorkflowSpec defineDataProcessing()
            .metadata = {{ecs::cpuKillThreshold, "3.0"}}},
           {.name = "C", // first consumer of A1, consumer of B1
            .inputs = {InputSpec{"y", "TST", "A1"}, InputSpec{"y", "TST", "B1"}},
+           .labels = {{"expendable"}},
            .metadata = {{ecs::privateMemoryKillThresholdMB, "5000"}}},
           {.name = "D", // second consumer of A1
            .inputs = Inputs{InputSpec{"x", "TST", "A1"}},
            .options = {ConfigParamSpec{"a-param", VariantType::Int, 1, {"A parameter which should not be escaped"}},
                        ConfigParamSpec{"b-param", VariantType::String, "", {"a parameter which will be escaped"}},
                        ConfigParamSpec{"c-param", VariantType::String, "foo;bar", {"another parameter which will be escaped"}},
+                       ConfigParamSpec{"d-param", VariantType::String, R"(["foo","bar"])", {"a parameter with double quotes"}},
                        ConfigParamSpec{"channel-config", VariantType::String, // raw output channel
                                        "name=outta_dpl,type=push,method=bind,address=ipc:///tmp/pipe-outta-dpl,transport=shmem,rateLogging=10",
-                                       {"Out-of-band channel config"}}}}};
+                                       {"Out-of-band channel config"}}},
+           .labels = {{"resilient"}}}};
 }
 
 char* strdiffchr(const char* s1, const char* s2)
@@ -86,10 +87,12 @@ roles:
       rcvBufSize: 789
     task:
       load: testwf-A
+      critical: true
   - name: "B"
     connect:
     task:
       load: testwf-B
+      critical: true
   - name: "C"
     connect:
     - name: from_A_to_C
@@ -108,6 +111,7 @@ roles:
       rcvBufSize: 1
     task:
       load: testwf-C
+      critical: false
   - name: "D"
     connect:
     - name: from_C_to_D
@@ -126,6 +130,7 @@ roles:
       global: "outta_dpl-{{ it }}"
     task:
       load: testwf-D
+      critical: true
 )EXPECTED";
 
 const std::vector expectedTasks{
@@ -134,6 +139,7 @@ defaults:
   log_task_stdout: none
   log_task_stderr: none
   exit_transition_timeout: 15
+  data_processing_timeout: 10
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | bcsadc/foo
@@ -166,6 +172,8 @@ command:
     - "-b"
     - "--exit-transition-timeout"
     - "'{{ exit_transition_timeout }}'"
+    - "--data-processing-timeout"
+    - "'{{ data_processing_timeout }}'"
     - "--monitoring-backend"
     - "'{{ monitoring_dpl_url }}'"
     - "--session"
@@ -205,6 +213,8 @@ command:
     - "'info'"
     - "--shm-allocation"
     - "'rbtree_best_fit'"
+    - "--shm-metadata-msg-size"
+    - "'0'"
     - "--shm-mlock-segment"
     - "'false'"
     - "--shm-mlock-segment-on-creation"
@@ -215,6 +225,8 @@ command:
     - "'0'"
     - "--shm-zero-segment"
     - "'false'"
+    - "--signposts"
+    - "''"
     - "--stacktrace-on-signal"
     - "'simple'"
     - "--timeframes-rate-limit"
@@ -225,6 +237,7 @@ defaults:
   log_task_stdout: none
   log_task_stderr: none
   exit_transition_timeout: 15
+  data_processing_timeout: 10
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo
@@ -259,6 +272,8 @@ command:
     - "-b"
     - "--exit-transition-timeout"
     - "'{{ exit_transition_timeout }}'"
+    - "--data-processing-timeout"
+    - "'{{ data_processing_timeout }}'"
     - "--monitoring-backend"
     - "'{{ monitoring_dpl_url }}'"
     - "--session"
@@ -298,6 +313,8 @@ command:
     - "'info'"
     - "--shm-allocation"
     - "'rbtree_best_fit'"
+    - "--shm-metadata-msg-size"
+    - "'0'"
     - "--shm-mlock-segment"
     - "'false'"
     - "--shm-mlock-segment-on-creation"
@@ -308,6 +325,8 @@ command:
     - "'0'"
     - "--shm-zero-segment"
     - "'false'"
+    - "--signposts"
+    - "''"
     - "--stacktrace-on-signal"
     - "'simple'"
     - "--timeframes-rate-limit"
@@ -318,6 +337,7 @@ defaults:
   log_task_stdout: none
   log_task_stderr: none
   exit_transition_timeout: 15
+  data_processing_timeout: 10
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo
@@ -352,6 +372,8 @@ command:
     - "-b"
     - "--exit-transition-timeout"
     - "'{{ exit_transition_timeout }}'"
+    - "--data-processing-timeout"
+    - "'{{ data_processing_timeout }}'"
     - "--monitoring-backend"
     - "'{{ monitoring_dpl_url }}'"
     - "--session"
@@ -391,6 +413,8 @@ command:
     - "'info'"
     - "--shm-allocation"
     - "'rbtree_best_fit'"
+    - "--shm-metadata-msg-size"
+    - "'0'"
     - "--shm-mlock-segment"
     - "'false'"
     - "--shm-mlock-segment-on-creation"
@@ -401,6 +425,8 @@ command:
     - "'0'"
     - "--shm-zero-segment"
     - "'false'"
+    - "--signposts"
+    - "''"
     - "--stacktrace-on-signal"
     - "'simple'"
     - "--timeframes-rate-limit"
@@ -411,6 +437,7 @@ defaults:
   log_task_stdout: none
   log_task_stderr: none
   exit_transition_timeout: 15
+  data_processing_timeout: 10
   _module_cmdline: >-
     source /etc/profile.d/modules.sh && MODULEPATH={{ modulepath }} module load O2 QualityControl Control-OCCPlugin &&
     {{ dpl_command }} | foo
@@ -442,6 +469,8 @@ command:
     - "-b"
     - "--exit-transition-timeout"
     - "'{{ exit_transition_timeout }}'"
+    - "--data-processing-timeout"
+    - "'{{ data_processing_timeout }}'"
     - "--monitoring-backend"
     - "'{{ monitoring_dpl_url }}'"
     - "--session"
@@ -481,6 +510,8 @@ command:
     - "'info'"
     - "--shm-allocation"
     - "'rbtree_best_fit'"
+    - "--shm-metadata-msg-size"
+    - "'0'"
     - "--shm-mlock-segment"
     - "'false'"
     - "--shm-mlock-segment-on-creation"
@@ -491,6 +522,8 @@ command:
     - "'0'"
     - "--shm-zero-segment"
     - "'false'"
+    - "--signposts"
+    - "''"
     - "--stacktrace-on-signal"
     - "'simple'"
     - "--timeframes-rate-limit"
@@ -501,6 +534,8 @@ command:
     - "''"
     - "--c-param"
     - "'foo;bar'"
+    - "--d-param"
+    - "'[\"foo\",\"bar\"]'"
 )EXPECTED"};
 
 TEST_CASE("TestO2ControlDump")
@@ -538,7 +573,7 @@ TEST_CASE("TestO2ControlDump")
   DeviceSpecHelpers::prepareArguments(false, false, false, 8080,
                                       driverConfig,
                                       dataProcessorInfos,
-                                      devices, executions, controls,
+                                      devices, executions, controls, {},
                                       "workflow-id");
 
   dumpWorkflow(ss, devices, executions, commandInfo, "testwf", "");

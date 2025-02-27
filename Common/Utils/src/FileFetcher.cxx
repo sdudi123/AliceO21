@@ -84,14 +84,12 @@ void FileFetcher::processInput(const std::vector<std::string>& input)
 {
   for (auto inp : input) {
     o2::utils::Str::trim(inp);
-
     if (fs::is_directory(inp)) {
       processDirectory(inp);
     } else if (mSelRegex && !std::regex_match(inp, *mSelRegex.get())) { // provided selector does not match, treat as a txt file with list
       // Avoid reading a multigiB data file as a list of inputs
       // bringing down the system.
       std::filesystem::path p(inp);
-
       if (std::filesystem::file_size(p) > 10000000) {
         LOGP(error, "file list {} larger than 10MB. Is this a data file?", inp);
         continue;
@@ -106,7 +104,7 @@ void FileFetcher::processInput(const std::vector<std::string>& input)
       std::vector<std::string> newInput;
       while (getline(listFile, line)) {
         o2::utils::Str::trim(line);
-        if (line[0] == '#') { // ignore commented file
+        if (line[0] == '#' || line.empty()) { // ignore commented file or empty line
           continue;
         }
         newInput.push_back(line);
@@ -331,6 +329,7 @@ bool FileFetcher::copyFile(size_t id)
   bool aliencpMode = false;
   std::string uuid{};
   std::vector<std::string> logsToClean;
+  std::string dbgset{};
   if (mCopyCmd.find("alien") != std::string::npos) {
     if (!gGrid && !TGrid::Connect("alien://")) {
       LOG(error) << "Copy command refers to alien but connection to Grid failed";
@@ -341,15 +340,18 @@ bool FileFetcher::copyFile(size_t id)
         c = '_';
       }
     }
-    gSystem->Setenv("ALIENPY_DEBUG", "1");
-    logsToClean.push_back(fmt::format("log_alienpy_{}.txt", uuid));
-    gSystem->Setenv("ALIENPY_DEBUG_FILE", logsToClean.back().c_str());
-    gSystem->Setenv("XRD_LOGLEVEL", "Dump");
-    logsToClean.push_back(fmt::format("log_xrd_{}.txt", uuid));
-    gSystem->Setenv("XRD_LOGFILE", logsToClean.back().c_str());
+    if (!(getenv("ALIENPY_DEBUG") && std::stoi(getenv("ALIENPY_DEBUG")) == 1)) {
+      logsToClean.push_back(fmt::format("log_alienpy_{}.txt", uuid));
+      dbgset += fmt::format("ALIENPY_DEBUG=1 ALIENPY_DEBUG_FILE={} ", logsToClean.back());
+    }
+    if (!(getenv("XRD_LOGLEVEL") && strcmp(getenv("XRD_LOGLEVEL"), "Dump") == 0)) {
+      logsToClean.push_back(fmt::format("log_xrd_{}.txt", uuid));
+      dbgset += fmt::format("XRD_LOGLEVEL=Dump XRD_LOGFILE={} ", logsToClean.back());
+    }
+    LOGP(debug, "debug setting for for {}: {}", mInputFiles[id].getOrigName(), dbgset);
   }
   auto realCmd = std::regex_replace(std::regex_replace(mCopyCmd, std::regex(R"(\?src)"), mInputFiles[id].getOrigName()), std::regex(R"(\?dst)"), mInputFiles[id].getLocalName());
-  auto fullCmd = fmt::format(R"(sh -c "{}" >> {}  2>&1)", realCmd, mCopyCmdLogFile);
+  auto fullCmd = fmt::format(R"(sh -c "{}{}" >> {}  2>&1)", dbgset, realCmd, mCopyCmdLogFile);
   LOG(info) << "Executing " << fullCmd;
   const auto sysRet = gSystem->Exec(fullCmd.c_str());
   if (sysRet != 0) {

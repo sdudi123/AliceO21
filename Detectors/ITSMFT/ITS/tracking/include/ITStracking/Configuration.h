@@ -31,6 +31,16 @@ namespace o2
 namespace its
 {
 
+enum class TrackingMode {
+  Sync,
+  Async,
+  Cosmics,
+  Unset, // Special value to leave a default in case we want to override via Configurable Params
+};
+
+std::string asString(TrackingMode mode);
+std::ostream& operator<<(std::ostream& os, TrackingMode v);
+
 template <typename Param>
 class Configuration : public Param
 {
@@ -53,6 +63,7 @@ struct TrackingParameters {
   int CellMinimumLevel();
   int CellsPerRoad() const { return NLayers - 2; }
   int TrackletsPerRoad() const { return NLayers - 1; }
+  std::string asString() const;
 
   int NLayers = 7;
   int DeltaROF = 0;
@@ -84,9 +95,21 @@ struct TrackingParameters {
   unsigned long MaxMemory = 12000000000UL;
   float MaxChi2ClusterAttachment = 60.f;
   float MaxChi2NDF = 30.f;
-  bool UseTrackFollower = false;
+  std::vector<float> MinPt = {0.f, 0.f, 0.f, 0.f};
+  unsigned char StartLayerMask = 0x7F;
   bool FindShortTracks = false;
   bool PerPrimaryVertexProcessing = false;
+  bool SaveTimeBenchmarks = false;
+  bool DoUPCIteration = false;
+  bool FataliseUponFailure = true;
+  bool DropTFUponFailure = false;
+  /// Cluster attachment
+  bool UseTrackFollower = false;
+  bool UseTrackFollowerTop = false;
+  bool UseTrackFollowerBot = false;
+  bool UseTrackFollowerMix = false;
+  float TrackFollowerNSigmaCutZ = 1.f;
+  float TrackFollowerNSigmaCutPhi = 1.f;
 };
 
 inline int TrackingParameters::CellMinimumLevel()
@@ -95,12 +118,14 @@ inline int TrackingParameters::CellMinimumLevel()
 }
 
 struct VertexingParameters {
+  int nIterations = 1;         // Number of vertexing passes to perform
+  int vertPerRofThreshold = 0; // Maximum number of vertices per ROF to trigger second a round
   bool allowSingleContribClusters = false;
   std::vector<float> LayerZ = {16.333f + 1, 16.333f + 1, 16.333f + 1, 42.140f + 1, 42.140f + 1, 73.745f + 1, 73.745f + 1};
   std::vector<float> LayerRadii = {2.33959f, 3.14076f, 3.91924f, 19.6213f, 24.5597f, 34.388f, 39.3329f};
   int ZBins{1};
   int PhiBins{128};
-
+  int deltaRof = 0;
   float zCut = 0.002f;
   float phiCut = 0.005f;
   float pairCut = 0.04f;
@@ -122,19 +147,11 @@ struct VertexingParameters {
 
 struct TimeFrameGPUParameters {
   TimeFrameGPUParameters() = default;
-  // TimeFrameGPUParameters(size_t cubBufferSize,
-  //                        size_t maxTrkClu,
-  //                        size_t cluLayCap,
-  //                        size_t cluROfCap,
-  //                        size_t maxTrkCap,
-  //                        size_t maxVertCap,
-  //                        size_t maxROFs);
 
   size_t tmpCUBBufferSize = 1e5; // In average in pp events there are required 4096 bytes
   size_t maxTrackletsPerCluster = 1e2;
   size_t clustersPerLayerCapacity = 2.5e5;
   size_t clustersPerROfCapacity = 1.5e3;
-  // size_t trackletsCapacity = maxTrackletsPerCluster * clustersPerROfCapacity;
   size_t validatedTrackletsCapacity = 1e3;
   size_t cellsLUTsize = validatedTrackletsCapacity;
   size_t maxNeighboursSize = 1e2;
@@ -144,31 +161,9 @@ struct TimeFrameGPUParameters {
   size_t maxVerticesCapacity = 5e4;
   size_t nMaxROFs = 1e3;
   size_t nTimeFrameChunks = 3;
+  size_t nROFsPerChunk = 768; // pp defaults
   int maxGPUMemoryGB = -1;
 };
-
-// inline TimeFrameGPUParameters::TimeFrameGPUParameters(size_t cubBufferSize,
-//                                                       size_t maxTrkClu,
-//                                                       size_t cluLayCap,
-//                                                       size_t cluROfCap,
-//                                                       size_t maxTrkCap,
-//                                                       size_t maxVertCap,
-//                                                       size_t maxROFs,
-//                                                       size_t validatedTrackletsCapacity,
-//                                                       size_t cellsLUTsize,
-//                                                       size_t maxNeighboursSize,
-//                                                       size_t neighboursLUTsize,
-//                                                       size_t maxRoadPerRofSize,
-//                                                       size_t maxLinesCapacity) : tmpCUBBufferSize{cubBufferSize},
-//                                                                                  maxTrackletsPerCluster{maxTrkClu},
-//                                                                                  clustersPerLayerCapacity{cluLayCap},
-//                                                                                  clustersPerROfCapacity{cluROfCap},
-//                                                                                  maxLinesCapacity{maxTrkCap},
-//                                                                                  maxVerticesCapacity{maxVertCap},
-//                                                                                  nMaxROFs{maxROFs}
-// {
-//   trackletsCapacity = maxTrackletsPerCluster * clustersPerLayerCapacity;
-// }
 
 } // namespace its
 } // namespace o2

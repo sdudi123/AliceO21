@@ -122,7 +122,7 @@ float Tracker::evaluateTask(void (Tracker::*task)(T...), const char* taskName, s
 {
   float diff{0.f};
 
-  if (constants::DoTimeBenchmarks) {
+  if constexpr (constants::DoTimeBenchmarks) {
     auto start = std::chrono::high_resolution_clock::now();
     (this->*task)(std::forward<T>(args)...);
     auto end = std::chrono::high_resolution_clock::now();
@@ -137,6 +137,20 @@ float Tracker::evaluateTask(void (Tracker::*task)(T...), const char* taskName, s
       sstream << std::setw(2) << " - " << taskName << " completed in: " << diff << " ms";
     }
     logger(sstream.str());
+
+    if (mTrkParams[0].SaveTimeBenchmarks) {
+      std::stringstream str2file;
+      std::string taskNameStr(taskName);
+      std::transform(taskNameStr.begin(), taskNameStr.end(), taskNameStr.begin(),
+                     [](unsigned char c) { return std::tolower(c); });
+      std::replace(taskNameStr.begin(), taskNameStr.end(), ' ', '_');
+      str2file << taskNameStr << "\t" << diff;
+      std::ofstream file;
+      file.open("its_time_benchmarks.txt", std::ios::app);
+      file << str2file.str() << std::endl;
+      file.close();
+    }
+
   } else {
     (this->*task)(std::forward<T>(args)...);
   }

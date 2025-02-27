@@ -40,7 +40,7 @@ namespace eventgen
 PrimaryGenerator::~PrimaryGenerator()
 {
   /** destructor **/
-
+  LOG(info) << "Destructing PrimaryGenerator";
   if (mEmbedFile && mEmbedFile->IsOpen()) {
     mEmbedFile->Close();
     delete mEmbedFile;
@@ -140,7 +140,7 @@ void PrimaryGenerator::AddTrack(Int_t pdgid, Double_t px, Double_t py, Double_t 
 
   // check the status encoding
   if (!mcgenstatus::isEncoded(generatorStatus) && proc == TMCProcess::kPPrimary) {
-    LOG(fatal) << "Generatror status " << generatorStatus << " of particle is not encoded properly.";
+    LOG(fatal) << "Generator status " << generatorStatus << " of particle is not encoded properly.";
   }
 
   /** add event vertex to track vertex **/
@@ -151,7 +151,7 @@ void PrimaryGenerator::AddTrack(Int_t pdgid, Double_t px, Double_t py, Double_t 
   /** check if particle to be tracked exists in PDG database **/
   auto particlePDG = TDatabasePDG::Instance()->GetParticle(pdgid);
   if (wanttracking && !particlePDG) {
-    LOG(warn) << "Particle to be tracked is not defined in PDG: pdg = " << pdgid;
+    LOG(warn) << "Particle to be tracked is not defined in PDG: pdg = " << pdgid << " (disabling tracking)";
     wanttracking = false;
   }
 
@@ -270,6 +270,13 @@ void PrimaryGenerator::setVertexMode(o2::conf::VertexMode const& mode, o2::dataf
     LOG(info) << "The mean vertex is set to :";
     mMeanVertex->print();
   }
+  if (mVertexMode == o2::conf::VertexMode::kNoVertex) {
+    setApplyVertex(false);
+    LOG(info) << "Disabling vertexing";
+    mMeanVertex = std::move(std::unique_ptr<o2::dataformats::MeanVertexObject>(new o2::dataformats::MeanVertexObject(0, 0, 0, 0, 0, 0, 0, 0)));
+    LOG(info) << "The mean vertex is set to :";
+    mMeanVertex->print();
+  }
 }
 
 /*****************************************************************/
@@ -298,7 +305,7 @@ void PrimaryGenerator::fixInteractionVertex()
   SmearGausVertexZ(false);
 
   // we use the mMeanVertexObject if initialized (initialize first)
-  if (!mMeanVertex) {
+  if (mMeanVertex.get() == nullptr) {
     if (mVertexMode == o2::conf::VertexMode::kDiamondParam) {
       auto const& param = InteractionDiamondParam::Instance();
       const auto& xyz = param.position;
@@ -315,7 +322,9 @@ void PrimaryGenerator::fixInteractionVertex()
   }
   auto sampledvertex = mMeanVertex->sample();
 
-  LOG(info) << "Sampled interacting vertex " << sampledvertex;
+  if (PrimaryGeneratorParam::Instance().verbose) {
+    LOG(info) << "Sampled interacting vertex " << sampledvertex;
+  }
   SetBeam(sampledvertex.X(), sampledvertex.Y(), 0., 0.);
   SetTarget(sampledvertex.Z(), 0.);
 }

@@ -18,9 +18,6 @@
 #include "GPUCommonDef.h"
 #include <cstdint> /// Required to properly compile MathUtils
 #include "ITStracking/ClusterLines.h"
-#ifdef __HIPCC__
-#include <hip/hip_runtime.h>
-#endif
 
 namespace o2
 {
@@ -60,7 +57,7 @@ class ClusterLinesGPU final
  public:
   GPUd() ClusterLinesGPU(const Line& firstLine, const Line& secondLine); // poor man solution to calculate duplets' centroid
   GPUd() void computeClusterCentroid();
-  GPUd() inline float* getVertex() { return mVertex; }
+  GPUdi() float* getVertex() { return mVertex; }
 
  private:
   float mAMatrix[6];         // AX=B

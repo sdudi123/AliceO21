@@ -30,7 +30,7 @@ struct DummyLogger {
 } // namespace o2::gpu::detail
 #endif
 
-#if defined(__OPENCL__)
+#if defined(__OPENCL__) || (defined(GPUCA_GPUCODE_DEVICE) && !defined(GPUCA_GPU_DEBUG_PRINT))
 #define LOG(...) o2::gpu::detail::DummyLogger()
 #define LOGF(...)
 #define LOGP(...)
@@ -45,7 +45,7 @@ struct DummyLogger {
 #define LOGP(...)
 // #define LOGP(...) static_assert(false, "LOGP(...) unsupported in GPU code");
 
-#elif defined(GPUCA_STANDALONE) || defined(GPUCA_ALIROOT_LIB) || (!defined(__cplusplus) || __cplusplus < 201703L)
+#elif defined(GPUCA_STANDALONE)
 #include <iostream>
 #include <cstdio>
 #define LOG(type) std::cout

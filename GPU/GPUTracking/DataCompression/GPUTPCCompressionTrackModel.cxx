@@ -16,14 +16,14 @@
 #include "GPUConstantMem.h"
 #include "GPUParam.inc"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 // ATTENTION! This track model is used for the data compression.
 // Changes to the propagation and fit will prevent the decompression of data
 // encoded with the old version!!!
 
 #ifdef GPUCA_COMPRESSION_TRACK_MODEL_MERGER
-GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, unsigned char qPt, const GPUParam& GPUrestrict() param)
+GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, uint8_t qPt, const GPUParam& GPUrestrict() param)
 {
   mProp.SetMaterialTPC();
   mProp.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
@@ -44,34 +44,34 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
   // GPUInfo("Initialized: x %f y %f z %f alpha %f qPt %f", x, y, z, alpha, mTrk.QPt());
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
+GPUd() int32_t GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
 {
-  int retVal = mProp.PropagateToXAlpha(x, alpha, true);
+  int32_t retVal = mProp.PropagateToXAlpha(x, alpha, true);
   // GPUInfo("Propagated to: x %f y %f z %f alpha %f qPt %f", x, mTrk.Y(), mTrk.Z(), alpha, mTrk.QPt());
   return retVal;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Filter(float y, float z, int iRow)
+GPUd() int32_t GPUTPCCompressionTrackModel::Filter(float y, float z, int32_t iRow)
 {
   mTrk.ConstrainSinPhi();
-  int retVal = mProp.Update(y, z, iRow, *mParam, 0, 0, nullptr, false);
+  int32_t retVal = mProp.Update(y, z, iRow, *mParam, 0, 0, nullptr, false, false, 0.f);
   // GPUInfo("Filtered with %f %f: y %f z %f qPt %f", y, z, mTrk.Y(), mTrk.Z(), mTrk.QPt());
   return retVal;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Mirror()
+GPUd() int32_t GPUTPCCompressionTrackModel::Mirror()
 {
   mProp.Mirror(true);
   // GPUInfo("Mirrored: y %f z %f qPt %f", mTrk.Y(), mTrk.Z(), mTrk.QPt());
   return 0;
 }
 
-#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
 
 #include "GPUTPCTrackLinearisation.h"
 #include "GPUTPCTracker.h"
 
-GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, unsigned char qPt, const GPUParam& GPUrestrict() param)
+GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, uint8_t qPt, const GPUParam& GPUrestrict() param)
 {
   mTrk.InitParam();
   mTrk.SetX(x);
@@ -85,35 +85,35 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
   // GPUInfo("Initialized: x %f y %f z %f alpha %f qPt %f", x, y, z, alpha, mTrk.QPt());
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
+GPUd() int32_t GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
 {
   GPUTPCTrackLinearisation t0(mTrk);
   if (alpha != mAlpha && !mTrk.Rotate(alpha, t0, GPUCA_MAX_SIN_PHI)) {
     return 2;
   }
-  int retVal = !mTrk.TransportToX(x, t0, mParam->constBz, GPUCA_MAX_SIN_PHI);
+  int32_t retVal = !mTrk.TransportToX(x, t0, mParam->bzCLight, GPUCA_MAX_SIN_PHI);
   // GPUInfo("Propagated to: x %f y %f z %f alpha %f qPt %f", x, mTrk.Y(), mTrk.Z(), alpha, mTrk.QPt());
   return retVal;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Filter(float y, float z, int iRow)
+GPUd() int32_t GPUTPCCompressionTrackModel::Filter(float y, float z, int32_t iRow)
 {
   mTrk.ConstrainSinPhi();
   float err2Y, err2Z;
-  GPUTPCTracker::GetErrors2Seeding(*mParam, iRow, mTrk, err2Y, err2Z);
-  int retVal = !mTrk.Filter(y, z, err2Y, err2Z, GPUCA_MAX_SIN_PHI, false);
+  GPUTPCTracker::GetErrors2Seeding(*mParam, iRow, mTrk, -1.f, err2Y, err2Z);
+  int32_t retVal = !mTrk.Filter(y, z, err2Y, err2Z, GPUCA_MAX_SIN_PHI, false);
   // GPUInfo("Filtered with %f %f: y %f z %f qPt %f", y, z, mTrk.Y(), mTrk.Z(), mTrk.QPt());
   return retVal;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Mirror()
+GPUd() int32_t GPUTPCCompressionTrackModel::Mirror()
 {
   return 1;
 }
 
 #else // Default internal track model for compression
 
-GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, unsigned char qPt, const GPUParam& GPUrestrict() param)
+GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float alpha, uint8_t qPt, const GPUParam& GPUrestrict() param)
 {
   // initialize track model
   mX = x;
@@ -126,7 +126,7 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
   mP[4] = (qPt - 127.f) * (20.f / 127.f);
   resetCovariance();
   mNDF = -5;
-  mBz = param.constBz;
+  mBz = param.bzCLight;
   float pti = CAMath::Abs(mP[4]);
   if (pti < 1.e-4f) {
     pti = 1.e-4f; // set 10.000 GeV momentum for straight track
@@ -144,7 +144,7 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
   calculateMaterialCorrection();
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
+GPUd() int32_t GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
 {
   // constrain sin(phi)
   if (mP[2] > MaxSinPhi) {
@@ -179,7 +179,7 @@ GPUd() int GPUTPCCompressionTrackModel::Propagate(float x, float alpha)
   return followLinearization(t0e, mBz, dLp);
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Filter(float y, float z, int iRow)
+GPUd() int32_t GPUTPCCompressionTrackModel::Filter(float y, float z, int32_t iRow)
 {
   // apply kalman filter update with measurement y/z
   float err2Y, err2Z;
@@ -290,7 +290,7 @@ GPUd() int GPUTPCCompressionTrackModel::Filter(float y, float z, int iRow)
   return 0;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::Mirror()
+GPUd() int32_t GPUTPCCompressionTrackModel::Mirror()
 {
   float dy = -2.f * mTrk.q * mTrk.px / mBz;
   float dS; // path in XY
@@ -307,7 +307,7 @@ GPUd() int GPUTPCCompressionTrackModel::Mirror()
     const float k4 = 3.f / 40.f;
     // const float k6 = 5.f/112.f;
     dS = chord + chord * sa2 * (k2 + k4 * sa2);
-    // dS = sqrtf(pt2)/b*2.*CAMath::ASin( sa );
+    // dS = CAMath(pt2)/b*2.f*CAMath::ASin( sa );
   }
 
   if (mTrk.sinphi < 0.f) {
@@ -362,9 +362,9 @@ GPUd() void GPUTPCCompressionTrackModel::updatePhysicalTrackValues(PhysicalTrack
     px = CAMath::Copysign(1.e-4f, px);
   }
 
-  trk.pt = sqrt(px * px + trk.py * trk.py);
+  trk.pt = CAMath::Sqrt(px * px + trk.py * trk.py);
   float pti = 1.f / trk.pt;
-  trk.p = sqrt(px * px + trk.py * trk.py + trk.pz * trk.pz);
+  trk.p = CAMath::Sqrt(px * px + trk.py * trk.py + trk.pz * trk.pz);
   trk.sinphi = trk.py * pti;
   trk.cosphi = px * pti;
   trk.secphi = trk.pt / px;
@@ -391,7 +391,7 @@ GPUd() void GPUTPCCompressionTrackModel::changeDirection()
   mC[11] = -mC[11];
 }
 
-GPUd() int GPUTPCCompressionTrackModel::rotateToAlpha(float newAlpha)
+GPUd() int32_t GPUTPCCompressionTrackModel::rotateToAlpha(float newAlpha)
 {
   //
   // Rotate the track coordinate system in XY to the angle newAlpha
@@ -401,8 +401,8 @@ GPUd() int GPUTPCCompressionTrackModel::rotateToAlpha(float newAlpha)
   float newCosAlpha = 0, newSinAlpha = 0;
   CAMath::SinCos(newAlpha, newSinAlpha, newCosAlpha);
 
-  float cc = newCosAlpha * mCosAlpha + newSinAlpha * mSinAlpha; // cos(newAlpha - mAlpha);
-  float ss = newSinAlpha * mCosAlpha - newCosAlpha * mSinAlpha; // sin(newAlpha - mAlpha);
+  float cc = newCosAlpha * mCosAlpha + newSinAlpha * mSinAlpha; // CAMath::Cos(newAlpha - mAlpha);
+  float ss = newSinAlpha * mCosAlpha - newCosAlpha * mSinAlpha; // CAMath::Sin(newAlpha - mAlpha);
 
   PhysicalTrackModel t0 = mTrk;
 
@@ -540,7 +540,7 @@ GPUd() int GPUTPCCompressionTrackModel::rotateToAlpha(float newAlpha)
   return 0;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::propagateToXBzLightNoUpdate(PhysicalTrackModel& t, float x, float Bz, float& dLp)
+GPUd() int32_t GPUTPCCompressionTrackModel::propagateToXBzLightNoUpdate(PhysicalTrackModel& t, float x, float Bz, float& dLp)
 {
   //
   // transport the track to X=x in magnetic field B = ( 0, 0, Bz[kG*0.000299792458] )
@@ -577,7 +577,7 @@ GPUd() int GPUTPCCompressionTrackModel::propagateToXBzLightNoUpdate(PhysicalTrac
     const float k4 = 3.f / 40.f;
     // const float k6 = 5.f/112.f;
     dS = chord + chord * sa2 * (k2 + k4 * sa2);
-    // dS = sqrt(pt2)/b*2.*CAMath::ASin( sa );
+    // dS = CAMath::Sqrt(pt2)/b*2.f*CAMath::ASin( sa );
   }
 
   dLp = pti * dS; // path in XYZ / p == path in XY / pt
@@ -610,7 +610,7 @@ GPUd() bool GPUTPCCompressionTrackModel::setDirectionAlongX(PhysicalTrackModel& 
   return 1;
 }
 
-GPUd() int GPUTPCCompressionTrackModel::followLinearization(const PhysicalTrackModel& t0e, float Bz, float dLp)
+GPUd() int32_t GPUTPCCompressionTrackModel::followLinearization(const PhysicalTrackModel& t0e, float Bz, float dLp)
 {
   // t0e is alrerady extrapolated t0
 
@@ -863,8 +863,8 @@ GPUd() float GPUTPCCompressionTrackModel::approximateBetheBloch(float beta2)
   // (the approximation is reasonable only for solid materials)
   //------------------------------------------------------------------
 
-  const float log0 = log(5940.f);
-  const float log1 = log(3.5f * 5940.f);
+  const float log0 = CAMath::Log(5940.f);
+  const float log1 = CAMath::Log(3.5f * 5940.f);
 
   bool bad = (beta2 >= .999f) || (beta2 < 1.e-8f);
 
@@ -873,7 +873,7 @@ GPUd() float GPUTPCCompressionTrackModel::approximateBetheBloch(float beta2)
   }
 
   float a = beta2 / (1.f - beta2);
-  float b = 0.5f * log(a);
+  float b = 0.5f * CAMath::Log(a);
   float d = 0.153e-3f / beta2;
   float c = b - beta2;
 
@@ -887,10 +887,9 @@ GPUd() float GPUTPCCompressionTrackModel::approximateBetheBloch(float beta2)
   return ret;
 }
 
-GPUd() void GPUTPCCompressionTrackModel::getClusterErrors2(int iRow, float z, float sinPhi, float DzDs, float& ErrY2, float& ErrZ2) const
+GPUd() void GPUTPCCompressionTrackModel::getClusterErrors2(int32_t iRow, float z, float sinPhi, float DzDs, float& ErrY2, float& ErrZ2) const
 {
-  // Only O2 geometry considered at the moment. Is AliRoot geometry support needed?
-  int rowType = iRow < 97 ? (iRow < 63 ? 0 : 1) : (iRow < 127 ? 2 : 3);
+  int32_t rowType = iRow < 97 ? (iRow < 63 ? 0 : 1) : (iRow < 127 ? 2 : 3);
   if (rowType > 2) {
     rowType = 2; // TODO: Add type 3
   }

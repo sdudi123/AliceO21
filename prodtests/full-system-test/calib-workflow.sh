@@ -31,19 +31,46 @@ if [[ $CALIB_TPC_TIMEGAIN == 1 ]]; then
 fi
 if [[ $CALIB_TPC_RESPADGAIN == 1 ]]; then
   : ${SCALEEVENTS_TPC_RESPADGAIN:=40}
-  add_W o2-tpc-calib-gainmap-tracks "--publish-after-tfs 30 --useEveryNthTF $SCALEEVENTS_TPC_RESPADGAIN  $TPC_CORR_SCALING"
+  add_W o2-tpc-calib-gainmap-tracks "--publish-after-tfs 30 --useEveryNthTF $SCALEEVENTS_TPC_RESPADGAIN $TPC_CORR_OPT" "$TPC_CORR_KEY"
 fi
 if [[ $CALIB_ZDC_TDC == 1 ]]; then add_W o2-zdc-tdccalib-epn-workflow "" "" 0; fi
 if [[ $CALIB_FT0_TIMEOFFSET == 1 ]]; then add_W o2-calibration-ft0-time-spectra-processor; fi
 
 # current integration
-if [[ $CALIB_FT0_INTEGRATEDCURR == 1 ]]; then add_W o2-ft0-integrate-cluster-workflow "$DISABLE_ROOT_OUTPUT --nSlicesTF $TPC_IDCCALIB_NSLICESPERTF"; fi
-if [[ $CALIB_FV0_INTEGRATEDCURR == 1 ]]; then add_W o2-fv0-integrate-cluster-workflow "$DISABLE_ROOT_OUTPUT --nSlicesTF $TPC_IDCCALIB_NSLICESPERTF"; fi
-if [[ $CALIB_FDD_INTEGRATEDCURR == 1 ]]; then add_W o2-fdd-integrate-cluster-workflow "$DISABLE_ROOT_OUTPUT --nSlicesTF $TPC_IDCCALIB_NSLICESPERTF"; fi
-if [[ $CALIB_TOF_INTEGRATEDCURR == 1 ]]; then add_W o2-tof-integrate-cluster-workflow "$DISABLE_ROOT_OUTPUT --nSlicesTF $TPC_IDCCALIB_NSLICESPERTF"; fi
+: ${INTEGRATED_CURR_OPTIONS:=""}
+if [[ $SYNCMODE == 1 ]]; then INTEGRATED_CURR_OPTIONS="$DISABLE_ROOT_OUTPUT --nSlicesTF $TPC_IDCCALIB_NSLICESPERTF"; fi
+if [[ $CALIB_FT0_INTEGRATEDCURR == 1 ]]; then add_W o2-ft0-integrate-cluster-workflow "$INTEGRATED_CURR_OPTIONS"; fi
+if [[ $CALIB_FV0_INTEGRATEDCURR == 1 ]]; then add_W o2-fv0-integrate-cluster-workflow "$INTEGRATED_CURR_OPTIONS"; fi
+if [[ $CALIB_FDD_INTEGRATEDCURR == 1 ]]; then add_W o2-fdd-integrate-cluster-workflow "$INTEGRATED_CURR_OPTIONS"; fi
+if [[ $CALIB_TOF_INTEGRATEDCURR == 1 ]]; then add_W o2-tof-integrate-cluster-workflow "$INTEGRATED_CURR_OPTIONS"; fi
 
 # for async calibrations
 if [[ $CALIB_EMC_ASYNC_RECALIB == 1 ]]; then add_W o2-emcal-emc-offline-calib-workflow "--input-subspec 1 --applyGainCalib"; fi
+if [[ $CALIB_ASYNC_EXTRACTTPCCURRENTS == 1 ]]; then
+  CONFIG_CTPTPC=
+  if [[ $CALIB_ASYNC_DISABLE3DCURRENTS != 1 ]]; then
+    CONFIG_CTPTPC="--process-3D-currents --nSlicesTF 1"
+  fi
+  add_W o2-tpc-integrate-cluster-workflow "${CONFIG_CTPTPC}"
+fi
+if [[ $CALIB_ASYNC_EXTRACTTIMESERIES == 1 ]] ; then
+  : ${CALIB_ASYNC_SAMPLINGFACTORTIMESERIES:=0.001}
+  if [[ ! -z ${CALIB_ASYNC_ENABLEUNBINNEDTIMESERIES:-} ]]; then
+    CONFIG_TPCTIMESERIES+=" --enable-unbinned-root-output --sample-unbinned-tsallis --threads ${TPCTIMESERIES_THREADS:-1}"
+  fi
+  if [[ $ON_SKIMMED_DATA == 1 ]] || [[ ! -z "$CALIB_ASYNC_SAMPLINGFACTORTIMESERIES" ]]; then
+    if [[ $ON_SKIMMED_DATA == 1 ]]; then
+      SAMPLINGFACTORTIMESERIES=0.1
+    fi
+    if [[ ! -z "$CALIB_ASYNC_SAMPLINGFACTORTIMESERIES" ]]; then # this takes priority, even if we were on skimmed data
+      SAMPLINGFACTORTIMESERIES=${CALIB_ASYNC_SAMPLINGFACTORTIMESERIES}
+    fi
+    CONFIG_TPCTIMESERIES+=" --sampling-factor ${SAMPLINGFACTORTIMESERIES}"
+  fi
+  : ${TPCTIMESERIES_SOURCES:=$TRACK_SOURCES}
+  CONFIG_TPCTIMESERIES+=" --track-sources $TPCTIMESERIES_SOURCES"
+  add_W o2-tpc-time-series-workflow "${CONFIG_TPCTIMESERIES}"
+fi
 
 # output-proxy for aggregator
 if workflow_has_parameter CALIB_PROXIES; then

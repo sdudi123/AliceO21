@@ -20,15 +20,15 @@
 #include "GPUROOTDumpCore.h"
 #include <TTree.h>
 #include <TNtuple.h>
-#include <memory>
-#include <stdexcept>
 #else
 class TNtuple;
 #endif
+#ifndef GPUCA_GPUCODE
+#include <memory>
+#include <stdexcept>
+#endif
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 #if !defined(GPUCA_NO_ROOT) && !defined(GPUCA_GPUCODE)
 namespace
@@ -170,7 +170,6 @@ class GPUROOTDump
   }
 };
 #endif
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

@@ -57,6 +57,7 @@ install(FILES CheckDigits_mft.C
               CreateGRPMagFieldObject.C
               CreateGRPLHCIFObject.C
               getTimeStamp.C
+              CreateSampleIRFrames.C
         DESTINATION share/macro/)
 
 # FIXME: a lot of macros that are here should really be elsewhere. Those which
@@ -111,14 +112,21 @@ o2_add_test_root_macro(analyzeOriginHits.C
                                              O2::DetectorsCommonDataFormats)
 
 if(ENABLE_UPGRADES)
-  set(upgradeTargets O2::Alice3DetectorsPassive O2::ITS3Simulation O2::TRKSimulation O2::FT3Simulation O2::FCTSimulation O2::IOTOFSimulation O2::RICHSimulation)
+  set(upgradeTargets
+      O2::Alice3DetectorsPassive
+      O2::ITS3Simulation
+      O2::FT3Simulation
+      O2::FCTSimulation
+      O2::IOTOFSimulation
+      O2::RICHSimulation
+      O2::ECalSimulation
+      O2::MI3Simulation)
 endif()
 
 o2_add_test_root_macro(build_geometry.C
-                       PUBLIC_LINK_LIBRARIES O2::DetectorsPassive
+                       PUBLIC_LINK_LIBRARIES O2::SimConfig
+                                             O2::DetectorsPassive
                                              O2::Field
-                                             O2::TPCSimulation
-                                             O2::ITSSimulation
                                              O2::MFTSimulation
                                              O2::MCHSimulation
                                              O2::MIDSimulation
@@ -132,6 +140,7 @@ o2_add_test_root_macro(build_geometry.C
                                              O2::PHOSSimulation
                                              O2::CPVSimulation
                                              O2::ZDCSimulation
+                                             O2::FOCALSimulation
                                              ${upgradeTargets})
 
 o2_add_test_root_macro(checkTOFMatching.C
@@ -174,8 +183,6 @@ o2_add_test_root_macro(o2sim.C
                        PUBLIC_LINK_LIBRARIES O2::Generators
                                              O2::DetectorsPassive
                                              O2::Field
-                                             O2::TPCSimulation
-                                             O2::ITSSimulation
                                              O2::MFTSimulation
                                              O2::MCHSimulation
                                              O2::MIDSimulation

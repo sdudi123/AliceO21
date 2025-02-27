@@ -28,6 +28,7 @@
 #include "DataFormatsTPC/TrackTPC.h"
 #include "TPCQC/Tracking.h"
 #include "GPUO2InterfaceQA.h"
+#include "GPUO2InterfaceUtils.h"
 #include "GPUO2InterfaceConfiguration.h"
 #include "CommonUtils/NameConf.h"
 #include "DataFormatsParameters/GRPObject.h"
@@ -49,12 +50,15 @@ void Tracking::initialize(outputModes outputMode, bool postprocessOnly)
   mQAConfig = std::make_unique<GPUO2InterfaceConfiguration>();
   const auto grp = o2::parameters::GRPObject::loadFrom();
   if (grp) {
-    mQAConfig->configGRP.solenoidBz = 5.00668f * grp->getL3Current() / 30000.;
-    mQAConfig->configGRP.continuousMaxTimeBin = grp->isDetContinuousReadOut(o2::detectors::DetID::TPC) ? -1 : 0;
+    mQAConfig->configGRP.solenoidBzNominalGPU = GPUO2InterfaceUtils::getNominalGPUBz(*grp);
+    mQAConfig->configGRP.grpContinuousMaxTimeBin = grp->isDetContinuousReadOut(o2::detectors::DetID::TPC) ? -1 : 0;
   } else {
     throw std::runtime_error("Failed to initialize run parameters from GRP");
   }
-  mQAConfig->ReadConfigurableParam();
+  auto global = mQAConfig->ReadConfigurableParam();
+  if (grp->isDetReadOut(o2::detectors::DetID::TPC) && global.tpcTriggeredMode ^ !grp->isDetContinuousReadOut(o2::detectors::DetID::TPC)) {
+    throw std::runtime_error("TPC triggered mode (GPU_global.tpcTriggeredMode) not set correctly");
+  }
   mQAConfig->configQA.shipToQCAsCanvas = mOutputMode == outputLayout;
   mQA = std::make_unique<GPUO2InterfaceQA>(mQAConfig.get());
   if (!postprocessOnly) {

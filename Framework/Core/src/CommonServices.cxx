@@ -36,13 +36,14 @@
 #include "Framework/Tracing.h"
 #include "Framework/Monitoring.h"
 #include "Framework/AsyncQueue.h"
-#include "Framework/Plugins.h"
+#include "Framework/PluginManager.h"
 #include "Framework/DeviceContext.h"
 #include "Framework/DataProcessingContext.h"
 #include "Framework/StreamContext.h"
 #include "Framework/DeviceState.h"
 #include "Framework/DeviceConfig.h"
 #include "Framework/DefaultsHelpers.h"
+#include "Framework/Signpost.h"
 
 #include "TextDriverClient.h"
 #include "WSDriverClient.h"
@@ -76,12 +77,10 @@ using Metric = o2::monitoring::Metric;
 using Key = o2::monitoring::tags::Key;
 using Value = o2::monitoring::tags::Value;
 
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
-
 O2_DECLARE_DYNAMIC_LOG(data_processor_context);
 O2_DECLARE_DYNAMIC_LOG(stream_context);
+O2_DECLARE_DYNAMIC_LOG(async_queue);
+O2_DECLARE_DYNAMIC_LOG(policies);
 
 namespace o2::framework
 {
@@ -128,6 +127,7 @@ o2::framework::ServiceSpec CommonServices::monitoringSpec()
       } },
     .exit = [](ServiceRegistryRef registry, void* service) {
                        auto* monitoring = reinterpret_cast<Monitoring*>(service);
+                       monitoring->flushBuffer();
                        delete monitoring; },
     .kind = ServiceKind::Serial};
 }
@@ -173,9 +173,11 @@ o2::framework::ServiceSpec CommonServices::streamContextSpec()
       // the same stream might be referring to different data processors.
       // We should probably have a context which is per stream of a specific
       // data processor.
-      stream->routeUserCreated.resize(routes.size());
-      // Reset the routeUserCreated at every processing step
-      std::fill(stream->routeUserCreated.begin(), stream->routeUserCreated.end(), false); },
+      stream->routeDPLCreated.resize(routes.size());
+      stream->routeCreated.resize(routes.size());
+      // Reset the routeDPLCreated at every processing step
+      std::fill(stream->routeDPLCreated.begin(), stream->routeDPLCreated.end(), false);
+      std::fill(stream->routeCreated.begin(), stream->routeCreated.end(), false); },
     .postProcessing = [](ProcessingContext& processingContext, void* service) {
       auto* stream = (StreamContext*)service;
       auto& routes = processingContext.services().get<DeviceSpec const>().outputs;
@@ -184,44 +186,52 @@ o2::framework::ServiceSpec CommonServices::streamContextSpec()
       // Check if we never created any data for this timeslice
       // if we did not, but we still have didDispatched set to true
       // it means it was created out of band.
-      bool didCreate = false;
+      bool userDidCreate = false;
       O2_SIGNPOST_ID_FROM_POINTER(cid, stream_context, service);
       for (size_t ri = 0; ri < routes.size(); ++ri) {
-        if (stream->routeUserCreated[ri] == true) {
-          didCreate = true;
+        if (stream->routeCreated[ri] == true && stream->routeDPLCreated[ri] == false) {
+          userDidCreate = true;
           break;
         }
       }
-      if (didCreate == false && messageContext.didDispatch() == true) {
-        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Data created out of band didCreate == %d && messageContext.didDispatch == %d",
-                               didCreate,
+      O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "userDidCreate == %d && didDispatch == %d",
+                             userDidCreate,
+                             messageContext.didDispatch());
+      if (userDidCreate == false && messageContext.didDispatch() == true) {
+        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Data created out of band userDidCreate == %d && messageContext.didDispatch == %d",
+                               userDidCreate,
                                messageContext.didDispatch());
         return;
       }
-      if (didCreate == false && messageContext.didDispatch() == false) {
+      if (userDidCreate == false && messageContext.didDispatch() == false) {
         O2_SIGNPOST_ID_FROM_POINTER(cid, stream_context, service);
-        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "No data created");
+        O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "No data created.");
         return;
       }
       for (size_t ri = 0; ri < routes.size(); ++ri) {
         auto &route = routes[ri];
         auto &matcher = route.matcher;
-        if (stream->routeUserCreated[ri] == true) {
-          O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Data created by user. ri = %" PRIu64 ", %{public}s",
+        if (stream->routeDPLCreated[ri] == true) {
+          O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Data created by DPL. ri = %" PRIu64 ", %{public}s",
                                  (uint64_t)ri, DataSpecUtils::describe(matcher).c_str());
           continue;
         }
-        if ((timeslice % route.maxTimeslices) != route.timeslice) {
-          O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Route ri = %" PRIu64 ", skipped",
+        if (stream->routeCreated[ri] == true) {
+          continue;
+        } if ((timeslice % route.maxTimeslices) != route.timeslice) {
+          O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks", "Route ri = %" PRIu64 ", skipped because of pipelining.",
                                  (uint64_t)ri);
           continue;
         }
         if (matcher.lifetime == Lifetime::Timeframe) {
+          O2_SIGNPOST_EVENT_EMIT(stream_context, cid, "postProcessingCallbacks",
+                                 "Expected Lifetime::Timeframe data %{public}s was not created for timeslice %" PRIu64 " and might result in dropped timeframes",
+                                 DataSpecUtils::describe(matcher).c_str(), (uint64_t)timeslice);
           LOGP(error, "Expected Lifetime::Timeframe data {} was not created for timeslice {} and might result in dropped timeframes", DataSpecUtils::describe(matcher), timeslice);
         }
       } },
     .preEOS = [](EndOfStreamContext& context, void* service) {
-      // We need to reset the routeUserCreated because the end of stream
+      // We need to reset the routeDPLCreated / routeCreated because the end of stream
       // uses a different context which does not know about the routes.
       // FIXME: This should be fixed in a different way, but for now it will
       // allow TPC IDC to work.
@@ -231,9 +241,11 @@ o2::framework::ServiceSpec CommonServices::streamContextSpec()
       // the same stream might be referring to different data processors.
       // We should probably have a context which is per stream of a specific
       // data processor.
-      stream->routeUserCreated.resize(routes.size());
-      // Reset the routeUserCreated at every processing step
-      std::fill(stream->routeUserCreated.begin(), stream->routeUserCreated.end(), false); },
+      stream->routeDPLCreated.resize(routes.size());
+      stream->routeCreated.resize(routes.size());
+      // Reset the routeCreated / routeDPLCreated at every processing step
+      std::fill(stream->routeCreated.begin(), stream->routeCreated.end(), false);
+      std::fill(stream->routeDPLCreated.begin(), stream->routeDPLCreated.end(), false); },
     .kind = ServiceKind::Stream};
 }
 
@@ -505,31 +517,94 @@ o2::framework::ServiceSpec CommonServices::ccdbSupportSpec()
           stfDist.runNumber = timingInfo.runNumber;
           // We mark it as not created, because we do should not account for it when
           // checking if we created all the data for a timeslice.
-          streamContext.routeUserCreated[oi] = false;
+          O2_SIGNPOST_ID_FROM_POINTER(sid, stream_context, &streamContext);
+          O2_SIGNPOST_EVENT_EMIT(stream_context, sid, "finaliseOutputs", "Route %" PRIu64 " (%{public}s) was created by DPL.", (uint64_t)oi,
+                                 DataSpecUtils::describe(output.matcher).c_str());
+          streamContext.routeDPLCreated[oi] = true;
         }
       } },
     .kind = ServiceKind::Global};
 }
+struct DecongestionContext {
+  ServiceRegistryRef ref;
+  TimesliceIndex::OldestOutputInfo oldestPossibleOutput;
+};
+
+auto decongestionCallback = [](AsyncTask& task, size_t id) -> void {
+  auto& oldestPossibleOutput = task.user<DecongestionContext>().oldestPossibleOutput;
+  auto& ref = task.user<DecongestionContext>().ref;
+
+  auto& decongestion = ref.get<DecongestionService>();
+  auto& proxy = ref.get<FairMQDeviceProxy>();
+
+  O2_SIGNPOST_ID_GENERATE(cid, async_queue);
+  cid.value = id;
+  if (decongestion.lastTimeslice >= oldestPossibleOutput.timeslice.value) {
+    O2_SIGNPOST_EVENT_EMIT(async_queue, cid, "oldest_possible_timeslice", "Not sending already sent value: %" PRIu64 "> %" PRIu64,
+                           decongestion.lastTimeslice, (uint64_t)oldestPossibleOutput.timeslice.value);
+    return;
+  }
+  O2_SIGNPOST_EVENT_EMIT(async_queue, cid, "oldest_possible_timeslice", "Running oldest possible timeslice %" PRIu64 " propagation.",
+                         (uint64_t)oldestPossibleOutput.timeslice.value);
+  DataProcessingHelpers::broadcastOldestPossibleTimeslice(ref, oldestPossibleOutput.timeslice.value);
+
+  for (int fi = 0; fi < proxy.getNumForwardChannels(); fi++) {
+    auto& info = proxy.getForwardChannelInfo(ChannelIndex{fi});
+    auto& state = proxy.getForwardChannelState(ChannelIndex{fi});
+    // TODO: this we could cache in the proxy at the bind moment.
+    if (info.channelType != ChannelAccountingType::DPL) {
+      O2_SIGNPOST_EVENT_EMIT(async_queue, cid, "oldest_possible_timeslice", "Skipping channel %{public}s", info.name.c_str());
+      continue;
+    }
+    if (DataProcessingHelpers::sendOldestPossibleTimeframe(ref, info, state, oldestPossibleOutput.timeslice.value)) {
+      O2_SIGNPOST_EVENT_EMIT(async_queue, cid, "oldest_possible_timeslice",
+                             "Forwarding to channel %{public}s oldest possible timeslice %" PRIu64 ", priority %d",
+                             info.name.c_str(), (uint64_t)oldestPossibleOutput.timeslice.value, 20);
+    }
+  }
+  decongestion.lastTimeslice = oldestPossibleOutput.timeslice.value;
+};
+
+auto decongestionCallbackOrdered = [](AsyncTask& task, size_t id) -> void {
+  auto& oldestPossibleOutput = task.user<DecongestionContext>().oldestPossibleOutput;
+  auto& ref = task.user<DecongestionContext>().ref;
+
+  auto& decongestion = ref.get<DecongestionService>();
+  auto& state = ref.get<DeviceState>();
+  auto& timesliceIndex = ref.get<TimesliceIndex>();
+  O2_SIGNPOST_ID_GENERATE(cid, async_queue);
+  int64_t oldNextTimeslice = decongestion.nextTimeslice;
+  decongestion.nextTimeslice = std::max(decongestion.nextTimeslice, (int64_t)oldestPossibleOutput.timeslice.value);
+  if (oldNextTimeslice != decongestion.nextTimeslice) {
+    if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
+      O2_SIGNPOST_EVENT_EMIT_WARN(async_queue, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+    } else {
+      O2_SIGNPOST_EVENT_EMIT_ERROR(async_queue, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+    }
+    timesliceIndex.rescan();
+  }
+};
 
 // Decongestion service
 // If we do not have any Timeframe input, it means we must be creating timeslices
 // in order and that we should propagate the oldest possible timeslice at the end
 // of each processing step.
-o2::framework::ServiceSpec CommonServices::decongestionSpec()
+o2::framework::ServiceSpec
+  CommonServices::decongestionSpec()
 {
   return ServiceSpec{
     .name = "decongestion",
     .init = [](ServiceRegistryRef services, DeviceState&, fair::mq::ProgOptions& options) -> ServiceHandle {
       auto* decongestion = new DecongestionService();
       for (auto& input : services.get<DeviceSpec const>().inputs) {
-        if (input.matcher.lifetime == Lifetime::Timeframe) {
-          LOGP(detail, "Found a Timeframe input, we cannot update the oldest possible timeslice");
+        if (input.matcher.lifetime == Lifetime::Timeframe || input.matcher.lifetime == Lifetime::QA || input.matcher.lifetime == Lifetime::Sporadic || input.matcher.lifetime == Lifetime::Optional) {
+          LOGP(detail, "Found a real data input, we cannot update the oldest possible timeslice when sending messages");
           decongestion->isFirstInTopology = false;
           break;
         }
       }
       auto& queue = services.get<AsyncQueue>();
-      decongestion->oldestPossibleTimesliceTask = AsyncQueueHelpers::create(queue, {"oldest-possible-timeslice", 100});
+      decongestion->oldestPossibleTimesliceTask = AsyncQueueHelpers::create(queue, {.name = "oldest-possible-timeslice", .score = 100});
       return ServiceHandle{TypeIdHelpers::uniqueId<DecongestionService>(), decongestion, ServiceKind::Serial};
     },
     .postForwarding = [](ProcessingContext& ctx, void* service) {
@@ -541,7 +616,7 @@ o2::framework::ServiceSpec CommonServices::decongestionSpec()
       O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "postForwardingCallbacks", "We are the first one in the topology, we need to update the oldest possible timeslice");
       auto& timesliceIndex = ctx.services().get<TimesliceIndex>();
       auto& relayer = ctx.services().get<DataRelayer>();
-      timesliceIndex.updateOldestPossibleOutput();
+      timesliceIndex.updateOldestPossibleOutput(decongestion->nextEnumerationTimesliceRewinded);
       auto& proxy = ctx.services().get<FairMQDeviceProxy>();
       auto oldestPossibleOutput = relayer.getOldestPossibleOutput();
       if (decongestion->nextEnumerationTimesliceRewinded && decongestion->nextEnumerationTimeslice < oldestPossibleOutput.timeslice.value) {
@@ -565,15 +640,22 @@ o2::framework::ServiceSpec CommonServices::decongestionSpec()
                              (uint64_t)oldestPossibleOutput.timeslice.value,
                              oldestPossibleOutput.slot.index == -1 ? "channel" : "slot",
                              (uint64_t)(oldestPossibleOutput.slot.index == -1 ? oldestPossibleOutput.channel.value : oldestPossibleOutput.slot.index));
+      O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Ordered active %d", decongestion->orderedCompletionPolicyActive);
       if (decongestion->orderedCompletionPolicyActive) {
         auto oldNextTimeslice = decongestion->nextTimeslice;
         decongestion->nextTimeslice = std::max(decongestion->nextTimeslice, (int64_t)oldestPossibleOutput.timeslice.value);
+        O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Next timeslice %" PRIi64, decongestion->nextTimeslice);
         if (oldNextTimeslice != decongestion->nextTimeslice) {
-          LOGP(error, "Some Lifetime::Timeframe data got dropped starting at {}", oldNextTimeslice);
+          auto& state = ctx.services().get<DeviceState>();
+          if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
+            O2_SIGNPOST_EVENT_EMIT_WARN(data_processor_context, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+          } else {
+            O2_SIGNPOST_EVENT_EMIT_ERROR(data_processor_context, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+          }
           timesliceIndex.rescan();
         }
       }
-      DataProcessingHelpers::broadcastOldestPossibleTimeslice(proxy, oldestPossibleOutput.timeslice.value);
+      DataProcessingHelpers::broadcastOldestPossibleTimeslice(ctx.services(), oldestPossibleOutput.timeslice.value);
 
       for (int fi = 0; fi < proxy.getNumForwardChannels(); fi++) {
         auto& info = proxy.getForwardChannelInfo(ChannelIndex{fi});
@@ -583,7 +665,7 @@ o2::framework::ServiceSpec CommonServices::decongestionSpec()
           O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Skipping channel %{public}s", info.name.c_str());
           continue;
         }
-        if (DataProcessingHelpers::sendOldestPossibleTimeframe(info, state, oldestPossibleOutput.timeslice.value)) {
+        if (DataProcessingHelpers::sendOldestPossibleTimeframe(ctx.services(), info, state, oldestPossibleOutput.timeslice.value)) {
           O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice",
                                  "Forwarding to channel %{public}s oldest possible timeslice %" PRIu64 ", priority %d",
                                  info.name.c_str(), (uint64_t)oldestPossibleOutput.timeslice.value, 20);
@@ -606,16 +688,15 @@ o2::framework::ServiceSpec CommonServices::decongestionSpec()
       auto& decongestion = services.get<DecongestionService>();
       auto& relayer = services.get<DataRelayer>();
       auto& timesliceIndex = services.get<TimesliceIndex>();
-      auto& proxy = services.get<FairMQDeviceProxy>();
       O2_SIGNPOST_ID_FROM_POINTER(cid, data_processor_context, &decongestion);
       O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Received oldest possible timeframe %" PRIu64 " from channel %d",
                              (uint64_t)oldestPossibleTimeslice, channel.value);
       relayer.setOldestPossibleInput({oldestPossibleTimeslice}, channel);
-      timesliceIndex.updateOldestPossibleOutput();
+      timesliceIndex.updateOldestPossibleOutput(decongestion.nextEnumerationTimesliceRewinded);
       auto oldestPossibleOutput = relayer.getOldestPossibleOutput();
 
       if (oldestPossibleOutput.timeslice.value == decongestion.lastTimeslice) {
-        O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Not sending already sent value: %" PRIu64, (uint64_t)oldestPossibleOutput.timeslice.value);
+        O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Synchronous: Not sending already sent value: %" PRIu64, (uint64_t)oldestPossibleOutput.timeslice.value);
         return;
       }
       if (oldestPossibleOutput.timeslice.value < decongestion.lastTimeslice) {
@@ -623,50 +704,24 @@ o2::framework::ServiceSpec CommonServices::decongestionSpec()
              oldestPossibleOutput.timeslice.value, decongestion.lastTimeslice);
         return;
       }
-      auto &queue = services.get<AsyncQueue>();
-      auto& spec = services.get<DeviceSpec const>();
-      auto *device = services.get<RawDeviceService>().device();
+      auto& queue = services.get<AsyncQueue>();
+      const auto& state = services.get<DeviceState>();
       /// We use the oldest possible timeslice to debounce, so that only the latest one
       /// at the end of one iteration is sent.
       O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Queueing oldest possible timeslice %" PRIu64 " propagation for execution.",
                              (uint64_t)oldestPossibleOutput.timeslice.value);
       AsyncQueueHelpers::post(
-        queue, decongestion.oldestPossibleTimesliceTask, [oldestPossibleOutput, &decongestion, &proxy, &spec, device, &timesliceIndex]() {
-          O2_SIGNPOST_ID_FROM_POINTER(cid, data_processor_context, &decongestion);
-          if (decongestion.lastTimeslice >= oldestPossibleOutput.timeslice.value) {
-            O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Not sending already sent value: %" PRIu64 "> %" PRIu64,
-                decongestion.lastTimeslice, (uint64_t)oldestPossibleOutput.timeslice.value);
-            return;
-          }
-          O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Running oldest possible timeslice %" PRIu64 " propagation.",
-                                 (uint64_t)oldestPossibleOutput.timeslice.value);
-          DataProcessingHelpers::broadcastOldestPossibleTimeslice(proxy, oldestPossibleOutput.timeslice.value);
+        queue, AsyncTask{ .timeslice = TimesliceId{oldestPossibleTimeslice},
+                .id = decongestion.oldestPossibleTimesliceTask,
+                .debounce = -1, .callback = decongestionCallback}
+            .user<DecongestionContext>(DecongestionContext{.ref = services, .oldestPossibleOutput = oldestPossibleOutput}));
 
-          for (int fi = 0; fi < proxy.getNumForwardChannels(); fi++) {
-            auto& info = proxy.getForwardChannelInfo(ChannelIndex{fi});
-            auto& state = proxy.getForwardChannelState(ChannelIndex{fi});
-            // TODO: this we could cache in the proxy at the bind moment.
-            if (info.channelType != ChannelAccountingType::DPL) {
-              O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice", "Skipping channel %{public}s", info.name.c_str());
-              continue;
-            }
-            if (DataProcessingHelpers::sendOldestPossibleTimeframe(info, state, oldestPossibleOutput.timeslice.value)) {
-              O2_SIGNPOST_EVENT_EMIT(data_processor_context, cid, "oldest_possible_timeslice",
-                                     "Forwarding to channel %{public}s oldest possible timeslice %" PRIu64 ", priority %d",
-                                     info.name.c_str(), (uint64_t)oldestPossibleOutput.timeslice.value, 20);
-            }
-          }
-          decongestion.lastTimeslice = oldestPossibleOutput.timeslice.value;
-          if (decongestion.orderedCompletionPolicyActive) {
-            int64_t oldNextTimeslice = decongestion.nextTimeslice;
-            decongestion.nextTimeslice = std::max(decongestion.nextTimeslice, (int64_t)oldestPossibleOutput.timeslice.value);
-            if (oldNextTimeslice != decongestion.nextTimeslice) {
-              LOGP(error, "Some Lifetime::Timeframe data got dropped starting at {}", oldNextTimeslice);
-              timesliceIndex.rescan();
-            }
-          }
-        },
-        TimesliceId{oldestPossibleTimeslice}, -1); },
+      if (decongestion.orderedCompletionPolicyActive) {
+        AsyncQueueHelpers::post(
+          queue, AsyncTask{.timeslice = TimesliceId{oldestPossibleOutput.timeslice.value},.id = decongestion.oldestPossibleTimesliceTask,  .debounce = -1,
+          .callback = decongestionCallbackOrdered}
+          .user<DecongestionContext>({.ref = services, .oldestPossibleOutput = oldestPossibleOutput}));
+      } },
     .kind = ServiceKind::Serial};
 }
 
@@ -709,8 +764,11 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
   using namespace fair::mq::shmem;
   auto& spec = registry.get<DeviceSpec const>();
 
+  auto hasMetric = [&runningWorkflow](const DataProcessingStats::MetricSpec& metric) -> bool {
+    return metric.metricId == static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + (runningWorkflow.shmSegmentId % 512);
+  };
   // FIXME: Ugly, but we do it only every 5 seconds...
-  if (spec.name == "readout-proxy") {
+  if (std::find_if(stats.metricSpecs.begin(), stats.metricSpecs.end(), hasMetric) != stats.metricSpecs.end()) {
     auto device = registry.get<RawDeviceService>().device();
     long freeMemory = -1;
     try {
@@ -726,7 +784,6 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
     stats.updateStats({static_cast<unsigned short>(static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + (runningWorkflow.shmSegmentId % 512)), DataProcessingStats::Op::SetIfPositive, freeMemory});
   }
 
-  ZoneScopedN("send metrics");
   auto device = registry.get<RawDeviceService>().device();
 
   int64_t totalBytesIn = 0;
@@ -757,8 +814,13 @@ O2_DECLARE_DYNAMIC_LOG(monitoring_service);
 /// This will flush metrics only once every second.
 auto flushMetrics(ServiceRegistryRef registry, DataProcessingStats& stats) -> void
 {
+  // Flushing metrics should only happen on main thread to avoid
+  // having to have a mutex for the communication with the driver.
   O2_SIGNPOST_ID_GENERATE(sid, monitoring_service);
   O2_SIGNPOST_START(monitoring_service, sid, "flush", "flushing metrics");
+  if (registry.isMainThread() == false) {
+    LOGP(fatal, "Flushing metrics should only happen on the main thread.");
+  }
   auto& monitoring = registry.get<Monitoring>();
   auto& relayer = registry.get<DataRelayer>();
 
@@ -804,8 +866,11 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
       clock_gettime(CLOCK_REALTIME, &now);
       uv_update_time(state.loop);
       uint64_t offset = now.tv_sec * 1000 - uv_now(state.loop);
+      DataProcessingStats::DefaultConfig config = {
+        .minOnlinePublishInterval = std::stoi(options.GetProperty<std::string>("dpl-stats-min-online-publishing-interval").c_str()) * 1000};
       auto* stats = new DataProcessingStats(TimingHelpers::defaultRealtimeBaseConfigurator(offset, state.loop),
-                                            TimingHelpers::defaultCPUTimeConfigurator(state.loop));
+                                            TimingHelpers::defaultCPUTimeConfigurator(state.loop),
+                                            config);
       auto& runningWorkflow = services.get<RunningWorkflowInfo const>();
 
       // It makes no sense to update the stats more often than every 5s
@@ -822,9 +887,18 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
       bool enableDebugMetrics = true;
 #endif
       bool arrowAndResourceLimitingMetrics = false;
-      DeploymentMode deploymentMode = DefaultsHelpers::deploymentMode();
-      if (deploymentMode != DeploymentMode::OnlineDDS && deploymentMode != DeploymentMode::OnlineECS && deploymentMode != DeploymentMode::OnlineAUX && deploymentMode != DeploymentMode::FST) {
+      if (!DefaultsHelpers::onlineDeploymentMode() && DefaultsHelpers::deploymentMode() != DeploymentMode::FST) {
         arrowAndResourceLimitingMetrics = true;
+      }
+      // Input proxies should not report cpu_usage_fraction,
+      // because of the rate limiting which biases the measurement.
+      auto& spec = services.get<DeviceSpec const>();
+      bool enableCPUUsageFraction = true;
+      auto isProxy = [](DataProcessorLabel const& label) -> bool { return label == DataProcessorLabel{"input-proxy"}; };
+      if (std::find_if(spec.labels.begin(), spec.labels.end(), isProxy) != spec.labels.end()) {
+        O2_SIGNPOST_ID_GENERATE(mid, policies);
+        O2_SIGNPOST_EVENT_EMIT(policies, mid, "metrics", "Disabling cpu_usage_fraction metric for proxy %{public}s", spec.name.c_str());
+        enableCPUUsageFraction = false;
       }
 
       std::vector<DataProcessingStats::MetricSpec> metrics = {
@@ -909,6 +983,7 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .maxRefreshLatency = onlineRefreshLatency,
                    .sendInitialValue = true},
         MetricSpec{.name = "cpu_usage_fraction",
+                   .enabled = enableCPUUsageFraction,
                    .metricId = (int)ProcessingStatsId::CPU_USAGE_FRACTION,
                    .kind = Kind::Rate,
                    .scope = Scope::Online,
@@ -1029,19 +1104,18 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .sendInitialValue = true}};
 
       for (auto& metric : metrics) {
+        if (metric.metricId == (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + (runningWorkflow.shmSegmentId % 512) && spec.name.compare("readout-proxy") != 0) {
+          continue;
+        }
         stats->registerMetric(metric);
       }
 
       return ServiceHandle{TypeIdHelpers::uniqueId<DataProcessingStats>(), stats};
     },
     .configure = noConfiguration(),
-    .preProcessing = [](ProcessingContext& context, void* service) {
-      auto* stats = (DataProcessingStats*)service;
-      flushMetrics(context.services(), *stats); },
     .postProcessing = [](ProcessingContext& context, void* service) {
       auto* stats = (DataProcessingStats*)service;
-      stats->updateStats({(short)ProcessingStatsId::PERFORMED_COMPUTATIONS, DataProcessingStats::Op::Add, 1});
-      flushMetrics(context.services(), *stats); },
+      stats->updateStats({(short)ProcessingStatsId::PERFORMED_COMPUTATIONS, DataProcessingStats::Op::Add, 1}); },
     .preDangling = [](DanglingContext& context, void* service) {
        auto* stats = (DataProcessingStats*)service;
        sendRelayerMetrics(context.services(), *stats);
@@ -1053,9 +1127,6 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
     .preEOS = [](EndOfStreamContext& context, void* service) {
       auto* stats = (DataProcessingStats*)service;
       sendRelayerMetrics(context.services(), *stats);
-      flushMetrics(context.services(), *stats); },
-    .postDispatching = [](ProcessingContext& context, void* service) {
-      auto* stats = (DataProcessingStats*)service;
       flushMetrics(context.services(), *stats); },
     .preLoop = [](ServiceRegistryRef ref, void* service) {
       auto* stats = (DataProcessingStats*)service;
@@ -1206,8 +1277,7 @@ std::vector<ServiceSpec> CommonServices::defaultServices(std::string extraPlugin
     objectCache(),
     ccdbSupportSpec()};
 
-  DeploymentMode deploymentMode = DefaultsHelpers::deploymentMode();
-  if (deploymentMode != DeploymentMode::OnlineDDS && deploymentMode != DeploymentMode::OnlineECS && deploymentMode != DeploymentMode::OnlineAUX && deploymentMode != DeploymentMode::FST) {
+  if (!DefaultsHelpers::onlineDeploymentMode() && DefaultsHelpers::deploymentMode() != DeploymentMode::FST) {
     specs.push_back(ArrowSupport::arrowBackendSpec());
   }
   specs.push_back(CommonMessageBackends::fairMQBackendSpec());
@@ -1216,14 +1286,14 @@ std::vector<ServiceSpec> CommonServices::defaultServices(std::string extraPlugin
 
   std::string loadableServicesStr = extraPlugins;
   // Do not load InfoLogger by default if we are not at P2.
-  if (deploymentMode == DeploymentMode::OnlineDDS || deploymentMode == DeploymentMode::OnlineECS || deploymentMode == DeploymentMode::OnlineAUX) {
+  if (DefaultsHelpers::onlineDeploymentMode()) {
     if (loadableServicesStr.empty() == false) {
       loadableServicesStr += ",";
     }
     loadableServicesStr += "O2FrameworkDataTakingSupport:InfoLoggerContext,O2FrameworkDataTakingSupport:InfoLogger";
   }
   // Load plugins depending on the environment
-  std::vector<LoadableService> loadableServices = {};
+  std::vector<LoadablePlugin> loadablePlugins = {};
   char* loadableServicesEnv = getenv("DPL_LOAD_SERVICES");
   // String to define the services to load is:
   //
@@ -1234,8 +1304,8 @@ std::vector<ServiceSpec> CommonServices::defaultServices(std::string extraPlugin
     }
     loadableServicesStr += loadableServicesEnv;
   }
-  loadableServices = ServiceHelpers::parseServiceSpecString(loadableServicesStr.c_str());
-  ServiceHelpers::loadFromPlugin(loadableServices, specs);
+  loadablePlugins = PluginManager::parsePluginSpecString(loadableServicesStr.c_str());
+  PluginManager::loadFromPlugin<ServiceSpec, ServicePlugin>(loadablePlugins, specs);
   // I should make it optional depending wether the GUI is there or not...
   specs.push_back(CommonServices::guiMetricsSpec());
   if (numThreads) {
@@ -1253,4 +1323,3 @@ std::vector<ServiceSpec> CommonServices::arrowServices()
 }
 
 } // namespace o2::framework
-#pragma GCC diagnostic pop

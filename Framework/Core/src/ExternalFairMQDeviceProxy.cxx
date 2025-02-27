@@ -29,6 +29,7 @@
 #include "Framework/TimingInfo.h"
 #include "Framework/DeviceState.h"
 #include "Framework/Monitoring.h"
+#include "Framework/SendingPolicy.h"
 #include "Headers/DataHeader.h"
 #include "Headers/Stack.h"
 #include "DecongestionService.h"
@@ -107,8 +108,8 @@ void sendOnChannel(fair::mq::Device& device, fair::mq::Parts& messages, std::str
   }
 
   // FIXME: we need a better logic for avoiding message spam
-  if (timeout > 1 && timeout <= maxTimeout) {
-    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout << " ms";
+  if (timeout > 100 && timeout <= maxTimeout) {
+    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout / 1000.f << " s";
   }
   // TODO: feeling this is a bit awkward, but the interface of fair::mq::Parts does not provide a
   // method to clear the content.
@@ -239,10 +240,13 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
 {
   // Check for missing data.
   static std::vector<bool> present;
+  static std::vector<bool> ignored;
   static std::vector<size_t> dataSizes;
   static std::vector<bool> showSize;
   present.clear();
   present.resize(routes.size(), false);
+  ignored.clear();
+  ignored.resize(routes.size(), false);
   dataSizes.clear();
   dataSizes.resize(routes.size(), 0);
   showSize.clear();
@@ -259,7 +263,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
   for (size_t pi = 0; pi < present.size(); ++pi) {
     auto& spec = routes[pi].matcher;
     if (DataSpecUtils::asConcreteDataTypeMatcher(spec).description == header::DataDescription("DISTSUBTIMEFRAME")) {
-      present[pi] = true;
+      ignored[pi] = true;
       continue;
     }
     if (routes[pi].timeslice == 0) {
@@ -268,6 +272,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
   }
 
   size_t foundDataSpecs = 0;
+  bool skipAsAllFound = false;
   for (int msgidx = 0; msgidx < parts.Size(); msgidx += 2) {
     bool allFound = true;
     int addToSize = -1;
@@ -299,24 +304,24 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
       dph = o2::header::get<DataProcessingHeader*>(parts.At(msgidx)->GetData());
       for (size_t pi = 0; pi < present.size(); ++pi) {
         if (routes[pi].timeslice != (dph->startTime % routes[pi].maxTimeslices)) {
-          present[pi] = true;
+          ignored[pi] = true;
         }
       }
     }
     for (size_t pi = 0; pi < present.size(); ++pi) {
-      if (present[pi] && !doPrintSizes) {
+      if ((present[pi] || ignored[pi]) && !doPrintSizes) {
         continue;
       }
       // Consider uninvolved pipelines as present.
       if (routes[pi].timeslice != (dph->startTime % routes[pi].maxTimeslices)) {
-        present[pi] = true;
+        ignored[pi] = true;
         continue;
       }
       allFound = false;
       auto& spec = routes[pi].matcher;
       OutputSpec query{dh->dataOrigin, dh->dataDescription, dh->subSpecification};
       if (DataSpecUtils::match(spec, query)) {
-        if (!present[pi]) {
+        if (!present[pi] && !ignored[pi]) {
           ++foundDataSpecs;
           present[pi] = true;
           showSize[pi] = true;
@@ -335,15 +340,26 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
     // Skip the rest of the block of messages. We subtract 2 because above we increment by 2.
     msgidx = msgidxLast - 2;
     if (allFound && !doPrintSizes) {
-      return;
+      skipAsAllFound = true;
+      break;
     }
   }
 
+  bool emptyTf = true;
   for (size_t pi = 0; pi < present.size(); ++pi) {
-    if (!present[pi]) {
+    if (present[pi] && !ignored[pi]) {
+      emptyTf = false;
+    }
+    if (!present[pi] && !ignored[pi]) {
       showSize[pi] = true;
       unmatchedDescriptions.push_back(pi);
     }
+  }
+  int timeframeCompleteness = emptyTf ? 0 : (unmatchedDescriptions.size() ? -1 : 1);
+  (void)timeframeCompleteness; // To be sent as message
+
+  if (skipAsAllFound && !doPrintSizes) {
+    return;
   }
 
   if (firstDH && doPrintSizes) {
@@ -380,6 +396,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
       return;
     }
     std::string missing = "";
+    bool showAlarm = false;
     for (auto mi : unmatchedDescriptions) {
       auto& spec = routes[mi].matcher;
       missing += " " + DataSpecUtils::describe(spec);
@@ -406,10 +423,13 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
       parts.AddPart(std::move(headerMessage));
       // add empty payload message
       parts.AddPart(device.NewMessageFor(channelName, 0, 0));
+      if ((concrete.origin != o2::header::gDataOriginEMC && concrete.origin != o2::header::gDataOriginPHS && concrete.origin != o2::header::gDataOriginHMP) || concrete.description != o2::header::DataDescription{"RAWDATA"}) {
+        showAlarm = true;
+      }
     }
     static int maxWarn = 10; // Correct would be o2::conf::VerbosityConfig::Instance().maxWarnDeadBeef, but Framework does not depend on CommonUtils..., but not so critical since receives will send correct number of DEADBEEF messages
     static int contDeadBeef = 0;
-    if (++contDeadBeef <= maxWarn) {
+    if (showAlarm && ++contDeadBeef <= maxWarn) {
       LOGP(alarm, "Found {}/{} data specs, missing data specs: {}, injecting 0xDEADBEEF{}", foundDataSpecs, expectedDataSpecs, missing, contDeadBeef == maxWarn ? " - disabling alarm now to stop flooding the log" : "");
     }
   }
@@ -747,14 +767,15 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
                         outputChannels = std::move(outputChannels)](ServiceRegistryRef ref, TimingInfo& timingInfo, fair::mq::Parts& inputs, int, size_t ci, bool newRun) -> bool {
       auto* device = ref.get<RawDeviceService>().device();
       // pass a copy of the outputRoutes
-      auto channelRetriever = [&outputRoutes](OutputSpec const& query, DataProcessingHeader::StartTime timeslice) -> std::string {
+      auto channelRetriever = [&outputRoutes](OutputSpec const& query, DataProcessingHeader::StartTime timeslice) -> std::string const& {
+        static std::string emptyChannel = "";
         for (auto& route : outputRoutes) {
           LOG(debug) << "matching: " << DataSpecUtils::describe(query) << " to route " << DataSpecUtils::describe(route.matcher);
           if (DataSpecUtils::match(route.matcher, query) && ((timeslice % route.maxTimeslices) == route.timeslice)) {
             return route.channel;
           }
         }
-        return {""};
+        return emptyChannel;
       };
 
       std::string const& channel = channels[ci];
@@ -923,10 +944,16 @@ DataProcessorSpec specifyFairMQDeviceOutputProxy(char const* name,
     auto lastDataProcessingHeader = std::make_shared<DataProcessingHeader>(0, 0);
 
     auto& spec = const_cast<DeviceSpec&>(deviceSpec);
+    static auto policy = ForwardingPolicy::createDefaultForwardingPolicy();
     for (auto const& inputSpec : inputSpecs) {
       // this is a prototype, in principle we want to have all spec objects const
       // and so only the const object can be retrieved from service registry
-      ForwardRoute route{0, 1, inputSpec, outputChannelName};
+      ForwardRoute route{
+        .timeslice = 0,
+        .maxTimeslices = 1,
+        .matcher = inputSpec,
+        .channel = outputChannelName,
+        .policy = &policy};
       spec.forwards.emplace_back(route);
     }
 
@@ -1010,7 +1037,13 @@ DataProcessorSpec specifyFairMQDeviceMultiOutputProxy(char const* name,
         if (device->GetChannels().count(channel) == 0) {
           throw std::runtime_error("no corresponding output channel found for input '" + channel + "'");
         }
-        ForwardRoute route{0, 1, spec, channel};
+        static auto policy = ForwardingPolicy::createDefaultForwardingPolicy();
+        ForwardRoute route{
+          .timeslice = 0,
+          .maxTimeslices = 1,
+          .matcher = spec,
+          .channel = channel,
+          .policy = &policy};
         // this we will try to fix on the framework level, there will be an API to
         // set external routes. Basically, this has to be added while setting up the
         // workflow. After that, the actual spec provided by the service is supposed

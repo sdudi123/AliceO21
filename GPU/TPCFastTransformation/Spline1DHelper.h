@@ -24,7 +24,7 @@
 #include <vector>
 #include <string>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -41,33 +41,33 @@ class Spline1DHelper
   Spline1DHelper();
 
   /// Copy constructor: disabled
-  Spline1DHelper(const Spline1DHelper&) CON_DEFAULT;
+  Spline1DHelper(const Spline1DHelper&) = default;
 
   /// Assignment operator: disabled
-  Spline1DHelper& operator=(const Spline1DHelper&) CON_DEFAULT;
+  Spline1DHelper& operator=(const Spline1DHelper&) = default;
 
   /// Destructor
-  ~Spline1DHelper() CON_DEFAULT;
+  ~Spline1DHelper() = default;
 
   /// _______________  Main functionality  ________________________
 
   /// Create best-fit spline parameters for a set of data points
   void approximateDataPoints(Spline1DContainer<DataT>& spline,
                              double xMin, double xMax,
-                             const double vx[], const double vf[], int nDataPoints);
+                             const double vx[], const double vf[], int32_t nDataPoints);
 
   /// Create best-fit spline parameters for a function F
   void approximateFunction(
     Spline1DContainer<DataT>& spline, double xMin, double xMax, std::function<void(double x, double f[/*spline.getFdimensions()*/])> F,
-    int nAuxiliaryDataPoints = 4);
+    int32_t nAuxiliaryDataPoints = 4);
 
   /// Approximate only derivatives assuming the spline values at knozts are already set
   void approximateDerivatives(Spline1DContainer<DataT>& spline,
-                              const double vx[], const double vf[], int nDataPoints);
+                              const double vx[], const double vf[], int32_t nDataPoints);
 
   void approximateFunctionGradually(
     Spline1DContainer<DataT>& spline, double xMin, double xMax, std::function<void(double x, double f[/*spline.getFdimensions()*/])> F,
-    int nAuxiliaryDataPoints);
+    int32_t nAuxiliaryDataPoints);
 
   /// Create classic spline parameters for a given input function F
   void approximateFunctionClassic(Spline1DContainer<DataT>& spline,
@@ -99,32 +99,30 @@ class Spline1DHelper
   ///  Gives error string
   const char* getLastError() const { return mError.c_str(); }
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the Spline1D class functionality
-  static int test(const bool draw = 0, const bool drawDataPoints = 1);
+  static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
 
  private:
   /// Stores an error message
-  int storeError(int code, const char* msg);
+  int32_t storeError(int32_t code, const char* msg);
 
   std::string mError = ""; ///< error string
 
   void setSpline(const Spline1DContainer<DataT>& spline);
 
   void makeDataPoints(Spline1DContainer<DataT>& spline, double xMin, double xMax, std::function<void(double x, double f[/*spline.getFdimensions()*/])> F,
-                      int nAuxiliaryDataPoints, std::vector<double>& vx, std::vector<double>& vf);
+                      int32_t nAuxiliaryDataPoints, std::vector<double>& vx, std::vector<double>& vf);
 
   /// helpers for the construction of 1D spline
 
   Spline1D<double> mSpline; ///< copy of the spline grid
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline1DHelper, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

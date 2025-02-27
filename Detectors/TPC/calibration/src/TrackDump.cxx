@@ -13,10 +13,7 @@
 #include <vector>
 #include <filesystem>
 #include <fmt/format.h>
-#include "GPUO2Interface.h"
-#include "GPUDefOpenCL12Templates.h"
-#include "GPUDefConstantsAndSettings.h"
-#include "SliceTracker/GPUTPCGeometry.h"
+#include "GPUTPCGeometry.h"
 
 #include "DataFormatsTPC/Defs.h"
 #include "DataFormatsTPC/ClusterNative.h"
@@ -50,7 +47,7 @@ void TrackDump::filter(const gsl::span<const TrackTPC> tracks, ClusterNativeAcce
 
   ClExcludes excludes;
 
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
 
   for (const auto& track : tracks) {
     const int nCl = track.getNClusterReferences();
@@ -144,7 +141,7 @@ void TrackDump::finalize()
 
 void TrackDump::fillClNativeAdd(ClusterNativeAccess const& clusterIndex, std::vector<ClusterNativeAdd>& clInfos, ClExcludes* excludes)
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
 
   for (int sector = 0; sector < MAXSECTOR; ++sector) {
     for (int padrow = 0; padrow < MAXGLOBALPADROW; ++padrow) {
@@ -167,19 +164,19 @@ void TrackDump::fillClNativeAdd(ClusterNativeAccess const& clusterIndex, std::ve
 
 float TrackDump::ClusterNativeAdd::cpad() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return getPad() - gpuGeom.NPads(padrow) / 2.f;
 }
 
 float TrackDump::ClusterNativeAdd::lx() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return gpuGeom.Row2X(padrow);
 }
 
 float TrackDump::ClusterNativeAdd::ly() const
 {
-  const GPUCA_NAMESPACE::gpu::GPUTPCGeometry gpuGeom;
+  const o2::gpu::GPUTPCGeometry gpuGeom;
   return gpuGeom.LinearPad2Y(sector, padrow, getPad());
 }
 

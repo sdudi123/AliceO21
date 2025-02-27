@@ -16,6 +16,8 @@ install(DIRECTORY ${CMAKE_CURRENT_LIST_DIR}/include/Framework
 o2_add_library(FrameworkFoundation
                SOURCES src/RuntimeError.cxx
                src/Signpost.cxx
+               src/BacktraceHelpers.cxx
+               src/O2LongInt.cxx
                TARGETVARNAME targetName
                PUBLIC_LINK_LIBRARIES O2::FrameworkFoundation3rdparty
               )
@@ -61,6 +63,7 @@ set_property(TARGET o2-test-framework-SignpostLogger PROPERTY RUNTIME_OUTPUT_DIR
 set_property(TARGET o2-test-framework-ThreadSanitizer PROPERTY RUNTIME_OUTPUT_DIRECTORY ${outdir})
 get_filename_component(bindir ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/../bin ABSOLUTE)
 set_property(TARGET o2-log PROPERTY RUNTIME_OUTPUT_DIRECTORY ${bindir})
+install(TARGETS o2-log RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
 
 add_test(NAME framework:foundation COMMAND o2-test-framework-foundation)
 

@@ -17,6 +17,7 @@
 #include "Framework/CompletionPolicyHelpers.h"
 #include "EveWorkflow/O2DPLDisplay.h"
 #include "EveWorkflow/EveWorkflowHelper.h"
+#include "EventVisualisationBase/EveConfParam.h"
 #include "EventVisualisationBase/ConfigurationManager.h"
 #include "DetectorsBase/Propagator.h"
 #include "DataFormatsGlobalTracking/RecoContainer.h"
@@ -26,14 +27,21 @@
 #include "TOFBase/Geo.h"
 #include "TPCFastTransform.h"
 #include "TRDBase/Geometry.h"
+#include "EMCALCalib/CellRecalibrator.h"
+#include "EMCALWorkflow/CalibLoader.h"
 #include "GlobalTrackingWorkflowHelpers/InputHelper.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
 #include "ReconstructionDataFormats/PrimaryVertex.h"
 #include "Framework/ConfigParamSpec.h"
 #include "DataFormatsMCH/TrackMCH.h"
 #include "DataFormatsMCH/ROFRecord.h"
+#include <EventVisualisationBase/DirectoryLoader.h>
 #include "DataFormatsMCH/Cluster.h"
 #include <unistd.h>
+
+using std::chrono::duration_cast;
+using std::chrono::milliseconds;
+using std::chrono::system_clock;
 
 using namespace o2::event_visualisation;
 using namespace o2::framework;
@@ -52,36 +60,19 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
 {
   std::vector<o2::framework::ConfigParamSpec> options{
     {"jsons-folder", VariantType::String, "jsons", {"name of the folder to store json files"}},
-    {"use-json-format", VariantType::Bool, false, {"instead of root format (default) use json format"}},
+    {"use-json-format", VariantType::Bool, false, {"instead of eve format (default) use json format"}},
+    {"use-root-format", VariantType::Bool, false, {"instead of eve format (default) use root format"}},
     {"eve-hostname", VariantType::String, "", {"name of the host allowed to produce files (empty means no limit)"}},
     {"eve-dds-collection-index", VariantType::Int, -1, {"number of dpl collection allowed to produce files (-1 means no limit)"}},
-    {"number-of_files", VariantType::Int, 150, {"maximum number of json files in folder"}},
-    {"number-of_tracks", VariantType::Int, -1, {"maximum number of track stored in json file (-1 means no limit)"}},
     {"time-interval", VariantType::Int, 5000, {"time interval in milliseconds between stored files"}},
     {"disable-mc", VariantType::Bool, false, {"disable visualization of MC data"}},
     {"disable-write", VariantType::Bool, false, {"disable writing output files"}},
     {"display-clusters", VariantType::String, "ITS,TPC,TRD,TOF", {"comma-separated list of clusters to display"}},
     {"display-tracks", VariantType::String, "TPC,ITS,ITS-TPC,TPC-TRD,ITS-TPC-TRD,TPC-TOF,ITS-TPC-TOF", {"comma-separated list of tracks to display"}},
     {"disable-root-input", VariantType::Bool, false, {"disable root-files input reader"}},
-    {"configKeyValues", VariantType::String, "", {"semicolon separated key=value strings ..."}},
+    {"configKeyValues", VariantType::String, "", {"semicolon separated key=value strings, e.g. EveConfParam content..."}},
     {"skipOnEmptyInput", VariantType::Bool, false, {"don't run the ED when no input is provided"}},
-    {"min-its-tracks", VariantType::Int, -1, {"don't create file if less than the specified number of ITS tracks is present"}},
-    {"min-tracks", VariantType::Int, 1, {"don't create file if less than the specified number of all tracks is present"}},
-    {"filter-its-rof", VariantType::Bool, false, {"don't display tracks outside ITS readout frame"}},
-    {"filter-time-min", VariantType::Float, -1.f, {"display tracks only in [min, max] microseconds time range in each time frame, requires --filter-time-max to be specified as well"}},
-    {"filter-time-max", VariantType::Float, -1.f, {"display tracks only in [min, max] microseconds time range in each time frame, requires --filter-time-min to be specified as well"}},
-    {"remove-tpc-abs-eta", VariantType::Float, 0.f, {"remove TPC tracks in [-eta, +eta] range"}},
-    {"track-sorting", VariantType::Bool, true, {"sort track by track time before applying filters"}},
-    {"only-nth-event", VariantType::Int, 0, {"process only every nth event"}},
-    {"primary-vertex-mode", VariantType::Bool, false, {"produce jsons with individual primary vertices, not total time frame data"}},
-    {"max-primary-vertices", VariantType::Int, 5, {"maximum number of primary vertices to draw per time frame"}},
-    {"primary-vertex-triggers", VariantType::Bool, false, {"instead of drawing vertices with tracks (and maybe calorimeter triggers), draw vertices with calorimeter triggers (and maybe tracks)"}},
-    {"primary-vertex-min-z", VariantType::Float, -o2::constants::math::VeryBig, {"minimum z position for primary vertex"}},
-    {"primary-vertex-max-z", VariantType::Float, o2::constants::math::VeryBig, {"maximum z position for primary vertex"}},
-    {"primary-vertex-min-x", VariantType::Float, -o2::constants::math::VeryBig, {"minimum x position for primary vertex"}},
-    {"primary-vertex-max-x", VariantType::Float, o2::constants::math::VeryBig, {"maximum x position for primary vertex"}},
-    {"primary-vertex-min-y", VariantType::Float, -o2::constants::math::VeryBig, {"minimum y position for primary vertex"}},
-    {"primary-vertex-max-y", VariantType::Float, o2::constants::math::VeryBig, {"maximum y position for primary vertex"}}};
+  };
 
   o2::raw::HBFUtilsInitializer::addConfigOption(options);
   std::swap(workflowOptions, options);
@@ -93,14 +84,19 @@ void O2DPLDisplaySpec::init(InitContext& ic)
   LOGF(info, "------------------------    O2DPLDisplay::init version ", o2_eve_version, "    ------------------------------------");
   mData.mConfig.configProcessing.runMC = mUseMC;
   o2::base::GRPGeomHelper::instance().setRequest(mGGCCDBRequest);
+  if (mEMCALCalibLoader) {
+    mEMCALCalibrator = std::make_unique<o2::emcal::CellRecalibrator>();
+  }
 }
 
 void O2DPLDisplaySpec::run(ProcessingContext& pc)
 {
-  if (!this->mEveHostNameMatch) {
+  const auto& conf = EveConfParam::Instance();
+
+  if (!mEveHostNameMatch) {
     return;
   }
-  if (this->mOnlyNthEvent && this->mEventCounter++ % this->mOnlyNthEvent != 0) {
+  if (conf.onlyNthEvent > 1 && mEventCounter++ % conf.onlyNthEvent) {
     return;
   }
   LOGF(info, "------------------------    O2DPLDisplay::run version ", o2_eve_version, "    ------------------------------------");
@@ -110,18 +106,30 @@ void O2DPLDisplaySpec::run(ProcessingContext& pc)
   if (elapsed < this->mTimeInterval) {
     return; // skip this run - it is too often
   }
-  this->mTimeStamp = currentTime;
+  this->mTimeStamp = currentTime; // next run AFTER period counted from last run, even if there will be not any save
   o2::globaltracking::RecoContainer recoCont;
   recoCont.collectData(pc, *mDataRequest);
   updateTimeDependentParams(pc); // Make sure that this is called after the RecoContainer collect data, since some condition objects are fetched there
-  EveWorkflowHelper::FilterSet enabledFilters;
+  if (mEMCALCalibLoader) {
+    mEMCALCalibLoader->checkUpdates(pc);
+    if (mEMCALCalibLoader->hasUpdateBadChannelMap()) {
+      mEMCALCalibrator->setBadChannelMap(mEMCALCalibLoader->getBadChannelMap());
+    }
+    if (mEMCALCalibLoader->hasUpdateTimeCalib()) {
+      mEMCALCalibrator->setTimeCalibration(mEMCALCalibLoader->getTimeCalibration());
+    }
+    if (mEMCALCalibLoader->hasUpdateGainCalib()) {
+      mEMCALCalibrator->setGainCalibration(mEMCALCalibLoader->getGainCalibration());
+    }
+  }
 
-  enabledFilters.set(EveWorkflowHelper::Filter::ITSROF, this->mFilterITSROF);
-  enabledFilters.set(EveWorkflowHelper::Filter::TimeBracket, this->mFilterTime);
-  enabledFilters.set(EveWorkflowHelper::Filter::EtaBracket, this->mRemoveTPCEta);
-  enabledFilters.set(EveWorkflowHelper::Filter::TotalNTracks, this->mNumberOfTracks != -1);
-  EveWorkflowHelper helper(enabledFilters, this->mNumberOfTracks, this->mTimeBracket, this->mEtaBracket, this->mPrimaryVertexMode);
+  EveWorkflowHelper helper;
+  helper.setTPCVDrift(&mTPCVDriftHelper.getVDriftObject());
   helper.setRecoContainer(&recoCont);
+  if (mEMCALCalibrator) {
+    helper.setEMCALCellRecalibrator(mEMCALCalibrator.get());
+  }
+
   helper.setITSROFs();
   helper.selectTracks(&(mData.mConfig.configCalib), mClMask, mTrkMask, mTrkMask);
   helper.selectTowers();
@@ -131,33 +139,37 @@ void O2DPLDisplaySpec::run(ProcessingContext& pc)
   const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
 
   std::size_t filesSaved = 0;
+  const std::vector<std::string> dirs = o2::event_visualisation::DirectoryLoader::allFolders(this->mJsonPath);
+  const std::string marker = "_";
+  const std::vector<std::string> exts = {".json", ".root", ".eve"};
   auto processData = [&](const auto& dataMap) {
     for (const auto& keyVal : dataMap) {
-      if (filesSaved >= mMaxPrimaryVertices) {
+      if (conf.maxPVs > 0 && filesSaved >= conf.maxPVs) {
         break;
       }
-
+      if (conf.maxBytes > 0) {
+        auto periodStart =
+          duration_cast<milliseconds>(system_clock::now().time_since_epoch()).count() - this->mTimeInterval.count();
+        if (!DirectoryLoader::canCreateNextFile(dirs, marker, exts, periodStart, conf.maxBytes)) {
+          LOGF(info, "Already too much data (> %d) to transfer in this period - event will not be not saved ...", conf.maxBytes);
+          break;
+        }
+      }
       const auto pv = keyVal.first;
       bool save = false;
-      if (mPrimaryVertexMode) {
-        auto primaryVertex = recoCont.getPrimaryVertices()[pv];
-        auto primaryVertex_X = primaryVertex.getX();
-        auto primaryVertex_Y = primaryVertex.getY();
-        auto primaryVertex_Z = primaryVertex.getZ();
-        if ((primaryVertex_X >= mPrimaryVertexMinX) & (primaryVertex_X <= mPrimaryVertexMaxX) & (primaryVertex_Y >= mPrimaryVertexMinY) & (primaryVertex_Y <= mPrimaryVertexMaxY) & (primaryVertex_Z >= mPrimaryVertexMinZ) & (primaryVertex_Z <= mPrimaryVertexMaxZ)) {
-          helper.draw(pv, mTrackSorting);
-          save = true;
-        }
+      if (conf.PVMode) {
+        helper.draw(pv, conf.trackSorting);
+        save = true;
       } else {
-        helper.draw(pv, mTrackSorting);
+        helper.draw(pv, conf.trackSorting);
         save = true;
       }
 
-      if (this->mMinITSTracks != -1 && helper.mEvent.getDetectorTrackCount(detectors::DetID::ITS) < this->mMinITSTracks) {
+      if (conf.minITSTracks > -1 && helper.mEvent.getDetectorTrackCount(detectors::DetID::ITS) < conf.minITSTracks) {
         save = false;
       }
 
-      if (this->mMinTracks != -1 && helper.mEvent.getTrackCount() < this->mMinTracks) {
+      if (conf.minTracks > -1 && helper.mEvent.getTrackCount() < conf.minTracks) {
         save = false;
       }
 
@@ -173,14 +185,17 @@ void O2DPLDisplaySpec::run(ProcessingContext& pc)
         helper.mEvent.setFirstTForbit(tinfo.firstTForbit);
         helper.mEvent.setRunType(this->mRunType);
         helper.mEvent.setPrimaryVertex(pv);
-        helper.save(this->mJsonPath, this->mExt, this->mNumberOfFiles, this->mTrkMask, this->mClMask, tinfo.runNumber, tinfo.creation);
+        helper.mEvent.setCreationTime(tinfo.creation);
+        helper.save(this->mJsonPath, this->mExt, conf.maxFiles);
         filesSaved++;
+        currentTime = std::chrono::high_resolution_clock::now(); // time AFTER save
+        this->mTimeStamp = currentTime;                          // next run AFTER period counted from last save
       }
 
       helper.clear();
     }
   };
-  if (mPrimaryVertexTriggers) {
+  if (conf.PVTriggersMode) {
     processData(helper.mPrimaryVertexTriggerGIDs);
   } else {
     processData(helper.mPrimaryVertexTrackGIDs);
@@ -214,7 +229,8 @@ void O2DPLDisplaySpec::run(ProcessingContext& pc)
     }
   }
 
-  LOGP(info, "Tracks: {}", fmt::join(sourceStats, ", "));
+  // FIXME: find out why this does not work with 11.1.1
+//  LOGP(info, "Tracks: {}", fmt::join(sourceStats, ", "));
 }
 
 void O2DPLDisplaySpec::endOfStream(EndOfStreamContext& ec)
@@ -225,6 +241,10 @@ void O2DPLDisplaySpec::updateTimeDependentParams(ProcessingContext& pc)
 {
   o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   static bool initOnceDone = false;
+  mTPCVDriftHelper.extractCCDBInputs(pc);
+  if (mTPCVDriftHelper.isUpdated()) {
+    mTPCVDriftHelper.acknowledgeUpdate();
+  }
   if (!initOnceDone) { // this params need to be queried only once
     initOnceDone = true;
     auto grpECS = o2::base::GRPGeomHelper::instance().getGRPECS(); // RS
@@ -240,6 +260,9 @@ void O2DPLDisplaySpec::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
   if (o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj)) {
     return;
   }
+  if (mEMCALCalibLoader && mEMCALCalibLoader->finalizeCCDB(matcher, obj)) {
+    return;
+  }
   if (matcher == ConcreteDataMatcher("ITS", "CLUSDICT", 0)) {
     LOGF(info, "ITS cluster dictionary updated");
     mData.setITSDict((const o2::itsmft::TopologyDictionary*)obj);
@@ -248,6 +271,10 @@ void O2DPLDisplaySpec::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
   if (matcher == ConcreteDataMatcher("MFT", "CLUSDICT", 0)) {
     LOGF(info, "MFT cluster dictionary updated");
     mData.setMFTDict((const o2::itsmft::TopologyDictionary*)obj);
+    return;
+  }
+  if (mTPCVDriftHelper.accountCCDBInputs(matcher, obj)) {
+
     return;
   }
 }
@@ -259,13 +286,19 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   WorkflowSpec specs;
 
   auto jsonFolder = cfgc.options().get<std::string>("jsons-folder");
-  std::string ext = ".root"; // root files are default format
+  std::string ext = ".eve"; // root files are default format
   auto useJsonFormat = cfgc.options().get<bool>("use-json-format");
   if (useJsonFormat) {
     ext = ".json";
   }
+  auto useROOTFormat = cfgc.options().get<bool>("use-root-format");
+  if (useROOTFormat) {
+    ext = ".root";
+  }
   auto eveHostName = cfgc.options().get<std::string>("eve-hostname");
   o2::conf::ConfigurableParam::updateFromString(cfgc.options().get<std::string>("configKeyValues"));
+  const auto& conf = EveConfParam::Instance();
+
   bool useMC = !cfgc.options().get<bool>("disable-mc");
   bool disableWrite = cfgc.options().get<bool>("disable-write");
 
@@ -286,8 +319,6 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   }
 
   std::chrono::milliseconds timeInterval(cfgc.options().get<int>("time-interval"));
-  int numberOfFiles = cfgc.options().get<int>("number-of_files");
-  int numberOfTracks = cfgc.options().get<int>("number-of_tracks");
 
   GlobalTrackID::mask_t srcTrk = GlobalTrackID::getSourcesMask(cfgc.options().get<std::string>("display-tracks"));
   GlobalTrackID::mask_t srcCl = GlobalTrackID::getSourcesMask(cfgc.options().get<std::string>("display-clusters"));
@@ -329,53 +360,22 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
     return std::make_tuple(optEnabled, bracket);
   };
 
-  const auto [filterTime, timeBracket] = isRangeEnabled("filter-time-min", "filter-time-max");
-
-  const auto etaRange = cfgc.options().get<float>("remove-tpc-abs-eta");
-
-  bool removeTPCEta = false;
-  EveWorkflowHelper::Bracket etaBracket;
-
-  if (etaRange != 0.f) {
-    etaBracket = EveWorkflowHelper::Bracket{-etaRange, etaRange};
-    removeTPCEta = true;
-  }
-
   std::shared_ptr<DataRequest> dataRequest = std::make_shared<DataRequest>();
   dataRequest->requestTracks(srcTrk, useMC);
   dataRequest->requestClusters(srcCl, useMC);
 
-  auto filterITSROF = cfgc.options().get<bool>("filter-its-rof");
-
-  if (filterITSROF) {
+  if (conf.filterITSROF) {
     dataRequest->requestIRFramesITS();
     InputHelper::addInputSpecsIRFramesITS(cfgc, specs);
   }
 
-  auto primaryVertexMode = cfgc.options().get<bool>("primary-vertex-mode");
-  auto maxPrimaryVertices = cfgc.options().get<int>("max-primary-vertices");
-
   InputHelper::addInputSpecs(cfgc, specs, srcCl, srcTrk, srcTrk, useMC);
-  if (primaryVertexMode) {
-    dataRequest->requestPrimaryVertertices(useMC);
+  if (conf.PVMode) {
+    dataRequest->requestPrimaryVertices(useMC);
     InputHelper::addInputSpecsPVertex(cfgc, specs, useMC);
   }
+  o2::tpc::VDriftHelper::requestCCDBInputs(dataRequest->inputs);
 
-  auto minITSTracks = cfgc.options().get<int>("min-its-tracks");
-  auto minTracks = cfgc.options().get<int>("min-tracks");
-  auto onlyNthEvent = cfgc.options().get<int>("only-nth-event");
-  auto tracksSorting = cfgc.options().get<bool>("track-sorting");
-  auto primaryVertexTriggers = cfgc.options().get<bool>("primary-vertex-triggers");
-  auto primaryVertexMinZ = cfgc.options().get<float>("primary-vertex-min-z");
-  auto primaryVertexMaxZ = cfgc.options().get<float>("primary-vertex-max-z");
-  auto primaryVertexMinX = cfgc.options().get<float>("primary-vertex-min-x");
-  auto primaryVertexMaxX = cfgc.options().get<float>("primary-vertex-max-x");
-  auto primaryVertexMinY = cfgc.options().get<float>("primary-vertex-min-y");
-  auto primaryVertexMaxY = cfgc.options().get<float>("primary-vertex-max-y");
-
-  if (numberOfTracks == -1) {
-    tracksSorting = false; // do not sort if all tracks are allowed
-  }
   auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                             // orbitResetTime
                                                               true,                              // GRPECS=true
                                                               false,                             // GRPLHCIF
@@ -385,11 +385,20 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
                                                               dataRequest->inputs,
                                                               true); // query only once all objects except mag.field
 
+  std::shared_ptr<o2::emcal::CalibLoader> emcalCalibLoader;
+  if (conf.calibrateEMC) {
+    emcalCalibLoader = std::make_shared<o2::emcal::CalibLoader>();
+    emcalCalibLoader->enableTimeCalib(true);
+    emcalCalibLoader->enableBadChannelMap(true);
+    emcalCalibLoader->enableGainCalib(true);
+    emcalCalibLoader->defineInputSpecs(dataRequest->inputs);
+  }
+
   specs.emplace_back(DataProcessorSpec{
     "o2-eve-export",
     dataRequest->inputs,
     {},
-    AlgorithmSpec{adaptFromTask<O2DPLDisplaySpec>(disableWrite, useMC, srcTrk, srcCl, dataRequest, ggRequest, jsonFolder, ext, timeInterval, numberOfFiles, numberOfTracks, eveHostNameMatch, minITSTracks, minTracks, filterITSROF, filterTime, timeBracket, removeTPCEta, etaBracket, tracksSorting, onlyNthEvent, primaryVertexMode, maxPrimaryVertices, primaryVertexTriggers, primaryVertexMinZ, primaryVertexMaxZ, primaryVertexMinX, primaryVertexMaxX, primaryVertexMinY, primaryVertexMaxY)}});
+    AlgorithmSpec{adaptFromTask<O2DPLDisplaySpec>(disableWrite, useMC, srcTrk, srcCl, dataRequest, ggRequest, emcalCalibLoader, jsonFolder, ext, timeInterval, eveHostNameMatch)}});
 
   // configure dpl timer to inject correct firstTForbit: start from the 1st orbit of TF containing 1st sampled orbit
   o2::raw::HBFUtilsInitializer hbfIni(cfgc, specs);

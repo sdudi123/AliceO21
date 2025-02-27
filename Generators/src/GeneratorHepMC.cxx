@@ -65,6 +65,12 @@ GeneratorHepMC::~GeneratorHepMC()
   if (mEvent) {
     delete mEvent;
   }
+  if (not mCmd.empty()) {
+    // Must be executed before removing the temporary file
+    // otherwise the current child process might still be writing on it
+    // causing unwanted stdout messages which could slow down the system
+    terminateCmd();
+  }
   removeTemp();
 }
 
@@ -87,10 +93,48 @@ void GeneratorHepMC::setup(const GeneratorFileOrCmdParam& param0,
   mPrune = param.prune;
   setEventsToSkip(param.eventsToSkip);
 
+  // we are skipping ahead in the HepMC stream now
+  for (int i = 0; i < mEventsToSkip; ++i) {
+    generateEvent();
+  }
+
   if (param.version != 0 and mCmd.empty()) {
-    LOG(warn) << "The key \"HepMC.version\" is no longer used when "
+    LOG(warn) << "The key \"HepMC.version\" is no longer needed when "
               << "reading from files. The format version of the input files "
-              << "are automatically deduced.";
+              << "are automatically deduced. However, it is mandatory when reading "
+              << "from a pipe containing HepMC2 data.";
+  }
+}
+
+/*****************************************************************/
+void GeneratorHepMC::setup(const FileOrCmdGenConfig& param0,
+                           const HepMCGenConfig& param,
+                           const conf::SimConfig& config)
+{
+  if (not param.fileName.empty()) {
+    LOG(warn) << "The use of the key \"HepMC.fileName\" is "
+              << "deprecated, use \"GeneratorFileOrCmd.fileNames\" instead";
+  }
+
+  GeneratorFileOrCmd::setup(param0, config);
+  if (not param.fileName.empty()) {
+    setFileNames(param.fileName);
+  }
+
+  mVersion = param.version;
+  mPrune = param.prune;
+  setEventsToSkip(param.eventsToSkip);
+
+  // we are skipping ahead in the HepMC stream now
+  for (int i = 0; i < mEventsToSkip; ++i) {
+    generateEvent();
+  }
+
+  if (param.version != 0 and mCmd.empty()) {
+    LOG(warn) << "The key \"HepMC.version\" is no longer needed when "
+              << "reading from files. The format version of the input files "
+              << "are automatically deduced. However, it is mandatory when reading "
+              << "from a pipe containing HepMC2 data.";
   }
 }
 
@@ -100,8 +144,9 @@ Bool_t GeneratorHepMC::generateEvent()
   LOG(debug) << "Generating an event";
   /** generate event **/
   int tries = 0;
+  constexpr int max_tries = 3;
   do {
-    LOG(debug) << " try # " << ++tries;
+    LOG(debug) << " try # " << tries;
     if (not mReader and not makeReader()) {
       return false;
     }
@@ -114,8 +159,13 @@ Bool_t GeneratorHepMC::generateEvent()
       mEvent->set_units(HepMC3::Units::GEV, HepMC3::Units::MM);
       LOG(debug) << "Read one event " << mEvent->event_number();
       return true;
+    } else {
+      LOG(error) << "Event reading from HepMC failed ...";
     }
-  } while (true);
+    tries++;
+  } while (tries < max_tries);
+
+  LOG(error) << "HepMC event gen failed (Does the file/stream have enough events)?";
 
   /** failure **/
   return false;
@@ -242,6 +292,7 @@ Bool_t GeneratorHepMC::importParticles()
   }
 
   /** loop over particles **/
+  mParticles.clear();
   auto particles = mEvent->particles();
   for (int i = 0; i < particles.size(); ++i) {
 
@@ -478,9 +529,9 @@ bool GeneratorHepMC::makeReader()
     // specifies that
     LOG(info) << "Creating ASCII reader of " << filename;
     if (mVersion == 2) {
-      mReader.reset(new HepMC3::ReaderAsciiHepMC2(filename));
+      mReader = std::make_shared<HepMC3::ReaderAsciiHepMC2>(filename);
     } else {
-      mReader.reset(new HepMC3::ReaderAscii(filename));
+      mReader = std::make_shared<HepMC3::ReaderAscii>(filename);
     }
   } else {
     LOG(info) << "Deduce a reader of " << filename;
@@ -530,9 +581,16 @@ Bool_t GeneratorHepMC::Init()
   // All of this can conviniently be achieved via a wrapper script
   // around the actual EG program.
   if (not mCmd.empty()) {
-    // Set filename to be a temporary name
-    if (not makeTemp()) {
-      return false;
+    if (mFileNames.empty()) {
+      // Set filename to be a temporary name
+      if (not makeTemp(false)) {
+        return false;
+      }
+    } else {
+      // Use the first filename as output for cmd line
+      if (not makeTemp(true)) {
+        return false;
+      }
     }
 
     // Make a fifo

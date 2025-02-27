@@ -9,6 +9,8 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
+#add_compile_options(-O0 -g -fPIC -fno-omit-frame-pointer)
+
 o2_add_library(
   DataFormatsGlobalTracking
   SOURCES src/RecoContainer.cxx
@@ -34,7 +36,8 @@ o2_add_library(
     O2::DataFormatsCPV
     O2::DataFormatsPHOS
     O2::DataFormatsEMCAL
-    O2::GPUDataTypeHeaders
+    O2::GPUDataTypes
+    $<$<BOOL:${ENABLE_UPGRADES}>:O2::ITS3Reconstruction>
   PRIVATE_LINK_LIBRARIES
     O2::Framework)
 

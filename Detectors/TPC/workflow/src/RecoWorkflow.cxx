@@ -100,7 +100,7 @@ const std::unordered_map<std::string, OutputType> OutputMap{
 
 framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vector<int> const& tpcSectors, unsigned long tpcSectorMask, std::vector<int> const& laneConfiguration,
                                     const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts, bool propagateMC, unsigned nLanes, std::string const& cfgInput, std::string const& cfgOutput, bool disableRootInput,
-                                    int caClusterer, int zsOnTheFly, bool askDISTSTF, bool selIR, bool filteredInp, int deadMapSources)
+                                    int caClusterer, int zsOnTheFly, bool askDISTSTF, bool selIR, bool filteredInp, int deadMapSources, bool useMCTimeGain)
 {
   InputType inputType;
   try {
@@ -173,11 +173,7 @@ framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vecto
     }
     return false;
   }};
-
   if (!disableRootInput || inputType == InputType::PassThrough) {
-    if (sclOpts.lumiType == 1) { // need CTP digits (lumi) reader
-      specs.emplace_back(o2::ctp::getDigitsReaderSpec(false));
-    }
     // The OutputSpec of the PublisherSpec is configured depending on the input
     // type. Note that the configuration of the dispatch trigger in the main file
     // needs to be done in accordance. This means, if a new input option is added
@@ -200,6 +196,9 @@ framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vecto
       if (sclOpts.needTPCScalersWorkflow()) { // for standalone tpc-reco workflow
         specs.emplace_back(o2::tpc::getTPCScalerSpec(sclOpts.lumiType == 2, sclOpts.enableMShapeCorrection));
       }
+      if (sclOpts.requestCTPLumi) { // need CTP digits (lumi) reader
+        specs.emplace_back(o2::ctp::getDigitsReaderSpec(false));
+      }
     } else if (inputType == InputType::ClustersHardware) {
       specs.emplace_back(o2::tpc::getPublisherSpec(PublisherConf{
                                                      "tpc-clusterhardware-reader",
@@ -220,6 +219,9 @@ framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vecto
       }
       if (sclOpts.needTPCScalersWorkflow()) { // for standalone tpc-reco workflow
         specs.emplace_back(o2::tpc::getTPCScalerSpec(sclOpts.lumiType == 2, sclOpts.enableMShapeCorrection));
+      }
+      if (sclOpts.requestCTPLumi) { // need CTP digits (lumi) reader
+        specs.emplace_back(o2::ctp::getDigitsReaderSpec(false));
       }
     } else if (inputType == InputType::CompClusters) {
       // TODO: need to check if we want to store the MC labels alongside with compressed clusters
@@ -454,6 +456,7 @@ framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vecto
     cfg.lumiScaleType = sclOpts.lumiType;
     cfg.lumiScaleMode = sclOpts.lumiMode;
     cfg.enableMShape = sclOpts.enableMShapeCorrection;
+    cfg.enableCTPLumi = sclOpts.requestCTPLumi;
     cfg.decompressTPC = decompressTPC;
     cfg.decompressTPCFromROOT = decompressTPC && inputType == InputType::CompClusters;
     cfg.caClusterer = caClusterer;
@@ -470,6 +473,7 @@ framework::WorkflowSpec getWorkflow(CompletionPolicyData* policyData, std::vecto
     cfg.askDISTSTF = askDISTSTF;
     cfg.tpcTriggerHandling = isEnabled(OutputType::TPCTriggers) || cfg.caClusterer;
     cfg.tpcDeadMapSources = deadMapSources;
+    cfg.tpcUseMCTimeGain = useMCTimeGain;
 
     Inputs ggInputs;
     auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false, true, false, true, true, o2::base::GRPGeomRequest::Aligned, ggInputs, true);

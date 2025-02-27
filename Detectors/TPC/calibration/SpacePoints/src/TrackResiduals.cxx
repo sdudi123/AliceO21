@@ -50,16 +50,18 @@ using namespace o2::tpc;
 //______________________________________________________________________________
 void TrackResiduals::init(bool doBinning)
 {
+  mSmoothPol2[VoxX] = true;
+  mSmoothPol2[VoxF] = true;
+  setKernelType();
+  mParams = &SpacePointsCalibConfParam::Instance();
+  mMaxZ2X = mParams->maxZ2X;
+  mIsInitialized = true;
+
   if (doBinning) {
     // initialize binning
     initBinning();
   }
 
-  mSmoothPol2[VoxX] = true;
-  mSmoothPol2[VoxF] = true;
-  setKernelType();
-  mParams = &SpacePointsCalibConfParam::Instance();
-  mIsInitialized = true;
   LOG(info) << "Initialization complete";
 }
 
@@ -70,11 +72,24 @@ void TrackResiduals::setY2XBinning(const std::vector<float>& binning)
     LOG(error) << "Binning already initialized, not changing y/x binning";
     return;
   }
-  int nBins = binning.size() - 1;
+
+  if (binning.size() == 0) {
+    LOGP(info, "Empty binning provided, will use default uniform y/x binning with {} bins", mNY2XBins);
+    return;
+  } else if (binning.size() == 1) {
+    const int bins = static_cast<int>(binning.at(0));
+    setNY2XBins(bins);
+    LOGP(info, "Setting uniform binning for y/x with {} bins", bins - 1);
+    return;
+  }
+
+  const int nBins = binning.size() - 1;
   if (fabsf(binning[0] + 1.f) > param::sEps || fabsf(binning[nBins] - 1.f) > param::sEps) {
     LOG(error) << "Provided binning for y/x not in range -1 to 1: " << binning[0] << " - " << binning[nBins] << ". Not changing y/x binning";
     return;
   }
+
+  LOGP(info, "Setting custom binning for y/x with {} bins", nBins);
   setNY2XBins(nBins);
   mUniformBins[VoxF] = false;
   mY2XBinsDH.clear();
@@ -84,6 +99,7 @@ void TrackResiduals::setY2XBinning(const std::vector<float>& binning)
     mY2XBinsDH.push_back(.5f * (binning[iBin + 1] - binning[iBin]));
     mY2XBinsDI.push_back(.5f / mY2XBinsDH[iBin]);
     mY2XBinsCenter.push_back(binning[iBin] + mY2XBinsDH[iBin]);
+    LOGF(info, "Bin %i: center (%.3f), half bin width (%.3f)", iBin, mY2XBinsCenter.back(), mY2XBinsDH.back());
   }
 }
 
@@ -94,11 +110,24 @@ void TrackResiduals::setZ2XBinning(const std::vector<float>& binning)
     LOG(error) << "Binning already initialized, not changing z/x binning";
     return;
   }
+
+  if (binning.size() == 0) {
+    LOGP(info, "Empty binning provided, will use default uniform z/x binning with {} bins", mNZ2XBins);
+    return;
+  } else if (binning.size() == 1) {
+    const int bins = static_cast<int>(binning.at(0));
+    setNZ2XBins(bins);
+    LOGP(info, "Setting uniform binning for z/x with {} bins", bins);
+    return;
+  }
+
   int nBins = binning.size() - 1;
   if (fabsf(binning[0]) > param::sEps || fabsf(binning[nBins] - 1.f) > param::sEps) {
     LOG(error) << "Provided binning for z/x not in range 0 to 1: " << binning[0] << " - " << binning[nBins] << ". Not changing z/x binning";
     return;
   }
+
+  LOGP(info, "Setting custom binning for z/x with {} bins", nBins);
   setNZ2XBins(nBins);
   mUniformBins[VoxZ] = false;
   mZ2XBinsDH.clear();
@@ -108,6 +137,7 @@ void TrackResiduals::setZ2XBinning(const std::vector<float>& binning)
     mZ2XBinsDH.push_back(.5f * (binning[iBin + 1] - binning[iBin]) * mMaxZ2X);
     mZ2XBinsDI.push_back(.5f / mZ2XBinsDH[iBin]);
     mZ2XBinsCenter.push_back(binning[iBin] * mMaxZ2X + mZ2XBinsDH[iBin]);
+    LOGF(info, "Bin %i: center (%.3f), half bin width (%.3f)", iBin, mZ2XBinsCenter.back(), mZ2XBinsDH.back());
   }
 }
 
@@ -154,10 +184,10 @@ void TrackResiduals::initBinning()
   }
   //
   // Z/X binning
-  mDZ2XI = mNZ2XBins / sMaxZ2X;
+  mDZ2XI = mNZ2XBins / mMaxZ2X;
   mDZ2X = 1.0f / mDZ2XI; // for uniform case only
   if (mUniformBins[VoxZ]) {
-    LOGF(info, "Z/X-binning is uniform with %i bins from 0 to %f", mNZ2XBins, sMaxZ2X);
+    LOGF(info, "Z/X-binning is uniform with %i bins from 0 to %f", mNZ2XBins, mMaxZ2X);
     for (int iz = 0; iz < mNZ2XBins; ++iz) {
       mZ2XBinsDH.push_back(.5f * mDZ2X);
       mZ2XBinsDI.push_back(mDZ2XI);
@@ -181,7 +211,7 @@ void TrackResiduals::initResultsContainer(int iSec)
   for (int ix = 0; ix < mNXBins; ++ix) {
     for (int ip = 0; ip < mNY2XBins; ++ip) {
       for (int iz = 0; iz < mNZ2XBins; ++iz) {
-        int binGlb = getGlbVoxBin(ix, ip, iz);
+        const size_t binGlb = getGlbVoxBin(ix, ip, iz);
         VoxRes& resVox = mVoxelResults[iSec][binGlb];
         resVox.bvox[VoxX] = ix;
         resVox.bvox[VoxF] = ip;
@@ -237,7 +267,7 @@ int TrackResiduals::getRowID(float x) const
 bool TrackResiduals::findVoxelBin(int secID, float x, float y, float z, std::array<unsigned char, VoxDim>& bvox) const
 {
   // Z/X bin
-  if (fabs(z / x) > sMaxZ2X) {
+  if (fabs(z / x) > mMaxZ2X) {
     return false;
   }
   int bz = getZ2XBinExact(secID < SECTORSPERSIDE ? z / x : -z / x);
@@ -338,7 +368,7 @@ void TrackResiduals::processSectorResiduals(int iSec)
   initResultsContainer(iSec);
   // effective t0 correction changes sign between A-/C-side
   float effT0corr = (iSec < SECTORSPERSIDE) ? mEffT0Corr : -1. * mEffT0Corr;
-  std::vector<unsigned short> binData;
+  std::vector<size_t> binData;
   for (const auto& res : mLocalResidualsIn) {
     binData.push_back(getGlbVoxBin(res.bvox));
   }
@@ -356,7 +386,7 @@ void TrackResiduals::processSectorResiduals(int iSec)
   dyVec.reserve(1e3);
   dzVec.reserve(1e3);
   tgVec.reserve(1e3);
-  int currVoxBin = -1;
+  size_t currVoxBin = -1;
   unsigned int nPointsInVox = 0;
   unsigned int nProcessed = 0;
   while (nProcessed < binData.size()) {
@@ -573,7 +603,7 @@ int TrackResiduals::validateVoxels(int iSec)
           resVox.flags |= Masked;
         }
       } // loop over Z
-    }   // loop over Y/X
+    } // loop over Y/X
     mValidFracXBins[iSec][ix] = static_cast<float>(cntValid) / (mNY2XBins * mNZ2XBins);
     LOGP(debug, "Sector {}: xBin {} has {} % of voxels valid. Total masked due to fit: {} ,and sigma: {}",
          iSec, ix, mValidFracXBins[iSec][ix] * 100., cntMaskedFit, cntMaskedSigma);

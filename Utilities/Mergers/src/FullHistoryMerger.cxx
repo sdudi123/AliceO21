@@ -76,7 +76,7 @@ void FullHistoryMerger::run(framework::ProcessingContext& ctx)
     }
   }
 
-  if (ctx.inputs().isValid("timer-publish") && !mFirstObjectSerialized.first.empty()) {
+  if (shouldFinishCycle(ctx.inputs())) {
     mCyclesSinceReset++;
     mergeCache();
     publish(ctx.outputs());
@@ -88,8 +88,24 @@ void FullHistoryMerger::run(framework::ProcessingContext& ctx)
   }
 }
 
+bool FullHistoryMerger::shouldFinishCycle(const framework::InputRecord& inputs) const
+{
+  if (mFirstObjectSerialized.first.empty()) {
+    return false;
+  }
+
+  if (mConfig.publicationDecision.value == PublicationDecision::EachNSeconds) {
+    return inputs.isValid("timer-publish");
+  } else if (mConfig.publicationDecision.value == PublicationDecision::EachNArrivals) {
+    return mUpdatesReceived > 0 && mUpdatesReceived % mConfig.publicationDecision.param.decision.begin()->first == 0;
+  } else {
+    throw std::runtime_error("unsupported publication decision parameter");
+  }
+}
+
 void FullHistoryMerger::endOfStream(framework::EndOfStreamContext& eosContext)
 {
+  mergeCache();
   publish(eosContext.outputs());
 }
 
@@ -143,6 +159,11 @@ void FullHistoryMerger::updateCache(const DataRef& ref)
 void FullHistoryMerger::mergeCache()
 {
   LOG(debug) << "Merging " << mCache.size() + 1 << " objects.";
+
+  if (mFirstObjectSerialized.second.payload == nullptr) {
+    // no objects arrived to the Merger yet, nothing to use.
+    return;
+  }
 
   mMergedObject = object_store_helpers::extractObjectFrom(mFirstObjectSerialized.second);
   assert(!std::holds_alternative<std::monostate>(mMergedObject));

@@ -15,6 +15,7 @@
 #include <TStopwatch.h>
 #include "DataFormatsGlobalTracking/RecoContainer.h"
 #include "DataFormatsGlobalTracking/RecoContainerCreateTracksVariadic.h"
+#include "DataFormatsITSMFT/TrkClusRef.h"
 #include "DataFormatsCalibration/MeanVertexObject.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 #include "ReconstructionDataFormats/GlobalTrackID.h"
@@ -113,7 +114,8 @@ void PrimaryVertexingSpec::run(ProcessingContext& pc)
           return true; // just in case this selection was not done on RecoContainer filling level
         }
         auto itsID = recoData.getITSContributorGID(_origID);
-        if (!itsID.isSourceSet() || o2::math_utils::numberOfBitsSet(recoData.getITSTrack(itsID).getPattern() & 7) < minIBHits) {
+        if ((itsID.getSource() == GTrackID::ITS && o2::math_utils::numberOfBitsSet(recoData.getITSTrack(itsID).getPattern() & 7) < minIBHits) ||
+            (itsID.getSource() == GTrackID::ITSAB && o2::math_utils::numberOfBitsSet(recoData.getITSABRef(itsID).pattern & 7) < minIBHits)) { // do not accept ITSAB tracklets
           return true;
         }
         if constexpr (isITSTrack<decltype(_tr)>()) {
@@ -150,6 +152,34 @@ void PrimaryVertexingSpec::run(ProcessingContext& pc)
       }
     }
     mVertexer.process(tracks, gids, ft0Data, vertices, vertexTrackIDs, v2tRefs, tracksMCInfo, lblVtx);
+
+    // flag vertices using UPC ITS mode
+    auto itsrofs = recoData.getITSTracksROFRecords();
+    std::vector<bool> itsTrUPC(recoData.getITSTracks().size());
+    for (auto& rof : itsrofs) {
+      if (rof.getFlag(o2::itsmft::ROFRecord::VtxUPCMode)) {
+        for (int i = rof.getFirstEntry(); i < rof.getFirstEntry() + rof.getNEntries(); i++) {
+          itsTrUPC[i] = true;
+        }
+      }
+    }
+    int nv = vertices.size();
+    for (int iv = 0; iv < nv; iv++) {
+      int idMin = v2tRefs[iv].getFirstEntry(), idMax = idMin + v2tRefs[iv].getEntries();
+      int nits = 0, nitsUPC = 0;
+      for (int id = idMin; id < idMax; id++) {
+        auto gid = recoData.getITSContributorGID(vertexTrackIDs[id]);
+        if (gid.getSource() == GIndex::ITS) {
+          nits++;
+          if (itsTrUPC[gid.getIndex()]) {
+            nitsUPC++;
+          }
+        }
+      }
+      if (nitsUPC > nits / 2) {
+        vertices[iv].setFlags(PVertex::UPCMode);
+      }
+    }
   }
 
   pc.outputs().snapshot(Output{"GLO", "PVTX", 0}, vertices);
@@ -161,11 +191,12 @@ void PrimaryVertexingSpec::run(ProcessingContext& pc)
   }
 
   mTimer.Stop();
-  LOGP(info, "Found {} PVs, Time CPU/Real:{:.3f}/{:.3f} (DBScan: {:.4f}, Finder:{:.4f}, MADSel:{:.4f}, Rej.Debris:{:.4f}, Reattach:{:.4f}) | {} trials for {} TZ-clusters, max.trials: {}, Slowest TZ-cluster: {} ms of mult {}",
+  LOGP(info, "Found {} PVs, Time CPU/Real:{:.3f}/{:.3f} (DBScan: {:.4f}, Finder:{:.4f}, MADSel:{:.4f}, Rej.Debris:{:.4f}, Reattach:{:.4f}) | {} trials for {} TZ-clusters, max.trials: {}, Slowest TZ-cluster: {} ms of mult {} | NInitial:{}, Rejections: NoFilledBC:{}, NoIntCand:{}, Debris:{}, Quality:{}, ITSOnly:{}",
        vertices.size(), mTimer.CpuTime() - timeCPU0, mTimer.RealTime() - timeReal0,
-       mVertexer.getTimeDBScan().CpuTime(), mVertexer.getTimeVertexing().CpuTime(), mVertexer.getTimeMADSel().CpuTime(), mVertexer.getTimeDebris().CpuTime(), mVertexer.getTimeReAttach().CpuTime(),
-       mVertexer.getTotTrials(), mVertexer.getNTZClusters(), mVertexer.getMaxTrialsPerCluster(),
-       mVertexer.getLongestClusterTimeMS(), mVertexer.getLongestClusterMult());
+       mVertexer.getTimeDBScan().CpuTime(), mVertexer.getTimeVertexing().CpuTime(), mVertexer.getTimeMADSel().CpuTime(), mVertexer.getTimeDebris().CpuTime(),
+       mVertexer.getTimeReAttach().CpuTime(), mVertexer.getTotTrials(), mVertexer.getNTZClusters(), mVertexer.getMaxTrialsPerCluster(),
+       mVertexer.getLongestClusterTimeMS(), mVertexer.getLongestClusterMult(), mVertexer.getNIniFound(),
+       mVertexer.getNKilledBCValid(), mVertexer.getNKilledIntCand(), mVertexer.getNKilledDebris(), mVertexer.getNKilledQuality(), mVertexer.getNKilledITSOnly());
 }
 
 void PrimaryVertexingSpec::endOfStream(EndOfStreamContext& ec)
@@ -222,7 +253,7 @@ void PrimaryVertexingSpec::updateTimeDependentParams(ProcessingContext& pc)
   pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
 }
 
-DataProcessorSpec getPrimaryVertexingSpec(GTrackID::mask_t src, bool skip, bool validateWithFT0, bool useMC)
+DataProcessorSpec getPrimaryVertexingSpec(GTrackID::mask_t src, bool skip, bool validateWithFT0, bool useMC, bool useGeom)
 {
   std::vector<OutputSpec> outputs;
   auto dataRequest = std::make_shared<DataRequest>();
@@ -240,12 +271,12 @@ DataProcessorSpec getPrimaryVertexingSpec(GTrackID::mask_t src, bool skip, bool 
     outputs.emplace_back("GLO", "PVTX_MCTR", 0, Lifetime::Timeframe);
   }
 
-  auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                             // orbitResetTime
-                                                              true,                              // GRPECS=true
-                                                              true,                              // GRPLHCIF
-                                                              true,                              // GRPMagField
-                                                              true,                              // askMatLUT
-                                                              o2::base::GRPGeomRequest::Aligned, // geometry
+  auto ggRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                                                                        // orbitResetTime
+                                                              true,                                                                         // GRPECS=true
+                                                              true,                                                                         // GRPLHCIF
+                                                              true,                                                                         // GRPMagField
+                                                              true,                                                                         // askMatLUT
+                                                              useGeom ? o2::base::GRPGeomRequest::Aligned : o2::base::GRPGeomRequest::None, // geometry
                                                               dataRequest->inputs,
                                                               true);
   dataRequest->inputs.emplace_back("meanvtx", "GLO", "MEANVERTEX", 0, Lifetime::Condition, ccdbParamSpec("GLO/Calib/MeanVertex", {}, 1));

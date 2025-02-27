@@ -21,7 +21,11 @@
 #include "SimulationDataFormat/MCEventHeader.h"
 #include "SimulationDataFormat/MCGenProperties.h"
 #include "SimulationDataFormat/ParticleStatus.h"
+#if PYTHIA_VERSION_INTEGER >= 8310
+#include "Pythia8/HIInfo.h"
+#else
 #include "Pythia8/HIUserHooks.h"
+#endif
 #include "Pythia8Plugins/PowhegHooks.h"
 #include "TSystem.h"
 #include "ZDCBase/FragmentParam.h"
@@ -38,23 +42,39 @@ namespace o2
 namespace eventgen
 {
 
+std::atomic<int> GeneratorPythia8::Pythia8InstanceCounter;
+
 /*****************************************************************/
 /*****************************************************************/
 
-GeneratorPythia8::GeneratorPythia8() : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
+// the default construct uses the GeneratorPythia8Param singleton to extract a config and delegates
+// to the proper constructor
+GeneratorPythia8::GeneratorPythia8() : GeneratorPythia8(GeneratorPythia8Param::Instance().detach())
 {
-  /** default constructor **/
+  LOG(info) << "GeneratorPythia8 constructed from GeneratorPythia8Param ConfigurableParam";
+}
+
+/*****************************************************************/
+
+GeneratorPythia8::GeneratorPythia8(Pythia8GenConfig const& config) : Generator("ALICEo2", "ALICEo2 Pythia8 Generator")
+{
+  /** constructor **/
+  mThisPythia8InstanceID = GeneratorPythia8::Pythia8InstanceCounter;
+  GeneratorPythia8::Pythia8InstanceCounter++;
 
   mInterface = reinterpret_cast<void*>(&mPythia);
   mInterfaceName = "pythia8";
 
-  auto& param = GeneratorPythia8Param::Instance();
   LOG(info) << "Instance \'Pythia8\' generator with following parameters";
-  LOG(info) << param;
+  LOG(info) << "config: " << config.config;
+  LOG(info) << "hooksFileName: " << config.hooksFileName;
+  LOG(info) << "hooksFuncName: " << config.hooksFuncName;
 
-  setConfig(param.config);
-  setHooksFileName(param.hooksFileName);
-  setHooksFuncName(param.hooksFuncName);
+  mGenConfig = config;
+
+  setConfig(mGenConfig.config);
+  setHooksFileName(mGenConfig.hooksFileName);
+  setHooksFuncName(mGenConfig.hooksFuncName);
 }
 
 /*****************************************************************/
@@ -67,6 +87,54 @@ GeneratorPythia8::GeneratorPythia8(const Char_t* name, const Char_t* title) : Ge
   mInterfaceName = "pythia8";
 }
 
+bool GeneratorPythia8::setInitialSeed(long seed)
+{
+  // check first of all if Init not yet called and seed not <0
+  if (mIsInitialized) {
+    return false;
+  }
+  if (seed < 0) {
+    return false;
+  }
+  // sets the initial seed and applies the correct Pythia
+  // range
+  mInitialRNGSeed = seed % (MAX_SEED + 1);
+  LOG(info) << "GeneratorPythia8: Setting initial seed to " << mInitialRNGSeed;
+  return true;
+}
+
+/*****************************************************************/
+void GeneratorPythia8::seedGenerator()
+{
+  /// Function is seeding the Pythia random numbers.
+  /// In case a completely different logic is required by users,
+  /// we could make this function virtual or allow to set/execute
+  /// a user-given lambda function instead.
+
+  /// Note that this function is executed **before** the Pythia8
+  /// user config file is read. So the config file should either not contain seeding information ... or can be used to override seeding logic.
+
+  auto seed = mInitialRNGSeed;
+  if (seed == -1) {
+    // Will use the mInitialRNGSeed if it was set.
+    // Otherwise will seed the generator with the state of
+    // TRandom::GetSeed. This is the seed that is influenced from
+    // SimConfig --seed command line options options.
+    seed = gRandom->TRandom::GetSeed(); // this uses the "original" seed
+    // we advance the seed by one so that the next Pythia8 generator gets a different value
+    if (mThisPythia8InstanceID > 0) {
+      gRandom->Rndm();
+      LOG(info) << "Multiple Pythia8 generator instances detected .. automatically adjusting seed further to avoid overlap ";
+      seed = seed ^ gRandom->GetSeed(); // this uses the "current" seed
+    }
+    // apply max seed cuttof
+    seed = seed % (MAX_SEED + 1);
+    LOG(info) << "GeneratorPythia8: Using random seed from gRandom % 900000001: " << seed;
+  }
+  mPythia.readString("Random:setSeed on");
+  mPythia.readString("Random:seed " + std::to_string(seed));
+}
+
 /*****************************************************************/
 
 Bool_t GeneratorPythia8::Init()
@@ -75,6 +143,12 @@ Bool_t GeneratorPythia8::Init()
 
   /** init base class **/
   Generator::Init();
+
+  /** Seed the Pythia random number state.
+      The user may override this seeding by providing separate
+      Random:setSeed configurations in the configuration file.
+  **/
+  seedGenerator();
 
   /** read configuration **/
   if (!mConfig.empty()) {
@@ -142,6 +216,8 @@ Bool_t GeneratorPythia8::Init()
   }
 
   initUserFilterCallback();
+
+  mIsInitialized = true;
 
   /** success **/
   return true;
@@ -505,8 +581,10 @@ void GeneratorPythia8::pruneEvent(Pythia8::Event& event, Select select)
       }
     }
   }
-  LOG(info) << "Pythia event was pruned from " << event.size()
-            << " to " << pruned.size() << " particles";
+  if (mGenConfig.verbose) {
+    LOG(info) << "Pythia event was pruned from " << event.size()
+              << " to " << pruned.size() << " particles";
+  }
   // Assign our pruned event to the event passed in
   event = pruned;
 }
@@ -516,7 +594,7 @@ void GeneratorPythia8::initUserFilterCallback()
 {
   mUserFilterFcn = [](Pythia8::Particle const&) -> bool { return true; };
 
-  auto& filter = GeneratorPythia8Param::Instance().particleFilter;
+  std::string filter = mGenConfig.particleFilter;
   if (filter.size() > 0) {
     LOG(info) << "Initializing the callback for user-based particle pruning " << filter;
     auto expandedFileName = o2::utils::expandShellVarsInFileName(filter);
@@ -545,7 +623,8 @@ Bool_t
   // event record in the AOD.
 
   std::function<bool(const Pythia8::Particle&)> partonSelect = [](const Pythia8::Particle&) { return true; };
-  if (not GeneratorPythia8Param::Instance().includePartonEvent) {
+  bool includeParton = mGenConfig.includePartonEvent;
+  if (not includeParton) {
 
     // Select pythia particles
     partonSelect = [](const Pythia8::Particle& particle) {
@@ -613,6 +692,9 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
 
   auto& info = mPythia.info;
 
+  eventHeader->putInfo<int>(Key::acceptedEvents, info.nAccepted());
+  eventHeader->putInfo<int>(Key::attemptedEvents, info.nTried());
+
   // Set PDF information
   eventHeader->putInfo<int>(Key::pdfParton1Id, info.id1pdf());
   eventHeader->putInfo<int>(Key::pdfParton2Id, info.id2pdf());
@@ -625,6 +707,10 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
   // Set cross section
   eventHeader->putInfo<float>(Key::xSection, info.sigmaGen() * 1e9);
   eventHeader->putInfo<float>(Key::xSectionError, info.sigmaErr() * 1e9);
+
+  // Set event scale and nMPI
+  eventHeader->putInfo<float>(Key::eventScale, info.QRen());
+  eventHeader->putInfo<int>(Key::mpi, info.nMPI());
 
   // Set weights (overrides cross-section for each weight)
   size_t iw = 0;
@@ -647,6 +733,10 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
     /** set impact parameter **/
     eventHeader->SetB(hiinfo->b());
     eventHeader->putInfo<double>(Key::impactParameter, hiinfo->b());
+    /** set event plane angle **/
+#if PYTHIA_VERSION_INTEGER >= 8310
+    eventHeader->putInfo<double>(Key::planeAngle, hiinfo->phi());
+#endif
     auto bImp = hiinfo->b();
     /** set Ncoll, Npart and Nremn **/
     int nColl, nPart;
@@ -742,14 +832,21 @@ void GeneratorPythia8::getNcoll(const Pythia8::Info& info, int& nColl)
 #else
   auto hiinfo = info.hiInfo;
 #endif
+  nColl = 0;
+  if (!hiinfo) {
+    LOG(warn) << "No heavy-ion information from Pythia";
+    return;
+  }
 
   // This is how the Pythia authors define Ncoll
   nColl = (hiinfo->nAbsProj() + hiinfo->nDiffProj() +
            hiinfo->nAbsTarg() + hiinfo->nDiffTarg() -
            hiinfo->nCollND() - hiinfo->nCollDD());
-  nColl = 0;
 
-  if (!hiinfo) {
+  if (not hiinfo->subCollisionsPtr()) {
+#if PYTHIA_VERSION_INTEGER < 8310
+    LOG(fatal) << "No sub-collision pointer from Pythia";
+#endif
     return;
   }
 
@@ -775,15 +872,21 @@ void GeneratorPythia8::getNpart(const Pythia8::Info& info, int& nPart)
 
   /** compute number of participants as the sum of all participants nucleons **/
 
-  // This is how the Pythia authors calculate Npart
 #if PYTHIA_VERSION_INTEGER < 8300
   auto hiinfo = info.hiinfo;
 #else
   auto hiinfo = info.hiInfo;
 #endif
-  if (hiinfo) {
-    nPart = (hiinfo->nAbsProj() + hiinfo->nDiffProj() +
-             hiinfo->nAbsTarg() + hiinfo->nDiffTarg());
+  nPart = 0;
+  if (not hiinfo) {
+    return;
+  }
+
+  // This is how the Pythia authors calculate Npart
+  nPart = (hiinfo->nAbsProj() + hiinfo->nDiffProj() +
+           hiinfo->nAbsTarg() + hiinfo->nDiffTarg());
+  if (not hiinfo->subCollisionsPtr()) {
+    return;
   }
 
   int nProtonProj, nNeutronProj, nProtonTarg, nNeutronTarg;
@@ -806,6 +909,15 @@ void GeneratorPythia8::getNpart(const Pythia8::Info& info, int& nProtonProj, int
 
   nProtonProj = nNeutronProj = nProtonTarg = nNeutronTarg = 0;
   if (!hiinfo) {
+    return;
+  }
+
+  nProtonProj = hiinfo->nAbsProj() + hiinfo->nDiffProj();
+  nProtonTarg = hiinfo->nAbsTarg() + hiinfo->nDiffTarg();
+  if (not hiinfo->subCollisionsPtr()) {
+#if PYTHIA_VERSION_INTEGER < 8310
+    LOG(fatal) << "No sub-collision pointer from Pythia";
+#endif
     return;
   }
 

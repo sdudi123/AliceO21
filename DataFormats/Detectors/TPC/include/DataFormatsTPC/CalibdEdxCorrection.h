@@ -22,6 +22,7 @@
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <string_view>
 #include <algorithm>
+#include <array>
 #endif
 
 // o2 includes
@@ -48,9 +49,9 @@ class CalibdEdxCorrection
   }
   CalibdEdxCorrection(std::string_view fileName) { loadFromFile(fileName); }
 #else
-  CalibdEdxCorrection() CON_DEFAULT;
+  CalibdEdxCorrection() = default;
 #endif
-  ~CalibdEdxCorrection() CON_DEFAULT;
+  ~CalibdEdxCorrection() = default;
 
   GPUd() float getCorrection(const StackID& stack, ChargeType charge, float tgl = 0, float snp = 0) const
   {
@@ -90,11 +91,29 @@ class CalibdEdxCorrection
 
   void clear();
 
-  void writeToFile(std::string_view fileName) const;
-  void loadFromFile(std::string_view fileName);
+  void writeToFile(std::string_view fileName, std::string_view objName = "ccdb_object") const;
+  void loadFromFile(std::string_view fileName, std::string_view objName = "ccdb_object");
 
   /// \param outFileName name of the output file
   void dumpToTree(const char* outFileName = "calib_dedx.root") const;
+
+  /// Parameters averaged over all stacks
+  const std::array<float, ParamSize> getMeanParams(ChargeType charge) const;
+
+  /// Parameters averaged over all sectors for a stack type
+  const std::array<float, ParamSize> getMeanParams(const GEMstack stack, ChargeType charge) const;
+
+  /// Single fit parameters averaged over all sectors for a stack type
+  float getMeanParam(ChargeType charge, uint32_t param) const;
+
+  /// Single fit parameters averaged over all sectors for a stack type
+  float getMeanParam(const GEMstack stack, ChargeType charge, uint32_t param) const;
+
+  /// Single fit parameters averaged over all sectors for a stack type
+  float getMeanEntries(ChargeType charge) const;
+
+  /// Single fit parameters averaged over all sectors for a stack type
+  float getMeanEntries(const GEMstack stack, ChargeType charge) const;
 
 #endif
 

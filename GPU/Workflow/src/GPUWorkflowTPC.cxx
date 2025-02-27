@@ -47,6 +47,7 @@
 #include "GPUO2InterfaceConfiguration.h"
 #include "GPUO2InterfaceQA.h"
 #include "GPUO2Interface.h"
+#include "GPUO2InterfaceUtils.h"
 #include "CalibdEdxContainer.h"
 #include "GPUNewCalibValues.h"
 #include "TPCPadGainCalib.h"
@@ -64,10 +65,7 @@
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "Algorithm/Parser.h"
 #include "DataFormatsGlobalTracking/RecoContainer.h"
-#include "DataFormatsTRD/RecoInputContainer.h"
-#include "TRDBase/Geometry.h"
-#include "TRDBase/GeometryFlat.h"
-#include "ITSBase/GeometryTGeo.h"
+#include "DataFormatsTPC/AltroSyncSignal.h"
 #include "CommonUtils/VerbosityConfig.h"
 #include "CommonUtils/DebugStreamer.h"
 #include <filesystem>
@@ -206,7 +204,7 @@ void GPURecoWorkflowSpec::initFunctionTPCCalib(InitContext& ic)
   if (std::filesystem::exists(mConfParam->gainCalibFile)) {
     LOG(info) << "Loading tpc gain correction from file " << mConfParam->gainCalibFile;
     const auto* gainMap = o2::tpc::utils::readCalPads(mConfParam->gainCalibFile, "GainMap")[0];
-    mCalibObjects.mTPCPadGainCalib = GPUO2Interface::getPadGainCalib(*gainMap);
+    mCalibObjects.mTPCPadGainCalib = GPUO2InterfaceUtils::getPadGainCalib(*gainMap);
 
     LOGP(info, "Disabling loading the TPC gain correction map from the CCDB as it was already loaded from input file");
     mUpdateGainMapCCDB = false;
@@ -214,7 +212,7 @@ void GPURecoWorkflowSpec::initFunctionTPCCalib(InitContext& ic)
     if (not mConfParam->gainCalibFile.empty()) {
       LOG(warn) << "Couldn't find tpc gain correction file " << mConfParam->gainCalibFile << ". Not applying any gain correction.";
     }
-    mCalibObjects.mTPCPadGainCalib = GPUO2Interface::getPadGainCalibDefault();
+    mCalibObjects.mTPCPadGainCalib = GPUO2InterfaceUtils::getPadGainCalibDefault();
     mCalibObjects.mTPCPadGainCalib->getGainCorrection(30, 5, 5);
   }
   mConfig->configCalib.tpcPadGain = mCalibObjects.mTPCPadGainCalib.get();
@@ -246,7 +244,7 @@ void GPURecoWorkflowSpec::finaliseCCDBTPC(ConcreteDataMatcher& matcher, void* ob
     }
 
     if (mUpdateGainMapCCDB && mSpecConfig.caClusterer) {
-      mTPCPadGainCalibBufferNew = GPUO2Interface::getPadGainCalib(*gainMap);
+      mTPCPadGainCalibBufferNew = GPUO2InterfaceUtils::getPadGainCalib(*gainMap);
     }
 
   } else if (matcher == ConcreteDataMatcher(gDataOriginTPC, "PADGAINRESIDUAL", 0)) {
@@ -280,14 +278,18 @@ void GPURecoWorkflowSpec::finaliseCCDBTPC(ConcreteDataMatcher& matcher, void* ob
     mTPCDeadChannelMapCreator->finalizeDeadChannelMap();
     mdEdxCalibContainerBufferNew.get()->setDeadChannelMap(mTPCDeadChannelMapCreator->getDeadChannelMap());
     LOGP(info, "Updating dead channel map with IDC pad flags: {} / {} dead pads from pad flags / total",
-         mTPCDeadChannelMapCreator->getDeadChannelMapIDC().getSum<int>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int>());
+         mTPCDeadChannelMapCreator->getDeadChannelMapIDC().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (matcher == ConcreteDataMatcher(gDataOriginTPC, "TPCRUNINFO", 0)) {
     copyCalibsToBuffer();
-    mTPCDeadChannelMapCreator->loadFEEConfigViaRunInfoTS(mCreationForCalib);
+    const auto* fee = static_cast<o2::tpc::FEEConfig*>(obj);
+    mTPCDeadChannelMapCreator->setDeadChannelMapFEEConfig(*fee);
     mTPCDeadChannelMapCreator->finalizeDeadChannelMap();
     mdEdxCalibContainerBufferNew.get()->setDeadChannelMap(mTPCDeadChannelMapCreator->getDeadChannelMap());
-    LOGP(info, "Updating dead channel map with the FEE info loaded via TPCRUNINFO for creation time {}: {} / {} dead pads from FEE info / total",
-         mCreationForCalib, mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int>());
+    LOGP(info,
+         "Updating dead channel map with the FEE info (tag {}) loaded via TPCRUNINFO"
+         " for creation time {}: {} / {} dead pads from FEE info / total, with",
+         std::underlying_type_t<o2::tpc::FEEConfig::Tags>(fee->tag), mCreationForCalib,
+         mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (mTPCVDriftHelper->accountCCDBInputs(matcher, obj)) {
   } else if (mCalibObjects.mFastTransformHelper->accountCCDBInputs(matcher, obj)) {
   }
@@ -307,6 +309,10 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
       pc.inputs().get<o2::tpc::CalDet<float>*>("tpcgain");
     }
 
+    if (mSpecConfig.outputTracks || mSpecConfig.caClusterer) {
+      mTPCCutAtTimeBin = mConfParam->overrideTPCTimeBinCur > 0 ? mConfParam->overrideTPCTimeBinCur : pc.inputs().get<o2::tpc::AltroSyncSignal*>("tpcaltrosync")->getTB2Cut(pc.services().get<o2::framework::TimingInfo>().tfCounter);
+    }
+
     // these calibrations are only defined for the tracking
     if (mSpecConfig.outputTracks) {
       // update the calibration objects in case they changed in the CCDB
@@ -319,7 +325,7 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
       }
 
       if (mTPCDeadChannelMapCreator->useSource(tpc::SourcesDeadMap::FEEConfig)) {
-        pc.inputs().get<char*>("tpcruninfo");
+        pc.inputs().get<o2::tpc::FEEConfig*>("tpcruninfo");
       }
 
       if (dEdxCalibContainer->isCorrectionCCDB(o2::tpc::CalibsdEdx::CalResidualGainMap)) {
@@ -413,19 +419,26 @@ void GPURecoWorkflowSpec::doTrackTuneTPC(GPUTrackingInOutPointers& ptrs, char* b
       throw std::runtime_error("Buffer does not match span");
     }
     o2::tpc::TrackTPC* tpcTracks = reinterpret_cast<o2::tpc::TrackTPC*>(buffout);
-    for (unsigned int itr = 0; itr < ptrs.nOutputTracksTPCO2; itr++) {
+    float scale = mCalibObjects.mFastTransformHelper->getInstLumiCTP();
+    if (scale < 0.f) {
+      scale = 0.f;
+    }
+    auto diagInner = trackTune.getCovInnerTotal(scale);
+    auto diagOuter = trackTune.getCovOuterTotal(scale);
+
+    for (uint32_t itr = 0; itr < ptrs.nOutputTracksTPCO2; itr++) {
       auto& trc = tpcTracks[itr];
       if (trackTune.useTPCInnerCorr) {
         trc.updateParams(trackTune.tpcParInner);
       }
       if (trackTune.tpcCovInnerType != TrackTunePar::AddCovType::Disable) {
-        trc.updateCov(trackTune.tpcCovInner, trackTune.tpcCovInnerType == TrackTunePar::AddCovType::WithCorrelations);
+        trc.updateCov(diagInner, trackTune.tpcCovInnerType == TrackTunePar::AddCovType::WithCorrelations);
       }
       if (trackTune.useTPCOuterCorr) {
         trc.getParamOut().updateParams(trackTune.tpcParOuter);
       }
       if (trackTune.tpcCovOuterType != TrackTunePar::AddCovType::Disable) {
-        trc.getParamOut().updateCov(trackTune.tpcCovOuter, trackTune.tpcCovOuterType == TrackTunePar::AddCovType::WithCorrelations);
+        trc.getParamOut().updateCov(diagOuter, trackTune.tpcCovOuterType == TrackTunePar::AddCovType::WithCorrelations);
       }
     }
   }

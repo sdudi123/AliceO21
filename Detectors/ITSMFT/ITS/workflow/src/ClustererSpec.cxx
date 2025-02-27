@@ -46,6 +46,7 @@ void ClustererDPL::init(InitContext& ic)
   mUseClusterDictionary = !ic.options().get<bool>("ignore-cluster-dictionary");
   o2::base::GRPGeomHelper::instance().setRequest(mGGCCDBRequest);
   mNThreads = std::max(1, ic.options().get<int>("nthreads"));
+  LOGP(info, "Initialising ITSClusterer with {} threads", mNThreads);
   mState = 1;
 }
 
@@ -120,8 +121,9 @@ void ClustererDPL::updateTimeDependentParams(ProcessingContext& pc)
     // settings for the fired pixel overflow masking
     const auto& alpParams = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance();
     const auto& clParams = o2::itsmft::ClustererParam<o2::detectors::DetID::ITS>::Instance();
+    mClusterer->setDropHugeClusters(clParams.dropHugeClusters);
     if (clParams.maxBCDiffToMaskBias > 0 && clParams.maxBCDiffToSquashBias > 0) {
-      LOGP(fatal, "maxBCDiffToMaskBias = {} and maxBCDiffToMaskBias = {} cannot be set at the same time. Either set masking or squashing with a BCDiff > 0", clParams.maxBCDiffToMaskBias, clParams.maxBCDiffToSquashBias);
+      LOGP(fatal, "maxBCDiffToMaskBias = {} and maxBCDiffToSquashBias = {} cannot be set at the same time. Either set masking or squashing with a BCDiff > 0", clParams.maxBCDiffToMaskBias, clParams.maxBCDiffToSquashBias);
     }
     auto nbc = clParams.maxBCDiffToMaskBias;
     nbc += mClusterer->isContinuousReadOut() ? alpParams.roFrameLengthInBC : (alpParams.roFrameLengthTrig / o2::constants::lhc::LHCBunchSpacingNS);

@@ -175,7 +175,6 @@ bool GRPDCSDPsProcessor::processCollimators(const DPCOM& dpcom)
 
 bool GRPDCSDPsProcessor::processEnvVar(const DPCOM& dpcom)
 {
-
   // function to process Data Points that are related to env variables
   bool match = processPairD(dpcom, "CavernTemperature", mEnvVars.mEnvVars) ||
                processPairD(dpcom, "CavernAtmosPressure", mEnvVars.mEnvVars) ||
@@ -186,7 +185,7 @@ bool GRPDCSDPsProcessor::processEnvVar(const DPCOM& dpcom)
 }
 
 //______________________________________________________________________
-bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<uint64_t, double>>>& mapToUpdate)
+bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& alias, std::unordered_map<std::string, std::vector<std::pair<O2LongUInt, double>>>& mapToUpdate)
 {
 
   // function to process Data Points that is stored in a pair
@@ -208,7 +207,7 @@ bool GRPDCSDPsProcessor::processPairD(const DPCOM& dpcom, const std::string& ali
 }
 
 //______________________________________________________________________
-bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<uint64_t, std::string>& p, bool& flag)
+bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& alias, std::pair<O2LongUInt, std::string>& p, bool& flag)
 {
 
   // function to process string Data Points that is stored in a pair
@@ -238,7 +237,7 @@ bool GRPDCSDPsProcessor::processPairS(const DPCOM& dpcom, const std::string& ali
 
 //______________________________________________________________________
 
-bool GRPDCSDPsProcessor::compareToLatest(std::pair<uint64_t, double>& p, double val)
+bool GRPDCSDPsProcessor::compareToLatest(std::pair<O2LongUInt, double>& p, double val)
 {
 
   // check if the content of the pair should be updated
@@ -396,20 +395,20 @@ void GRPDCSDPsProcessor::updateEnvVarsCCDB()
 void GRPDCSDPsProcessor::updateCollimatorsCCDB()
 {
 
-  // we need to update a CCDB for the Env Variables DPs --> let's prepare the CCDBInfo
+  // we need to update a CCDB for the Collimators Variables DPs --> let's prepare the CCDBInfo
 
   if (mVerbose) {
     LOG(info) << "Entry related to Collimators needs to be updated with startTime " << mStartValidityColli;
   }
   std::map<std::string, std::string> md;
   md["responsible"] = "Chiara Zampolli";
-  o2::calibration::Utils::prepareCCDBobjectInfo(mEnvVars, mccdbCollimatorsInfo, "GLO/Config/Collimators", md, mStartValidityColli, mStartValidityColli + 3 * o2::ccdb::CcdbObjectInfo::DAY); // valid for 3 days
+  o2::calibration::Utils::prepareCCDBobjectInfo(mCollimators, mccdbCollimatorsInfo, "GLO/Config/Collimators", md, mStartValidityColli, mStartValidityColli + 3 * o2::ccdb::CcdbObjectInfo::DAY); // valid for 3 days
   return;
 }
 
 //______________________________________________________________________
 
-void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<uint64_t, double>>& vect, bool afterUpdate)
+void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<O2LongUInt, double>>& vect, bool afterUpdate)
 {
 
   std::string stage = afterUpdate ? "after update" : "before update";
@@ -423,7 +422,7 @@ void GRPDCSDPsProcessor::printVectorInfo(const std::vector<std::pair<uint64_t, d
 
 //______________________________________________________________________
 
-void GRPDCSDPsProcessor::updateVector(const DPID& dpid, std::vector<std::pair<uint64_t, double>>& vect, std::string alias, uint64_t timestamp, double val)
+void GRPDCSDPsProcessor::updateVector(const DPID& dpid, std::vector<std::pair<O2LongUInt, double>>& vect, std::string alias, O2LongUInt timestamp, double val)
 {
   printVectorInfo(vect, 0);
   bool updateFlag = false;

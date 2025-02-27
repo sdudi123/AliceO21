@@ -9,9 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#include <cstdio>
 #include "Framework/ASoA.h"
 #include "Framework/Expressions.h"
 #include "Framework/AnalysisHelpers.h"
+#include "CommonConstants/MathConstants.h"
 #include "gandiva/tree_expr_builder.h"
 #include "arrow/status.h"
 #include "gandiva/filter.h"
@@ -36,9 +38,9 @@ DECLARE_SOA_EXPRESSION_COLUMN(ESum, esum, int, test::x + test::y);
 DECLARE_SOA_TABLE(Points, "TEST", "POINTS", test::X, test::Y);
 DECLARE_SOA_TABLE(Points3Ds, "TEST", "PTS3D", o2::soa::Index<>, test::X, test::Y, test::Z);
 
-DECLARE_SOA_TABLE(Points3DsMk1, "TEST", "PTS3D_1", o2::soa::Index<>, o2::soa::Marker<1>, test::X, test::Y, test::Z);
-DECLARE_SOA_TABLE(Points3DsMk2, "TEST", "PTS3D_2", o2::soa::Index<>, o2::soa::Marker<2>, test::X, test::Y, test::Z);
-DECLARE_SOA_TABLE(Points3DsMk3, "TEST", "PTS3D_3", o2::soa::Index<>, o2::soa::Marker<3>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk1s, "TEST", "PTS3D", 1, o2::soa::Index<>, o2::soa::Marker<1>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk2s, "TEST", "PTS3D", 2, o2::soa::Index<>, o2::soa::Marker<2>, test::X, test::Y, test::Z);
+DECLARE_SOA_TABLE_VERSIONED(Points3DMk3s, "TEST", "PTS3D", 3, o2::soa::Index<>, o2::soa::Marker<3>, test::X, test::Y, test::Z);
 
 namespace test
 {
@@ -58,7 +60,7 @@ DECLARE_SOA_COLUMN_FULL(Thickness, thickness, int, "thickness");
 } // namespace test
 
 DECLARE_SOA_TABLE(Segments, "TEST", "SEGMENTS", test::N, test::PointAId, test::PointBId, test::InfoId);
-DECLARE_SOA_TABLE(SegmentsExtras, "TEST", "SEGMENTSEX", test::Thickness);
+DECLARE_SOA_TABLE(SegmentsExtras, "TEST", "SEGMENTSPLUS", test::Thickness);
 
 namespace test
 {
@@ -79,9 +81,9 @@ TEST_CASE("TestMarkers")
   auto t1 = b1.finalize();
 
   auto pt = o2::aod::Points3Ds{t1};
-  auto pt1 = o2::aod::Points3DsMk1{t1};
-  auto pt2 = o2::aod::Points3DsMk2{t1};
-  auto pt3 = o2::aod::Points3DsMk3{t1};
+  auto pt1 = o2::aod::Points3DMk1s{t1};
+  auto pt2 = o2::aod::Points3DMk2s{t1};
+  auto pt3 = o2::aod::Points3DMk3s{t1};
   REQUIRE(pt1.begin().mark() == (size_t)1);
   REQUIRE(pt2.begin().mark() == (size_t)2);
   REQUIRE(pt3.begin().mark() == (size_t)3);
@@ -129,7 +131,7 @@ TEST_CASE("TestTableIteration")
   ++tests;
   REQUIRE(tests.x() == 0);
   REQUIRE(tests.y() == 1);
-  using Test = o2::soa::Table<o2::aod::test::X, o2::aod::test::Y>;
+  using Test = InPlaceTable<"T/0"_h, o2::aod::test::X, o2::aod::test::Y>;
   Test tests2{table};
   size_t value = 0;
   auto b = tests2.begin();
@@ -154,7 +156,7 @@ TEST_CASE("TestTableIteration")
 
   for (auto& t : tests2) {
     REQUIRE(t.x() == value / 4);
-    REQUIRE(t.y() == value);
+    REQUIRE((size_t)t.y() == value);
     REQUIRE(value < 8);
     value++;
   }
@@ -179,18 +181,18 @@ TEST_CASE("TestDynamicColumns")
   rowWriter(0, 1, 7);
   auto table = builder.finalize();
 
-  using Test = o2::soa::Table<o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::X, o2::aod::test::Y>>;
+  using Test1 = InPlaceTable<"A"_h, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::X, o2::aod::test::Y>>;
 
-  Test tests{table};
-  for (auto& test : tests) {
-    REQUIRE(test.sum() == test.x() + test.y());
+  Test1 tests1{table};
+  for (auto& test : tests1) {
+    REQUIRE(test.sum() == (test.x() + test.y()));
   }
 
-  using Test2 = o2::soa::Table<o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::Y, o2::aod::test::Y>>;
+  using Test2 = InPlaceTable<"B"_h, o2::aod::test::X, o2::aod::test::Y, o2::aod::test::Sum<o2::aod::test::Y, o2::aod::test::Y>>;
 
   Test2 tests2{table};
   for (auto& test : tests2) {
-    REQUIRE(test.sum() == test.y() + test.y());
+    CHECK(test.sum() == (test.y() + test.y()));
   }
 }
 
@@ -266,16 +268,16 @@ TEST_CASE("TestJoinedTables")
   rowWriterZ(0, 8);
   auto tableZ = builderZ.finalize();
 
-  using TestX = o2::soa::Table<o2::aod::test::X>;
-  using TestY = o2::soa::Table<o2::aod::test::Y>;
-  using TestZ = o2::soa::Table<o2::aod::test::Z>;
+  using TestX = InPlaceTable<"A0"_h, o2::aod::test::X>;
+  using TestY = InPlaceTable<"A1"_h, o2::aod::test::Y>;
+  using TestZ = InPlaceTable<"A2"_h, o2::aod::test::Z>;
   using Test = Join<TestX, TestY>;
 
   REQUIRE(Test::contains<TestX>());
   REQUIRE(Test::contains<TestY>());
   REQUIRE(!Test::contains<TestZ>());
 
-  Test tests{0, tableX, tableY};
+  Test tests{{tableX, tableY}, 0};
 
   REQUIRE(tests.contains<TestX>());
   REQUIRE(tests.contains<TestY>());
@@ -286,8 +288,7 @@ TEST_CASE("TestJoinedTables")
   }
 
   auto tests2 = join(TestX{tableX}, TestY{tableY});
-  static_assert(std::is_same_v<Test::table_t, decltype(tests2)>,
-                "Joined tables should have the same type, regardless how we construct them");
+  static_assert(std::same_as<Test::self_t, decltype(tests2)>, "Joined tables should have the same type, regardless how we construct them");
   for (auto& test : tests2) {
     REQUIRE(7 == test.x() + test.y());
   }
@@ -298,7 +299,7 @@ TEST_CASE("TestJoinedTables")
     REQUIRE(15 == test.x() + test.y() + test.z());
   }
   using TestMoreThanTwo = Join<TestX, TestY, TestZ>;
-  TestMoreThanTwo tests4{0, tableX, tableY, tableZ};
+  TestMoreThanTwo tests4{{tableX, tableY, tableZ}, 0};
   for (auto& test : tests4) {
     REQUIRE(15 == test.x() + test.y() + test.z());
   }
@@ -355,25 +356,25 @@ TEST_CASE("TestConcatTables")
   rowWriterD(0, 23, 15);
   auto tableD = builderD.finalize();
 
-  using TestA = o2::soa::Table<o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
-  using TestB = o2::soa::Table<o2::soa::Index<>, o2::aod::test::X>;
-  using TestC = o2::soa::Table<o2::aod::test::Z>;
-  using TestD = o2::soa::Table<o2::aod::test::X, o2::aod::test::Z>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>; // o2::aod::TestA;
+  using TestB = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X>;                   // o2::aod::TestB;
+  using TestC = InPlaceTable<0, o2::aod::test::Z>;                                     // o2::aod::TestC;
+  using TestD = InPlaceTable<0, o2::aod::test::X, o2::aod::test::Z>;                   // o2::aod::TestD;
   using ConcatTest = Concat<TestA, TestB>;
   using JoinedTest = Join<TestA, TestC>;
   using NestedJoinTest = Join<JoinedTest, TestD>;
   using NestedConcatTest = Concat<Join<TestA, TestB>, TestD>;
 
-  static_assert(std::is_same_v<NestedJoinTest::table_t, o2::soa::Table<o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
+  static_assert(std::same_as<NestedJoinTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::Y, o2::aod::test::X, o2::aod::test::Z>>, "Bad nested join");
 
-  static_assert(std::is_same_v<ConcatTest::table_t, o2::soa::Table<o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
+  static_assert(std::same_as<ConcatTest::columns_t, o2::framework::pack<o2::soa::Index<>, o2::aod::test::X>>, "Bad intersection of columns");
   ConcatTest tests{tableA, tableB};
   REQUIRE(16 == tests.size());
   for (auto& test : tests) {
     REQUIRE(test.index() == test.x());
   }
 
-  static_assert(std::is_same_v<NestedConcatTest::table_t, o2::soa::Table<o2::aod::test::X>>, "Bad nested concat");
+  static_assert(std::same_as<NestedConcatTest::columns_t, o2::framework::pack<o2::aod::test::X>>, "Bad nested concat");
 
   // Hardcode a selection for the first 5 odd numbers
   using FilteredTest = Filtered<TestA>;
@@ -464,7 +465,7 @@ TEST_CASE("TestConcatTables")
   selectionJoin->SetIndex(1, 2);
   selectionJoin->SetIndex(2, 4);
   selectionJoin->SetNumSlots(3);
-  JoinedTest testJoin{0, tableA, tableC};
+  JoinedTest testJoin{{tableA, tableC}, 0};
   FilteredJoinTest filteredJoin{{testJoin.asArrowTable()}, selectionJoin};
 
   i = 0;
@@ -516,7 +517,7 @@ TEST_CASE("TestDereference")
 
   REQUIRE(segments.begin().pointAId() == 0);
   REQUIRE(segments.begin().pointBId() == 1);
-  static_assert(std::is_same_v<decltype(segments.begin().pointA()), o2::aod::Points::iterator>);
+  static_assert(std::same_as<decltype(segments.begin().pointA()), o2::aod::Points::iterator>);
   auto i = segments.begin();
   using namespace o2::framework;
   i.bindExternalIndices(&points, &infos);
@@ -573,9 +574,8 @@ TEST_CASE("TestFilteredOperators")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>; // o2::soa::Table<OriginEnc{"AOD"}, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
   using FilteredTest = Filtered<TestA>;
-  using NestedFilteredTest = Filtered<Filtered<TestA>>;
   using namespace o2::framework;
 
   expressions::Filter f1 = o2::aod::test::x < 4;
@@ -595,8 +595,7 @@ TEST_CASE("TestFilteredOperators")
   FilteredTest filteredUnion = filtered1 + filtered2;
   REQUIRE(6 == filteredUnion.size());
 
-  std::vector<std::tuple<int32_t, int32_t>> expectedUnion{
-    {0, 8}, {1, 9}, {2, 10}, {3, 11}, {6, 14}, {7, 15}};
+  std::vector<std::tuple<int32_t, int32_t>> expectedUnion{{0, 8}, {1, 9}, {2, 10}, {3, 11}, {6, 14}, {7, 15}};
   auto i = 0;
   for (auto& f : filteredUnion) {
     REQUIRE(std::get<0>(expectedUnion[i]) == f.x());
@@ -610,7 +609,7 @@ TEST_CASE("TestFilteredOperators")
   REQUIRE(0 == filteredIntersection.size());
 
   i = 0;
-  for (auto& f : filteredIntersection) {
+  for (auto const& _ : filteredIntersection) {
     i++;
   }
   REQUIRE(i == 0);
@@ -649,7 +648,7 @@ TEST_CASE("TestNestedFiltering")
   auto tableA = builderA.finalize();
   REQUIRE(tableA->num_rows() == 8);
 
-  using TestA = o2::soa::Table<o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
+  using TestA = InPlaceTable<0, o2::soa::Index<>, o2::aod::test::X, o2::aod::test::Y>;
   using FilteredTest = Filtered<TestA>;
   using NestedFilteredTest = Filtered<Filtered<TestA>>;
   using TripleNestedFilteredTest = Filtered<Filtered<Filtered<TestA>>>;
@@ -693,18 +692,18 @@ TEST_CASE("TestNestedFiltering")
 TEST_CASE("TestEmptyTables")
 {
   TableBuilder bPoints;
-  auto pwriter = bPoints.cursor<o2::aod::Points>();
+  [[maybe_unused]] auto pwriter = bPoints.cursor<o2::aod::Points>();
   auto pempty = bPoints.finalize();
 
   TableBuilder bInfos;
-  auto iwriter = bInfos.cursor<o2::aod::Infos>();
+  [[maybe_unused]] auto iwriter = bInfos.cursor<o2::aod::Infos>();
   auto iempty = bInfos.finalize();
 
   o2::aod::Points p{pempty};
   o2::aod::Infos i{iempty};
 
   using PI = Join<o2::aod::Points, o2::aod::Infos>;
-  PI pi{0, pempty, iempty};
+  PI pi{{pempty, iempty}, 0};
   REQUIRE(pi.size() == 0);
   auto spawned = Extend<o2::aod::Points, o2::aod::test::ESum>(p);
   REQUIRE(spawned.size() == 0);
@@ -719,10 +718,12 @@ DECLARE_SOA_INDEX_COLUMN(Origint, origint);
 DECLARE_SOA_INDEX_COLUMN_FULL(AltOrigint, altOrigint, int, Origints, "_alt");
 DECLARE_SOA_ARRAY_INDEX_COLUMN(Origint, origints);
 } // namespace test
+
 DECLARE_SOA_TABLE(References, "TEST", "REFS", o2::soa::Index<>, test::OrigintId);
 DECLARE_SOA_TABLE(OtherReferences, "TEST", "OREFS", o2::soa::Index<>, test::AltOrigintId);
 DECLARE_SOA_TABLE(ManyReferences, "TEST", "MREFS", o2::soa::Index<>, test::OrigintIds);
 } // namespace o2::aod
+
 TEST_CASE("TestIndexToFiltered")
 {
   TableBuilder b;
@@ -818,7 +819,7 @@ TEST_CASE("TestAdvancedIndices")
   auto it = prt.begin();
   auto s1 = it.pointSlice();
   auto g1 = it.pointGroup();
-  auto bb = std::is_same_v<decltype(s1), o2::aod::Points3Ds>;
+  auto bb = std::same_as<decltype(s1), o2::aod::Points3Ds>;
   REQUIRE(bb);
   REQUIRE(s1.size() == 2);
   aa = {2, 3, 4};
@@ -900,12 +901,12 @@ TEST_CASE("TestAdvancedIndices")
   c2 = 0;
   for (auto& p : pst) {
     auto op = p.otherPoint_as<o2::aod::PointsSelfIndex>();
-    auto bbb = std::is_same_v<decltype(op), o2::aod::PointsSelfIndex::iterator>;
+    auto bbb = std::same_as<decltype(op), o2::aod::PointsSelfIndex::iterator>;
     REQUIRE(bbb);
     REQUIRE(op.globalIndex() == references[i]);
 
     auto ops = p.pointSeq_as<o2::aod::PointsSelfIndex>();
-    auto bbbs = std::is_same_v<decltype(ops), o2::aod::PointsSelfIndex>;
+    auto bbbs = std::same_as<decltype(ops), o2::aod::PointsSelfIndex>;
     REQUIRE(bbbs);
 
     if (i == withSlices[c1]) {
@@ -922,7 +923,7 @@ TEST_CASE("TestAdvancedIndices")
     }
 
     auto opss = p.pointSet_as<o2::aod::PointsSelfIndex>();
-    auto bbba = std::is_same_v<decltype(opss), std::vector<o2::aod::PointsSelfIndex::iterator>>;
+    auto bbba = std::same_as<decltype(opss), std::vector<o2::aod::PointsSelfIndex::iterator>>;
     REQUIRE(bbba);
 
     auto opss_ids = p.pointSetIds();
@@ -946,7 +947,7 @@ TEST_CASE("TestAdvancedIndices")
 namespace o2::aod
 {
 DECLARE_SOA_TABLE(PointsSelfRef, "TEST", "PTSSR", test::OtherPointId, test::PointSeqIdSlice, test::PointSetIds);
-}
+} // namespace o2::aod
 
 TEST_CASE("TestSelfIndexRecursion")
 {
@@ -982,18 +983,19 @@ TEST_CASE("TestSelfIndexRecursion")
   auto pst = o2::aod::PointsSelfIndex{t3};
   pst.bindInternalIndicesTo(&pst);
 
+  // FIXME: only 4 levels of recursive self-index dereference are tested
   for (auto& p : pst) {
     auto ops = p.pointSeq_as<o2::aod::PointsSelfIndex>();
     for (auto& pp : ops) {
-      auto bpp = std::is_same_v<std::decay_t<decltype(pp)>, o2::aod::PointsSelfIndex::iterator>;
+      auto bpp = std::same_as<std::decay_t<decltype(pp)>, o2::aod::PointsSelfIndex::iterator>;
       REQUIRE(bpp);
       auto opps = pp.pointSeq_as<o2::aod::PointsSelfIndex>();
       for (auto& ppp : opps) {
-        auto bppp = std::is_same_v<std::decay_t<decltype(ppp)>, o2::aod::PointsSelfIndex::iterator>;
+        auto bppp = std::same_as<std::decay_t<decltype(ppp)>, o2::aod::PointsSelfIndex::iterator>;
         REQUIRE(bppp);
         auto oppps = ppp.pointSeq_as<o2::aod::PointsSelfIndex>();
         for (auto& pppp : oppps) {
-          auto bpppp = std::is_same_v<std::decay_t<decltype(pppp)>, o2::aod::PointsSelfIndex::iterator>;
+          auto bpppp = std::same_as<std::decay_t<decltype(pppp)>, o2::aod::PointsSelfIndex::iterator>;
           REQUIRE(bpppp);
           auto opppps = pppp.pointSeq_as<o2::aod::PointsSelfIndex>();
         }
@@ -1035,21 +1037,19 @@ TEST_CASE("TestSelfIndexRecursion")
   FullPoints fp({t1, t2});
   fp.bindInternalIndicesTo(&fp);
 
+  // FIXME: only 4 levels of recursive self-index dereference are tested
+  // self-index binding should stay the same for recursive dereferences
   for (auto& p : fp) {
-    auto bp = std::is_same_v<std::decay_t<decltype(p)>, FullPoints::iterator>;
-    REQUIRE(bp);
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>, FullPoints::iterator>);
     auto ops = p.pointSeq_as<FullPoints>();
     for (auto& pp : ops) {
-      auto bpp = std::is_same_v<std::decay_t<decltype(pp)>, FullPoints::iterator>;
-      REQUIRE(bpp);
+      REQUIRE(std::same_as<std::decay_t<decltype(pp)>, FullPoints::iterator>);
       auto opps = pp.pointSeq_as<FullPoints>();
       for (auto& ppp : opps) {
-        auto bppp = std::is_same_v<std::decay_t<decltype(ppp)>, FullPoints::iterator>;
-        REQUIRE(bppp);
+        REQUIRE(std::same_as<std::decay_t<decltype(ppp)>, FullPoints::iterator>);
         auto oppps = ppp.pointSeq_as<FullPoints>();
         for (auto& pppp : oppps) {
-          auto bpppp = std::is_same_v<std::decay_t<decltype(pppp)>, FullPoints::iterator>;
-          REQUIRE(bpppp);
+          REQUIRE(std::same_as<std::decay_t<decltype(pppp)>, FullPoints::iterator>);
           auto opppps = pppp.pointSeq_as<FullPoints>();
         }
       }
@@ -1058,13 +1058,58 @@ TEST_CASE("TestSelfIndexRecursion")
 
   auto const& fpa = fp;
 
+  // iterators acquired through different means should have consistent types
   for (auto& it1 : fpa) {
     [[maybe_unused]] auto it2 = fpa.rawIteratorAt(0);
     [[maybe_unused]] auto it3 = fpa.iteratorAt(0);
-    auto bit1 = std::is_same_v<std::decay_t<decltype(it1)>, std::decay_t<decltype(it2)>>;
-    CHECK(bit1);
-    auto bit2 = std::is_same_v<std::decay_t<decltype(it1)>, std::decay_t<decltype(it3)>>;
-    CHECK(bit2);
+    auto bit1 = std::same_as<std::decay_t<decltype(it1)>, std::decay_t<decltype(it2)>>;
+    REQUIRE(bit1);
+    auto bit2 = std::same_as<std::decay_t<decltype(it1)>, std::decay_t<decltype(it3)>>;
+    REQUIRE(bit2);
+  }
+
+  using FilteredPoints = o2::soa::Filtered<FullPoints>;
+  FilteredPoints ffp({t1, t2}, {1, 2, 3}, 0);
+  ffp.bindInternalIndicesTo(&ffp);
+
+  // Filter should not interfere with self-index and the binding should stay the same
+  for (auto& p : ffp) {
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>, FilteredPoints::iterator>);
+    REQUIRE(std::same_as<std::decay_t<decltype(p)>::parent_t, FilteredPoints>);
+    auto ops = p.pointSeq_as<typename std::decay_t<decltype(p)>::parent_t>();
+    for (auto& pp : ops) {
+      REQUIRE(std::same_as<std::decay_t<decltype(pp)>::parent_t, FilteredPoints>);
+      auto opps = pp.pointSeq_as<FilteredPoints>();
+      for (auto& ppp : opps) {
+        REQUIRE(std::same_as<std::decay_t<decltype(ppp)>, FilteredPoints::iterator>);
+        auto oppps = ppp.pointSeq_as<FilteredPoints>();
+        for (auto& pppp : oppps) {
+          REQUIRE(std::same_as<std::decay_t<decltype(pppp)>, FilteredPoints::iterator>);
+          auto opppps = pppp.pointSeq_as<FilteredPoints>();
+        }
+      }
+    }
+  }
+
+  auto const& ffpa = ffp;
+
+  // rawIteratorAt() should create an unfiltered iterator, unlike begin() and iteratorAt()
+  for (auto& it1 : ffpa) {
+    [[maybe_unused]] auto it2 = ffpa.rawIteratorAt(0);
+    [[maybe_unused]] auto it3 = ffpa.iteratorAt(0);
+    using T1 = std::decay_t<decltype(it1)>;
+    using T2 = std::decay_t<decltype(it2)>;
+    using T3 = std::decay_t<decltype(it3)>;
+    auto bit1 = !std::same_as<T1, T2>;
+    REQUIRE(bit1);
+    auto bit2 = !std::same_as<T1, T3>;
+    REQUIRE(bit2);
+    auto bit3 = std::same_as<typename T1::policy_t, typename T3::policy_t>;
+    REQUIRE(bit3);
+    auto bit4 = std::same_as<typename T1::policy_t, o2::soa::FilteredIndexPolicy>;
+    REQUIRE(bit4);
+    auto bit5 = std::same_as<typename T2::policy_t, o2::soa::DefaultIndexPolicy>;
+    REQUIRE(bit5);
   }
 }
 
@@ -1090,8 +1135,8 @@ TEST_CASE("TestListColumns")
   for (auto& row : tbl) {
     auto f = row.l1();
     auto i = row.l2();
-    auto constexpr bf = std::is_same_v<decltype(f), gsl::span<const float, (size_t)-1>>;
-    auto constexpr bi = std::is_same_v<decltype(i), gsl::span<const int, (size_t)-1>>;
+    auto constexpr bf = std::same_as<decltype(f), gsl::span<const float, (size_t)-1>>;
+    auto constexpr bi = std::same_as<decltype(i), gsl::span<const int, (size_t)-1>>;
     REQUIRE(bf);
     REQUIRE(bi);
     REQUIRE(f.size() == s);
@@ -1206,7 +1251,7 @@ TEST_CASE("TestIndexUnboundExceptions")
 
   for (auto& row : prt) {
     try {
-      auto sp = row.singlePoint();
+      [[maybe_unused]] auto sp = row.singlePoint();
     } catch (RuntimeErrorRef ref) {
       REQUIRE(std::string{error_from_ref(ref).what} == "Index pointing to Points3Ds is not bound! Did you subscribe to the table?");
     }
@@ -1255,8 +1300,8 @@ TEST_CASE("TestArrayColumns")
   o2::aod::BILists li{t};
   for (auto const& row : li) {
     auto iir = row.smallIntArray();
-    auto bbrr = row.boolArray_raw();
-    REQUIRE(std::is_same_v<std::decay_t<decltype(iir)>, int8_t const*>);
+    [[maybe_unused]] auto bbrr = row.boolArray_raw();
+    REQUIRE(std::same_as<std::decay_t<decltype(iir)>, int8_t const*>);
     for (auto i = 0; i < 32; ++i) {
       REQUIRE(iir[i] == i);
       REQUIRE(row.boolArray_bit(i) == (i % 2 == 0));
@@ -1274,10 +1319,12 @@ DECLARE_SOA_COLUMN(Three, three, double);
 DECLARE_SOA_COLUMN(Four, four, int[2]);
 DECLARE_SOA_DYNAMIC_COLUMN(Five, five, [](const int in[2]) -> float { return (float)in[0] / (float)in[1]; });
 } // namespace table
+
 DECLARE_SOA_TABLE(MixTest, "AOD", "MIXTST",
                   table::One, table::Two, table::Three, table::Four,
                   table::Five<table::Four>);
 } // namespace o2::aod
+
 TEST_CASE("TestCombinedGetter")
 {
   TableBuilder b;
@@ -1295,11 +1342,11 @@ TEST_CASE("TestCombinedGetter")
     auto features1 = row.getValues<float, o2::aod::table::One, o2::aod::table::Three>();
     auto features2 = row.getValues<double, o2::aod::table::One, o2::aod::table::Two, o2::aod::table::Three>();
     auto features3 = row.getValues<float, o2::aod::table::Two, o2::aod::table::Five<o2::aod::table::Four>>();
-    auto b1 = std::is_same_v<std::array<float, 2>, decltype(features1)>;
+    auto b1 = std::same_as<std::array<float, 2>, decltype(features1)>;
     REQUIRE(b1);
-    auto b2 = std::is_same_v<std::array<double, 3>, decltype(features2)>;
+    auto b2 = std::same_as<std::array<double, 3>, decltype(features2)>;
     REQUIRE(b2);
-    auto b3 = std::is_same_v<std::array<float, 2>, decltype(features3)>;
+    auto b3 = std::same_as<std::array<float, 2>, decltype(features3)>;
     REQUIRE(b3);
     REQUIRE(features1[0] == (float)count);
     REQUIRE(features1[1] == (float)(o2::constants::math::Almost0 * count));

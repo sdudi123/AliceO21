@@ -65,7 +65,8 @@ short updateMCCollisions(const CollisionCursor& cursor,
          truncateFloatFraction(header.GetZ(), mask),
          truncateFloatFraction(time, mask),
          truncateFloatFraction(weight, mask),
-         header.GetB());
+         header.GetB(),
+         getEventInfo(header, Key::planeAngle, header.GetRotZ()));
   return encodedGeneratorId;
 }
 //--------------------------------------------------------------------
@@ -97,9 +98,9 @@ bool updateHepMCXSection(const XSectionCursor& cursor,
          getEventInfo(header, Key::attemptedEvents, 0),
          getEventInfo(header, Key::xSection, 0.f),
          getEventInfo(header, Key::xSectionError, 0.f),
-         getEventInfo(header, "ptHard", 1.f),
-         getEventInfo(header, "MPI", -1),
-         getEventInfo(header, "processId", -1));
+         getEventInfo(header, Key::eventScale, 1.f),
+         getEventInfo(header, Key::mpi, -1),
+         getEventInfo(header, Key::processCode, -1));
   return true;
 }
 //--------------------------------------------------------------------
@@ -245,7 +246,7 @@ void updateParticle(const ParticleCursor& cursor,
   if ((id = mapping(track.getFirstDaughterTrackId())) >= 0) {
     daughters[0] = id;
   }
-  if ((id = mapping(track.getFirstDaughterTrackId())) >= 0) {
+  if ((id = mapping(track.getLastDaughterTrackId())) >= 0) {
     daughters[1] = id;
   } else {
     daughters[1] = daughters[0];

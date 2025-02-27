@@ -17,9 +17,7 @@
 
 #include "clusterFinderDefs.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 #define INVALID_TIME_BIN (-GPUCF_PADDING_TIME - 1)
@@ -28,7 +26,7 @@ struct ChargePos {
   tpccf::GlobalPad gpad;
   tpccf::TPCFragmentTime timePadded;
 
-  GPUdDefault() ChargePos() CON_DEFAULT;
+  GPUdDefault() ChargePos() = default;
 
   constexpr GPUhdi() ChargePos(tpccf::Row row, tpccf::Pad pad, tpccf::TPCFragmentTime t)
     : gpad(tpcGlobalPadIdx(row, pad)), timePadded(t + GPUCF_PADDING_TIME)
@@ -59,7 +57,6 @@ struct ChargePos {
 
 inline constexpr ChargePos INVALID_CHARGE_POS{255, 255, INVALID_TIME_BIN};
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

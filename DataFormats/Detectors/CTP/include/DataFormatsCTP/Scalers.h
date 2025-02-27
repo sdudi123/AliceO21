@@ -87,30 +87,6 @@ struct CTPScalerRecordO2 {
 class CTPRunScalers
 {
  public:
-  CTPRunScalers() = default;
-
-  void printStream(std::ostream& stream) const;
-  void printO2(std::ostream& stream) const;
-  void printFromZero(std::ostream& stream) const;
-  void printClasses(std::ostream& stream) const;
-  std::vector<uint32_t> getClassIndexes() const;
-  int getScalerIndexForClass(uint32_t cls) const;
-  std::vector<CTPScalerRecordO2>& getScalerRecordO2() { return mScalerRecordO2; };
-  int readScalers(const std::string& rawscalers);
-  int convertRawToO2();
-  int checkConsistency(const CTPScalerO2& scal0, const CTPScalerO2& scal1, errorCounters& eCnts) const;
-  int checkConsistency(const CTPScalerRecordO2& rec0, const CTPScalerRecordO2& rec1, errorCounters& eCnts) const;
-  void setClassMask(std::bitset<CTP_NCLASSES> classMask) { mClassMask = classMask; };
-  void setDetectorMask(o2::detectors::DetID::mask_t mask) { mDetectorMask = mask; };
-  void setRunNumber(uint32_t rnumber) { mRunNumber = rnumber; };
-  void addScalerRacordRaw(CTPScalerRecordRaw& scalerrecordraw) { mScalerRecordRaw.push_back(scalerrecordraw); };
-  uint32_t getRunNUmber() { return mRunNumber; };
-  int printRates();
-  int printIntegrals();
-  int printInputRateAndIntegral(int inp);
-  int printClassBRateAndIntegralII(int icls);
-  int printClassBRateAndIntegral(int iclsinscalers);
-
   //
   // static constexpr uint32_t NCOUNTERS = 1052;
   // v1
@@ -119,26 +95,77 @@ class CTPRunScalers
   static constexpr uint32_t NCOUNTERSv2 = 1071;
   static constexpr uint32_t NCOUNTERS = 1085;
   static std::vector<std::string> scalerNames;
-
+  CTPRunScalers() = default;
+  void printStream(std::ostream& stream) const;
+  void printO2(std::ostream& stream) const;
+  void printFromZero(std::ostream& stream) const;
+  void printClasses(std::ostream& stream) const;
+  std::vector<uint32_t> getClassIndexes() const;
+  uint32_t getRunNumber() { return mRunNumber; };
+  int getScalerIndexForClass(uint32_t cls) const;
+  std::vector<CTPScalerRecordO2>& getScalerRecordO2() { return mScalerRecordO2; };
+  std::vector<CTPScalerRecordRaw>& getScalerRecordRaw() { return mScalerRecordRaw; };
+  void setEpochTime(std::time_t tt, int index) { mScalerRecordRaw[index].epochTime = tt; };
+  int readScalers(const std::string& rawscalers);
+  int convertRawToO2();
+  int checkConsistency(const CTPScalerO2& scal0, const CTPScalerO2& scal1, errorCounters& eCnts) const;
+  int checkConsistency(const CTPScalerRecordO2& rec0, const CTPScalerRecordO2& rec1, errorCounters& eCnts) const;
+  void setClassMask(std::bitset<CTP_NCLASSES> classMask) { mClassMask = classMask; };
+  void setDetectorMask(o2::detectors::DetID::mask_t mask) { mDetectorMask = mask; };
+  void setRunNumber(uint32_t rnumber) { mRunNumber = rnumber; };
+  void addScalerRacordRaw(CTPScalerRecordRaw& scalerrecordraw) { mScalerRecordRaw.push_back(scalerrecordraw); };
+  int printRates();
+  int printIntegrals();
+  int printInputRateAndIntegral(int inp);
+  int printClassBRateAndIntegralII(int icls);
+  int printClassBRateAndIntegral(int iclsinscalers);
+  //
+  int addOrbitOffset(uint32_t offset);
+  //
   void printLMBRateVsT() const; // prints LMB interaction rate vs time for debugging
-
   // returns the pair of global (levelled) interaction rate, as well as interpolated
   // rate in Hz at a certain orbit number within the run
-  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type) const;
+  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type, bool qc = 0) const;
 
   /// same with absolute  timestamp (not orbit) as argument
-  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type) const;
+  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type, bool qc = 0) const;
 
-  /// retrieves time boundaries of this scaler object
+  /// retrieves integral for class
+  std::array<uint64_t, 7> getIntegralForClass(int i) const
+  {
+    return {
+      mScalerRecordO2[0].scalers[i].classIndex,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].lmBefore - mScalerRecordO2[0].scalers[i].lmBefore,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].lmAfter - mScalerRecordO2[0].scalers[i].lmAfter,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].l0Before - mScalerRecordO2[0].scalers[i].l0Before,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].l0After - mScalerRecordO2[0].scalers[i].l0After,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].l1Before - mScalerRecordO2[0].scalers[i].l1Before,
+      mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].l1After - mScalerRecordO2[0].scalers[i].l1After,
+    };
+  }
+  /// retrieves integral - same interface as getRate, no pileup correction
+  uint64_t getLumiNoPuCorr(int classindex, int type) const;
+  /// retrieves vector of counters - same interface as getRate, needed for
+  std::vector<std::pair<double_t, double_t>> getRatesForIndex(int classindex, int type) const;
+  /// retrieves time boundaries of this scaler object from O2 scalers
   std::pair<unsigned long, unsigned long> getTimeLimit() const
   {
     return std::make_pair((unsigned long)mScalerRecordO2[0].epochTime * 1000, (unsigned long)mScalerRecordO2[mScalerRecordO2.size() - 1].epochTime * 1000);
   }
-
-  /// retrieves orbit boundaries of this scaler object
+  /// retrieves time boundaries of this scaler object from Raw: should be same as from O2 and can be used without convertRawToO2 call
+  std::pair<unsigned long, unsigned long> getTimeLimitFromRaw() const
+  {
+    return std::make_pair((unsigned long)mScalerRecordRaw[0].epochTime * 1000, (unsigned long)mScalerRecordRaw[mScalerRecordRaw.size() - 1].epochTime * 1000);
+  }
+  /// retrieves orbit boundaries of this scaler object from O2
   std::pair<unsigned long, unsigned long> getOrbitLimit() const
   {
     return std::make_pair((unsigned long)mScalerRecordO2[0].intRecord.orbit, (unsigned long)mScalerRecordO2[mScalerRecordO2.size() - 1].intRecord.orbit);
+  }
+  /// retrieves orbit boundaries of this scaler object from Raw: should be same as from O2 and can be used without convertRawToO2 call
+  std::pair<unsigned long, unsigned long> getOrbitLimitFromRaw() const
+  {
+    return std::make_pair((unsigned long)mScalerRecordRaw[0].intRecord.orbit, (unsigned long)mScalerRecordRaw[mScalerRecordRaw.size() - 1].intRecord.orbit);
   }
 
  private:

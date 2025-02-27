@@ -29,7 +29,7 @@ void customize(std::vector<ConfigParamSpec>& workflowOptions)
 
   workflowOptions.push_back(
     ConfigParamSpec{
-      "dataspec", VariantType::String, "A:FLP/RAWDATA;B:FLP/DISTSUBTIMEFRAME/0", {"selection string for the data to be proxied"}});
+      "dataspec", VariantType::String, "tst:TST/A", {"selection string for the data to be proxied"}});
 
   workflowOptions.push_back(
     ConfigParamSpec{
@@ -77,6 +77,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& config)
     std::move(readoutProxyOutput),
     "type=pair,method=connect,address=ipc:///tmp/readout-pipe-0,rateLogging=1,transport=shmem",
     dplModelAdaptor(filterSpecs, throwOnUnmatched), minSHM, false, injectMissingData, printSizes);
+  readoutProxy.labels.emplace_back(DataProcessorLabel{"input-proxy"});
 
   WorkflowSpec workflow;
   workflow.emplace_back(readoutProxy);

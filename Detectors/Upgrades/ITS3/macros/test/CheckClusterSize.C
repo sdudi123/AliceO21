@@ -35,7 +35,7 @@
 #include <vector>
 
 #define ENABLE_UPGRADES
-#include "DataFormatsITS3/CompCluster.h"
+#include "DataFormatsITSMFT/CompCluster.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
@@ -58,7 +58,7 @@ struct ParticleInfo {
   bool isPrimary{false};
 };
 
-using o2::its3::CompClusterExt;
+using o2::itsmft::CompClusterExt;
 using ROFRec = o2::itsmft::ROFRecord;
 
 void checkFile(const std::unique_ptr<TFile>& file);
@@ -68,7 +68,7 @@ inline auto hist_map(unsigned short id)
   return std::clamp(id, static_cast<unsigned short>(0), static_cast<unsigned short>(6)) / 2;
 }
 
-void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
+void CheckClusterSize(std::string clusFileName = "o2clus_its.root",
                       std::string kineFileName = "o2sim_Kine.root",
                       std::string dictFileName = "", bool batch = true)
 {
@@ -186,10 +186,10 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
   auto clusTree = clusFile->Get<TTree>("o2sim");
   std::vector<CompClusterExt> clusArr;
   std::vector<CompClusterExt>* clusArrP{&clusArr};
-  clusTree->SetBranchAddress("IT3ClusterComp", &clusArrP);
+  clusTree->SetBranchAddress("ITSClusterComp", &clusArrP);
   std::vector<unsigned char> patterns;
   std::vector<unsigned char>* patternsPtr{&patterns};
-  clusTree->SetBranchAddress("IT3ClusterPatt", &patternsPtr);
+  clusTree->SetBranchAddress("ITSClusterPatt", &patternsPtr);
 
   // MC tracks
   std::unique_ptr<TFile> kineFile(TFile::Open(kineFileName.data()));
@@ -207,7 +207,7 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
 
   // Cluster MC labels
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* clusLabArr = nullptr;
-  clusTree->SetBranchAddress("IT3ClusterMCTruth", &clusLabArr);
+  clusTree->SetBranchAddress("ITSClusterMCTruth", &clusLabArr);
 
   std::cout << "** Filling particle table ... " << std::flush;
   int lastEventIDcl = -1;
@@ -233,7 +233,7 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
   // ROFrecords
   std::vector<ROFRec> rofRecVec;
   std::vector<ROFRec>* rofRecVecP{&rofRecVec};
-  clusTree->SetBranchAddress("IT3ClustersROF", &rofRecVecP);
+  clusTree->SetBranchAddress("ITSClustersROF", &rofRecVecP);
   clusTree->GetEntry(0);
   int nROFRec = (int)rofRecVec.size();
   auto pattIt = patternsPtr->cbegin();
@@ -250,10 +250,10 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
       auto pattId = cluster.getPatternID();
       auto id = cluster.getSensorID();
       int clusterSize{-1};
-      if (pattId == o2::its3::CompCluster::InvalidPatternID ||
-          dict.isGroup(pattId)) {
+      if (pattId == o2::itsmft::CompCluster::InvalidPatternID || dict.isGroup(pattId)) {
         o2::itsmft::ClusterPattern patt(pattIt);
         clusterSize = patt.getNPixels();
+        continue;
       } else {
         clusterSize = dict.getNpixels(pattId);
       }
@@ -363,9 +363,10 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
   h->GetYaxis()->SetTitle("cluster size");
   h->GetXaxis()->SetTitle("Layer");
   h->GetXaxis()->SetNdivisions(-10);
-  for (int i = 1; i <= nLayers; i++)
+  for (int i = 1; i <= nLayers; i++) {
     h->GetXaxis()->SetBinLabel(i, name[i - 1]);
-  h->SetMaximum(20);
+  }
+  h->SetMaximum(30);
   h->SetMinimum(0);
   h->SetStats(false);
   h->Draw();
@@ -373,9 +374,13 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
   grP->SetMarkerStyle(4);
   grP->SetMarkerSize(2);
   grP->SetTitle("Primary");
+  grP->SetMarkerColor(kRed);
+  grP->SetLineColor(kRed);
   auto grS = new TGraphErrors(nLayers, xS, yS, nullptr, vyS);
   grS->SetMarkerStyle(3);
   grS->SetMarkerSize(2);
+  grS->SetMarkerColor(kBlue);
+  grS->SetLineColor(kBlue);
   grS->SetTitle("Secondary");
   auto mg = new TMultiGraph("mg", "");
   mg->Add(grP);
@@ -386,7 +391,7 @@ void CheckClusterSize(std::string clusFileName = "o2clus_it3.root",
   leg->AddEntry(grS);
   leg->Draw();
   c1->Write();
-  c1->SaveAs("its3ClusterSize.pdf");
+  c1->SaveAs("it3ClusterSize.pdf");
   for (const auto& hh : {hPrimary, hSecondary, hPionPrimary, hPionSecondary, hProtonPrimary, hProtonSecondary, hKaonPrimary, hKaonSecondary, hOtherPrimary, hOtherSecondary}) {
     for (const auto& h : hh) {
       h.Write();

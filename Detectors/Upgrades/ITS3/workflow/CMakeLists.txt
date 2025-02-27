@@ -9,6 +9,8 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
+# add_compile_options(-O0 -g -fPIC -fno-omit-frame-pointer)
+
 o2_add_library(ITS3Workflow
                SOURCES src/DigitReaderSpec.cxx
                        src/DigitWriterSpec.cxx
@@ -17,23 +19,21 @@ o2_add_library(ITS3Workflow
                        src/ClustererSpec.cxx
                        src/ClusterWriterSpec.cxx
                        src/TrackerSpec.cxx
-                      #  src/CookedTrackerSpec.cxx
                        src/TrackWriterSpec.cxx
                        src/TrackReaderSpec.cxx
                        src/VertexReaderSpec.cxx
                PUBLIC_LINK_LIBRARIES O2::Framework
                                      O2::SimConfig
                                      O2::DataFormatsITSMFT
-                                     O2::DataFormatsITS3
                                      O2::SimulationDataFormat
                                      O2::ITS3Simulation
                                      O2::ITStracking
                                      O2::ITSMFTReconstruction
                                      O2::ITS3Reconstruction
+                                     O2::ITS3TrackingInterface
                                      O2::ITSWorkflow
                                      O2::GPUTracking
-                                     O2::ITSBase
-)
+                                     O2::ITSBase)
 
 # o2_add_executable(digit-writer-workflow
 #                   SOURCES src/digit-writer-workflow.cxx

@@ -21,11 +21,15 @@ static auto& sAvgClusSizeParamITS = o2::its::study::ITSAvgClusSizeParamConfig::I
 static auto& sPIDStudyParamITS = o2::its::study::PIDStudyParamConfig::Instance();
 static auto& sCheckTracksParamsITS = o2::its::study::ITSCheckTracksParamConfig::Instance();
 static auto& sImpactParameterParamsITS = o2::its::study::ITSImpactParameterParamConfig::Instance();
+static auto& sAnomalyStudy = o2::its::study::AnomalyStudyParamConfig::Instance();
+static auto& sEfficiencyParamsITS = o2::its::study::ITSEfficiencyParamConfig::Instance();
 
 O2ParamImpl(o2::its::study::ITSAvgClusSizeParamConfig);
 O2ParamImpl(o2::its::study::PIDStudyParamConfig);
 O2ParamImpl(o2::its::study::ITSCheckTracksParamConfig);
 O2ParamImpl(o2::its::study::ITSImpactParameterParamConfig);
+O2ParamImpl(o2::its::study::AnomalyStudyParamConfig);
+O2ParamImpl(o2::its::study::ITSEfficiencyParamConfig);
 
 } // namespace study
 } // namespace its

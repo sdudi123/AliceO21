@@ -61,3 +61,27 @@ o2_add_test_root_macro(PlotPbLumi.C
                        PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
                                              O2::CCDB
                        LABELS ctp)
+o2_add_test_root_macro(PlotOrbit.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)
+o2_add_test_root_macro(TestFetcher.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)
+o2_add_test_root_macro(CreateBKForRun.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)
+o2_add_test_root_macro(CheckCTPConfig.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)
+o2_add_test_root_macro(GetRates.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)
+o2_add_test_root_macro(TestGetRates.C
+                       PUBLIC_LINK_LIBRARIES O2::DataFormatsCTP
+                                             O2::CCDB
+                       LABELS ctp)

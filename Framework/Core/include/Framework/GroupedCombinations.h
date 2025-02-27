@@ -44,12 +44,21 @@ expressions::BindingNode getMatchingIndexNode()
   using selected_indices_t = selected_pack_multicondition<is_index_to_g_t, pack<G>, external_index_columns_pack>;
   static_assert(pack_size(selected_indices_t{}) == 1, "No matching index column from associated to grouping");
   using index_column_t = pack_head_t<selected_indices_t>;
-  auto label = std::string(index_column_t::mLabel);
-  return expressions::BindingNode{label, typeid(typename index_column_t::column_t).hash_code(), expressions::selectArrowType<typename index_column_t::type>()};
+  return expressions::BindingNode{index_column_t::mLabel, o2::framework::TypeIdHelpers::uniqueId<typename index_column_t::column_t>(), expressions::selectArrowType<typename index_column_t::type>()};
 }
 
 template <typename T1, typename GroupingPolicy, typename BP, typename G, typename... As>
 struct GroupedCombinationsGenerator {
+  using grouping_policy_t = GroupingPolicy;
+  using g_t = G;
+  using associated_pack_t = framework::pack<As...>;
+
+  template <typename... Ts>
+  static consteval bool compatible(framework::pack<Ts...> p)
+  {
+    return (framework::has_type<As>(p) && ...);
+  }
+
   using GroupedIteratorType = pack_to_tuple_t<interleaved_pack_t<repeated_type_pack_t<typename G::iterator, sizeof...(As)>, pack<As...>>>;
 
   struct GroupedIterator : public GroupingPolicy {
@@ -71,7 +80,7 @@ struct GroupedCombinationsGenerator {
         mIndexColumns{getMatchingIndexNode<G, As>()...},
         cache{cache_}
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});
@@ -89,12 +98,12 @@ struct GroupedCombinationsGenerator {
     template <typename... T2s>
     void setTables(const G& grouping, const std::tuple<T2s...>& associated)
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});
       }
-      mAssociated = std::make_shared<std::tuple<As...>>(std::make_tuple(std::get<has_type_at<As>(pack<T2s...>{})>(associated)...));
+      mAssociated = std::make_shared<std::tuple<As...>>(std::make_tuple(std::get<has_type_at_v<As>(pack<T2s...>{})>(associated)...));
       setMultipleGroupingTables<sizeof...(As)>(grouping);
       if (!this->mIsEnd) {
         setCurrentGroupedCombination();
@@ -229,6 +238,13 @@ struct GroupedCombinationsGenerator {
  private:
   iterator mBegin;
   iterator mEnd;
+};
+
+template <typename T>
+concept is_combinations_generator = requires(T t) {
+  typename T::GroupedIterator;
+  &T::begin;
+  &T::end;
 };
 
 // Aliases for 2-particle correlations

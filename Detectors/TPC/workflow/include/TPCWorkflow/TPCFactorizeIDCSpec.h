@@ -37,6 +37,7 @@
 #include "TPCWorkflow/ProcessingHelpers.h"
 #include "TPCBase/CDBInterface.h"
 #include "DetectorsCalibration/Utils.h"
+#include "TPCCalibration/IDCCCDBHelper.h"
 
 using namespace o2::framework;
 using o2::header::gDataOriginTPC;
@@ -75,6 +76,8 @@ class TPCFactorizeIDCSpec : public o2::framework::Task
       mMetaFileDir = o2::utils::Str::rectifyDirectory(mMetaFileDir);
     }
 
+    mStatusMapOffsSec = ic.options().get<float>("pad-status-map-offset");
+    mStatusMapOffsNSlot = ic.options().get<int>("pad-status-map-offset-nslots");
     const std::string refGainMapFile = ic.options().get<std::string>("gainMapFile");
     if (!refGainMapFile.empty()) {
       LOGP(info, "Loading GainMap from file {}", refGainMapFile);
@@ -152,6 +155,7 @@ class TPCFactorizeIDCSpec : public o2::framework::Task
   }
 
   static constexpr header::DataDescription getDataDescriptionIDC0() { return header::DataDescription{"IDC0"}; }
+  static constexpr header::DataDescription getDataDescriptionIDC0Mean() { return header::DataDescription{"IDC0MEAN"}; }
   static constexpr header::DataDescription getDataDescriptionIDC1() { return header::DataDescription{"IDC1"}; }
   static constexpr header::DataDescription getDataDescriptionTimeStamp() { return header::DataDescription{"FOURIERTS"}; }
   static constexpr header::DataDescription getDataDescriptionIntervals() { return header::DataDescription{"INTERVALS"}; }
@@ -196,6 +200,8 @@ class TPCFactorizeIDCSpec : public o2::framework::Task
   bool mSetDataTakingCont{true};
   long mTimestampStart{0};                                                                                                                                                ///< time stamp of first TF
   uint64_t mRun{0};                                                                                                                                                       ///< run number
+  float mStatusMapOffsSec = 0;                                                                                                                                            ///< offset in seconds for writing pad staus map to CCDB
+  int mStatusMapOffsNSlot = 0;                                                                                                                                            ///< offset in n slot units for writing pad staus map to CCDB
   const std::vector<InputSpec> mFilter = {{"idcagg", ConcreteDataTypeMatcher{gDataOriginTPC, TPCDistributeIDCSpec::getDataDescriptionIDC(mLaneId)}, Lifetime::Sporadic}}; ///< filter for looping over input data
 
   void sendOutput(DataAllocator& output)
@@ -211,6 +217,11 @@ class TPCFactorizeIDCSpec : public o2::framework::Task
         const unsigned int iSide = static_cast<unsigned int>(side);
         LOGP(info, "Sending IDC1 for side {} of size {}", iSide, mIDCFactorization.getIDCOneVec(side).size());
         output.snapshot(Output{gDataOriginTPC, getDataDescriptionIDC1(), header::DataHeader::SubSpecificationType{iSide}}, mIDCFactorization.getIDCOneVec(side));
+
+        // calculating mean of IDC0 for the IDC scalers
+        const float mean = o2::tpc::IDCCCDBHelper<float>::getMeanIDC0(side, mIDCFactorization.getIDCZero(side), mIDCFactorization.getPadStatusMapPtr());
+        LOGP(info, "Sending mean of: {}", mean);
+        output.snapshot(Output{gDataOriginTPC, getDataDescriptionIDC0Mean(), header::DataHeader::SubSpecificationType{iSide}}, mean);
       }
       output.snapshot(Output{gDataOriginTPC, getDataDescriptionTimeStamp()}, std::vector<long>{mTimestampStart, timeStampEnd});
       output.snapshot(Output{gDataOriginTPC, getDataDescriptionIntervals()}, mIDCFactorization.getIntegrationIntervalsPerTF());
@@ -262,33 +273,26 @@ class TPCFactorizeIDCSpec : public o2::framework::Task
 
           // store map in case it is no nullptr
           if (mEnableWritingPadStatusMap) {
-            if (!mPadFlagsMap) {
-              mPadFlagsMap = std::move(padStatusMap);
-              LOGP(info, "Writing pad status map to CCDB.");
-              o2::ccdb::CcdbObjectInfo ccdbInfoPadFlags(CDBTypeMap.at(sideA ? CDBType::CalIDCPadStatusMapA : CDBType::CalIDCPadStatusMapC), std::string{}, std::string{}, std::map<std::string, std::string>{}, mTimestampStart, timeStampEnd);
-              auto imageFlagMap = o2::ccdb::CcdbApi::createObjectImage(mPadFlagsMap.get(), &ccdbInfoPadFlags);
-              LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfoPadFlags.getPath(), ccdbInfoPadFlags.getFileName(), imageFlagMap->size(), ccdbInfoPadFlags.getStartValidityTimestamp(), ccdbInfoPadFlags.getEndValidityTimestamp());
-              output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, getDataDescriptionCCDBIDCPadFlag(), 0}, *imageFlagMap.get());
-              output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, getDataDescriptionCCDBIDCPadFlag(), 0}, ccdbInfoPadFlags);
-              LOGP(info, "Pad status map written to CCDB");
-            } else {
-              // check if map changed. if it changed update the map in the CCDB and store new map in buffer
-              if (!(*padStatusMap.get() == *mPadFlagsMap.get())) {
-                mPadFlagsMap = std::move(padStatusMap);
-                LOGP(info, "Pad status map changed");
-                LOGP(info, "Writing pad status map to CCDB");
-                o2::ccdb::CcdbObjectInfo ccdbInfoPadFlags(CDBTypeMap.at(sideA ? CDBType::CalIDCPadStatusMapA : CDBType::CalIDCPadStatusMapC), std::string{}, std::string{}, std::map<std::string, std::string>{}, mTimestampStart, timeStampEnd);
-                auto imageFlagMap = o2::ccdb::CcdbApi::createObjectImage(mPadFlagsMap.get(), &ccdbInfoPadFlags);
-                LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfoPadFlags.getPath(), ccdbInfoPadFlags.getFileName(), imageFlagMap->size(), ccdbInfoPadFlags.getStartValidityTimestamp(), ccdbInfoPadFlags.getEndValidityTimestamp());
-                output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, getDataDescriptionCCDBIDCPadFlag(), 0}, *imageFlagMap.get());
-                output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, getDataDescriptionCCDBIDCPadFlag(), 0}, ccdbInfoPadFlags);
-                LOGP(info, "Pad status map written to CCDB");
-              }
-              stop = timer::now();
-              time = stop - start;
-              LOGP(info, "Pad status map CCDB time: {}", time.count());
-              totalTime += time.count();
+            long timeStampEndOffsPad = 0;
+            if (mStatusMapOffsSec > 0) {
+              timeStampEndOffsPad = mStatusMapOffsSec * 1000;
+            } else if (mStatusMapOffsNSlot > 0) {
+              const long length = timeStampEnd - mTimestampStart;
+              timeStampEndOffsPad = mStatusMapOffsNSlot * length;
             }
+
+            mPadFlagsMap = std::move(padStatusMap);
+            LOGP(info, "Writing pad status map to CCDB with an offset of {}.", timeStampEndOffsPad);
+            o2::ccdb::CcdbObjectInfo ccdbInfoPadFlags(CDBTypeMap.at(sideA ? CDBType::CalIDCPadStatusMapA : CDBType::CalIDCPadStatusMapC), std::string{}, std::string{}, std::map<std::string, std::string>{}, mTimestampStart, timeStampEnd + timeStampEndOffsPad);
+            auto imageFlagMap = o2::ccdb::CcdbApi::createObjectImage(mPadFlagsMap.get(), &ccdbInfoPadFlags);
+            LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfoPadFlags.getPath(), ccdbInfoPadFlags.getFileName(), imageFlagMap->size(), ccdbInfoPadFlags.getStartValidityTimestamp(), ccdbInfoPadFlags.getEndValidityTimestamp());
+            output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, getDataDescriptionCCDBIDCPadFlag(), 0}, *imageFlagMap.get());
+            output.snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, getDataDescriptionCCDBIDCPadFlag(), 0}, ccdbInfoPadFlags);
+            LOGP(info, "Pad status map written to CCDB");
+            stop = timer::now();
+            time = stop - start;
+            LOGP(info, "Pad status map CCDB time: {}", time.count());
+            totalTime += time.count();
           }
           stop = timer::now();
           time = stop - start;
@@ -460,6 +464,7 @@ DataProcessorSpec getTPCFactorizeIDCSpec(const int lane, const std::vector<uint3
   if (sendOutputFFT) {
     for (auto side : sides) {
       outputSpecs.emplace_back(ConcreteDataMatcher{gDataOriginTPC, TPCFactorizeIDCSpec::getDataDescriptionIDC1(), header::DataHeader::SubSpecificationType{side}}, Lifetime::Sporadic);
+      outputSpecs.emplace_back(ConcreteDataMatcher{gDataOriginTPC, TPCFactorizeIDCSpec::getDataDescriptionIDC0Mean(), header::DataHeader::SubSpecificationType{side}}, Lifetime::Sporadic);
     }
     outputSpecs.emplace_back(ConcreteDataMatcher{gDataOriginTPC, TPCFactorizeIDCSpec::getDataDescriptionTimeStamp(), header::DataHeader::SubSpecificationType{0}}, Lifetime::Sporadic);
     outputSpecs.emplace_back(ConcreteDataMatcher{gDataOriginTPC, TPCFactorizeIDCSpec::getDataDescriptionIntervals(), header::DataHeader::SubSpecificationType{0}}, Lifetime::Sporadic);
@@ -501,6 +506,8 @@ DataProcessorSpec getTPCFactorizeIDCSpec(const int lane, const std::vector<uint3
             {"dump-IDCDelta", VariantType::Bool, false, {"Dump IDCDelta to file"}},
             {"dump-IDCDelta-calib-data", VariantType::Bool, false, {"Dump IDCDelta as calibration data to file"}},
             {"add-offset-for-CCDB-timestamp", VariantType::Bool, false, {"Add an offset of 1 hour for the validity range of the CCDB objects"}},
+            {"pad-status-map-offset", VariantType::Float, 0.f, {"Offset in seconds for timestamp of pad status map CCDB object (overwrites pad-status-map-offset-nslots)"}},
+            {"pad-status-map-offset-nslots", VariantType::Int, 0, {"Offset in slot length units for timestamp of pad status map CCDB object"}},
             {"output-dir", VariantType::String, "none", {"calibration files output directory, must exist"}},
             {"meta-output-dir", VariantType::String, "/dev/null", {"calibration metadata output directory, must exist (if not /dev/null)"}},
             {"update-not-grouping-parameter", VariantType::Bool, false, {"Do NOT Update/Writing grouping parameters to CCDB."}}}}; // end DataProcessorSpec

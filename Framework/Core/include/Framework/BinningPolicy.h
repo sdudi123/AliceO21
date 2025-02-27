@@ -14,8 +14,6 @@
 
 #include "Framework/HistogramSpec.h" // only for VARIABLE_WIDTH
 #include "Framework/Pack.h"
-#include "Framework/ArrowTypes.h"
-#include <optional>
 
 namespace o2::framework
 {
@@ -240,7 +238,7 @@ struct FlexibleBinningPolicy<std::tuple<Ls...>, Ts...> : BinningPolicyBase<sizeo
   template <typename T, typename T2>
   auto getBinningValue(T& rowIterator, arrow::Table* table, uint64_t ci = -1, uint64_t ai = -1, uint64_t globalIndex = -1) const
   {
-    if constexpr (has_type_v<T2, pack<Ls...>>) {
+    if constexpr (has_type<T2>(pack<Ls...>{})) {
       if (globalIndex != -1) {
         rowIterator.setCursor(globalIndex);
       }
@@ -268,7 +266,7 @@ struct FlexibleBinningPolicy<std::tuple<Ls...>, Ts...> : BinningPolicyBase<sizeo
     return BinningPolicyBase<sizeof...(Ts)>::template getBin<T2s...>(data);
   }
 
-  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_t, Ts...>;
+  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_column_t, Ts...>;
 
  private:
   std::tuple<Ls...> mBinningFunctions;
@@ -297,7 +295,7 @@ struct ColumnBinningPolicy : BinningPolicyBase<sizeof...(Ts)> {
     return BinningPolicyBase<sizeof...(Ts)>::template getBin<typename Ts::type...>(data);
   }
 
-  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_t, Ts...>;
+  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_column_t, Ts...>;
 };
 
 template <typename C>
@@ -322,7 +320,7 @@ struct NoBinningPolicy {
     return std::get<0>(data);
   }
 
-  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_t, C>;
+  using persistent_columns_t = framework::selected_pack<o2::soa::is_persistent_column_t, C>;
 };
 
 } // namespace o2::framework

@@ -32,24 +32,69 @@ void CCDBManagerInstance::reportFatal(std::string_view err)
   LOG(fatal) << err;
 }
 
-std::pair<int64_t, int64_t> CCDBManagerInstance::getRunDuration(o2::ccdb::CcdbApi const& api, int runnumber, bool fatal)
+std::pair<int64_t, int64_t> CCDBManagerInstance::getRunDuration(const std::map<std::string, std::string>& headers)
 {
-  auto response = api.retrieveHeaders("RCT/Info/RunInformation", std::map<std::string, std::string>(), runnumber);
-  if (response.size() == 0 || response.find("SOR") == response.end() || response.find("EOR") == response.end()) {
-    if (fatal) {
-      LOG(fatal) << "Empty or missing response from query to RCT/Info/RunInformation for run " << runnumber;
-    } else {
-      return std::make_pair(-1L, -1L);
+  if (headers.size() != 0) {
+    std::string report{};
+    auto strt = headers.find("STF");
+    auto stop = headers.find("ETF");
+    long valStrt = (strt == headers.end()) ? -1L : boost::lexical_cast<int64_t>(strt->second);
+    long valStop = (stop == headers.end()) ? -1L : boost::lexical_cast<int64_t>(stop->second);
+    if (valStrt < 0 || valStop < 0) {
+      report += "Missing STF/EFT -> use SOX/EOX;";
+      strt = headers.find("SOX");
+      valStrt = (strt == headers.end()) ? -1L : boost::lexical_cast<int64_t>(strt->second);
+      if (valStrt < 1) {
+        report += fmt::format(" Missing/invalid SOX -> use SOR");
+        strt = headers.find("SOR");
+        valStrt = (strt == headers.end()) ? -1L : boost::lexical_cast<int64_t>(strt->second);
+      }
+      stop = headers.find("EOX");
+      valStop = (stop == headers.end()) ? -1L : boost::lexical_cast<int64_t>(stop->second);
+      if (valStop < 1) {
+        report += fmt::format(" | Missing/invalid EOX -> use EOR");
+        stop = headers.find("EOR");
+        valStop = (stop == headers.end()) ? -1L : boost::lexical_cast<int64_t>(stop->second);
+      }
+      if (!report.empty()) {
+        LOGP(warn, "{}", report);
+      }
     }
+    return std::make_pair(valStrt, valStop);
   }
-  auto sor = boost::lexical_cast<int64_t>(response["SOR"]);
-  auto eor = boost::lexical_cast<int64_t>(response["EOR"]);
-  return std::make_pair(sor, eor);
+  return std::make_pair(-1L, -1L);
 }
 
-std::pair<int64_t, int64_t> CCDBManagerInstance::getRunDuration(int runnumber, bool fatal) const
+std::pair<int64_t, int64_t> CCDBManagerInstance::getRunDuration(o2::ccdb::CcdbApi const& api, int runnumber, bool fatal)
 {
-  return CCDBManagerInstance::getRunDuration(mCCDBAccessor, runnumber, fatal);
+  auto headers = api.retrieveHeaders("RCT/Info/RunInformation", std::map<std::string, std::string>(), runnumber);
+  auto response = getRunDuration(headers);
+  if ((response.first <= 0 || response.second < response.first) && fatal) {
+    LOG(fatal) << "Empty, missing or invalid response from query to RCT/Info/RunInformation for run " << runnumber;
+  }
+  return response;
+}
+
+std::pair<int64_t, int64_t> CCDBManagerInstance::getRunDuration(int runnumber, bool fatal)
+{
+  mQueries++;
+  if (!isCachingEnabled()) {
+    return CCDBManagerInstance::getRunDuration(mCCDBAccessor, runnumber, fatal);
+  }
+  auto& cached = mCache["RCT-Run-Info HeaderOnly"];
+  std::pair<int64_t, int64_t> rd;
+  cached.queries++;
+  if (cached.startvalidity != runnumber) { // need to fetch
+    rd = CCDBManagerInstance::getRunDuration(mCCDBAccessor, runnumber, fatal);
+    cached.objPtr = std::make_shared<std::pair<int64_t, int64_t>>(rd);
+    cached.startvalidity = runnumber;
+    cached.endvalidity = runnumber + 1;
+    cached.minSize = cached.maxSize = 0;
+    cached.fetches++;
+  } else {
+    rd = *reinterpret_cast<std::pair<int64_t, int64_t>*>(cached.objPtr.get());
+  }
+  return rd;
 }
 
 std::string CCDBManagerInstance::getSummaryString() const

@@ -17,6 +17,8 @@
 
 #include "CommonDataFormat/FlatHisto2D.h"
 #include "DataFormatsFT0/SpectraInfoObject.h"
+#include "DetectorsCalibration/TimeSlotCalibration.h"
+#include "DetectorsCalibration/TimeSlot.h"
 
 #include "TList.h"
 
@@ -27,12 +29,14 @@ namespace o2::ft0
 class FT0TimeOffsetSlotContainer final
 {
   static constexpr int sNCHANNELS = o2::ft0::Geometry::Nchannels;
+  using TimeSlot = o2::calibration::TimeSlot<FT0TimeOffsetSlotContainer>;
+  using TimeSlotCalibration = o2::calibration::TimeSlotCalibration<FT0TimeOffsetSlotContainer>;
 
  public:
   FT0TimeOffsetSlotContainer(std::size_t minEntries); // constructor is needed due to current version of FITCalibration library, should be removed
   FT0TimeOffsetSlotContainer(FT0TimeOffsetSlotContainer const&) = default;
   FT0TimeOffsetSlotContainer(FT0TimeOffsetSlotContainer&&) = default;
-  FT0TimeOffsetSlotContainer& operator=(FT0TimeOffsetSlotContainer const&) = default;
+  FT0TimeOffsetSlotContainer& operator=(FT0TimeOffsetSlotContainer&) = default;
   FT0TimeOffsetSlotContainer& operator=(FT0TimeOffsetSlotContainer&&) = default;
   bool hasEnoughEntries() const;
   void fill(const gsl::span<const float>& data);
@@ -42,6 +46,8 @@ class FT0TimeOffsetSlotContainer final
   TimeSpectraInfoObject generateCalibrationObject(long tsStartMS, long tsEndMS, const std::string& pathToHists) const;
   typedef float FlatHistoValue_t;
   typedef o2::dataformats::FlatHisto2D<FlatHistoValue_t> FlatHisto2D_t;
+  auto getHistogram() const { return mHistogram; }
+  auto isFirstTF() const { return mIsFirstTF; }
 
  private:
   // Slot number

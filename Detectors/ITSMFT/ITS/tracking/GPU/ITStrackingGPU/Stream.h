@@ -18,10 +18,6 @@
 
 #include "ITStracking/Definitions.h"
 
-#ifdef __HIPCC__
-#include <hip/hip_runtime.h>
-#endif
-
 namespace o2
 {
 namespace its
@@ -36,7 +32,7 @@ class Stream final
   Stream();
   ~Stream();
 
-  const GPUStream& get() const;
+  [[nodiscard]] const GPUStream& get() const;
 
  private:
   GPUStream mStream;

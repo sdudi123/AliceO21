@@ -20,12 +20,7 @@
 #include "GPUReconstruction.h"
 #include "GPUChainITS.h"
 
-namespace o2
-{
-namespace its3
-{
-
-namespace reco_workflow
+namespace o2::its3::reco_workflow
 {
 
 framework::WorkflowSpec getWorkflow(bool useMC,
@@ -34,9 +29,9 @@ framework::WorkflowSpec getWorkflow(bool useMC,
                                     bool upstreamDigits,
                                     bool upstreamClusters,
                                     bool disableRootOutput,
-                                    int useTrig);
+                                    bool useGeom,
+                                    int useTrig,
+                                    bool overrideBeamPosition);
 }
 
-} // namespace its3
-} // namespace o2
 #endif

@@ -13,7 +13,6 @@
 /// \brief Macros to test the generation of a dictionary of topologies. Three dictionaries are generated: one with signal-cluster only, one with noise-clusters only and one with all the clusters.
 
 #if !defined(__CLING__) || defined(__ROOTCLING__)
-#define ENABLE_UPGRADES
 
 #include <string>
 #include <unordered_map>
@@ -29,12 +28,14 @@
 #include <TStyle.h>
 #include <TTree.h>
 #include <TStopwatch.h>
+#include <cmath>
 
+#define ENABLE_UPGRADES
 #include "DetectorsCommonDataFormats/DetID.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "ITSMFTBase/SegmentationAlpide.h"
 #include "ITS3Base/SegmentationSuperAlpide.h"
-#include "DataFormatsITS3/CompCluster.h"
+#include "DataFormatsITSMFT/CompCluster.h"
 #include "DataFormatsITSMFT/ClusterTopology.h"
 #include "ITS3Reconstruction/TopologyDictionary.h"
 #include "ITS3Reconstruction/BuildTopologyDictionary.h"
@@ -54,7 +55,7 @@
 void CreateDictionariesITS3(bool saveDeltas = false,
                             float probThreshold = 1e-6,
                             std::string clusDictFile = "",
-                            std::string clusfile = "o2clus_it3.root",
+                            std::string clusfile = "o2clus_its.root",
                             std::string hitfile = "o2sim_HitsIT3.root",
                             std::string collContextfile = "collisioncontext.root",
                             std::string inputGeom = "",
@@ -69,9 +70,9 @@ void CreateDictionariesITS3(bool saveDeltas = false,
   using o2::its3::SegmentationSuperAlpide;
   using Segmentation = o2::itsmft::SegmentationAlpide;
   using o2::its3::BuildTopologyDictionary;
-  using o2::its3::CompCluster;
-  using o2::its3::CompClusterExt;
   using o2::itsmft::ClusterTopology;
+  using o2::itsmft::CompCluster;
+  using o2::itsmft::CompClusterExt;
   using o2::itsmft::Hit;
   using ROFRec = o2::itsmft::ROFRecord;
   using MC2ROF = o2::itsmft::MC2ROFRecord;
@@ -85,6 +86,8 @@ void CreateDictionariesITS3(bool saveDeltas = false,
     clusDictOld.readFromFile(clusDictFile);
     LOGP(info, "Loaded external cluster dictionary with {} entries from {}", clusDictOld.getSize(), clusDictFile);
   }
+
+  ULong_t cOk{0}, cOutliers{0}, cFailedMC{0};
 
   TFile* fout = nullptr;
   TNtuple* nt = nullptr;
@@ -103,18 +106,12 @@ void CreateDictionariesITS3(bool saveDeltas = false,
   gman->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot,
                                                  o2::math_utils::TransformType::L2G)); // request cached transforms
 
-  std::vector<SegmentationSuperAlpide> segs{};
-  for (int iLayer{0}; iLayer < gman->getNumberOfLayers() - 4; ++iLayer) {
-    for (int iChip{0}; iChip < gman->getNumberOfChipsPerLayer(iLayer); ++iChip) {
-      segs.push_back(SegmentationSuperAlpide(iLayer));
-    }
-  }
-
   // Hits
   TFile* fileH = nullptr;
   TTree* hitTree = nullptr;
 
   if (!hitfile.empty() && !collContextfile.empty() && !gSystem->AccessPathName(hitfile.c_str()) && !gSystem->AccessPathName(collContextfile.c_str())) {
+    LOGP(info, "Loading MC information");
     fileH = TFile::Open(hitfile.data());
     hitTree = (TTree*)fileH->Get("o2sim");
     mc2hitVec.resize(hitTree->GetEntries());
@@ -148,23 +145,23 @@ void CreateDictionariesITS3(bool saveDeltas = false,
   TFile* fileCl = TFile::Open(clusfile.data());
   TTree* clusTree = (TTree*)fileCl->Get("o2sim");
   std::vector<CompClusterExt>* clusArr = nullptr;
-  clusTree->SetBranchAddress("IT3ClusterComp", &clusArr);
+  clusTree->SetBranchAddress("ITSClusterComp", &clusArr);
   std::vector<unsigned char>* patternsPtr = nullptr;
-  auto pattBranch = clusTree->GetBranch("IT3ClusterPatt");
-  if (pattBranch) {
+  auto pattBranch = clusTree->GetBranch("ITSClusterPatt");
+  if (pattBranch != nullptr) {
     pattBranch->SetAddress(&patternsPtr);
   }
 
   // ROFrecords
   std::vector<ROFRec> rofRecVec, *rofRecVecP = &rofRecVec;
-  clusTree->SetBranchAddress("IT3ClustersROF", &rofRecVecP);
+  clusTree->SetBranchAddress("ITSClustersROF", &rofRecVecP);
 
   // Cluster MC labels
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* clusLabArr = nullptr;
   std::vector<MC2ROF> mc2rofVec, *mc2rofVecP = &mc2rofVec;
-  if (hitTree && clusTree->GetBranch("IT3ClusterMCTruth")) {
-    clusTree->SetBranchAddress("IT3ClusterMCTruth", &clusLabArr);
-    clusTree->SetBranchAddress("IT3ClustersMC2ROF", &mc2rofVecP);
+  if (hitTree && clusTree->GetBranch("ITSClusterMCTruth")) {
+    clusTree->SetBranchAddress("ITSClusterMCTruth", &clusLabArr);
+    clusTree->SetBranchAddress("ITSClustersMC2ROF", &mc2rofVecP);
   }
   clusTree->GetEntry(0);
   if (clusTree->GetEntries() > 1 && !hitfile.empty()) {
@@ -212,7 +209,7 @@ void CreateDictionariesITS3(bool saveDeltas = false,
     for (int irof = 0; irof < nROFRec; irof++) {
       const auto& rofRec = rofRecVec[irof];
 
-      // rofRec.print();
+      /* rofRec.print(); */
 
       if (clusLabArr) { // >> read and map MC events contributing to this ROF
         for (int im = mcEvMin[irof]; im <= mcEvMax[irof]; im++) {
@@ -255,10 +252,10 @@ void CreateDictionariesITS3(bool saveDeltas = false,
         topology.setPattern(pattern);
 
         float dX = BuildTopologyDictionary::IgnoreVal, dZ = BuildTopologyDictionary::IgnoreVal;
-        if (clusLabArr) {
+        if (clusLabArr != nullptr) {
           const auto& lab = (clusLabArr->getLabels(clEntry))[0];
           auto srcID = lab.getSourceID();
-          if (lab.isValid() && srcID != QEDSourceID) { // use MC truth info only for non-QED and non-noise clusters
+          if (lab.isValid()) { // use MC truth info only for non-QED and non-noise clusters
             auto trID = lab.getTrackID();
             const auto& mc2hit = mc2hitVec[lab.getEventID()];
             const auto* hitArray = hitVecPool[lab.getEventID()];
@@ -268,30 +265,42 @@ void CreateDictionariesITS3(bool saveDeltas = false,
             if (hitEntry != mc2hit.end()) {
               const auto& hit = (*hitArray)[hitEntry->second];
               if (minPtMC < 0.f || hit.GetMomentum().Perp2() > minPtMC2) {
-                auto locH = gman->getMatrixL2G(chipID) ^ (hit.GetPos()); // inverse conversion from global to local
-                auto locHsta = gman->getMatrixL2G(chipID) ^ (hit.GetPosStart());
-                locH.SetXYZ(0.5 * (locH.X() + locHsta.X()), 0.5 * (locH.Y() + locHsta.Y()), 0.5 * (locH.Z() + locHsta.Z()));
-                const auto locC = o2::its3::TopologyDictionary::getClusterCoordinates(cluster, pattern, false);
-                float locXflat, locYflat;
-                if (cluster.getSensorID() < segs.size())
-                  segs[cluster.getSensorID()].curvedToFlat(locC.X(), locC.Y(), locXflat, locYflat);
-                dX = locH.X() - locC.X();
-                dZ = locH.Z() - locC.Z();
-                dX /= (cluster.getSensorID() < segs.size()) ? segs[cluster.getSensorID()].mPitchRow : o2::itsmft::SegmentationAlpide::PitchRow;
-                dZ /= (cluster.getSensorID() < segs.size()) ? segs[cluster.getSensorID()].mPitchCol : o2::itsmft::SegmentationAlpide::PitchCol;
+                auto xyzLocE = gman->getMatrixL2G(chipID) ^ (hit.GetPos()); // inverse conversion from global to local
+                auto xyzLocS = gman->getMatrixL2G(chipID) ^ (hit.GetPosStart());
+                o2::math_utils::Vector3D<float> xyzLocM;
+                xyzLocM.SetCoordinates(0.5f * (xyzLocE.X() + xyzLocS.X()), 0.5f * (xyzLocE.Y() + xyzLocS.Y()), 0.5f * (xyzLocE.Z() + xyzLocS.Z()));
+                auto locC = o2::its3::TopologyDictionary::getClusterCoordinates(cluster, pattern, false);
+                bool isIB = o2::its3::constants::detID::isDetITS3(chipID);
+                int layer = gman->getLayer(chipID);
+                if (isIB) {
+                  float xFlat{0.}, yFlat{0.};
+                  o2::its3::SuperSegmentations[layer].curvedToFlat(xyzLocM.X(), xyzLocM.Y(), xFlat, yFlat);
+                  xyzLocM.SetCoordinates(xFlat, yFlat, xyzLocM.Z());
+                  o2::its3::SuperSegmentations[layer].curvedToFlat(locC.X(), locC.Y(), xFlat, yFlat);
+                  locC.SetCoordinates(xFlat, yFlat, locC.Z());
+                }
+                dX = xyzLocM.X() - locC.X();
+                dZ = xyzLocM.Z() - locC.Z();
+                dX /= (isIB) ? o2::its3::SegmentationSuperAlpide::mPitchRow : o2::itsmft::SegmentationAlpide::PitchRow;
+                dZ /= (isIB) ? o2::its3::SegmentationSuperAlpide::mPitchCol : o2::itsmft::SegmentationAlpide::PitchCol;
                 if (saveDeltas) {
                   nt->Fill(topology.getHash(), dX, dZ);
                 }
                 if (checkOutliers > 0.) {
-                  if (std::abs(dX) > topology.getRowSpan() * checkOutliers ||
-                      std::abs(dZ) > topology.getColumnSpan() * checkOutliers) { // ignore outlier
+                  if (bool bX = std::abs(dX) > topology.getRowSpan() * checkOutliers, bZ = std::abs(dZ) > topology.getColumnSpan() * checkOutliers; bX || bZ) { // ignore outlier
+                    ++cOutliers;
+                    LOGP(debug, "Ignored Value dX={} > {} * {} -> {}", dX, topology.getRowSpan(), checkOutliers, bX);
+                    LOGP(debug, "Ignored Value dZ={} > {} * {} -> {}", dZ, topology.getColumnSpan(), checkOutliers, bZ);
                     dX = dZ = BuildTopologyDictionary::IgnoreVal;
+                  } else {
+                    ++cOk;
                   }
                 }
               }
             } else {
-              LOGP(info, "  Failed to find MC hit entry for Tr: {} chipID: {}", trID, chipID);
-              lab.print();
+              /* LOGP(info, "  Failed to find MC hit entry for Tr: {} chipID: {}", trID, chipID); */
+              /* lab.print(); */
+              ++cFailedMC;
             }
             signalDictionary.accountTopology(topology, dX, dZ);
           } else {
@@ -313,8 +322,12 @@ void CreateDictionariesITS3(bool saveDeltas = false,
       }
     }
   }
+
+  LOGP(info, "Clusters: {} okay (failed MCHit2Clus {}); outliers {}", cOk, cFailedMC, cOutliers);
+
   auto dID = o2::detectors::DetID::IT3;
 
+  LOGP(info, "Complete Dictionary:");
   completeDictionary.setThreshold(probThreshold);
   completeDictionary.groupRareTopologies();
   completeDictionary.printDictionaryBinary(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, ""));
@@ -325,43 +338,42 @@ void CreateDictionariesITS3(bool saveDeltas = false,
   TCanvas* cComplete = new TCanvas("cComplete", "Distribution of all the topologies");
   cComplete->cd();
   cComplete->SetLogy();
-  TH1F* hComplete = nullptr;
-  o2::its3::TopologyDictionary::getTopologyDistribution(completeDictionary.getDictionary(), hComplete, "hComplete");
-  hComplete->SetDirectory(0);
+  TH1F* hComplete = completeDictionary.getDictionary().getTopologyDistribution("hComplete");
+  hComplete->SetDirectory(nullptr);
   hComplete->Draw("hist");
   hComplete->Write();
   cComplete->Write();
 
-  TCanvas* cNoise = nullptr;
-  TCanvas* cSignal = nullptr;
-  TH1F* hNoise = nullptr;
-  TH1F* hSignal = nullptr;
-
   if (clusLabArr) {
+    LOGP(info, "Noise Dictionary:");
     noiseDictionary.setThreshold(0.0001);
     noiseDictionary.groupRareTopologies();
     noiseDictionary.printDictionaryBinary(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "noiseClusTopo"));
     noiseDictionary.printDictionary(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "noiseClusTopo", "txt"));
     noiseDictionary.saveDictionaryRoot(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "noiseClusTopo", "root"));
+
+    LOGP(info, "Signal Dictionary:");
     signalDictionary.setThreshold(0.0001);
     signalDictionary.groupRareTopologies();
     signalDictionary.printDictionaryBinary(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "signal"));
     signalDictionary.printDictionary(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "signal", "txt"));
     signalDictionary.saveDictionaryRoot(o2::base::DetectorNameConf::getAlpideClusterDictionaryFileName(dID, "signal", "root"));
-    cNoise = new TCanvas("cNoise", "Distribution of noise topologies");
+
+    LOGP(info, "Plotting Channels");
+    auto cNoise = new TCanvas("cNoise", "Distribution of noise topologies");
     cNoise->cd();
     cNoise->SetLogy();
-    o2::its3::TopologyDictionary::getTopologyDistribution(noiseDictionary.getDictionary(), hNoise, "hNoise");
-    hNoise->SetDirectory(0);
+    auto hNoise = noiseDictionary.getDictionary().getTopologyDistribution("hNoise");
+    hNoise->SetDirectory(nullptr);
     hNoise->Draw("hist");
     histogramOutput.cd();
     hNoise->Write();
     cNoise->Write();
-    cSignal = new TCanvas("cSignal", "cSignal");
+    auto cSignal = new TCanvas("cSignal", "cSignal");
     cSignal->cd();
     cSignal->SetLogy();
-    o2::its3::TopologyDictionary::getTopologyDistribution(signalDictionary.getDictionary(), hSignal, "hSignal");
-    hSignal->SetDirectory(0);
+    auto hSignal = signalDictionary.getDictionary().getTopologyDistribution("hSignal");
+    hSignal->SetDirectory(nullptr);
     hSignal->Draw("hist");
     histogramOutput.cd();
     hSignal->Write();

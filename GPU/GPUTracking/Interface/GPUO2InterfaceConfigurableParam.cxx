@@ -15,6 +15,7 @@
 #include "GPUO2InterfaceConfigurableParam.h"
 #include "GPUO2InterfaceConfiguration.h"
 #include "GPUDataTypes.h"
+#include "GPUConfigDump.h"
 
 using namespace o2::gpu;
 #define BeginNamespace(name)
@@ -53,7 +54,7 @@ using namespace o2::gpu;
 #undef AddHelp
 #undef AddShortcut
 
-GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam_internal()
+GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam(GPUO2InterfaceConfiguration& obj)
 {
 #define BeginNamespace(name)
 #define EndNamespace()
@@ -64,7 +65,7 @@ GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam_internal()
 #define AddOptionSet(name, type, value, optname, optnameshort, help, ...)
 #define AddOptionVec(name, type, optname, optnameshort, help, ...)
 #define AddOptionArray(name, type, count, default, optname, optnameshort, help, ...) \
-  for (int i = 0; i < count; i++) {                                                  \
+  for (int32_t i = 0; i < count; i++) {                                              \
     dst.name[i] = src.name[i];                                                       \
   }
 #define AddOptionArrayRTC(...) AddOptionArray(__VA_ARGS__)
@@ -72,7 +73,7 @@ GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam_internal()
 #define BeginSubConfig(name, instance, parent, preoptname, preoptnameshort, descr, o2prefix) \
   name instance;                                                                             \
   {                                                                                          \
-    auto& src = GPUCA_M_CAT(GPUConfigurableParam, name)::Instance();                         \
+    const auto& src = GPUCA_M_CAT(GPUConfigurableParam, name)::Instance();                   \
     name& dst = instance;
 #define BeginHiddenConfig(name, instance) {
 #define EndConfig() }
@@ -98,45 +99,35 @@ GPUSettingsO2 GPUO2InterfaceConfiguration::ReadConfigurableParam_internal()
 #undef AddHelp
 #undef AddShortcut
 
-  configProcessing = proc;
-  configReconstruction = rec;
-  configDisplay = display;
-  configQA = QA;
-  if (global.continuousMaxTimeBin) {
-    configGRP.continuousMaxTimeBin = global.continuousMaxTimeBin;
-  } else {
-    configGRP.continuousMaxTimeBin = global.tpcTriggeredMode ? 0 : -1;
+  obj.configProcessing = proc;
+  obj.configReconstruction = rec;
+  obj.configDisplay = display;
+  obj.configQA = QA;
+  if (obj.configGRP.grpContinuousMaxTimeBin < 0) {
+    if (global.setMaxTimeBin != -2) {
+      obj.configGRP.grpContinuousMaxTimeBin = global.setMaxTimeBin;
+    } else {
+      obj.configGRP.grpContinuousMaxTimeBin = global.tpcTriggeredMode ? 0 : -1;
+    }
   }
-  if (global.solenoidBz > -1e6f) {
-    configGRP.solenoidBz = global.solenoidBz;
+  if (global.solenoidBzNominalGPU > -1e6f) {
+    obj.configGRP.solenoidBzNominalGPU = global.solenoidBzNominalGPU;
   }
   if (global.constBz) {
-    configGRP.constBz = global.constBz;
+    obj.configGRP.constBz = global.constBz;
   }
   if (global.gpuDisplayfilterMacro != "") {
-    configDisplay.filterMacros.emplace_back(global.gpuDisplayfilterMacro);
+    obj.configDisplay.filterMacros.emplace_back(global.gpuDisplayfilterMacro);
   }
-  if (configReconstruction.tpc.trackReferenceX == 1000.f) {
-    configReconstruction.tpc.trackReferenceX = 83.f;
+  if (obj.configReconstruction.tpc.trackReferenceX == 1000.f) {
+    obj.configReconstruction.tpc.trackReferenceX = 83.f;
   }
-  configDeviceBackend.deviceType = GPUDataTypes::GetDeviceType(global.deviceType.c_str());
-  configDeviceBackend.forceDeviceType = global.forceDeviceType;
+  obj.configDeviceBackend.deviceType = GPUDataTypes::GetDeviceType(global.deviceType.c_str());
+  obj.configDeviceBackend.forceDeviceType = global.forceDeviceType;
   return global;
 }
 
-#include "utils/qconfig_helpers.h"
-
-namespace
-{
-GPUSettingsStandalone configStandalone;
-std::vector<std::function<void()>> qprint_global;
-#define QCONFIG_PRINT
-#include "utils/qconfig.h"
-#undef QCONFIG_PRINT
-} // namepsace
-
 void GPUO2InterfaceConfiguration::PrintParam_internal()
 {
-  qConfigPrint(configProcessing, "proc.");
-  qConfigPrint(configReconstruction, "rec.");
+  GPUConfigDump::dumpConfig(&configReconstruction, &configProcessing, &configQA, &configDisplay, &configDeviceBackend, &configWorkflow);
 }

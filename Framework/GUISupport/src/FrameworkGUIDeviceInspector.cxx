@@ -21,6 +21,7 @@
 #include "Framework/DeviceController.h"
 #include "Framework/DataProcessingStates.h"
 #include "Framework/Signpost.h"
+#include "InspectorHelpers.h"
 #include <DebugGUI/icons_font_awesome.h>
 
 #include "DebugGUI/imgui.h"
@@ -78,7 +79,7 @@ void deviceStateTable(DataProcessingStates const& states)
   }
 }
 
-void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStates const& states, DeviceMetricsInfo const& metrics)
+void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStates const& states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>> routes, DeviceMetricsInfo const& metrics)
 {
   // Find the state spec associated to data_queries
   auto& view = states.statesViews[(int)id];
@@ -94,13 +95,21 @@ void deviceInfoTable(char const* label, ProcessingStateId id, DataProcessingStat
       if ((end - input) == 0) {
         continue;
       }
-      ImGui::Text("%zu: %.*s", i, int(end - input), input);
+      auto getLifetime = [&routes, &i]() -> Lifetime {
+        if (std::get_if<std::vector<InputRoute>>(&routes)) {
+          return std::get<std::vector<InputRoute>>(routes)[i].matcher.lifetime;
+        } else {
+          return std::get<std::vector<OutputRoute>>(routes)[i].matcher.lifetime;
+        }
+      };
+      ImGui::Text("%zu: %.*s (%s)", i, int(end - input), input, InspectorHelpers::getLifeTimeStr(getLifetime()).c_str());
       if (ImGui::IsItemHovered()) {
         ImGui::BeginTooltip();
-        ImGui::Text("%zu: %.*s", i, int(end - input), input);
+        ImGui::Text("%zu: %.*s (%s)", i, int(end - input), input, InspectorHelpers::getLifeTimeStr(getLifetime()).c_str());
         ImGui::EndTooltip();
       }
       input = end + 1;
+      ++i;
     }
   }
 }
@@ -261,9 +270,6 @@ void displayDeviceInspector(DeviceSpec const& spec,
     ImGui::Text("Pid: %d (exit status: %d)", info.pid, info.exitStatus);
   }
   ImGui::Text("Device state: %s", info.deviceState.data());
-#ifdef DPL_ENABLE_TRACING
-  ImGui::Text("Tracy Port: %d", info.tracyPort);
-#endif
   ImGui::Text("Rank: %zu/%zu%%%zu/%zu", spec.rank, spec.nSlots, spec.inputTimesliceId, spec.maxInputTimeslices);
 
   if (ImGui::Button(ICON_FA_BUG "Attach debugger")) {
@@ -324,16 +330,6 @@ void displayDeviceInspector(DeviceSpec const& spec,
   }
 #endif
 
-#if DPL_ENABLE_TRACING
-  ImGui::SameLine();
-  if (ImGui::Button("Tracy")) {
-    std::string tracyPort = std::to_string(info.tracyPort);
-    auto cmd = fmt::format("tracy-profiler -p {} -a 127.0.0.1 &", info.tracyPort);
-    LOG(debug) << cmd;
-    int retVal = system(cmd.c_str());
-    (void)retVal;
-  }
-#endif
   if (control.controller) {
     if (ImGui::Button("Offer SHM")) {
       control.controller->write("/shm-offer 1000", strlen("/shm-offer 1000"));
@@ -350,10 +346,15 @@ void displayDeviceInspector(DeviceSpec const& spec,
   }
 
   deviceStateTable(states);
-  deviceInfoTable("Inputs:", ProcessingStateId::DATA_QUERIES, states, metrics);
-  deviceInfoTable("Outputs:", ProcessingStateId::OUTPUT_MATCHERS, states, metrics);
+  deviceInfoTable("Inputs:", ProcessingStateId::DATA_QUERIES, states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>>(spec.inputs), metrics);
+  deviceInfoTable("Outputs:", ProcessingStateId::OUTPUT_MATCHERS, states, std::variant<std::vector<InputRoute>, std::vector<OutputRoute>>(spec.outputs), metrics);
   configurationTable(info.currentConfig, info.currentProvenance);
   optionsTable("Workflow Options", metadata.workflowOptions, control);
+  if (ImGui::CollapsingHeader("Labels", ImGuiTreeNodeFlags_DefaultOpen)) {
+    for (auto& label : spec.labels) {
+      ImGui::Text("%s", label.value.c_str());
+    }
+  }
   servicesTable("Services", spec.services);
   if (ImGui::CollapsingHeader("Command line arguments", ImGuiTreeNodeFlags_DefaultOpen)) {
     static ImGuiTextFilter filter;
@@ -373,6 +374,7 @@ void displayDeviceInspector(DeviceSpec const& spec,
   if (ImGui::CollapsingHeader("Policies")) {
     ImGui::Text("Completion: %s", spec.completionPolicy.name.c_str());
     ImGui::Text("Sending: %s", spec.sendingPolicy.name.c_str());
+    ImGui::Text("Dispatching: %s", spec.dispatchPolicy.name.c_str());
   }
 
   if (ImGui::CollapsingHeader("Signals", ImGuiTreeNodeFlags_DefaultOpen)) {

@@ -17,9 +17,7 @@
 
 // This is the interface for the GPUTRDTrack based on the O2 track type
 #include "GPUCommonDef.h"
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 template <typename T>
 class trackInterface;
@@ -28,8 +26,7 @@ namespace gputpcgmmergertypes
 {
 struct GPUTPCOuterParam;
 } // namespace gputpcgmmergertypes
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #include "ReconstructionDataFormats/Track.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
@@ -38,9 +35,7 @@ struct GPUTPCOuterParam;
 #include "ReconstructionDataFormats/TrackLTIntegral.h"
 #include "CommonConstants/LHCConstants.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <>
@@ -56,10 +51,10 @@ class trackInterface<o2::track::TrackParCov> : public o2::track::TrackParCov
   {
     setX(x);
     setAlpha(alpha);
-    for (int i = 0; i < 5; i++) {
+    for (int32_t i = 0; i < 5; i++) {
       setParam(param[i], i);
     }
-    for (int i = 0; i < 15; i++) {
+    for (int32_t i = 0; i < 15; i++) {
       setCov(cov[i], i);
     }
   }
@@ -75,15 +70,15 @@ class trackInterface<o2::track::TrackParCov> : public o2::track::TrackParCov
 
   GPUdi() bool CheckNumericalQuality() const { return true; }
 
-  GPUdi() void setPileUpDistance(unsigned char bwd, unsigned char fwd) { setUserField((((unsigned short)bwd) << 8) | fwd); }
+  GPUdi() void setPileUpDistance(uint8_t bwd, uint8_t fwd) { setUserField((((uint16_t)bwd) << 8) | fwd); }
   GPUdi() bool hasPileUpInfo() const { return getUserField() != 0; }
   GPUdi() bool hasPileUpInfoBothSides() const { return getPileUpDistanceBwd() > 0 && getPileUpDistanceFwd() > 0; }
-  GPUdi() unsigned char getPileUpDistanceBwd() const { return getUserField() >> 8; }
-  GPUdi() unsigned char getPileUpDistanceFwd() const { return getUserField() & 255; }
-  GPUdi() unsigned short getPileUpSpan() const { return ((unsigned short)getPileUpDistanceBwd()) + getPileUpDistanceFwd(); }
-  GPUdi() float getPileUpMean() const { return hasPileUpInfoBothSides() ? 0.5 * (getPileUpDistanceFwd() + getPileUpDistanceBwd()) : getPileUpDistanceFwd() + getPileUpDistanceBwd(); }
+  GPUdi() uint8_t getPileUpDistanceBwd() const { return getUserField() >> 8; }
+  GPUdi() uint8_t getPileUpDistanceFwd() const { return getUserField() & 255; }
+  GPUdi() uint16_t getPileUpSpan() const { return ((uint16_t)getPileUpDistanceBwd()) + getPileUpDistanceFwd(); }
+  GPUdi() float getPileUpMean() const { return hasPileUpInfoBothSides() ? 0.5f * (getPileUpDistanceFwd() + getPileUpDistanceBwd()) : getPileUpDistanceFwd() + getPileUpDistanceBwd(); }
   GPUdi() float getPileUpTimeShiftMUS() const { return getPileUpMean() * o2::constants::lhc::LHCBunchSpacingMUS; }
-  GPUdi() float getPileUpTimeErrorMUS() const { return getPileUpSpan() * o2::constants::lhc::LHCBunchSpacingMUS / 3.4641016; }
+  GPUdi() float getPileUpTimeErrorMUS() const { return getPileUpSpan() * o2::constants::lhc::LHCBunchSpacingMUS / 3.4641016f; }
 
   typedef o2::track::TrackParCov baseClass;
 
@@ -94,7 +89,6 @@ class trackInterface<o2::track::TrackParCov> : public o2::track::TrackParCov
   ClassDefNV(trackInterface, 1);
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

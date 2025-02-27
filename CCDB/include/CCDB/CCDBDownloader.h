@@ -52,6 +52,7 @@ typedef struct DownloaderRequestData {
   HeaderObjectPair_t hoPair;
   std::map<std::string, std::string>* headers;
   std::string userAgent;
+  curl_slist* optionsList;
 
   std::function<bool(std::string)> localContentCallback;
 } DownloaderRequestData;
@@ -85,6 +86,11 @@ curl_socket_t opensocketCallback(void* clientp, curlsocktype purpose, struct cur
  * @param handle Handle assigned to this callback.
  */
 void onUVClose(uv_handle_t* handle);
+
+enum DownloaderErrorLevel {
+  MINOR,
+  SEVERE
+};
 
 /// A class encapsulating and performing simple CURL requests in terms of a so-called CURL multi-handle.
 /// A multi-handle allows to use a connection pool (connection cache) in the CURL layer even
@@ -296,6 +302,7 @@ class CCDBDownloader
     int hostInd;
     int locInd;
     DownloaderRequestData* requestData;
+    curl_slist** options;
   } PerformData;
 #endif
 
@@ -421,6 +428,6 @@ typedef struct DataForClosingSocket {
   curl_socket_t socket;
 } DataForClosingSocket;
 
-} // namespace o2
+} // namespace o2::ccdb
 
 #endif // O2_CCDB_CCDBDOWNLOADER_H

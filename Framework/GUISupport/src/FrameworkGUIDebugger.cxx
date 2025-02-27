@@ -71,6 +71,8 @@ ImVec4 colorForLogLevel(LogParsingHelpers::LogLevel logLevel)
       return PaletteHelpers::GREEN;
     case LogParsingHelpers::LogLevel::Debug:
       return PaletteHelpers::WHITE;
+    case LogParsingHelpers::LogLevel::Alarm:
+      return PaletteHelpers::YELLOW;
     case LogParsingHelpers::LogLevel::Warning:
       return PaletteHelpers::DARK_YELLOW;
     case LogParsingHelpers::LogLevel::Error:
@@ -145,18 +147,12 @@ void displayHistory(const DeviceInfo& info, DeviceControl& control)
       ji = (ji + 1) % historySize;
       continue;
     }
-    // Print matching lines
+    // Print matching lines. Notice we filter twice, once on input, to reduce the
+    // stream, a second time at display time, to avoid showing unrelevant
+    // messages from past.
     if (strstr(line.c_str(), control.logFilter) != nullptr) {
-      auto color = colorForLogLevel(logLevel);
-      // We filter twice, once on input, to reduce the
-      // stream, a second time at display time, to avoid
-      // showing unrelevant messages from past.
       if (logLevel >= control.logLevel) {
-        if (line.find('%', 0) != std::string::npos) {
-          ImGui::TextUnformatted(line.c_str(), line.c_str() + line.size());
-        } else {
-          ImGui::TextColored(color, line.c_str(), line.c_str() + line.size());
-        }
+        ImGui::TextColored(colorForLogLevel(logLevel), "%s", line.c_str());
       }
     }
     ji = (ji + 1) % historySize;
@@ -1216,22 +1212,22 @@ std::function<void(void)> getGUIDebugger(std::vector<DeviceInfo> const& infos,
 void updateMousePos(float x, float y)
 {
   ImGuiIO& io = ImGui::GetIO();
-  io.MousePos = ImVec2(x, y);
+  io.AddMousePosEvent(x, y);
 }
 
 void updateMouseButton(bool clicked)
 {
   ImGuiIO& io = ImGui::GetIO();
-  io.MouseDown[0] = clicked;
+  io.AddMouseButtonEvent(0, clicked);
 }
 
 void updateMouseWheel(int direction)
 {
   ImGuiIO& io = ImGui::GetIO();
   if (direction > 0) {
-    io.MouseWheel++;
+    io.AddMouseWheelEvent(0, 1.0);
   } else {
-    io.MouseWheel--;
+    io.AddMouseWheelEvent(0, -1.0);
   }
 }
 
@@ -1241,16 +1237,52 @@ void updateWindowSize(int x, int y)
   io.DisplaySize = ImVec2(x, y);
 }
 
-void keyDown(char key)
+void keyEvent(char key, bool down)
 {
   ImGuiIO& io = ImGui::GetIO();
-  io.KeysDown[io.KeyMap[(int)key]] = true;
-}
-
-void keyUp(char key)
-{
-  ImGuiIO& io = ImGui::GetIO();
-  io.KeysDown[io.KeyMap[(int)key]] = false;
+  switch (key) {
+    case 0:
+      io.AddKeyEvent(ImGuiKey_Tab, down);
+      break;
+    case 1:
+      io.AddKeyEvent(ImGuiKey_LeftArrow, down);
+      break;
+    case 2:
+      io.AddKeyEvent(ImGuiKey_RightArrow, down);
+      break;
+    case 3:
+      io.AddKeyEvent(ImGuiKey_UpArrow, down);
+      break;
+    case 4:
+      io.AddKeyEvent(ImGuiKey_DownArrow, down);
+      break;
+    case 5:
+      io.AddKeyEvent(ImGuiKey_PageUp, down);
+      break;
+    case 6:
+      io.AddKeyEvent(ImGuiKey_PageDown, down);
+      break;
+    case 7:
+      io.AddKeyEvent(ImGuiKey_Home, down);
+      break;
+    case 8:
+      io.AddKeyEvent(ImGuiKey_End, down);
+      break;
+    case 10:
+      io.AddKeyEvent(ImGuiKey_Delete, down);
+      break;
+    case 11:
+      io.AddKeyEvent(ImGuiKey_Backspace, down);
+      break;
+    case 13:
+      io.AddKeyEvent(ImGuiKey_Enter, down);
+      break;
+    case 14:
+      io.AddKeyEvent(ImGuiKey_Escape, down);
+      break;
+    default:
+      io.AddKeyEvent((ImGuiKey)key, down);
+  }
 }
 
 void charIn(char key)

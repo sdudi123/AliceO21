@@ -20,25 +20,21 @@
 #include "Framework/DataProcessorSpec.h"
 #include "Framework/Task.h"
 #include "Headers/DataHeader.h"
-#include "DataFormatsITS3/CompCluster.h"
+#include "DataFormatsITSMFT/CompCluster.h"
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
-#include "DetectorsCommonDataFormats/DetID.h"
 
 using namespace o2::framework;
 
-namespace o2
-{
-namespace its3
+namespace o2::its3
 {
 
 class ClusterReader : public Task
 {
  public:
-  ClusterReader() = delete;
   ClusterReader(bool useMC, bool usePatterns = true);
-  ~ClusterReader() override = default;
+
   void init(InitContext& ic) final;
   void run(ProcessingContext& pc) final;
 
@@ -46,12 +42,12 @@ class ClusterReader : public Task
   void connectTree(const std::string& filename);
 
   std::vector<o2::itsmft::ROFRecord> mClusROFRec, *mClusROFRecPtr = &mClusROFRec;
-  std::vector<o2::its3::CompClusterExt> mClusterCompArray, *mClusterCompArrayPtr = &mClusterCompArray;
+  std::vector<o2::itsmft::CompClusterExt> mClusterCompArray, *mClusterCompArrayPtr = &mClusterCompArray;
   std::vector<unsigned char> mPatternsArray, *mPatternsArrayPtr = &mPatternsArray;
   o2::dataformats::MCTruthContainer<o2::MCCompLabel> mClusterMCTruth, *mClusterMCTruthPtr = &mClusterMCTruth;
   std::vector<o2::itsmft::MC2ROFRecord> mClusMC2ROFs, *mClusMC2ROFsPtr = &mClusMC2ROFs;
 
-  o2::header::DataOrigin mOrigin = o2::header::gDataOriginIT3;
+  o2::header::DataOrigin mOrigin = o2::header::gDataOriginITS;
 
   std::unique_ptr<TFile> mFile;
   std::unique_ptr<TTree> mTree;
@@ -59,8 +55,9 @@ class ClusterReader : public Task
   bool mUseMC = true;       // use MC truth
   bool mUsePatterns = true; // send patterns
 
-  std::string mDetName = "IT3";
-  std::string mDetNameLC = "it3";
+  std::string mDetName = "ITS"; // pretending to be ITS
+  std::string mDetNameLC = "its";
+  std::string mDetNameReal = "IT3";
   std::string mFileName = "";
   std::string mClusTreeName = "o2sim";
   std::string mClusROFBranchName = "ClustersROF";
@@ -74,7 +71,6 @@ class ClusterReader : public Task
 /// read ITS/MFT cluster data from a root file
 framework::DataProcessorSpec getITS3ClusterReaderSpec(bool useMC = true, bool usePatterns = true);
 
-} // namespace its3
-} // namespace o2
+} // namespace o2::its3
 
 #endif /* O2_ITSMFT_CLUSTERREADER */

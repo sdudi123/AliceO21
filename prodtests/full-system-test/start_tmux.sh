@@ -37,6 +37,7 @@ if [[ "0$FST_TMUX_NO_EPN" != "01" ]]; then
   [[ -z $NUMAGPUIDS ]] && export NUMAGPUIDS=1
   [[ -z $EPNPIPELINES ]] && export EPNPIPELINES=1
   [[ -z $O2_GPU_DOUBLE_PIPELINE ]] && export O2_GPU_DOUBLE_PIPELINE=1
+  [[ -z $O2_GPU_RTC ]] && export O2_GPU_RTC=1
   [[ -z $DPL_CONDITION_BACKEND ]] && export DPL_CONDITION_BACKEND="http://localhost:8084"
   export ALL_EXTRA_CONFIG="$ALL_EXTRA_CONFIG;NameConf.mCCDBServer=${DPL_CONDITION_BACKEND};"
   export GEN_TOPO_QC_OVERRIDE_CCDB_SERVER="${DPL_CONDITION_BACKEND}"
@@ -97,18 +98,15 @@ fi
 
 FST_SLEEP0=0
 FST_SLEEP1=0
-FST_SLEEP2=45
+FST_SLEEP2=30
 if [[ -z $SHM_MANAGER_SHMID ]]; then
   rm -f /dev/shm/*fmq*
   if [[ `ls /dev/shm/*fmq* 2> /dev/null | wc -l` != "0" ]]; then
     echo "FMQ SHM files left which cannot be deleted, please clean up!"
     exit 1
   fi
-else
-  FST_SLEEP0=0
-  FST_SLEEP1=0
-  FST_SLEEP2=30
 fi
+[[ ${O2_GPU_RTC:-0} == 1 ]] && FST_SLEEP2=60
 [[ ! -z $FST_TMUX_DD_WAIT ]] && FST_SLEEP2=$FST_TMUX_DD_WAIT
 
 if workflow_has_parameter CALIB_PROXIES; then

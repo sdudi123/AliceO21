@@ -20,6 +20,9 @@
 #include "Framework/DataProcessingContext.h"
 #include "Framework/DeviceSpec.h"
 #include "Framework/StreamContext.h"
+#include "Framework/Signpost.h"
+#include "Headers/DataHeader.h"
+#include "Headers/DataHeaderHelpers.h"
 #include "Headers/Stack.h"
 
 #include <fairmq/Device.h>
@@ -32,6 +35,9 @@
 #include <TClonesArray.h>
 
 #include <utility>
+
+O2_DECLARE_DYNAMIC_LOG(stream_context);
+O2_DECLARE_DYNAMIC_LOG(parts);
 
 namespace o2::framework
 {
@@ -53,7 +59,10 @@ RouteIndex DataAllocator::matchDataHeader(const Output& spec, size_t timeslice)
   for (auto ri = 0; ri < allowedOutputRoutes.size(); ++ri) {
     auto& route = allowedOutputRoutes[ri];
     if (DataSpecUtils::match(route.matcher, spec.origin, spec.description, spec.subSpec) && ((timeslice % route.maxTimeslices) == route.timeslice)) {
-      stream.routeUserCreated.at(ri) = true;
+      stream.routeCreated.at(ri) = true;
+      auto sid = _o2_signpost_id_t{(int64_t)&stream};
+      O2_SIGNPOST_EVENT_EMIT(stream_context, sid, "data_allocator", "Route %" PRIu64 " (%{public}s) created for timeslice %" PRIu64,
+                             (uint64_t)ri, DataSpecUtils::describe(route.matcher).c_str(), (uint64_t)timeslice);
       return RouteIndex{ri};
     }
   }
@@ -112,6 +121,7 @@ fair::mq::MessagePtr DataAllocator::headerMessageFromOutput(Output const& spec, 
   dh.runNumber = timingInfo.runNumber;
 
   DataProcessingHeader dph{timingInfo.timeslice, 1, timingInfo.creation};
+  static_cast<o2::header::BaseHeader&>(dph).flagsDerivedHeader |= timingInfo.keepAtEndOfStream ? DataProcessingHeader::KEEP_AT_EOS_FLAG : 0;
   auto& proxy = mRegistry.get<FairMQDeviceProxy>();
   auto* transport = proxy.getOutputTransport(routeIndex);
 
@@ -123,12 +133,14 @@ void DataAllocator::addPartToContext(RouteIndex routeIndex, fair::mq::MessagePtr
                                      o2::header::SerializationMethod serializationMethod)
 {
   auto headerMessage = headerMessageFromOutput(spec, routeIndex, serializationMethod, 0);
-
+  O2_SIGNPOST_ID_FROM_POINTER(pid, parts, headerMessage->GetData());
   // FIXME: this is kind of ugly, we know that we can change the content of the
   // header message because we have just created it, but the API declares it const
   const DataHeader* cdh = o2::header::get<DataHeader*>(headerMessage->GetData());
   auto* dh = const_cast<DataHeader*>(cdh);
   dh->payloadSize = payloadMessage->GetSize();
+  O2_SIGNPOST_START(parts, pid, "parts", "addPartToContext %{public}s@%p %" PRIu64,
+                    cdh ? fmt::format("{}/{}/{}", cdh->dataOrigin, cdh->dataDescription, cdh->subSpecification).c_str() : "unknown", headerMessage->GetData(), dh->payloadSize);
   auto& context = mRegistry.get<MessageContext>();
   // make_scoped creates the context object inside of a scope handler, since it goes out of
   // scope immediately, the created object is scheduled and can be directly sent if the context
@@ -144,6 +156,10 @@ void DataAllocator::adopt(const Output& spec, std::string* ptr)
   // the correct payload size is set later when sending the
   // StringContext, see DataProcessor::doSend
   auto header = headerMessageFromOutput(spec, routeIndex, o2::header::gSerializationMethodNone, 0);
+  const DataHeader* cdh = o2::header::get<DataHeader*>(header->GetData());
+  O2_SIGNPOST_ID_FROM_POINTER(pid, parts, header->GetData());
+  O2_SIGNPOST_START(parts, pid, "parts", "addPartToContext %{public}s@%p %" PRIu64,
+                    cdh ? fmt::format("{}/{}/{}", cdh->dataOrigin, cdh->dataDescription, cdh->subSpecification).c_str() : "unknown", header->GetData(), cdh->payloadSize);
   mRegistry.get<StringContext>().addString(std::move(header), std::move(payload), routeIndex);
   assert(payload.get() == nullptr);
 }
@@ -195,11 +211,43 @@ void doWriteTable(std::shared_ptr<FairMQResizableBuffer> b, arrow::Table* table)
   }
 }
 
+void doWriteBatch(std::shared_ptr<FairMQResizableBuffer> b, arrow::RecordBatch* batch)
+{
+  auto mock = std::make_shared<arrow::io::MockOutputStream>();
+  int64_t expectedSize = 0;
+  auto mockWriter = arrow::ipc::MakeStreamWriter(mock.get(), batch->schema());
+  arrow::Status outStatus = mockWriter.ValueOrDie()->WriteRecordBatch(*batch);
+
+  expectedSize = mock->Tell().ValueOrDie();
+  auto reserve = b->Reserve(expectedSize);
+  if (reserve.ok() == false) {
+    throw std::runtime_error("Unable to reserve memory for table");
+  }
+
+  auto stream = std::make_shared<FairMQOutputStream>(b);
+  // This is a copy maybe we can finally get rid of it by having using the
+  // dataset API?
+  auto outBatch = arrow::ipc::MakeStreamWriter(stream.get(), batch->schema());
+  if (outBatch.ok() == false) {
+    throw ::std::runtime_error("Unable to create batch writer");
+  }
+
+  outStatus = outBatch.ValueOrDie()->WriteRecordBatch(*batch);
+
+  if (outStatus.ok() == false) {
+    throw std::runtime_error("Unable to Write batch");
+  }
+}
+
 void DataAllocator::adopt(const Output& spec, LifetimeHolder<TableBuilder>& tb)
 {
   auto& timingInfo = mRegistry.get<TimingInfo>();
   RouteIndex routeIndex = matchDataHeader(spec, timingInfo.timeslice);
   auto header = headerMessageFromOutput(spec, routeIndex, o2::header::gSerializationMethodArrow, 0);
+  const DataHeader* cdh = o2::header::get<DataHeader*>(header->GetData());
+  O2_SIGNPOST_ID_FROM_POINTER(pid, parts, header->GetData());
+  O2_SIGNPOST_START(parts, pid, "parts", "adopt %{public}s@%p %" PRIu64,
+                    cdh ? fmt::format("{}/{}/{}", cdh->dataOrigin, cdh->dataDescription, cdh->subSpecification).c_str() : "unknown", header->GetData(), cdh->payloadSize);
   auto& context = mRegistry.get<ArrowContext>();
 
   auto creator = [transport = context.proxy().getOutputTransport(routeIndex)](size_t s) -> std::unique_ptr<fair::mq::Message> {
@@ -239,6 +287,38 @@ void DataAllocator::adopt(const Output& spec, LifetimeHolder<TreeToTable>& t2t)
     // get rid of the intermediate tree 2 table object, saving memory.
     auto table = tree.finalize();
     doWriteTable(buffer, table.get());
+    // deletion happens in the caller
+  };
+
+  /// To finalise this we write the table to the buffer.
+  /// FIXME: most likely not a great idea. We should probably write to the buffer
+  ///        directly in the TableBuilder, incrementally.
+  auto finalizer = [](std::shared_ptr<FairMQResizableBuffer> b) -> void {
+    // This is empty because we already serialised the object when
+    // the LifetimeHolder goes out of scope.
+  };
+
+  context.addBuffer(std::move(header), buffer, std::move(finalizer), routeIndex);
+}
+
+void DataAllocator::adopt(const Output& spec, LifetimeHolder<FragmentToBatch>& f2b)
+{
+  auto& timingInfo = mRegistry.get<TimingInfo>();
+  RouteIndex routeIndex = matchDataHeader(spec, timingInfo.timeslice);
+
+  auto header = headerMessageFromOutput(spec, routeIndex, o2::header::gSerializationMethodArrow, 0);
+  auto& context = mRegistry.get<ArrowContext>();
+
+  auto creator = [transport = context.proxy().getOutputTransport(routeIndex)](size_t s) -> std::unique_ptr<fair::mq::Message> {
+    return transport->CreateMessage(s);
+  };
+  auto buffer = std::make_shared<FairMQResizableBuffer>(creator);
+
+  f2b.callback = [buffer = buffer, transport = context.proxy().getOutputTransport(routeIndex)](FragmentToBatch& source) {
+    // Serialization happens in here, so that we can
+    // get rid of the intermediate tree 2 table object, saving memory.
+    auto batch = source.finalize();
+    doWriteBatch(buffer, batch.get());
     // deletion happens in the caller
   };
 

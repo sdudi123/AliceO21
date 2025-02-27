@@ -12,7 +12,9 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <vector>
 
+#include "TPCBase/Utils.h"
 #include "TROOT.h"
 
 #include "Framework/Logger.h"
@@ -102,18 +104,31 @@ void cru_calib_helpers::debugDiff(std::string_view file1, std::string_view file2
   }
 }
 
-std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(const CalPad& pedestals, const CalPad& noise, float sigmaNoise, float minADC, float pedestalOffset, bool onlyFilled, bool maskBad, float noisyChannelThreshold, float sigmaNoiseNoisyChannels, float badChannelThreshold, bool fixedSize)
+std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(const CalPad& pedestals, const CalPad& noise, std::vector<float> sigmaNoiseROCType, std::vector<float> minADCROCType, float pedestalOffset, bool onlyFilled, bool maskBad, float noisyChannelThreshold, float sigmaNoiseNoisyChannels, float badChannelThreshold, bool fixedSize)
 {
   const auto& mapper = Mapper::instance();
+
+  auto expandVector = [](std::vector<float>& vec, const std::string name) {
+    if (vec.size() == 1) {
+      vec.resize(4);
+      std::fill_n(&vec[1], 3, vec[0]);
+    } else if (vec.size() == 2) {
+      vec.resize(4);
+      std::fill_n(&vec[2], 2, vec[1]);
+    } else if (vec.size() != 4) {
+      LOGP(fatal, "{} definition must be either one value for all ROC types, or {{IROC, OROC}}, or {{IROC, OROC1, OROC2, OROC3}}", name);
+    }
+    LOGP(info, "Using {} = {{{}}}", name, utils::elementsToString(vec));
+  };
+
+  expandVector(sigmaNoiseROCType, "sigmaNoiseROCType");
+  expandVector(minADCROCType, "minADCROCType");
 
   std::unordered_map<std::string, CalPad> pedestalsThreshold;
   pedestalsThreshold["Pedestals"] = CalPad("Pedestals");
   pedestalsThreshold["ThresholdMap"] = CalPad("ThresholdMap");
   pedestalsThreshold["PedestalsPhys"] = CalPad("Pedestals");
   pedestalsThreshold["ThresholdMapPhys"] = CalPad("ThresholdMap");
-
-  auto& pedestalsCRU = pedestalsThreshold["Pedestals"];
-  auto& thresholdCRU = pedestalsThreshold["ThresholdMap"];
 
   // ===| prepare values |===
   for (size_t iroc = 0; iroc < pedestals.getData().size(); ++iroc) {
@@ -147,6 +162,9 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
       const int fecInPartition = fecInfo.getIndex() - partInfo.getSectorFECOffset();
       // const int dataWrapperID = fecInPartition >= fecOffset;
       // const int globalLinkID = (fecInPartition % fecOffset) + dataWrapperID * 12;
+      const int rocType = roc.isIROC() ? 0 : cru.partition() - 1;
+      const float sigmaNoise = sigmaNoiseROCType[rocType];
+      const float minADC = minADCROCType[rocType];
 
       const auto traceLength = traceLengths[ipad];
 
@@ -158,7 +176,7 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
       }
 
       float noise = std::abs(rocNoise.getValue(ipad)); // it seems with the new fitting procedure, the noise can also be negative, since in gaus sigma is quadratic
-      float noiseCorr = noise - (0.847601 + 0.031514 * traceLength);
+      const float noiseCorr = noise - (0.847601 + 0.031514 * traceLength);
       if ((pedestal <= 0) || (pedestal > 150) || (noise <= 0) || (noise > 50)) {
         LOGP(info, "Bad pedestal or noise value in ROC {:2}, CRU {:3}, fec in CRU: {:2}, SAMPA: {}, channel: {:2}, pedestal: {:.4f}, noise {:.4f}", iroc, cruID, fecInPartition, sampa, sampaChannel, pedestal, noise);
         if (maskBad) {
@@ -174,6 +192,7 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
       float threshold = (noise > 0) ? std::max(sigmaNoise * noise, minADC) : 0;
       threshold = std::min(threshold, 1023.f);
       float thresholdHighNoise = (noiseCorr > noisyChannelThreshold) ? std::max(sigmaNoiseNoisyChannels * noise, minADC) : threshold;
+      thresholdHighNoise = std::min(thresholdHighNoise, 1023.f);
 
       float pedestalHighNoise = pedestal;
       if (noiseCorr > badChannelThreshold) {
@@ -207,4 +226,49 @@ std::unordered_map<std::string, CalPad> cru_calib_helpers::preparePedestalFiles(
   }
 
   return pedestalsThreshold;
+}
+
+cru_calib_helpers::DataMapU32 cru_calib_helpers::getDataMap(const CalPad& calPad)
+{
+  const auto& mapper = Mapper::instance();
+
+  DataMapU32 dataMap;
+
+  for (size_t iroc = 0; iroc < calPad.getData().size(); ++iroc) {
+    const ROC roc(iroc);
+
+    const auto& calRoc = calPad.getCalArray(iroc);
+
+    const int padOffset = roc.isOROC() ? mapper.getPadsInIROC() : 0;
+
+    // skip empty ROCs
+    if (!(std::abs(calRoc.getSum()) > 0)) {
+      continue;
+    }
+
+    // loop over pads
+    for (size_t ipad = 0; ipad < calRoc.getData().size(); ++ipad) {
+      const int globalPad = ipad + padOffset;
+      const FECInfo& fecInfo = mapper.fecInfo(globalPad);
+      const CRU cru = mapper.getCRU(roc.getSector(), globalPad);
+      const uint32_t region = cru.region();
+      const int cruID = cru.number();
+      const int sampa = fecInfo.getSampaChip();
+      const int sampaChannel = fecInfo.getSampaChannel();
+
+      const PartitionInfo& partInfo = mapper.getMapPartitionInfo()[cru.partition()];
+      const int nFECs = partInfo.getNumberOfFECs();
+      const int fecOffset = (nFECs + 1) / 2;
+      const int fecInPartition = fecInfo.getIndex() - partInfo.getSectorFECOffset();
+      const int dataWrapperID = fecInPartition >= fecOffset;
+      const int globalLinkID = (fecInPartition % fecOffset) + dataWrapperID * 12;
+
+      const int hwChannel = getHWChannel(sampa, sampaChannel, region % 2);
+
+      const auto value = calRoc.getValue(ipad);
+      dataMap[LinkInfo(cruID, globalLinkID)][hwChannel] = floatToFixedSize(value);
+    }
+  }
+
+  return dataMap;
 }
