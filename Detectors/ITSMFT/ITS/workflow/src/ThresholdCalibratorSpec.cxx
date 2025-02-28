@@ -1516,7 +1516,7 @@ void ITSThresholdCalibrator::run(ProcessingContext& pc)
           if (mPixelHits.count(chipID)) {
             if (mPixelHits[chipID].count(row)) { // make sure the row exists
               extractAndUpdate(chipID, row);
-              if (mScanType != 'r' || mLoopVal[ruIndex][row] == mMax) {
+              if (mScanType != 'p' && (mScanType != 'r' || mLoopVal[ruIndex][row] == mMax)) { // do not erase for scantype = p because in finalize() we have calculate2Dparams
                 mPixelHits[chipID].erase(row);
               }
             }
@@ -1901,11 +1901,15 @@ void ITSThresholdCalibrator::finalize()
       if (mVerboseOutput) {
         LOG(info) << "Extracting hits from pulse shape scan or vresetd scan, chip " << itchip->first;
       }
-      auto itrow = this->mPixelHits[itchip->first].cbegin();
-      while (itrow != mPixelHits[itchip->first].cend()) {    // in case there are multiple rows, for now it's 1 row
-        this->extractAndUpdate(itchip->first, itrow->first); // fill the tree - for mScanType = p and t, it is done already in run()
-        ++itrow;
+
+      if (mScanType != 'p') { // done already in run()
+        auto itrow = this->mPixelHits[itchip->first].cbegin();
+        while (itrow != mPixelHits[itchip->first].cend()) {    // in case there are multiple rows, for now it's 1 row
+          this->extractAndUpdate(itchip->first, itrow->first); // fill the tree - for mScanType = p, it is done already in run()
+          ++itrow;
+        }
       }
+
       if (mCalculate2DParams && (mScanType == 'P' || mScanType == 'p')) {
         this->addDatabaseEntry(itchip->first, name, mScanType == 'P' ? calculatePulseParams(itchip->first) : calculatePulseParams2D(itchip->first), false);
       }
