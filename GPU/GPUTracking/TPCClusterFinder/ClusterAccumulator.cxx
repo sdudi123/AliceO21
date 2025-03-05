@@ -116,7 +116,7 @@ GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, Charge q, TPCTime
   if (CfUtils::isAtEdge(pos, geo.NPads(pos.row()))) {
     bool leftEdge = (pad < 2);
     bool correct = (leftEdge) ? (pad < mPadMean) : (pad > mPadMean);
-    if (leftEdge && pad == 1) { // only check charge at boundary if maximum is at least one pad away from boundary
+    if (leftEdge && pad == 1) {                         // only check charge at boundary if maximum is at least one pad away from boundary
       correct = correct && (padBoundaryCharges[0] > 0); // Only correct if cluster is asymmetric with charge > 0 towards sector boundary, otherwise all charge is found
     } else if (!leftEdge && pad == (geo.NPads(pos.row()) - 1)) {
       correct = correct && (padBoundaryCharges[1] > 0);
