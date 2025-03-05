@@ -897,7 +897,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clusterer.nnClusterizerElementSize = ((2 * clusterer.nnClusterizerSizeInputRow + 1) * (2 * clusterer.nnClusterizerSizeInputPad + 1) * (2 * clusterer.nnClusterizerSizeInputTime + 1)) + (clusterer.nnClusterizerAddIndexData ? 3 : 0);
           clusterer.nnClusterizerBatchedMode = GetProcessingSettings().nnClusterizerBatchedMode;
           clusterer.nnClusterizerBoundaryFillValue = GetProcessingSettings().nnClusterizerBoundaryFillValue;
-          if (GetProcessingSettings().nnClusterizerVerbosity < 0){
+          if (GetProcessingSettings().nnClusterizerVerbosity < 0) {
             clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnInferenceVerbosity;
           } else {
             clusterer.nnClusterizerVerbosity = GetProcessingSettings().nnClusterizerVerbosity;
@@ -933,7 +933,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               clusterer.model_reg_2.init(clusterer.OrtOptions);
             }
           }
-          
+
           if (clusterer.nnClusterizerUseCFregression || (int)(GetProcessingSettings().nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSlice}});
             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
@@ -943,12 +943,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             // Inverse sigmoid transformation
             clusterer.nnClassThreshold = (float)std::log(clusterer.nnClassThreshold / (1.f - clusterer.nnClassThreshold));
           }
-          
+
           float time_clusterizer = 0, time_fill = 0;
           int evalDtype = clusterer.OrtOptions["dtype"].find("32") != std::string::npos;
           clusterer.outputDataClass.resize(clusterer.mPmemory->counters.nClusters, -1);
 
-          for(int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
+          for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clusterer.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clusterer.nnClusterizerBatchedMode;
             uint iSize = CAMath::Min((uint)clusterer.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
 
@@ -967,7 +967,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto start1 = std::chrono::high_resolution_clock::now();
             GPUTPCNNClusterizer::applyNetworkClass(clusterer, evalDtype);
-            if (clusterer.model_class.getNumOutputNodes()[0][1] == 1){
+            if (clusterer.model_class.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
             } else {
               runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::determineClass2Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, batchStart); // Assigning class labels
@@ -985,11 +985,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
             time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
-
           }
 
           auto start1 = std::chrono::high_resolution_clock::now();
-          if(clusterer.nnClusterizerUseCFregression) {
+          if (clusterer.nnClusterizerUseCFregression) {
             runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSlice}}, evalDtype, 0, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
           }
           auto stop1 = std::chrono::high_resolution_clock::now();

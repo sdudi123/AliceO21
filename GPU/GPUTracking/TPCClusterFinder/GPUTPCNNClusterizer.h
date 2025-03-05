@@ -75,14 +75,12 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static void applyNetworkReg1(processorType&, int8_t = 0);
   static void applyNetworkReg2(processorType&, int8_t = 0);
 
-  
-  private:
-
-    static int padOffset(int, int, const GPUTPCGeometry&);
-    static int rowOffset(int, int);
-    static bool isBoundary(int, int, int, const GPUTPCGeometry&);
+ private:
+  static int padOffset(int, int, const GPUTPCGeometry&);
+  static int rowOffset(int, int);
+  static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif
