@@ -21,6 +21,7 @@
 #include "GPUTPCClusterFinder.h"
 #include "Array2D.h"
 #include "PackedCharge.h"
+#include "ML/3rdparty/GPUORTFloat16.h"
 
 namespace o2::tpc
 {
@@ -70,10 +71,6 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, int8_t, uint);
   static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
   static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
-
-  static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
-  static void applyNetworkReg1(processorType&, int8_t = 0);
-  static void applyNetworkReg2(processorType&, int8_t = 0);
 
   
   private:

@@ -83,31 +83,6 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishClass2Regr
   GPUTPCNNClusterizer::publishClustersReg2(glo_idx, smem, clusterer, dtype, onlyMC, batchStart);
 }
 
-
-void GPUTPCNNClusterizer::applyNetworkClass(processorType& clusterer, int8_t dtype, uint batch_idx) {
-  if(dtype == 0){
-    clusterer.modelProbabilities = clusterer.model_class.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
-  } else {
-    clusterer.modelProbabilities = clusterer.model_class.inference<float, float>(clusterer.inputData32);
-  }
-}
-
-void GPUTPCNNClusterizer::applyNetworkReg1(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
-    clusterer.outputDataReg1 = clusterer.model_reg_1.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
-  } else {
-    clusterer.outputDataReg1 = clusterer.model_reg_1.inference<float, float>(clusterer.inputData32);
-  }
-}
-
-void GPUTPCNNClusterizer::applyNetworkReg2(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
-    clusterer.outputDataReg2 = clusterer.model_reg_2.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
-  } else {
-    clusterer.outputDataReg2 = clusterer.model_reg_2.inference<float, float>(clusterer.inputData32);
-  }
-}
-
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 int GPUTPCNNClusterizer::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
 {

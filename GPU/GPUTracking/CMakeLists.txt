@@ -158,8 +158,7 @@ set(HDRS_INSTALL
 )
 
 set(SRCS_NO_CINT ${SRCS_NO_CINT} display/GPUDisplayInterface.cxx)
-set(SRCS_NO_CINT
-  ${SRCS_NO_CINT}
+set(SRCS_NO_CINT ${SRCS_NO_CINT}
   Global/GPUChainITS.cxx
   ITS/GPUITSFitter.cxx
   ITS/GPUITSFitterKernels.cxx
