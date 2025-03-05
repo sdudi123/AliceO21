@@ -80,7 +80,7 @@ GPUdii() void GPUTPCCFClusterizer::computeClustersImpl(int32_t nBlocks, int32_t 
     }
     return;
   }
-  pc.finalize(pos, charge, fragment.start, clusterer.Param().tpcGeometry);
+  pc.finalize(pos, charge, fragment.start, clusterer.Param().tpcGeometry, smem.buf);
 
   tpc::ClusterNative myCluster;
   bool rejectCluster = !pc.toNative(pos, charge, myCluster, clusterer.Param());

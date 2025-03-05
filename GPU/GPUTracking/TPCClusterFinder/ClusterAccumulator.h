@@ -51,6 +51,7 @@ class ClusterAccumulator
   float mTimeSigma = 0;
   uint8_t mSplitInTime = 0;
   uint8_t mSplitInPad = 0;
+  bool edgeIsZero = 0;
 
   GPUd() void update(tpccf::Charge, tpccf::Delta2);
 };

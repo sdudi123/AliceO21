@@ -97,7 +97,7 @@ GPUd() Charge ClusterAccumulator::updateOuter(PackedCharge charge, Delta2 d)
   return q;
 }
 
-GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, Charge q, TPCTime timeOffset, const GPUTPCGeometry& geo)
+GPUd() void ClusterAccumulator::finalize(const ChargePos& pos, Charge q, TPCTime timeOffset, const GPUTPCGeometry& geo, const PackedCharge* buf)
 {
   mQtot += q;
 
