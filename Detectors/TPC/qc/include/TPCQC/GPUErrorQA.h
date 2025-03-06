@@ -18,6 +18,7 @@
 #define AliceO2_TPC_QC_GPUERRORQA_H
 
 #include <memory>
+#include <unordered_map>
 #include <gsl/span>
 
 // root includes
@@ -55,11 +56,14 @@ class GPUErrorQA
   /// Reset all histograms
   void resetHistograms();
 
+  /// return histograms
+  std::unordered_map<std::string, std::unique_ptr<TH1>>& getMapHist() { return mMapHist; };
+
   /// Dump results to a file
   void dumpToFile(std::string filename);
 
  private:
-  std::unique_ptr<TH1F> mHist;
+  std::unordered_map<std::string, std::unique_ptr<TH1>> mMapHist;
   ClassDefNV(GPUErrorQA, 1)
 };
 } // namespace qc
