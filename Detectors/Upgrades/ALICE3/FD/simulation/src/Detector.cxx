@@ -63,9 +63,9 @@ Detector::Detector(bool active)
 
   auto& baseParam = FDBaseParam::Instance();
 
-  if (baseParam.noFCT) {
-    mNumberOfRingsA = Constants::nringsA_noFCT;
-    mEtaMinA = Constants::etaMinA_noFCT;
+  if (baseParam.withMG) {
+    mNumberOfRingsA = Constants::nringsA_withMG;
+    mEtaMinA = Constants::etaMinA_withMG;
   } else {
     mNumberOfRingsA = Constants::nringsA;
     mEtaMinA = Constants::etaMinA;

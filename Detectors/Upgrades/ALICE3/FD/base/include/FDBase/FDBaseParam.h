@@ -26,7 +26,7 @@ struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
   float zmodC = -1850.0f;
   float dzscint = 4.0f;
 
-  bool noFCT = false;
+  bool withMG = false; // modified geometry
 
   O2ParamDef(FDBaseParam, "FDBase");
 };
