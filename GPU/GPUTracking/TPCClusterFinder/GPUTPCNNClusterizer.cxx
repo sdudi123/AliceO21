@@ -83,25 +83,27 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishClass2Regr
   GPUTPCNNClusterizer::publishClustersReg2(glo_idx, smem, clusterer, dtype, onlyMC, batchStart);
 }
 
-
-void GPUTPCNNClusterizer::applyNetworkClass(processorType& clusterer, int8_t dtype, uint batch_idx) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::applyNetworkClass(processorType& clusterer, int8_t dtype, uint batch_idx)
+{
+  if (dtype == 0) {
     clusterer.modelProbabilities = clusterer.model_class.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
   } else {
     clusterer.modelProbabilities = clusterer.model_class.inference<float, float>(clusterer.inputData32);
   }
 }
 
-void GPUTPCNNClusterizer::applyNetworkReg1(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::applyNetworkReg1(processorType& clusterer, int8_t dtype)
+{
+  if (dtype == 0) {
     clusterer.outputDataReg1 = clusterer.model_reg_1.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
   } else {
     clusterer.outputDataReg1 = clusterer.model_reg_1.inference<float, float>(clusterer.inputData32);
   }
 }
 
-void GPUTPCNNClusterizer::applyNetworkReg2(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::applyNetworkReg2(processorType& clusterer, int8_t dtype)
+{
+  if (dtype == 0) {
     clusterer.outputDataReg2 = clusterer.model_reg_2.inference<OrtDataType::Float16_t, float>(clusterer.inputData16);
   } else {
     clusterer.outputDataReg2 = clusterer.model_reg_2.inference<float, float>(clusterer.inputData32);
@@ -161,14 +163,14 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       for (int t = -clusterer.nnClusterizerSizeInputTime; t <= clusterer.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
-          if(dtype == 0){
+          if (dtype == 0) {
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
           } else {
             clusterer.inputData32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
           }
         } else {
           // Filling boundary just to make sure that no values are left unintentionally
-          if(dtype == 0){
+          if (dtype == 0) {
             clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(clusterer.nnClusterizerBoundaryFillValue));
           } else {
             clusterer.inputData32[write_idx] = static_cast<float>(clusterer.nnClusterizerBoundaryFillValue);
@@ -179,7 +181,7 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
     }
   }
   if (clusterer.nnClusterizerAddIndexData) {
-    if(dtype == 0){
+    if (dtype == 0) {
       clusterer.inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISlice / 36.f);
       clusterer.inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
       clusterer.inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
