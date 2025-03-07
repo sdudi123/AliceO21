@@ -197,11 +197,11 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
   }
   if ((clusterer.nnInternals)->nnClusterizerAddIndexData) {
     if (dtype == 0) {
-      (clusterer.nnInternals)->inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISlice / 36.f);
+      (clusterer.nnInternals)->inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISector / 36.f);
       (clusterer.nnInternals)->inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
       (clusterer.nnInternals)->inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
     } else {
-      (clusterer.nnInternals)->inputData32[write_idx] = clusterer.mISlice / 36.f;
+      (clusterer.nnInternals)->inputData32[write_idx] = clusterer.mISector / 36.f;
       (clusterer.nnInternals)->inputData32[write_idx + 1] = row / 152.f;
       (clusterer.nnInternals)->inputData32[write_idx + 2] = static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row);
     }
