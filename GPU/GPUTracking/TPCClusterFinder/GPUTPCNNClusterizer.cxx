@@ -61,8 +61,8 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::determineClass2La
   uint elem_iterator = glo_idx * (clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1];
   float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
   uint class_label = 0;
-  for(float pIdx = elem_iterator; pIdx < elem_iterator + (clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1]; pIdx++) {
-    if(pIdx == elem_iterator) {
+  for (float pIdx = elem_iterator; pIdx < elem_iterator + (clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1]; pIdx++) {
+    if (pIdx == elem_iterator) {
       current_max_prob = (clusterer.nnInternals)->modelProbabilities[pIdx];
     } else {
       class_label = ((clusterer.nnInternals)->modelProbabilities[pIdx] > current_max_prob ? pIdx : class_label);
@@ -93,24 +93,27 @@ GPUdii() void GPUTPCNNClusterizer::Thread<GPUTPCNNClusterizer::publishClass2Regr
 }
 
 // Apply the neural network to the input data. Note: These are not GPU kernels. We let ONNX take care of that
-void GPUTPCNNClusterizer::inferenceNetworkClass(processorType& clusterer, int8_t dtype, uint batch_idx) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::inferenceNetworkClass(processorType& clusterer, int8_t dtype, uint batch_idx)
+{
+  if (dtype == 0) {
     (clusterer.nnInternals)->modelProbabilities = (clusterer.nnInternals)->model_class.inference<OrtDataType::Float16_t, float>((clusterer.nnInternals)->inputData16);
   } else {
     (clusterer.nnInternals)->modelProbabilities = (clusterer.nnInternals)->model_class.inference<float, float>((clusterer.nnInternals)->inputData32);
   }
 }
 
-void GPUTPCNNClusterizer::inferenceNetworkReg1(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::inferenceNetworkReg1(processorType& clusterer, int8_t dtype)
+{
+  if (dtype == 0) {
     (clusterer.nnInternals)->outputDataReg1 = (clusterer.nnInternals)->model_reg_1.inference<OrtDataType::Float16_t, float>((clusterer.nnInternals)->inputData16);
   } else {
     (clusterer.nnInternals)->outputDataReg1 = (clusterer.nnInternals)->model_reg_1.inference<float, float>((clusterer.nnInternals)->inputData32);
   }
 }
 
-void GPUTPCNNClusterizer::inferenceNetworkReg2(processorType& clusterer, int8_t dtype) {
-  if(dtype == 0){
+void GPUTPCNNClusterizer::inferenceNetworkReg2(processorType& clusterer, int8_t dtype)
+{
+  if (dtype == 0) {
     (clusterer.nnInternals)->outputDataReg2 = (clusterer.nnInternals)->model_reg_2.inference<OrtDataType::Float16_t, float>((clusterer.nnInternals)->inputData16);
   } else {
     (clusterer.nnInternals)->outputDataReg2 = (clusterer.nnInternals)->model_reg_2.inference<float, float>((clusterer.nnInternals)->inputData32);
@@ -171,18 +174,18 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
       for (int t = -(clusterer.nnInternals)->nnClusterizerSizeInputTime; t <= (clusterer.nnInternals)->nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !(clusterer.nnInternals)->clusterFlags[glo_idx][0] && std::abs(p) < 3 && std::abs(t) < 3 && p!=0 && t!=0) { // ordering is done for short circuit optimization
+          if (r == 0 && !(clusterer.nnInternals)->clusterFlags[glo_idx][0] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
             (clusterer.nnInternals)->clusterFlags[glo_idx][0] = CfUtils::isPeak(isPeakMap[tmp_pos]);
             (clusterer.nnInternals)->clusterFlags[glo_idx][1] = (clusterer.nnInternals)->clusterFlags[glo_idx][0];
           }
-          if(dtype == 0){
+          if (dtype == 0) {
             (clusterer.nnInternals)->inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
           } else {
             (clusterer.nnInternals)->inputData32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
           }
         } else {
           // Filling boundary just to make sure that no values are left unintentionally
-          if(dtype == 0){
+          if (dtype == 0) {
             (clusterer.nnInternals)->inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>((clusterer.nnInternals)->nnClusterizerBoundaryFillValue));
           } else {
             (clusterer.nnInternals)->inputData32[write_idx] = static_cast<float>((clusterer.nnInternals)->nnClusterizerBoundaryFillValue);
@@ -193,7 +196,7 @@ GPUd() void GPUTPCNNClusterizer::fillInputData(int32_t nBlocks, int32_t nThreads
     }
   }
   if ((clusterer.nnInternals)->nnClusterizerAddIndexData) {
-    if(dtype == 0){
+    if (dtype == 0) {
       (clusterer.nnInternals)->inputData16[write_idx] = (OrtDataType::Float16_t)(clusterer.mISlice / 36.f);
       (clusterer.nnInternals)->inputData16[write_idx + 1] = (OrtDataType::Float16_t)(row / 152.f);
       (clusterer.nnInternals)->inputData16[write_idx + 2] = (OrtDataType::Float16_t)(static_cast<float>(pad) / clusterer.Param().tpcGeometry.NPads(row));
