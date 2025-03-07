@@ -19,9 +19,10 @@
 #include "GPUProcessor.h"
 #include "GPUDataTypes.h"
 #include "CfFragment.h"
-#include "GPUTPCNNClusterizerInternals.h"
 
-using namespace o2::ml;
+#ifdef GPUCA_HAS_ONNX
+#include "GPUTPCNNClusterizerInternals.h"
+#endif
 
 namespace o2
 {
@@ -146,7 +147,9 @@ class GPUTPCClusterFinder : public GPUProcessor
   int16_t mZSOffsetId = -1;
   int16_t mOutputId = -1;
 
+#ifdef GPUCA_HAS_ONNX
   GPUTPCNNClusterizerInternals* nnInternals;
+#endif
 
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);
