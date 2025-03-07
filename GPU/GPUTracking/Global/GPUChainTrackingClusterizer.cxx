@@ -873,9 +873,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           return;
         }
 
-        runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
-        DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
-
 #ifdef GPUCA_HAS_ONNX
         GPUSettingsProcessingNNclusterizer nn_settings = GetProcessingSettings().nn;
         if (nn_settings.applyNNclusterizer) {
@@ -960,7 +957,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizer, GPUTPCNNClusterizer::fillInputNN>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, evalDtype, 0, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
-
             auto start1 = std::chrono::high_resolution_clock::now();
             GPUTPCNNClusterizer::inferenceNetworkClass(clusterer, evalDtype);
             if ((clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1] == 1) {
@@ -995,6 +991,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
         } else {
 #endif
+          runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+          DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, 0);
 
 #ifdef GPUCA_HAS_ONNX
