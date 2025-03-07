@@ -71,14 +71,15 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
   static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, int8_t, int8_t, uint);
 
-  static void applyNetworkClass(processorType&, int8_t = 0, uint = 0);
-  static void applyNetworkReg1(processorType&, int8_t = 0);
-  static void applyNetworkReg2(processorType&, int8_t = 0);
+  static void inferenceNetworkClass(processorType&, int8_t = 0, uint = 0);
+  static void inferenceNetworkReg1(processorType&, int8_t = 0);
+  static void inferenceNetworkReg2(processorType&, int8_t = 0);
+  
+  private:
 
- private:
-  static int padOffset(int, int, const GPUTPCGeometry&);
-  static int rowOffset(int, int);
-  static bool isBoundary(int, int, int, const GPUTPCGeometry&);
+    static int padOffset(int, int, const GPUTPCGeometry&);
+    static int rowOffset(int, int);
+    static bool isBoundary(int, int, int, const GPUTPCGeometry&);
 };
 
 } // namespace o2::gpu
