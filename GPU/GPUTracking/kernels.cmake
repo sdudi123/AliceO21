@@ -23,7 +23,7 @@ o2_gpu_kernel_file_list(TPCMERGER ERRORS GPUTPCGMMerger.cxx GPUTPCGMSectorTrack.
 o2_gpu_kernel_file_list(O2PROPAGATOR TrackParametrization.cxx TrackParametrizationWithError.cxx Propagator.cxx TrackLTIntegral.cxx)
 o2_gpu_kernel_file_list(TPCCOMPRESSION GPUTPCCompressionTrackModel.cxx)
 o2_gpu_kernel_file_list(TPCDECOMPRESSION GPUTPCCompressionTrackModel.cxx ERRORS)
-o2_gpu_kernel_file_list(TPCCLUSTERFINDER ERRORS ClusterAccumulator.cxx)
+o2_gpu_kernel_file_list(TPCCLUSTERFINDER ERRORS ClusterAccumulator.cxx GPUTPCNNClusterizer.cxx)
 o2_gpu_kernel_file_list(TRDTRACKER GPUTRDTrack.cxx GPUTRDTracker.cxx GPUTRDTrackletWord.cxx GeometryBase.cxx)
 o2_gpu_kernel_file_list(GLOBALREFIT TPCMERGER O2PROPAGATOR MATLUT GPUTrackingRefit.cxx)
 

@@ -213,7 +213,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg1(uint glo_idx, GPUSharedMemo
 {
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
-  CPU_ONLY(MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem));
+  MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
   tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * (clusterer.nnInternals)->model_reg_1.getNumOutputNodes()[0][1];
@@ -285,7 +285,7 @@ GPUd() void GPUTPCNNClusterizer::publishClustersReg2(uint glo_idx, GPUSharedMemo
 {
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
-  CPU_ONLY(MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem));
+  MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
   tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * (clusterer.nnInternals)->model_reg_2.getNumOutputNodes()[0][1];
