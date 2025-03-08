@@ -77,9 +77,9 @@ class GPUTPCNNClusterizer : public GPUKernelTemplate
   static void inferenceNetworkReg2(processorType&, int8_t = 0);
 
  private:
-  static int padOffset(int, int, const GPUTPCGeometry&);
-  static int rowOffset(int, int);
-  static bool isBoundary(int, int, int, const GPUTPCGeometry&);
+  static GPUd() int padOffset(int, int, const GPUTPCGeometry&);
+  static GPUd() int rowOffset(int, int);
+  static GPUd() bool isBoundary(int, int, int, const GPUTPCGeometry&);
 };
 
 } // namespace o2::gpu

@@ -122,17 +122,17 @@ void GPUTPCNNClusterizer::inferenceNetworkReg2(processorType& clusterer, int8_t 
 }
 
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
-int GPUTPCNNClusterizer::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
+GPUd() int GPUTPCNNClusterizer::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
 {
   return (int)((geo.NPads(row_current) - geo.NPads(row_ref)) / 2);
 }
 
-int GPUTPCNNClusterizer::rowOffset(int row, int global_shift)
+GPUd() int GPUTPCNNClusterizer::rowOffset(int row, int global_shift)
 {
   return (row > 62 ? global_shift : 0);
 }
 
-bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const GPUTPCGeometry& geo)
+GPUd() bool GPUTPCNNClusterizer::isBoundary(int row, int pad, int global_shift, const GPUTPCGeometry& geo)
 {
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
