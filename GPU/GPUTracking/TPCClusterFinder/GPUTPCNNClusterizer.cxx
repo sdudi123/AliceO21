@@ -13,6 +13,7 @@
 /// \author Christian Sonnabend
 
 #include "GPUTPCNNClusterizer.h"
+#include "GPUTPCNNClusterizerInternals.h"
 #include "GPUTPCCFClusterizer.h"
 
 #include "CfConsts.h"

@@ -12,12 +12,14 @@
 /// \file GPUTPCNNClusterizerInternals.h
 /// \author Christian Sonnabend
 
+#ifndef O2_GPUTPCNNCLUSTERIZERINTERNALS_H
+#define O2_GPUTPCNNCLUSTERIZERINTERNALS_H
+
 #include "ML/3rdparty/GPUORTFloat16.h"
 #include "ML/OrtInterface.h"
 #include "ChargePos.h"
 
-#ifndef O2_GPU_NN_CLUSTERIZER_INTERNALS_H
-#define O2_GPU_NN_CLUSTERIZER_INTERNALS_H
+using namespace o2::ml;
 
 namespace o2::gpu
 {

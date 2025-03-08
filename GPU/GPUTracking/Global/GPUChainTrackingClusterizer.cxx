@@ -41,6 +41,11 @@
 #include <Vc/Vc>
 #endif
 
+#ifdef GPUCA_HAS_ONNX
+#include "GPUTPCNNClusterizer.h"
+#include "GPUTPCNNClusterizerInternals.h"
+#endif
+
 using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
@@ -873,10 +878,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           return;
         }
 
+        if (GetProcessingSettings().nn.applyNNclusterizer) {
 #ifdef GPUCA_HAS_ONNX
-        GPUSettingsProcessingNNclusterizer nn_settings = GetProcessingSettings().nn;
-        if (nn_settings.applyNNclusterizer) {
           // Settings for the clusterizer
+          GPUSettingsProcessingNNclusterizer nn_settings = GetProcessingSettings().nn;
+          GPUTPCNNClusterizerInternals nnSettingsInternal;
+          clusterer.nnInternals = &nnSettingsInternal;
           (clusterer.nnInternals)->nnClusterizerUseCfRegression = nn_settings.nnClusterizerUseCfRegression;
           (clusterer.nnInternals)->nnClusterizerSizeInputRow = nn_settings.nnClusterizerSizeInputRow;
           (clusterer.nnInternals)->nnClusterizerSizeInputPad = nn_settings.nnClusterizerSizeInputPad;
@@ -989,15 +996,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           if ((clusterer.nnInternals)->nnClusterizerVerbosity < 3) {
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
-        } else {
+#else
+          GPUFatal("Project not compiled with neural network clusterization. Aborting.");
 #endif
+        } else {
           runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
           DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           runKernel<GPUTPCCFClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, 0);
-
-#ifdef GPUCA_HAS_ONNX
         }
-#endif
 
         if (doGPU && propagateMCLabels) {
           TransferMemoryResourceLinkToHost(RecoStep::TPCClusterFinding, clusterer.mScratchId, lane);
