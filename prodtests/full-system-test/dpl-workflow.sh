@@ -352,7 +352,12 @@ if has_processing_step MUON_SYNC_RECO; then
     elif [[ $RUNTYPE == "PHYSICS" && $BEAMTYPE == "pp" ]] || [[ $RUNTYPE == "COSMICS" ]]; then
       CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow="MCHTracking.chamberResolutionX=0.4;MCHTracking.chamberResolutionY=0.4;MCHTracking.sigmaCutForTracking=7.;MCHTracking.sigmaCutForImprovement=6.;"
     fi
-    has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.irFramesOnly=true;"
+    if has_detector_reco ITS && [[ $RUNTYPE != "COSMICS" ]]; then
+        CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.irFramesOnly=true;"
+        [[ -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && CUT_RANDOM_FRACTION_MCH=${CUT_RANDOM_FRACTION_MCH_WITH_ITS:-}
+    else
+        [[ -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && CUT_RANDOM_FRACTION_MCH=${CUT_RANDOM_FRACTION_MCH_NO_ITS:-}
+    fi
     [[ ! -z ${CUT_RANDOM_FRACTION_MCH:-} ]] && CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHTimeClusterizer.rofRejectionFraction=$CUT_RANDOM_FRACTION_MCH;"
     CONFIG_EXTRA_PROCESS_o2_mch_reco_workflow+="MCHStatusMap.useHV=false;MCHDigitFilter.statusMask=3;"
   fi
