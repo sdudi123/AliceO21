@@ -37,6 +37,7 @@ void ITSTPCMatchingQCDevice::init(InitContext& /*ic*/)
   mMatchITSTPCQC = std::make_unique<o2::gloqc::MatchITSTPCQC>();
   mMatchITSTPCQC->setDataRequest(mDataRequest);
   mMatchITSTPCQC->setTrkSources(o2::dataformats::GlobalTrackID::getSourcesMask(mTrkSources));
+  mMatchITSTPCQC->setNBinsPt(params.nBinsPt);
   mMatchITSTPCQC->setMinPtITSCut(params.minPtITSCut);
   mMatchITSTPCQC->setEtaITSCut(params.etaITSCut);
   mMatchITSTPCQC->setMinNClustersITS(params.minNITSClustersCut);

@@ -74,6 +74,7 @@ class MatchITSTPCQC
   bool processV0(int iv, o2::globaltracking::RecoContainer& recoData, std::vector<float>& mTBinClOcc, float pvTime);
   bool refitV0(const o2::dataformats::V0Index& id, o2::dataformats::V0& v0, o2::globaltracking::RecoContainer& recoData);
 
+  // returning raw pointer but this task keeps ownership!
   TH1D* getHistoPtNum(matchType m) const { return mPtNum[m]; }
   TH1D* getHistoPtDen(matchType m) const { return mPtDen[m]; }
   TEfficiency* getFractionITSTPCmatch(matchType m) const { return mFractionITSTPCmatch[m]; }
@@ -143,6 +144,9 @@ class MatchITSTPCQC
 
   TH3F* getHistoK0MassVsPtVsOccpp() const { return mK0MassVsPtVsOccpp; }
   TH3F* getHistoK0MassVsPtVsOccPbPb() const { return mK0MassVsPtVsOccPbPb; }
+
+  auto getHistoPVNContVsITSTracks() const { return mPVNContVsITSTracks; }
+  auto getHistoPVNContVsITSTracksPbPb() const { return mPVNContVsITSTracksPbPb; }
 
   void getHistos(TObjArray& objar);
 
@@ -247,6 +251,9 @@ class MatchITSTPCQC
       publisher->startPublishing(mK0MassVsPtVsOccpp);
       publisher->startPublishing(mK0MassVsPtVsOccPbPb);
     }
+
+    publisher->startPublishing(mPVNContVsITSTracks);
+    publisher->startPublishing(mPVNContVsITSTracksPbPb);
   }
 
   void setTrkSources(GID::mask_t src) { mSrc = src; }
@@ -315,6 +322,8 @@ class MatchITSTPCQC
   gsl::span<const o2::its::TrackITS> mITSTracks;
   // ITS-TPC
   gsl::span<const o2::dataformats::TrackTPCITS> mITSTPCTracks;
+  // PVs
+  gsl::span<const o2::dataformats::PrimaryVertex> mPVs;
   bool mUseMC = false;                                                                     // Usage of the MC information
   bool mUseTrkPID = false;                                                                 // Usage of the PID hypothesis in tracking
   float mBz = 0;                                                                           ///< nominal Bz
@@ -457,7 +466,11 @@ class MatchITSTPCQC
   float mK0MaxDCA = 0.01;      // max DCA to select the K0
   float mK0MinCosPA = 0.995;   // min cosPA to select the K0
 
-  ClassDefNV(MatchITSTPCQC, 4);
+  // for Mutliplicty PV
+  TH2F* mPVNContVsITSTracks{nullptr};
+  TH2F* mPVNContVsITSTracksPbPb{nullptr};
+
+  ClassDefNV(MatchITSTPCQC, 5);
 };
 } // namespace gloqc
 } // namespace o2

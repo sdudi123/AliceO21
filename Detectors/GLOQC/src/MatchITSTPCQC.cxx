@@ -13,6 +13,7 @@
 
 #include "GLOQC/MatchITSTPCQC.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
+#include "ReconstructionDataFormats/VtxTrackRef.h"
 #include "DataFormatsTPC/TrackTPC.h"
 #include "DetectorsBase/Propagator.h"
 #include "SimulationDataFormat/MCUtils.h"
@@ -133,6 +134,10 @@ void MatchITSTPCQC::deleteHistograms()
   // K0
   delete mK0MassVsPtVsOccpp;
   delete mK0MassVsPtVsOccPbPb;
+
+  // PV
+  delete mPVNContVsITSTracks;
+  delete mPVNContVsITSTracksPbPb;
 }
 
 //__________________________________________________________
@@ -220,6 +225,9 @@ void MatchITSTPCQC::reset()
     mK0MassVsPtVsOccpp->Reset();
     mK0MassVsPtVsOccPbPb->Reset();
   }
+
+  mPVNContVsITSTracks->Reset();
+  mPVNContVsITSTracksPbPb->Reset();
 }
 
 //__________________________________________________________
@@ -440,6 +448,29 @@ bool MatchITSTPCQC::init()
     mK0MassVsPtVsOccPbPb = new TH3F("mK0MassVsPtVsOccPbPb", "K0 invariant mass vs Pt vs TPC occupancy; Pt [GeV/c]; K0s mass [GeV/c^2]; TPC occ", nbinsPtK0, xbinsPtK0, nbinsMassK0, ybinsMassK0, nbinsMultK0PbPb, zbinsMultK0PbPb);
   }
 
+  auto makeBins = [](int out) {
+    std::array<Double_t, 101> xbins{0};
+    Double_t xlogmin = TMath::Log10(1);
+    Double_t xlogmax = TMath::Log10(out);
+    Double_t dlogx = (xlogmax - xlogmin) / 100;
+    for (int i = 0; i <= 100; i++) {
+      Double_t xlog = xlogmin + (i * dlogx);
+      xbins[i] = TMath::Exp(TMath::Log(10) * xlog);
+    }
+    return xbins;
+  };
+
+  {
+    auto xbinsPV = makeBins(250);
+    auto xbinsITS = makeBins(2000);
+    mPVNContVsITSTracks = new TH2F("mPVNContVsITSTracks", "PV NCont. vs ITS Tracks;PV NCont.;ITS Tracks", 100, xbinsPV.data(), 100, xbinsITS.data());
+  }
+  {
+    auto xbinsPV = makeBins(10'000);
+    auto xbinsITS = makeBins(60'000);
+    mPVNContVsITSTracksPbPb = new TH2F("mPVNContVsITSTracksPbPb", "PV NCont. vs ITS Tracks;PV NCont.;ITS Tracks", 100, xbinsPV.data(), 100, xbinsITS.data());
+  }
+
   LOG(info) << "Printing configuration cuts";
   printParams();
 
@@ -516,10 +547,29 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
   mTPCTracks = mRecoCont.getTPCTracks();
   mITSTracks = mRecoCont.getITSTracks();
   mITSTPCTracks = mRecoCont.getTPCITSTracks();
+  mPVs = mRecoCont.getPrimaryVertices();
 
   LOG(info) << "****** Number of found ITSTPC tracks = " << mITSTPCTracks.size();
   LOG(info) << "****** Number of found TPC    tracks = " << mTPCTracks.size();
   LOG(info) << "****** Number of found ITS    tracks = " << mITSTracks.size();
+  LOG(info) << "****** Number of PVs                 = " << mPVs.size();
+
+  const auto& pvm = mRecoCont.getPrimaryVertexMatchedTrackRefs();
+  for (int i{0}; i < mPVs.size(); ++i) {
+    const auto& pv = mPVs[i];
+    const auto& m = pvm[i];
+    // count the number of ITS tracks that were associated to this PV
+    // then one can plot the number of tracks contributing to a PV against the available pool
+    // (+ ITS tracks only in OB which by constructing cannot contribute).
+    Double_t c{0.};
+    for (int src = GIndex::NSources; src--;) {
+      if (!GIndex::includesDet(DetID::ITS, src)) {
+        continue;
+      }
+      c += m.getEntriesOfSource(src);
+    }
+    ((mIsHI) ? mPVNContVsITSTracksPbPb : mPVNContVsITSTracks)->Fill(pv.getNContributors(), c);
+  }
 
   // cache selection for TPC and ITS tracks
   std::vector<bool> isTPCTrackSelectedEntry(mTPCTracks.size(), false);
@@ -991,11 +1041,9 @@ void MatchITSTPCQC::run(o2::framework::ProcessingContext& ctx)
     }
   }
 
-  if (mDoK0QC && mRecoCont.getPrimaryVertices().size() > 0) {
+  if (mDoK0QC && mPVs.size() > 0) {
     // now doing K0S
     mFitterV0.setBz(mBz);
-    const auto pvertices = mRecoCont.getPrimaryVertices();
-    LOG(info) << "****** Number of PVs                 = " << pvertices.size();
 
     // getting occupancy estimator
     mNHBPerTF = o2::base::GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF();
@@ -1421,6 +1469,10 @@ void MatchITSTPCQC::getHistos(TObjArray& objar)
   // V0
   objar.Add(mK0MassVsPtVsOccpp);
   objar.Add(mK0MassVsPtVsOccPbPb);
+
+  // PV Multiplicity
+  objar.Add(mPVNContVsITSTracks);
+  objar.Add(mPVNContVsITSTracksPbPb);
 }
 
 void MatchITSTPCQC::printParams() const
