@@ -32,7 +32,6 @@ namespace o2::gpu
 
 class ClusterAccumulator;
 class MCLabelAccumulator;
-class GPUTPCNNClusterizerInternals;
 
 class GPUTPCNNClusterizer : public GPUKernelTemplate
 {

@@ -15,47 +15,52 @@
 #ifndef O2_GPUTPCNNCLUSTERIZERINTERNALS_H
 #define O2_GPUTPCNNCLUSTERIZERINTERNALS_H
 
-#include "ML/3rdparty/GPUORTFloat16.h"
 #include "ML/OrtInterface.h"
 #include "ChargePos.h"
+#include "GPUReconstruction.h"
+#include "GPUProcessor.h"
+#include "GPUTPCClusterFinder.h"
+#include "GPUHostDataTypes.h"
 
 using namespace o2::ml;
 
 namespace o2::gpu
 {
 
-class GPUTPCNNClusterizerInternals
+class GPUTPCNNClusterizerInternals : public GPUProcessor
 {
  public:
-  int nnClusterizerSizeInputRow = 3;
-  int nnClusterizerSizeInputPad = 3;
-  int nnClusterizerSizeInputTime = 3;
-  int nnClusterizerElementSize = -1;
-  bool nnClusterizerAddIndexData = true;
-  float nnClassThreshold = 0.16;
-  bool nnSigmoidTrafoClassThreshold = 1;
-  int nnClusterizerUseCfRegression = 0;
-  int nnClusterizerBatchedMode = 1;
-  int nnClusterizerVerbosity = 0;
-  int nnClusterizerBoundaryFillValue = -1;
-  int nnClusterizerDumpDigits = 0;
-  int nnClusterizerApplyCfDeconvolution = 0;
-  int nnClusterizerModelClassNumOutputNodes = -1;
-  int nnClusterizerModelReg1NumOutputNodes = -1;
-  int nnClusterizerModelReg2NumOutputNodes = -1;
-
-  // Memory allocation for neural network
-  uint class2_elements = 0;
-  std::vector<float> inputData32;
-  std::vector<OrtDataType::Float16_t> inputData16;
-  std::vector<float> outputDataClass, modelProbabilities, outputDataReg1, outputDataReg2;
-
-  std::vector<ChargePos> peakPositions;
-  std::vector<std::vector<bool>> clusterFlags; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cxx
-  std::vector<float> centralCharges;
+ typedef GPUTPCClusterFinder processorType;
+  GPUTPCNNClusterizerInternals() = default;
+  GPUTPCNNClusterizerInternals(GPUSettingsProcessing, processorType&);
+  void* setIOPointers(void*);
+  void RegisterMemoryAllocation();
+  void inferenceNetworkClass(processorType&, int8_t, uint);
+  void inferenceNetworkReg1(processorType&, int8_t, uint);
+  void inferenceNetworkReg2(processorType&, int8_t, uint);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
+  std::vector<std::string> reg_model_paths;
+ private:
+ processorType* clusterer_internal;
+  int sector = -1;
+  int16_t mMemoryId = -1;
+
+  // Avoid including CommonUtils/StringUtils.h
+  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
+    std::vector<std::string> tokens;
+    std::size_t pos = 0;
+    std::size_t found;
+
+    while ((found = input.find(delimiter, pos)) != std::string::npos) {
+        tokens.push_back(input.substr(pos, found - pos));
+        pos = found + delimiter.length();
+    }
+    tokens.push_back(input.substr(pos));
+
+    return tokens;
+  }
 }; // class GPUTPCNNClusterizerInternals
 
 } // namespace o2::gpu
