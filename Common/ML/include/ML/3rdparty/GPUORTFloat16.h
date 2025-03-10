@@ -5,10 +5,13 @@
 //    - https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_float16.h
 //    - https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_cxx_api.h
 
+#ifndef GPUCA_GPUCODE_DEVICE
 #include <stdint.h>
 #include <cmath>
 #include <cstring>
 #include <limits>
+#endif
+
 #include "GPUCommonDef.h"
 
 namespace o2
