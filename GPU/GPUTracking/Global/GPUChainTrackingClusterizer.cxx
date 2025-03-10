@@ -921,11 +921,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             if ((clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
               (clusterer.nnInternals)->OrtOptions["model-path"] = reg_model_paths[0];
               (clusterer.nnInternals)->model_reg_1.init((clusterer.nnInternals)->OrtOptions);
+              (clusterer.nnInternals)->nnClusterizerModelClassNumOutputNodes = (clusterer.nnInternals)->model_class.getNumOutputNodes()[0][1];
             } else {
               (clusterer.nnInternals)->OrtOptions["model-path"] = reg_model_paths[0];
               (clusterer.nnInternals)->model_reg_1.init((clusterer.nnInternals)->OrtOptions);
+              (clusterer.nnInternals)->nnClusterizerModelReg1NumOutputNodes = (clusterer.nnInternals)->model_reg_1.getNumOutputNodes()[0][1];
               (clusterer.nnInternals)->OrtOptions["model-path"] = reg_model_paths[1];
               (clusterer.nnInternals)->model_reg_2.init((clusterer.nnInternals)->OrtOptions);
+              (clusterer.nnInternals)->nnClusterizerModelReg2NumOutputNodes = (clusterer.nnInternals)->model_reg_2.getNumOutputNodes()[0][1];
             }
           }
 

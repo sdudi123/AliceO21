@@ -40,6 +40,9 @@ class GPUTPCNNClusterizerInternals
   int nnClusterizerBoundaryFillValue = -1;
   int nnClusterizerDumpDigits = 0;
   int nnClusterizerApplyCfDeconvolution = 0;
+  int nnClusterizerModelClassNumOutputNodes = -1;
+  int nnClusterizerModelReg1NumOutputNodes = -1;
+  int nnClusterizerModelReg2NumOutputNodes = -1;
 
   // Memory allocation for neural network
   uint class2_elements = 0;
