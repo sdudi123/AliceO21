@@ -42,7 +42,7 @@ class ctpCCDBManager
   static std::string mCCDBHost;
   static std::string mQCDBHost;
   const std::string mCCDBPathCTPScalers = "CTP/Calib/Scalers";
-  //std::string mCCDBPathCTPConfig = "CTP/Config/Config";  - in Configuration.h
+  // std::string mCCDBPathCTPConfig = "CTP/Config/Config";  - in Configuration.h
   const std::string mQCDBPathCTPScalers = "qc/CTP/Scalers";
   const std::string mCCDBPathSoxOrbit = "CTP/Calib/FirstRunOrbit";
   const std::string mCCDBPathOrbitReset = "CTP/Calib/OrbitReset";

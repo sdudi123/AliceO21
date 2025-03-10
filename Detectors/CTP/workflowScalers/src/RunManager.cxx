@@ -127,7 +127,7 @@ int CTPRunManager::loadRun(const std::string& cfg)
 int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
 {
   std::cout << "Printing cfg:" << cfg << std::endl;
-  if(mBKClient) {
+  if (mBKClient) {
     try {
       uint32_t runNumber = 1;
       mBKClient->run()->setRawCtpTriggerConfiguration(runNumber, cfg);
@@ -135,7 +135,7 @@ int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
       std::cerr << "An error occurred: " << error.what() << std::endl;
       return 1;
     }
-  LOG(info) << "Run BK:" << runNumber << " CFG:" << cfg;
+    LOG(info) << "Run BK:" << runNumber << " CFG:" << cfg;
   }
   return 0;
 }
@@ -232,10 +232,10 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     loadRun(message);
     return 0;
   }
-  if(topic.find("soxorbit") != std::string::npos) {
+  if (topic.find("soxorbit") != std::string::npos) {
     return 0;
   }
-  if(topic.find("orbitreset") != std::string::npos) {
+  if (topic.find("orbitreset") != std::string::npos) {
     return 0;
   }
   static int nerror = 0;
@@ -252,7 +252,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
   } else if (topic.find("eox") != std::string::npos) {
     LOG(info) << "EOX received";
     mEOX = 1;
-  } else if(topic.find("cnts") != std::string::npos) {
+  } else if (topic.find("cnts") != std::string::npos) {
     // just continue
   } else {
     if (nerror < 10) {
