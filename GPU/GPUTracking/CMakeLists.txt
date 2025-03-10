@@ -193,8 +193,7 @@ set(SRCS_NO_CINT ${SRCS_NO_CINT}
   Merger/GPUTPCGMO2Output.cxx)
 
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-  list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizer.cxx)
-  list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerInternals.cxx)
+  list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerInternals.cxx)
 endif()
 
 set(SRCS_DATATYPES

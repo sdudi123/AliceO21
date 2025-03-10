@@ -9,6 +9,7 @@
 #include <cmath>
 #include <cstring>
 #include <limits>
+#include "GPUCommonDef.h"
 
 namespace o2
 {
@@ -43,7 +44,7 @@ static_assert(
 /// Shared implementation between public and internal classes. CRTP pattern.
 /// </summary>
 template <class Derived>
-struct Float16Impl {
+GPUd() struct Float16Impl {
  protected:
   /// <summary>
   /// Converts from float to uint16_t float16 representation
@@ -267,7 +268,7 @@ union float32_bits {
 }; // namespace detail
 
 template <class Derived>
-inline constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noexcept
+GPUd() inline constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noexcept
 {
   detail::float32_bits f{};
   f.f = v;
@@ -316,7 +317,7 @@ inline constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noexcept
 }
 
 template <class Derived>
-inline float Float16Impl<Derived>::ToFloatImpl() const noexcept
+GPUd() inline float Float16Impl<Derived>::ToFloatImpl() const noexcept
 {
   constexpr detail::float32_bits magic = {113 << 23};
   constexpr unsigned int shifted_exp = 0x7c00 << 13; // exponent mask after shift
@@ -349,7 +350,7 @@ inline float Float16Impl<Derived>::ToFloatImpl() const noexcept
 
 /// Shared implementation between public and internal classes. CRTP pattern.
 template <class Derived>
-struct BFloat16Impl {
+GPUd() struct BFloat16Impl {
  protected:
   /// <summary>
   /// Converts from float to uint16_t float16 representation
@@ -520,7 +521,7 @@ struct BFloat16Impl {
 };
 
 template <class Derived>
-inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
+GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
 {
   uint16_t result;
   if (std::isnan(v)) {
@@ -595,7 +596,7 @@ inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
  *
  * \endcode
  */
-struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
+GPUd() struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
  private:
   /// <summary>
   /// Constructor from a 16-bit representation of a float16 value
@@ -737,7 +738,7 @@ static_assert(sizeof(Float16_t) == sizeof(uint16_t), "Sizes must match");
  *
  * \endcode
  */
-struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
+GPUd() struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
  private:
   /// <summary>
   /// Constructor from a uint16_t representation of bfloat16
