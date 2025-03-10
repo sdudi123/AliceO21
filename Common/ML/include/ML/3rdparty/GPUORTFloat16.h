@@ -44,26 +44,26 @@ static_assert(
 /// Shared implementation between public and internal classes. CRTP pattern.
 /// </summary>
 template <class Derived>
-GPUd() struct Float16Impl {
+struct Float16Impl {
  protected:
   /// <summary>
   /// Converts from float to uint16_t float16 representation
   /// </summary>
   /// <param name="v"></param>
   /// <returns></returns>
-  constexpr static uint16_t ToUint16Impl(float v) noexcept;
+  GPUd() constexpr static uint16_t ToUint16Impl(float v) noexcept;
 
   /// <summary>
   /// Converts float16 to float
   /// </summary>
   /// <returns>float representation of float16 value</returns>
-  float ToFloatImpl() const noexcept;
+  GPUd() float ToFloatImpl() const noexcept;
 
   /// <summary>
   /// Creates an instance that represents absolute value.
   /// </summary>
   /// <returns>Absolute value</returns>
-  uint16_t AbsImpl() const noexcept
+  GPUd() uint16_t AbsImpl() const noexcept
   {
     return static_cast<uint16_t>(val & ~kSignMask);
   }
@@ -72,7 +72,7 @@ GPUd() struct Float16Impl {
   /// Creates a new instance with the sign flipped.
   /// </summary>
   /// <returns>Flipped sign instance</returns>
-  uint16_t NegateImpl() const noexcept
+  GPUd() uint16_t NegateImpl() const noexcept
   {
     return IsNaN() ? val : static_cast<uint16_t>(val ^ kSignMask);
   }
@@ -93,13 +93,13 @@ GPUd() struct Float16Impl {
 
   uint16_t val{0};
 
-  Float16Impl() = default;
+  GPUdDefault() Float16Impl() = default;
 
   /// <summary>
   /// Checks if the value is negative
   /// </summary>
   /// <returns>true if negative</returns>
-  bool IsNegative() const noexcept
+  GPUd() bool IsNegative() const noexcept
   {
     return static_cast<int16_t>(val) < 0;
   }
@@ -108,7 +108,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is NaN
   /// </summary>
   /// <returns>true if NaN</returns>
-  bool IsNaN() const noexcept
+  GPUd() bool IsNaN() const noexcept
   {
     return AbsImpl() > kPositiveInfinityBits;
   }
@@ -117,7 +117,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is finite
   /// </summary>
   /// <returns>true if finite</returns>
-  bool IsFinite() const noexcept
+  GPUd() bool IsFinite() const noexcept
   {
     return AbsImpl() < kPositiveInfinityBits;
   }
@@ -126,7 +126,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value represents positive infinity.
   /// </summary>
   /// <returns>true if positive infinity</returns>
-  bool IsPositiveInfinity() const noexcept
+  GPUd() bool IsPositiveInfinity() const noexcept
   {
     return val == kPositiveInfinityBits;
   }
@@ -135,7 +135,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value represents negative infinity
   /// </summary>
   /// <returns>true if negative infinity</returns>
-  bool IsNegativeInfinity() const noexcept
+  GPUd() bool IsNegativeInfinity() const noexcept
   {
     return val == kNegativeInfinityBits;
   }
@@ -144,7 +144,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is either positive or negative infinity.
   /// </summary>
   /// <returns>True if absolute value is infinity</returns>
-  bool IsInfinity() const noexcept
+  GPUd() bool IsInfinity() const noexcept
   {
     return AbsImpl() == kPositiveInfinityBits;
   }
@@ -153,7 +153,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is NaN or zero. Useful for comparisons.
   /// </summary>
   /// <returns>True if NaN or zero.</returns>
-  bool IsNaNOrZero() const noexcept
+  GPUd() bool IsNaNOrZero() const noexcept
   {
     auto abs = AbsImpl();
     return (abs == 0 || abs > kPositiveInfinityBits);
@@ -163,7 +163,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
   /// </summary>
   /// <returns>True if so</returns>
-  bool IsNormal() const noexcept
+  GPUd() bool IsNormal() const noexcept
   {
     auto abs = AbsImpl();
     return (abs < kPositiveInfinityBits)          // is finite
@@ -175,7 +175,7 @@ GPUd() struct Float16Impl {
   /// Tests if the value is subnormal (denormal).
   /// </summary>
   /// <returns>True if so</returns>
-  bool IsSubnormal() const noexcept
+  GPUd() bool IsSubnormal() const noexcept
   {
     auto abs = AbsImpl();
     return (abs < kPositiveInfinityBits)          // is finite
@@ -187,13 +187,13 @@ GPUd() struct Float16Impl {
   /// Creates an instance that represents absolute value.
   /// </summary>
   /// <returns>Absolute value</returns>
-  Derived Abs() const noexcept { return Derived::FromBits(AbsImpl()); }
+  GPUd() Derived Abs() const noexcept { return Derived::FromBits(AbsImpl()); }
 
   /// <summary>
   /// Creates a new instance with the sign flipped.
   /// </summary>
   /// <returns>Flipped sign instance</returns>
-  Derived Negate() const noexcept { return Derived::FromBits(NegateImpl()); }
+  GPUd() Derived Negate() const noexcept { return Derived::FromBits(NegateImpl()); }
 
   /// <summary>
   /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
@@ -203,12 +203,12 @@ GPUd() struct Float16Impl {
   /// <param name="lhs">first value</param>
   /// <param name="rhs">second value</param>
   /// <returns>True if both arguments represent zero</returns>
-  static bool AreZero(const Float16Impl& lhs, const Float16Impl& rhs) noexcept
+  GPUd() static bool AreZero(const Float16Impl& lhs, const Float16Impl& rhs) noexcept
   {
     return static_cast<uint16_t>((lhs.val | rhs.val) & ~kSignMask) == 0;
   }
 
-  bool operator==(const Float16Impl& rhs) const noexcept
+  GPUd() bool operator==(const Float16Impl& rhs) const noexcept
   {
     if (IsNaN() || rhs.IsNaN()) {
       // IEEE defines that NaN is not equal to anything, including itself.
@@ -217,9 +217,9 @@ GPUd() struct Float16Impl {
     return val == rhs.val;
   }
 
-  bool operator!=(const Float16Impl& rhs) const noexcept { return !(*this == rhs); }
+  GPUd() bool operator!=(const Float16Impl& rhs) const noexcept { return !(*this == rhs); }
 
-  bool operator<(const Float16Impl& rhs) const noexcept
+  GPUd() bool operator<(const Float16Impl& rhs) const noexcept
   {
     if (IsNaN() || rhs.IsNaN()) {
       // IEEE defines that NaN is unordered with respect to everything, including itself.
@@ -350,26 +350,26 @@ GPUd() inline float Float16Impl<Derived>::ToFloatImpl() const noexcept
 
 /// Shared implementation between public and internal classes. CRTP pattern.
 template <class Derived>
-GPUd() struct BFloat16Impl {
+struct BFloat16Impl {
  protected:
   /// <summary>
   /// Converts from float to uint16_t float16 representation
   /// </summary>
   /// <param name="v"></param>
   /// <returns></returns>
-  static uint16_t ToUint16Impl(float v) noexcept;
+  GPUd() static uint16_t ToUint16Impl(float v) noexcept;
 
   /// <summary>
   /// Converts bfloat16 to float
   /// </summary>
   /// <returns>float representation of bfloat16 value</returns>
-  float ToFloatImpl() const noexcept;
+  GPUd() float ToFloatImpl() const noexcept;
 
   /// <summary>
   /// Creates an instance that represents absolute value.
   /// </summary>
   /// <returns>Absolute value</returns>
-  uint16_t AbsImpl() const noexcept
+  GPUd() uint16_t AbsImpl() const noexcept
   {
     return static_cast<uint16_t>(val & ~kSignMask);
   }
@@ -378,7 +378,7 @@ GPUd() struct BFloat16Impl {
   /// Creates a new instance with the sign flipped.
   /// </summary>
   /// <returns>Flipped sign instance</returns>
-  uint16_t NegateImpl() const noexcept
+  GPUd() uint16_t NegateImpl() const noexcept
   {
     return IsNaN() ? val : static_cast<uint16_t>(val ^ kSignMask);
   }
@@ -401,13 +401,13 @@ GPUd() struct BFloat16Impl {
 
   uint16_t val{0};
 
-  BFloat16Impl() = default;
+  GPUdDefault() BFloat16Impl() = default;
 
   /// <summary>
   /// Checks if the value is negative
   /// </summary>
   /// <returns>true if negative</returns>
-  bool IsNegative() const noexcept
+  GPUd() bool IsNegative() const noexcept
   {
     return static_cast<int16_t>(val) < 0;
   }
@@ -416,7 +416,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is NaN
   /// </summary>
   /// <returns>true if NaN</returns>
-  bool IsNaN() const noexcept
+  GPUd() bool IsNaN() const noexcept
   {
     return AbsImpl() > kPositiveInfinityBits;
   }
@@ -425,7 +425,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is finite
   /// </summary>
   /// <returns>true if finite</returns>
-  bool IsFinite() const noexcept
+  GPUd() bool IsFinite() const noexcept
   {
     return AbsImpl() < kPositiveInfinityBits;
   }
@@ -434,7 +434,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value represents positive infinity.
   /// </summary>
   /// <returns>true if positive infinity</returns>
-  bool IsPositiveInfinity() const noexcept
+  GPUd() bool IsPositiveInfinity() const noexcept
   {
     return val == kPositiveInfinityBits;
   }
@@ -443,7 +443,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value represents negative infinity
   /// </summary>
   /// <returns>true if negative infinity</returns>
-  bool IsNegativeInfinity() const noexcept
+  GPUd() bool IsNegativeInfinity() const noexcept
   {
     return val == kNegativeInfinityBits;
   }
@@ -452,7 +452,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is either positive or negative infinity.
   /// </summary>
   /// <returns>True if absolute value is infinity</returns>
-  bool IsInfinity() const noexcept
+  GPUd() bool IsInfinity() const noexcept
   {
     return AbsImpl() == kPositiveInfinityBits;
   }
@@ -461,7 +461,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is NaN or zero. Useful for comparisons.
   /// </summary>
   /// <returns>True if NaN or zero.</returns>
-  bool IsNaNOrZero() const noexcept
+  GPUd() bool IsNaNOrZero() const noexcept
   {
     auto abs = AbsImpl();
     return (abs == 0 || abs > kPositiveInfinityBits);
@@ -471,7 +471,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
   /// </summary>
   /// <returns>True if so</returns>
-  bool IsNormal() const noexcept
+  GPUd() bool IsNormal() const noexcept
   {
     auto abs = AbsImpl();
     return (abs < kPositiveInfinityBits)          // is finite
@@ -483,7 +483,7 @@ GPUd() struct BFloat16Impl {
   /// Tests if the value is subnormal (denormal).
   /// </summary>
   /// <returns>True if so</returns>
-  bool IsSubnormal() const noexcept
+  GPUd() bool IsSubnormal() const noexcept
   {
     auto abs = AbsImpl();
     return (abs < kPositiveInfinityBits)          // is finite
@@ -495,13 +495,13 @@ GPUd() struct BFloat16Impl {
   /// Creates an instance that represents absolute value.
   /// </summary>
   /// <returns>Absolute value</returns>
-  Derived Abs() const noexcept { return Derived::FromBits(AbsImpl()); }
+  GPUd() Derived Abs() const noexcept { return Derived::FromBits(AbsImpl()); }
 
   /// <summary>
   /// Creates a new instance with the sign flipped.
   /// </summary>
   /// <returns>Flipped sign instance</returns>
-  Derived Negate() const noexcept { return Derived::FromBits(NegateImpl()); }
+  GPUd() Derived Negate() const noexcept { return Derived::FromBits(NegateImpl()); }
 
   /// <summary>
   /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
@@ -511,7 +511,7 @@ GPUd() struct BFloat16Impl {
   /// <param name="lhs">first value</param>
   /// <param name="rhs">second value</param>
   /// <returns>True if both arguments represent zero</returns>
-  static bool AreZero(const BFloat16Impl& lhs, const BFloat16Impl& rhs) noexcept
+  GPUd() static bool AreZero(const BFloat16Impl& lhs, const BFloat16Impl& rhs) noexcept
   {
     // IEEE defines that positive and negative zero are equal, this gives us a quick equality check
     // for two values by or'ing the private bits together and stripping the sign. They are both zero,
@@ -555,7 +555,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
 }
 
 template <class Derived>
-inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
+GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
 {
   if (IsNaN()) {
     return std::numeric_limits<float>::quiet_NaN();
@@ -596,7 +596,7 @@ inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
  *
  * \endcode
  */
-GPUd() struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
+struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
  private:
   /// <summary>
   /// Constructor from a 16-bit representation of a float16 value
@@ -611,26 +611,26 @@ GPUd() struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
   /// <summary>
   /// Default constructor
   /// </summary>
-  Float16_t() = default;
+  GPUdDefault() Float16_t() = default;
 
   /// <summary>
   /// Explicit conversion to uint16_t representation of float16.
   /// </summary>
   /// <param name="v">uint16_t bit representation of float16</param>
   /// <returns>new instance of Float16_t</returns>
-  constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
+  GPUd() constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
 
   /// <summary>
   /// __ctor from float. Float is converted into float16 16-bit representation.
   /// </summary>
   /// <param name="v">float value</param>
-  explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+  GPUd() explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
 
   /// <summary>
   /// Converts float16 to float
   /// </summary>
   /// <returns>float representation of float16 value</returns>
-  float ToFloat() const noexcept { return Base::ToFloatImpl(); }
+  GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
 
   /// <summary>
   /// Checks if the value is negative
@@ -738,7 +738,7 @@ static_assert(sizeof(Float16_t) == sizeof(uint16_t), "Sizes must match");
  *
  * \endcode
  */
-GPUd() struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
+struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
  private:
   /// <summary>
   /// Constructor from a uint16_t representation of bfloat16
@@ -752,26 +752,26 @@ GPUd() struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
  public:
   using Base = OrtDataType::BFloat16Impl<BFloat16_t>;
 
-  BFloat16_t() = default;
+  GPUdDefault() BFloat16_t() = default;
 
   /// <summary>
   /// Explicit conversion to uint16_t representation of bfloat16.
   /// </summary>
   /// <param name="v">uint16_t bit representation of bfloat16</param>
   /// <returns>new instance of BFloat16_t</returns>
-  static constexpr BFloat16_t FromBits(uint16_t v) noexcept { return BFloat16_t(v); }
+  GPUd() static constexpr BFloat16_t FromBits(uint16_t v) noexcept { return BFloat16_t(v); }
 
   /// <summary>
   /// __ctor from float. Float is converted into bfloat16 16-bit representation.
   /// </summary>
   /// <param name="v">float value</param>
-  explicit BFloat16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+  GPUd() explicit BFloat16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
 
   /// <summary>
   /// Converts bfloat16 to float
   /// </summary>
   /// <returns>float representation of bfloat16 value</returns>
-  float ToFloat() const noexcept { return Base::ToFloatImpl(); }
+  GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
 
   /// <summary>
   /// Checks if the value is negative
