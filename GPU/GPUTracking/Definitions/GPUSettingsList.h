@@ -242,7 +242,7 @@ AddOption(nnClusterizerApplyCfDeconvolution, int, 0, "", 0, "Applies the CFDecon
 AddOption(nnClusterizerBatchedMode, unsigned int, 1, "", 0, "(int, default = 1) If >1, the NN is evaluated on batched input of size specified in this variable")
 AddOption(nnClusterizerVerbosity, int, -1, "", 0, "(int, default = -1) If >0, logging messages of the clusterizer will be displayed")
 AddOption(nnClusterizerBoundaryFillValue, int, -1, "", 0, "Fill value for the boundary of the input to the NN")
-AddOption(nnClusterizerApplyNoiseSupression, int, 1, "", 0, "Applies the NoiseSupression kernel before the digits to the network are filled")
+AddOption(nnClusterizerApplyNoiseSuppression, int, 1, "", 0, "Applies the NoiseSuppression kernel before the digits to the network are filled")
 AddOption(nnClassificationPath, std::string, "network_class.onnx", "", 0, "The classification network path")
 AddOption(nnClassThreshold, float, 0.5, "", 0, "The cutoff at which clusters will be accepted / rejected.")
 AddOption(nnRegressionPath, std::string, "network_reg.onnx", "", 0, "The regression network path")
