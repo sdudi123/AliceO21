@@ -148,9 +148,9 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
       for (int t = -clustererNN.nnClusterizerSizeInputTime; t <= clustererNN.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clustererNN.clusterFlags[2*glo_idx] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
-            clustererNN.clusterFlags[2*glo_idx] = CfUtils::isPeak(isPeakMap[tmp_pos]);
-            clustererNN.clusterFlags[2*glo_idx + 1] = clustererNN.clusterFlags[2*glo_idx];
+          if (r == 0 && !clustererNN.clusterFlags[2 * glo_idx] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
+            clustererNN.clusterFlags[2 * glo_idx] = CfUtils::isPeak(isPeakMap[tmp_pos]);
+            clustererNN.clusterFlags[2 * glo_idx + 1] = clustererNN.clusterFlags[2 * glo_idx];
           }
           if (dtype == 0) {
             clustererNN.inputData16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
@@ -222,12 +222,12 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
     }
 
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg1[model_output_index + 4],
-      static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg1[model_output_index],
-      clustererNN.outputDataReg1[model_output_index + 2],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
-      clustererNN.outputDataReg1[model_output_index + 3],
-      clustererNN.clusterFlags[2*glo_idx],
-      clustererNN.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg1[model_output_index],
+               clustererNN.outputDataReg1[model_output_index + 2],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
+               clustererNN.outputDataReg1[model_output_index + 3],
+               clustererNN.clusterFlags[2 * glo_idx],
+               clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
     bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
@@ -302,12 +302,12 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
 
     // Cluster 1
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 8],
-      static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index],
-      clustererNN.outputDataReg2[model_output_index + 4],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
-      clustererNN.outputDataReg2[model_output_index + 6],
-      clustererNN.clusterFlags[2*glo_idx],
-      clustererNN.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index],
+               clustererNN.outputDataReg2[model_output_index + 4],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
+               clustererNN.outputDataReg2[model_output_index + 6],
+               clustererNN.clusterFlags[2 * glo_idx],
+               clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
     bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
@@ -337,12 +337,12 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
 
     // Cluster 2
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 9],
-      static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index + 1],
-      clustererNN.outputDataReg2[model_output_index + 5],
-      static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
-      clustererNN.outputDataReg2[model_output_index + 7],
-      clustererNN.clusterFlags[2*glo_idx],
-      clustererNN.clusterFlags[2*glo_idx + 1]);
+               static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index + 1],
+               clustererNN.outputDataReg2[model_output_index + 5],
+               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
+               clustererNN.outputDataReg2[model_output_index + 7],
+               clustererNN.clusterFlags[2 * glo_idx],
+               clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
     if (rejectCluster) {

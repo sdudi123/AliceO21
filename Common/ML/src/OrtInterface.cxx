@@ -163,7 +163,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
                  [&](const std::string& str) { return str.c_str(); });
   }
   if (loggingLevel < 2) {
-    LOG(info) << "(ORT) Model loaded successfully! (input: " <<  printShape(mInputShapes[0]) << ", output: " << printShape(mOutputShapes[0]) << ")";
+    LOG(info) << "(ORT) Model loaded successfully! (input: " << printShape(mInputShapes[0]) << ", output: " << printShape(mOutputShapes[0]) << ")";
   }
 }
 
@@ -197,9 +197,9 @@ std::string OrtModel::printShape(const std::vector<int64_t>& v)
   return ss.str();
 }
 
-
-template <class I, class O> 
-std::vector<O> OrtModel::inference(std::vector<I>& input) {
+template <class I, class O>
+std::vector<O> OrtModel::inference(std::vector<I>& input)
+{
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
   std::vector<Ort::Value> inputTensor;
   if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
@@ -221,7 +221,6 @@ template std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(s
 
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
 
-
 template <class I, class O>
 void OrtModel::inference(I* input, size_t input_size, O* output)
 {
@@ -232,22 +231,19 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
   } else {
     inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size, inputShape.data(), inputShape.size());
   }
-  
+
   std::vector<int64_t> outputShape{inputShape[0], mOutputShapes[0][1]};
   size_t outputSize = (int64_t)(inputShape[0] * mOutputShapes[0][1]);
   Ort::Value outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, outputSize, outputShape.data(), outputShape.size());
-  
-  (pImplOrt->session)->Run(pImplOrt->runOptions, 
-                           inputNamesChar.data(), &inputTensor, 1,
-                           outputNamesChar.data(), &outputTensor, 1);
+
+  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, 1);
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, size_t, float*);
 
 template void OrtModel::inference<float, float>(float*, size_t, float*);
 
-
-template <class I, class O> 
+template <class I, class O>
 std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
 {
   std::vector<Ort::Value> inputTensor;

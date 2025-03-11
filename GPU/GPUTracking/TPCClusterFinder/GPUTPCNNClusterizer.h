@@ -20,7 +20,7 @@
 
 namespace o2::OrtDataType
 {
-  struct Float16_t;
+struct Float16_t;
 }
 
 namespace o2::gpu
@@ -58,16 +58,16 @@ class GPUTPCNNClusterizer : public GPUProcessor
 
   // Memory allocation for neural network
   uint class2_elements = 0;
-  float* inputData32=nullptr;
-  OrtDataType::Float16_t* inputData16=nullptr;
-  float* outputDataClass=nullptr;
-  float* modelProbabilities=nullptr;
-  float* outputDataReg1=nullptr;
-  float* outputDataReg2=nullptr;
+  float* inputData32 = nullptr;
+  OrtDataType::Float16_t* inputData16 = nullptr;
+  float* outputDataClass = nullptr;
+  float* modelProbabilities = nullptr;
+  float* outputDataReg1 = nullptr;
+  float* outputDataReg2 = nullptr;
 
-  ChargePos* peakPositions=nullptr;
-  bool* clusterFlags=nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
-  float* centralCharges=nullptr;
+  ChargePos* peakPositions = nullptr;
+  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
+  float* centralCharges = nullptr;
   int16_t mMemoryId = -1;
 }; // class GPUTPCNNClusterizer
 

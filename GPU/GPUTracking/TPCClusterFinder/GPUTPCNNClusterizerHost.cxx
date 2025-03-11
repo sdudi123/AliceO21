@@ -19,7 +19,8 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer) {
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
+{
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},
     {"device", settings.nnInferenceDevice},
@@ -30,8 +31,7 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
-    {"logging-level", std::to_string(settings.nnInferenceVerbosity)}
-  };
+    {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
 
   model_class.init(OrtOptions);
   clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
