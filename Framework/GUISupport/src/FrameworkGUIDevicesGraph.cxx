@@ -725,9 +725,9 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
     }();
     if (records > 0) {
       ImGui::PushItemWidth(140);
-      ImGui::SliderInt("##window", &v, 0, records - gui::WND, "start: %d", ImGuiSliderFlags_AlwaysClamp);
+      ImGui::SliderInt("##window", &controls[node->ID].firstSlot, 0, records - gui::WND, "start: %d", ImGuiSliderFlags_AlwaysClamp);
     }
-    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.), v);
+    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.), controls[node->ID].firstSlot);
     ImGui::EndGroup();
 
     // Save the size of what we have emitted and whether any of the widgets are being used
