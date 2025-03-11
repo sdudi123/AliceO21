@@ -5,6 +5,9 @@
 //    - https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_float16.h
 //    - https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_cxx_api.h
 
+#ifndef GPUORTFLOAT16_H
+#define GPUORTFLOAT16_H
+
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <stdint.h>
 #include <cmath>
@@ -869,3 +872,5 @@ static_assert(sizeof(BFloat16_t) == sizeof(uint16_t), "Sizes must match");
 } // namespace OrtDataType
 
 } // namespace o2
+
+#endif

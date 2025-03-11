@@ -9,43 +9,43 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUTPCNNClusterizerInternals.h
+/// \file GPUTPCNNClusterizerHost.h
 /// \author Christian Sonnabend
 
-#ifndef O2_GPUTPCNNCLUSTERIZERINTERNALS_H
-#define O2_GPUTPCNNCLUSTERIZERINTERNALS_H
+#ifndef O2_GPUTPCNNCLUSTERIZERHOST_H
+#define O2_GPUTPCNNCLUSTERIZERHOST_H
 
+#include <string>
+#include <unordered_map>
+#include <vector>
 #include "ML/OrtInterface.h"
-#include "ChargePos.h"
-#include "GPUReconstruction.h"
-#include "GPUProcessor.h"
-#include "GPUTPCClusterFinder.h"
-#include "GPUHostDataTypes.h"
 
 using namespace o2::ml;
+
+namespace o2::OrtDataType
+{
+  struct Float16_t;
+}
 
 namespace o2::gpu
 {
 
-class GPUTPCNNClusterizerInternals : public GPUProcessor
+class GPUTPCNNClusterizer;
+struct GPUSettingsProcessingNNclusterizer;
+
+class GPUTPCNNClusterizerHost
 {
  public:
- typedef GPUTPCClusterFinder processorType;
-  GPUTPCNNClusterizerInternals() = default;
-  GPUTPCNNClusterizerInternals(GPUSettingsProcessing, processorType&);
-  void* setIOPointers(void*);
-  void RegisterMemoryAllocation();
-  void inferenceNetworkClass(processorType&, int8_t, uint);
-  void inferenceNetworkReg1(processorType&, int8_t, uint);
-  void inferenceNetworkReg2(processorType&, int8_t, uint);
+  GPUTPCNNClusterizerHost() = default;
+  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
+  void inferenceNetworkClass(GPUTPCNNClusterizer&, size_t, int8_t, uint);
+  void inferenceNetworkReg1(GPUTPCNNClusterizer&, size_t, int8_t, uint);
+  void inferenceNetworkReg2(GPUTPCNNClusterizer&, size_t, int8_t, uint);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
   std::vector<std::string> reg_model_paths;
  private:
- processorType* clusterer_internal;
-  int sector = -1;
-  int16_t mMemoryId = -1;
 
   // Avoid including CommonUtils/StringUtils.h
   std::vector<std::string> splitString(const std::string& input, const std::string& delimiter) {
@@ -61,7 +61,7 @@ class GPUTPCNNClusterizerInternals : public GPUProcessor
 
     return tokens;
   }
-}; // class GPUTPCNNClusterizerInternals
+}; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu
 

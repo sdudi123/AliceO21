@@ -81,7 +81,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 512
   #define GPUCA_LB_GPUTPCCFDeconvolution 512
   #define GPUCA_LB_GPUTPCCFClusterizer 448
-  #define GPUCA_LB_GPUTPCNNClusterizer 448
+  #define GPUCA_LB_GPUTPCNNClusterizerKernels 448
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 5
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -148,7 +148,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 512
   #define GPUCA_LB_GPUTPCCFDeconvolution 512
   #define GPUCA_LB_GPUTPCCFClusterizer 512
-  #define GPUCA_LB_GPUTPCNNClusterizer 512
+  #define GPUCA_LB_GPUTPCNNClusterizerKernels 512
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 5
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -215,7 +215,7 @@
   #define GPUCA_LB_GPUTPCCFNoiseSuppression 448
   #define GPUCA_LB_GPUTPCCFDeconvolution 384
   #define GPUCA_LB_GPUTPCCFClusterizer 448
-  #define GPUCA_LB_GPUTPCNNClusterizer 448
+  #define GPUCA_LB_GPUTPCNNClusterizerKernels 448
   #define GPUCA_LB_COMPRESSION_GATHER 1024
   #define GPUCA_NEIGHBOURS_FINDER_MAX_NNEIGHUP 4
   #define GPUCA_TRACKLET_SELECTOR_HITS_REG_SIZE 20
@@ -492,8 +492,8 @@
   #ifndef GPUCA_LB_GPUTPCCFClusterizer
     #define GPUCA_LB_GPUTPCCFClusterizer 512
   #endif
-  #ifndef GPUCA_LB_GPUTPCNNClusterizer
-    #define GPUCA_LB_GPUTPCNNClusterizer 512
+  #ifndef GPUCA_LB_GPUTPCNNClusterizerKernels
+    #define GPUCA_LB_GPUTPCNNClusterizerKernels 512
   #endif
   #ifndef GPUCA_LB_GPUTrackingRefitKernel_mode0asGPU
     #define GPUCA_LB_GPUTrackingRefitKernel_mode0asGPU 256
@@ -515,12 +515,12 @@
 #define GPUCA_LB_GPUTPCCFNoiseSuppression_updatePeaks GPUCA_LB_GPUTPCCFNoiseSuppression
 
 #ifdef GPUCA_HAS_ONNX
-#define GPUCA_LB_GPUTPCNNClusterizer_runCfClusterizer GPUCA_LB_GPUTPCNNClusterizer
-#define GPUCA_LB_GPUTPCNNClusterizer_fillInputNN GPUCA_LB_GPUTPCNNClusterizer
-#define GPUCA_LB_GPUTPCNNClusterizer_determineClass1Labels GPUCA_LB_GPUTPCNNClusterizer
-#define GPUCA_LB_GPUTPCNNClusterizer_determineClass2Labels GPUCA_LB_GPUTPCNNClusterizer
-#define GPUCA_LB_GPUTPCNNClusterizer_publishClass1Regression GPUCA_LB_GPUTPCNNClusterizer
-#define GPUCA_LB_GPUTPCNNClusterizer_publishClass2Regression GPUCA_LB_GPUTPCNNClusterizer
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_runCfClusterizer GPUCA_LB_GPUTPCNNClusterizerKernels
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_fillInputNN GPUCA_LB_GPUTPCNNClusterizerKernels
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass1Labels GPUCA_LB_GPUTPCNNClusterizerKernels
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_determineClass2Labels GPUCA_LB_GPUTPCNNClusterizerKernels
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass1Regression GPUCA_LB_GPUTPCNNClusterizerKernels
+#define GPUCA_LB_GPUTPCNNClusterizerKernels_publishClass2Regression GPUCA_LB_GPUTPCNNClusterizerKernels
 #endif
 
 #define GPUCA_LB_GPUTPCCFStreamCompaction_scanStart GPUCA_THREAD_COUNT_SCAN

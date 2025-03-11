@@ -51,8 +51,6 @@ struct ChargePos;
 
 class GPUTPCGeometry;
 
-class GPUTPCNNClusterizerInternals;
-
 class GPUTPCClusterFinder : public GPUProcessor
 {
  public:
@@ -143,40 +141,6 @@ class GPUTPCClusterFinder : public GPUProcessor
   int16_t mZSId = -1;
   int16_t mZSOffsetId = -1;
   int16_t mOutputId = -1;
-
-  // Neural network clusterization
-
-  int nnClusterizerSizeInputRow = 3;
-  int nnClusterizerSizeInputPad = 3;
-  int nnClusterizerSizeInputTime = 3;
-  int nnClusterizerElementSize = -1;
-  bool nnClusterizerAddIndexData = true;
-  float nnClassThreshold = 0.16;
-  bool nnSigmoidTrafoClassThreshold = 1;
-  int nnClusterizerUseCfRegression = 0;
-  int nnClusterizerBatchedMode = 1;
-  int nnClusterizerVerbosity = 0;
-  int nnClusterizerBoundaryFillValue = -1;
-  int nnClusterizerDumpDigits = 0;
-  int nnClusterizerApplyCfDeconvolution = 0;
-  int nnClusterizerModelClassNumOutputNodes = -1;
-  int nnClusterizerModelReg1NumOutputNodes = -1;
-  int nnClusterizerModelReg2NumOutputNodes = -1;
-  uint nnClusterizerCurrentSize = -1; // This variable determines the size of the memory pointers. It will be set at runtime.
-  int nnClusterizerDtype = 0; // 0: float16, 1: float32
-
-  // Memory allocation for neural network
-  uint class2_elements = 0;
-  float* inputData32=nullptr;
-  OrtDataType::Float16_t* inputData16=nullptr;
-  float* outputDataClass=nullptr;
-  float* modelProbabilities=nullptr;
-  float* outputDataReg1=nullptr;
-  float* outputDataReg2=nullptr;
-
-  ChargePos* peakPositions=nullptr;
-  bool* clusterFlags=nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
-  float* centralCharges=nullptr;
 
 #ifndef GPUCA_GPUCODE
   void DumpDigits(std::ostream& out);
