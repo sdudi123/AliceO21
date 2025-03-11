@@ -18,28 +18,29 @@
 
 using namespace o2::gpu;
 
-void GPUTPCNNClusterizer::InitializeProcessor(){}
+void GPUTPCNNClusterizer::InitializeProcessor() {}
 
-void GPUTPCNNClusterizer::SetMaxData(const GPUTrackingInOutPointers& io){}
+void GPUTPCNNClusterizer::SetMaxData(const GPUTrackingInOutPointers& io) {}
 
-void* GPUTPCNNClusterizer::setIOPointers(void* mem) {
-  if (nnClusterizerDtype == 0 && nnClusterizerElementSize > 0){
+void* GPUTPCNNClusterizer::setIOPointers(void* mem)
+{
+  if (nnClusterizerDtype == 0 && nnClusterizerElementSize > 0) {
     computePointerWithAlignment(mem, inputData16, nnClusterizerBatchedMode * nnClusterizerElementSize);
-  } else if (nnClusterizerDtype == 1 && nnClusterizerElementSize > 0){
+  } else if (nnClusterizerDtype == 1 && nnClusterizerElementSize > 0) {
     computePointerWithAlignment(mem, inputData32, nnClusterizerBatchedMode * nnClusterizerElementSize);
   }
   computePointerWithAlignment(mem, peakPositions, nnClusterizerBatchedMode);
-  computePointerWithAlignment(mem, clusterFlags, 2*nnClusterizerBatchedMode);
+  computePointerWithAlignment(mem, clusterFlags, 2 * nnClusterizerBatchedMode);
   computePointerWithAlignment(mem, centralCharges, nnClusterizerBatchedMode);
   computePointerWithAlignment(mem, outputDataClass, nnClusterizerBatchedMode);
-  if(nnClusterizerModelClassNumOutputNodes > 0) {
+  if (nnClusterizerModelClassNumOutputNodes > 0) {
     computePointerWithAlignment(mem, modelProbabilities, nnClusterizerBatchedMode * nnClusterizerModelClassNumOutputNodes);
   }
   if (!nnClusterizerUseCfRegression) {
-    if(nnClusterizerModelReg1NumOutputNodes > 0) {
+    if (nnClusterizerModelReg1NumOutputNodes > 0) {
       computePointerWithAlignment(mem, outputDataReg1, nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes);
     }
-    if(nnClusterizerModelReg2NumOutputNodes > 0) {
+    if (nnClusterizerModelReg2NumOutputNodes > 0) {
       computePointerWithAlignment(mem, outputDataReg2, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
     }
   }
@@ -49,7 +50,8 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem) {
   return mem;
 }
 
-void GPUTPCNNClusterizer::RegisterMemoryAllocation() {
+void GPUTPCNNClusterizer::RegisterMemoryAllocation()
+{
   AllocateAndInitializeLate();
   int32_t memType = GPUMemoryResource::MEMORY_SCRATCH | GPUMemoryResource::MEMORY_STACK;
   mMemoryId = mRec->RegisterMemoryAllocation(this, &GPUTPCNNClusterizer::setIOPointers, memType, "TPCNNClusterer", GPUMemoryReuse{GPUMemoryReuse::REUSE_1TO1, GPUMemoryReuse::NNClusterer, (uint16_t)(mISector % mRec->GetProcessingSettings().nTPCClustererLanes)});
