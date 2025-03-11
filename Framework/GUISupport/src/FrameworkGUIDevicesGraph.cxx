@@ -713,7 +713,21 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
       default:
         break;
     }
-    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.));
+    static int v = 0;
+    auto records = [states = allStates[node->ID]]() -> size_t {
+      auto& view = states.statesViews[(int)ProcessingStateId::DATA_RELAYER_BASE];
+      if (view.size == 0) {
+        return 0;
+      }
+      // The first number is the size of the pipeline
+      int numRecords = strtoul(states.statesBuffer.data() + view.first, nullptr, 10);
+      return numRecords;
+    }();
+    if (records > 0) {
+      ImGui::PushItemWidth(140);
+      ImGui::SliderInt("##window", &v, 0, records - gui::WND, "start: %d", ImGuiSliderFlags_AlwaysClamp);
+    }
+    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.), v);
     ImGui::EndGroup();
 
     // Save the size of what we have emitted and whether any of the widgets are being used

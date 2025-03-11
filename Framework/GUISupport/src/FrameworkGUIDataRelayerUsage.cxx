@@ -17,8 +17,7 @@
 #include "Framework/DataProcessingStates.h"
 #include "InspectorHelpers.h"
 #include "PaletteHelpers.h"
-#include "Framework/Logger.h"
-#include <iostream>
+#include "FrameworkGUIDataRelayerUsage.h"
 #include <cstring>
 #include <cmath>
 
@@ -27,11 +26,11 @@ static inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) { return Im
 
 namespace o2::framework::gui
 {
-
 // This is to display the information in the data relayer
 struct HeatMapHelper {
   template <typename RECORD, typename ITEM>
-  static void draw(const char* name,
+  static void draw(const char* /*name*/,
+                   int& v,
                    ImVec2 const& sizeHint,
                    std::function<size_t()> const& getNumInputs,
                    std::function<size_t()> const& getNumRecords,
@@ -49,14 +48,14 @@ struct HeatMapHelper {
     constexpr float MAX_BOX_Y_SIZE = 16.f;
     ImDrawList* drawList = ImGui::GetWindowDrawList();
     ImVec2 winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
-    auto records = getNumRecords();
-    auto boxSizeX = std::min(size.x / records, MAX_BOX_X_SIZE);
+    size_t recordsWindow = v + WND;
+    auto boxSizeX = std::min(size.x / WND, MAX_BOX_X_SIZE);
     auto numInputs = getNumInputs();
 
     ImGui::InvisibleButton("sensible area", ImVec2(size.x, size.y));
     if (ImGui::IsItemHovered()) {
       auto pos = ImGui::GetMousePos() - winPos;
-      auto slot = std::lround(std::trunc(pos.x / size.x * records));
+      auto slot = v + std::lround(std::trunc(pos.x / size.x * WND));
       auto row = std::lround(std::trunc(pos.y / size.y * numInputs));
       describeCell(row, slot);
     }
@@ -72,18 +71,19 @@ struct HeatMapHelper {
     float padding = 1;
 
     size_t totalRects = 0;
-    for (size_t ri = 0, re = getNumRecords(); ri < re; ri++) {
+    for (size_t ri = v; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
       totalRects += getNumItems(record);
     }
 
     drawList->PrimReserve(totalRects * 6, totalRects * 4);
-    for (size_t ri = 0, re = getNumRecords(); ri < re; ri++) {
+    for (size_t ri = v; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
-      ImVec2 xOffset{(ri * boxSizeX) + padding, 0};
+      ImVec2 xOffset{((ri - v) * boxSizeX) + padding, 0};
       ImVec2 xSize{boxSizeX - 2 * padding, 0};
-      auto boxSizeY = std::min(size.y / getNumItems(record), MAX_BOX_Y_SIZE);
-      for (size_t mi = 0, me = getNumItems(record); mi < me; mi++) {
+      auto me = getNumItems(record);
+      auto boxSizeY = std::min(size.y / me, MAX_BOX_Y_SIZE);
+      for (size_t mi = 0; mi < me; mi++) {
         ImVec2 yOffSet{0, (mi * boxSizeY) + padding};
         ImVec2 ySize{0, boxSizeY - 2 * padding};
 
@@ -98,11 +98,12 @@ struct HeatMapHelper {
   }
 };
 
-void displayDataRelayer(DeviceMetricsInfo const& metrics,
-                        DeviceInfo const& info,
+void displayDataRelayer(DeviceMetricsInfo const& /*metrics*/,
+                        DeviceInfo const& /*info*/,
                         DeviceSpec const& spec,
                         DataProcessingStates const& states,
-                        ImVec2 const& size)
+                        ImVec2 const& size,
+                        int& v)
 {
   auto getNumInputs = [&states]() -> size_t {
     auto& inputsView = states.statesViews[(int)ProcessingStateId::DATA_QUERIES];
@@ -146,7 +147,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
     }
     char const* const beginData = strchr(buffer + view.first, ' ') + 1;
     // Protect against buffer overflows
-    if (view.size <= beginData - buffer + i - view.first) {
+    if ((size_t)view.size <= beginData - buffer + i - view.first) {
       return &error;
     }
     return (int8_t const*)beginData + i; };
@@ -184,7 +185,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
       if ((end - input) == 0) {
         continue;
       }
-      if (i == row) {
+      if (i == (size_t)row) {
         ImGui::Text("%d %.*s (%s)", row, int(end - input), input, InspectorHelpers::getLifeTimeStr(spec.inputs[i].matcher.lifetime).c_str());
         break;
       }
@@ -226,6 +227,7 @@ void displayDataRelayer(DeviceMetricsInfo const& metrics,
 
   if (getNumRecords()) {
     HeatMapHelper::draw<int, int8_t>("DataRelayer",
+                                     v,
                                      size,
                                      getNumInputs,
                                      getNumRecords,
