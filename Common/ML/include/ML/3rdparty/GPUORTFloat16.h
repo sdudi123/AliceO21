@@ -547,9 +547,9 @@ GPUdi() uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
       {
         std::memcpy(&result, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
       } else {
-        static_assert(false, "ERROR!!!");
         std::memcpy(&result, &fl, sizeof(uint16_t));
       }
+#endif
       return result;
     };
 
@@ -562,7 +562,6 @@ GPUdi() uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     U32 += (upper_bits & 1) + kRoundToNearest;
     result = get_msb_half(F32);
   }
-#endif
       return result;
     }
 

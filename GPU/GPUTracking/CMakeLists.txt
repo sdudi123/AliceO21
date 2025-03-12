@@ -268,19 +268,19 @@ unset(HDRS_TMP)
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
 
   o2_add_library(GPUDataTypes
-                  TARGETVARNAME targetName
-                  PUBLIC_INCLUDE_DIRECTORIES .
-                                              Definitions
-                                              DataTypes
-                  PUBLIC_LINK_LIBRARIES O2::GPUUtils
-                                        O2::GPUCommon
-                                        O2::ReconstructionDataFormats
-                                        O2::TPCFastTransformation
-                                        O2::ML
-                  PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
-                  SOURCES ${SRCS_DATATYPES})
+                 TARGETVARNAME targetName
+                 PUBLIC_INCLUDE_DIRECTORIES .
+                                             Definitions
+                                             DataTypes
+                 PUBLIC_LINK_LIBRARIES O2::GPUUtils
+                                       O2::GPUCommon
+                                       O2::ReconstructionDataFormats
+                                       O2::TPCFastTransformation
+                                       O2::ML
+                 PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
+                 SOURCES ${SRCS_DATATYPES})
   add_compile_definitions(GPUCA_HAS_ONNX=1)
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
 
   o2_target_root_dictionary(GPUDataTypes
                             HEADERS ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL}
