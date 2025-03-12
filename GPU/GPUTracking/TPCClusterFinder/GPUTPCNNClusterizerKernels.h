@@ -63,7 +63,6 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
   GPUd() static void Thread(int32_t, int32_t, int32_t, int32_t, GPUSharedMemory&, processorType&, uint8_t = 0, int8_t = 0, int8_t = 0, uint = 0, Args...);
 
  private:
-
   static GPUd() void fillInputData(int32_t, int32_t, int32_t, int32_t, processorType&, uint8_t, int8_t, uint);
   static GPUd() void publishClustersReg1(uint, GPUSharedMemory&, processorType&, uint8_t, int8_t, int8_t, uint);
   static GPUd() void publishClustersReg2(uint, GPUSharedMemory&, processorType&, uint8_t, int8_t, int8_t, uint);

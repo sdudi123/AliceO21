@@ -562,18 +562,18 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     result = get_msb_half(F32);
   }
 #endif
-  return result;
-}
+      return result;
+    }
 
-template <class Derived>
-GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
-{
-  if (IsNaN()) {
-    return std::numeric_limits<float>::quiet_NaN();
-  }
-  float result;
+    template <class Derived>
+    GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
+    {
+      if (IsNaN()) {
+        return std::numeric_limits<float>::quiet_NaN();
+      }
+      float result;
 #ifdef GPUCA_GPUCODE
-  result = 0; // Fixme: implement memcpy
+      result = 0; // Fixme: implement memcpy
 #else
   char* const first = reinterpret_cast<char*>(&result);
   char* const second = first + sizeof(uint16_t);
@@ -590,295 +590,295 @@ GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
     std::memset(second, 0, sizeof(uint16_t));
   }
 #endif
-  return result;
-}
+      return result;
+    }
 
-/** \brief IEEE 754 half-precision floating point data type
- *
- * \details This struct is used for converting float to float16 and back
- * so the user could feed inputs and fetch outputs using these type.
- *
- * The size of the structure should align with uint16_t and one can freely cast
- * uint16_t buffers to/from Ort::Float16_t to feed and retrieve data.
- *
- * \code{.unparsed}
- * // This example demonstrates converion from float to float16
- * constexpr float values[] = {1.f, 2.f, 3.f, 4.f, 5.f};
- * std::vector<Ort::Float16_t> fp16_values;
- * fp16_values.reserve(std::size(values));
- * std::transform(std::begin(values), std::end(values), std::back_inserter(fp16_values),
- *     [](float value) { return Ort::Float16_t(value); });
- *
- * \endcode
- */
-struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
- private:
-  /// <summary>
-  /// Constructor from a 16-bit representation of a float16 value
-  /// No conversion is done here.
-  /// </summary>
-  /// <param name="v">16-bit representation</param>
-  constexpr explicit Float16_t(uint16_t v) noexcept { val = v; }
+    /** \brief IEEE 754 half-precision floating point data type
+     *
+     * \details This struct is used for converting float to float16 and back
+     * so the user could feed inputs and fetch outputs using these type.
+     *
+     * The size of the structure should align with uint16_t and one can freely cast
+     * uint16_t buffers to/from Ort::Float16_t to feed and retrieve data.
+     *
+     * \code{.unparsed}
+     * // This example demonstrates converion from float to float16
+     * constexpr float values[] = {1.f, 2.f, 3.f, 4.f, 5.f};
+     * std::vector<Ort::Float16_t> fp16_values;
+     * fp16_values.reserve(std::size(values));
+     * std::transform(std::begin(values), std::end(values), std::back_inserter(fp16_values),
+     *     [](float value) { return Ort::Float16_t(value); });
+     *
+     * \endcode
+     */
+    struct Float16_t : OrtDataType::Float16Impl<Float16_t> {
+     private:
+      /// <summary>
+      /// Constructor from a 16-bit representation of a float16 value
+      /// No conversion is done here.
+      /// </summary>
+      /// <param name="v">16-bit representation</param>
+      constexpr explicit Float16_t(uint16_t v) noexcept { val = v; }
 
- public:
-  using Base = OrtDataType::Float16Impl<Float16_t>;
+     public:
+      using Base = OrtDataType::Float16Impl<Float16_t>;
 
-  /// <summary>
-  /// Default constructor
-  /// </summary>
-  GPUdDefault() Float16_t() = default;
+      /// <summary>
+      /// Default constructor
+      /// </summary>
+      GPUdDefault() Float16_t() = default;
 
-  /// <summary>
-  /// Explicit conversion to uint16_t representation of float16.
-  /// </summary>
-  /// <param name="v">uint16_t bit representation of float16</param>
-  /// <returns>new instance of Float16_t</returns>
-  GPUd() constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
+      /// <summary>
+      /// Explicit conversion to uint16_t representation of float16.
+      /// </summary>
+      /// <param name="v">uint16_t bit representation of float16</param>
+      /// <returns>new instance of Float16_t</returns>
+      GPUd() constexpr static Float16_t FromBits(uint16_t v) noexcept { return Float16_t(v); }
 
-  /// <summary>
-  /// __ctor from float. Float is converted into float16 16-bit representation.
-  /// </summary>
-  /// <param name="v">float value</param>
-  GPUd() explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+      /// <summary>
+      /// __ctor from float. Float is converted into float16 16-bit representation.
+      /// </summary>
+      /// <param name="v">float value</param>
+      GPUd() explicit Float16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
 
-  /// <summary>
-  /// Converts float16 to float
-  /// </summary>
-  /// <returns>float representation of float16 value</returns>
-  GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
+      /// <summary>
+      /// Converts float16 to float
+      /// </summary>
+      /// <returns>float representation of float16 value</returns>
+      GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
 
-  /// <summary>
-  /// Checks if the value is negative
-  /// </summary>
-  /// <returns>true if negative</returns>
-  using Base::IsNegative;
+      /// <summary>
+      /// Checks if the value is negative
+      /// </summary>
+      /// <returns>true if negative</returns>
+      using Base::IsNegative;
 
-  /// <summary>
-  /// Tests if the value is NaN
-  /// </summary>
-  /// <returns>true if NaN</returns>
-  using Base::IsNaN;
+      /// <summary>
+      /// Tests if the value is NaN
+      /// </summary>
+      /// <returns>true if NaN</returns>
+      using Base::IsNaN;
 
-  /// <summary>
-  /// Tests if the value is finite
-  /// </summary>
-  /// <returns>true if finite</returns>
-  using Base::IsFinite;
+      /// <summary>
+      /// Tests if the value is finite
+      /// </summary>
+      /// <returns>true if finite</returns>
+      using Base::IsFinite;
 
-  /// <summary>
-  /// Tests if the value represents positive infinity.
-  /// </summary>
-  /// <returns>true if positive infinity</returns>
-  using Base::IsPositiveInfinity;
+      /// <summary>
+      /// Tests if the value represents positive infinity.
+      /// </summary>
+      /// <returns>true if positive infinity</returns>
+      using Base::IsPositiveInfinity;
 
-  /// <summary>
-  /// Tests if the value represents negative infinity
-  /// </summary>
-  /// <returns>true if negative infinity</returns>
-  using Base::IsNegativeInfinity;
+      /// <summary>
+      /// Tests if the value represents negative infinity
+      /// </summary>
+      /// <returns>true if negative infinity</returns>
+      using Base::IsNegativeInfinity;
 
-  /// <summary>
-  /// Tests if the value is either positive or negative infinity.
-  /// </summary>
-  /// <returns>True if absolute value is infinity</returns>
-  using Base::IsInfinity;
+      /// <summary>
+      /// Tests if the value is either positive or negative infinity.
+      /// </summary>
+      /// <returns>True if absolute value is infinity</returns>
+      using Base::IsInfinity;
 
-  /// <summary>
-  /// Tests if the value is NaN or zero. Useful for comparisons.
-  /// </summary>
-  /// <returns>True if NaN or zero.</returns>
-  using Base::IsNaNOrZero;
+      /// <summary>
+      /// Tests if the value is NaN or zero. Useful for comparisons.
+      /// </summary>
+      /// <returns>True if NaN or zero.</returns>
+      using Base::IsNaNOrZero;
 
-  /// <summary>
-  /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
-  /// </summary>
-  /// <returns>True if so</returns>
-  using Base::IsNormal;
+      /// <summary>
+      /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
+      /// </summary>
+      /// <returns>True if so</returns>
+      using Base::IsNormal;
 
-  /// <summary>
-  /// Tests if the value is subnormal (denormal).
-  /// </summary>
-  /// <returns>True if so</returns>
-  using Base::IsSubnormal;
+      /// <summary>
+      /// Tests if the value is subnormal (denormal).
+      /// </summary>
+      /// <returns>True if so</returns>
+      using Base::IsSubnormal;
 
-  /// <summary>
-  /// Creates an instance that represents absolute value.
-  /// </summary>
-  /// <returns>Absolute value</returns>
-  using Base::Abs;
+      /// <summary>
+      /// Creates an instance that represents absolute value.
+      /// </summary>
+      /// <returns>Absolute value</returns>
+      using Base::Abs;
 
-  /// <summary>
-  /// Creates a new instance with the sign flipped.
-  /// </summary>
-  /// <returns>Flipped sign instance</returns>
-  using Base::Negate;
+      /// <summary>
+      /// Creates a new instance with the sign flipped.
+      /// </summary>
+      /// <returns>Flipped sign instance</returns>
+      using Base::Negate;
 
-  /// <summary>
-  /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
-  /// for two values by or'ing the private bits together and stripping the sign. They are both zero,
-  /// and therefore equivalent, if the resulting value is still zero.
-  /// </summary>
-  /// <param name="lhs">first value</param>
-  /// <param name="rhs">second value</param>
-  /// <returns>True if both arguments represent zero</returns>
-  using Base::AreZero;
+      /// <summary>
+      /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
+      /// for two values by or'ing the private bits together and stripping the sign. They are both zero,
+      /// and therefore equivalent, if the resulting value is still zero.
+      /// </summary>
+      /// <param name="lhs">first value</param>
+      /// <param name="rhs">second value</param>
+      /// <returns>True if both arguments represent zero</returns>
+      using Base::AreZero;
 
-  /// <summary>
-  /// User defined conversion operator. Converts Float16_t to float.
-  /// </summary>
-  explicit operator float() const noexcept { return ToFloat(); }
+      /// <summary>
+      /// User defined conversion operator. Converts Float16_t to float.
+      /// </summary>
+      explicit operator float() const noexcept { return ToFloat(); }
 
-  using Base::operator==;
-  using Base::operator!=;
-  using Base::operator<;
-};
+      using Base::operator==;
+      using Base::operator!=;
+      using Base::operator<;
+    };
 
-static_assert(sizeof(Float16_t) == sizeof(uint16_t), "Sizes must match");
+    static_assert(sizeof(Float16_t) == sizeof(uint16_t), "Sizes must match");
 
-/** \brief bfloat16 (Brain Floating Point) data type
- *
- * \details This struct is used for converting float to bfloat16 and back
- * so the user could feed inputs and fetch outputs using these type.
- *
- * The size of the structure should align with uint16_t and one can freely cast
- * uint16_t buffers to/from Ort::BFloat16_t to feed and retrieve data.
- *
- * \code{.unparsed}
- * // This example demonstrates converion from float to float16
- * constexpr float values[] = {1.f, 2.f, 3.f, 4.f, 5.f};
- * std::vector<Ort::BFloat16_t> bfp16_values;
- * bfp16_values.reserve(std::size(values));
- * std::transform(std::begin(values), std::end(values), std::back_inserter(bfp16_values),
- *     [](float value) { return Ort::BFloat16_t(value); });
- *
- * \endcode
- */
-struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
- private:
-  /// <summary>
-  /// Constructor from a uint16_t representation of bfloat16
-  /// used in FromBits() to escape overload resolution issue with
-  /// constructor from float.
-  /// No conversion is done.
-  /// </summary>
-  /// <param name="v">16-bit bfloat16 value</param>
-  constexpr explicit BFloat16_t(uint16_t v) noexcept { val = v; }
+    /** \brief bfloat16 (Brain Floating Point) data type
+     *
+     * \details This struct is used for converting float to bfloat16 and back
+     * so the user could feed inputs and fetch outputs using these type.
+     *
+     * The size of the structure should align with uint16_t and one can freely cast
+     * uint16_t buffers to/from Ort::BFloat16_t to feed and retrieve data.
+     *
+     * \code{.unparsed}
+     * // This example demonstrates converion from float to float16
+     * constexpr float values[] = {1.f, 2.f, 3.f, 4.f, 5.f};
+     * std::vector<Ort::BFloat16_t> bfp16_values;
+     * bfp16_values.reserve(std::size(values));
+     * std::transform(std::begin(values), std::end(values), std::back_inserter(bfp16_values),
+     *     [](float value) { return Ort::BFloat16_t(value); });
+     *
+     * \endcode
+     */
+    struct BFloat16_t : OrtDataType::BFloat16Impl<BFloat16_t> {
+     private:
+      /// <summary>
+      /// Constructor from a uint16_t representation of bfloat16
+      /// used in FromBits() to escape overload resolution issue with
+      /// constructor from float.
+      /// No conversion is done.
+      /// </summary>
+      /// <param name="v">16-bit bfloat16 value</param>
+      constexpr explicit BFloat16_t(uint16_t v) noexcept { val = v; }
 
- public:
-  using Base = OrtDataType::BFloat16Impl<BFloat16_t>;
+     public:
+      using Base = OrtDataType::BFloat16Impl<BFloat16_t>;
 
-  GPUdDefault() BFloat16_t() = default;
+      GPUdDefault() BFloat16_t() = default;
 
-  /// <summary>
-  /// Explicit conversion to uint16_t representation of bfloat16.
-  /// </summary>
-  /// <param name="v">uint16_t bit representation of bfloat16</param>
-  /// <returns>new instance of BFloat16_t</returns>
-  GPUd() static constexpr BFloat16_t FromBits(uint16_t v) noexcept { return BFloat16_t(v); }
+      /// <summary>
+      /// Explicit conversion to uint16_t representation of bfloat16.
+      /// </summary>
+      /// <param name="v">uint16_t bit representation of bfloat16</param>
+      /// <returns>new instance of BFloat16_t</returns>
+      GPUd() static constexpr BFloat16_t FromBits(uint16_t v) noexcept { return BFloat16_t(v); }
 
-  /// <summary>
-  /// __ctor from float. Float is converted into bfloat16 16-bit representation.
-  /// </summary>
-  /// <param name="v">float value</param>
-  GPUd() explicit BFloat16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
+      /// <summary>
+      /// __ctor from float. Float is converted into bfloat16 16-bit representation.
+      /// </summary>
+      /// <param name="v">float value</param>
+      GPUd() explicit BFloat16_t(float v) noexcept { val = Base::ToUint16Impl(v); }
 
-  /// <summary>
-  /// Converts bfloat16 to float
-  /// </summary>
-  /// <returns>float representation of bfloat16 value</returns>
-  GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
+      /// <summary>
+      /// Converts bfloat16 to float
+      /// </summary>
+      /// <returns>float representation of bfloat16 value</returns>
+      GPUd() float ToFloat() const noexcept { return Base::ToFloatImpl(); }
 
-  /// <summary>
-  /// Checks if the value is negative
-  /// </summary>
-  /// <returns>true if negative</returns>
-  using Base::IsNegative;
+      /// <summary>
+      /// Checks if the value is negative
+      /// </summary>
+      /// <returns>true if negative</returns>
+      using Base::IsNegative;
 
-  /// <summary>
-  /// Tests if the value is NaN
-  /// </summary>
-  /// <returns>true if NaN</returns>
-  using Base::IsNaN;
+      /// <summary>
+      /// Tests if the value is NaN
+      /// </summary>
+      /// <returns>true if NaN</returns>
+      using Base::IsNaN;
 
-  /// <summary>
-  /// Tests if the value is finite
-  /// </summary>
-  /// <returns>true if finite</returns>
-  using Base::IsFinite;
+      /// <summary>
+      /// Tests if the value is finite
+      /// </summary>
+      /// <returns>true if finite</returns>
+      using Base::IsFinite;
 
-  /// <summary>
-  /// Tests if the value represents positive infinity.
-  /// </summary>
-  /// <returns>true if positive infinity</returns>
-  using Base::IsPositiveInfinity;
+      /// <summary>
+      /// Tests if the value represents positive infinity.
+      /// </summary>
+      /// <returns>true if positive infinity</returns>
+      using Base::IsPositiveInfinity;
 
-  /// <summary>
-  /// Tests if the value represents negative infinity
-  /// </summary>
-  /// <returns>true if negative infinity</returns>
-  using Base::IsNegativeInfinity;
+      /// <summary>
+      /// Tests if the value represents negative infinity
+      /// </summary>
+      /// <returns>true if negative infinity</returns>
+      using Base::IsNegativeInfinity;
 
-  /// <summary>
-  /// Tests if the value is either positive or negative infinity.
-  /// </summary>
-  /// <returns>True if absolute value is infinity</returns>
-  using Base::IsInfinity;
+      /// <summary>
+      /// Tests if the value is either positive or negative infinity.
+      /// </summary>
+      /// <returns>True if absolute value is infinity</returns>
+      using Base::IsInfinity;
 
-  /// <summary>
-  /// Tests if the value is NaN or zero. Useful for comparisons.
-  /// </summary>
-  /// <returns>True if NaN or zero.</returns>
-  using Base::IsNaNOrZero;
+      /// <summary>
+      /// Tests if the value is NaN or zero. Useful for comparisons.
+      /// </summary>
+      /// <returns>True if NaN or zero.</returns>
+      using Base::IsNaNOrZero;
 
-  /// <summary>
-  /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
-  /// </summary>
-  /// <returns>True if so</returns>
-  using Base::IsNormal;
+      /// <summary>
+      /// Tests if the value is normal (not zero, subnormal, infinite, or NaN).
+      /// </summary>
+      /// <returns>True if so</returns>
+      using Base::IsNormal;
 
-  /// <summary>
-  /// Tests if the value is subnormal (denormal).
-  /// </summary>
-  /// <returns>True if so</returns>
-  using Base::IsSubnormal;
+      /// <summary>
+      /// Tests if the value is subnormal (denormal).
+      /// </summary>
+      /// <returns>True if so</returns>
+      using Base::IsSubnormal;
 
-  /// <summary>
-  /// Creates an instance that represents absolute value.
-  /// </summary>
-  /// <returns>Absolute value</returns>
-  using Base::Abs;
+      /// <summary>
+      /// Creates an instance that represents absolute value.
+      /// </summary>
+      /// <returns>Absolute value</returns>
+      using Base::Abs;
 
-  /// <summary>
-  /// Creates a new instance with the sign flipped.
-  /// </summary>
-  /// <returns>Flipped sign instance</returns>
-  using Base::Negate;
+      /// <summary>
+      /// Creates a new instance with the sign flipped.
+      /// </summary>
+      /// <returns>Flipped sign instance</returns>
+      using Base::Negate;
 
-  /// <summary>
-  /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
-  /// for two values by or'ing the private bits together and stripping the sign. They are both zero,
-  /// and therefore equivalent, if the resulting value is still zero.
-  /// </summary>
-  /// <param name="lhs">first value</param>
-  /// <param name="rhs">second value</param>
-  /// <returns>True if both arguments represent zero</returns>
-  using Base::AreZero;
+      /// <summary>
+      /// IEEE defines that positive and negative zero are equal, this gives us a quick equality check
+      /// for two values by or'ing the private bits together and stripping the sign. They are both zero,
+      /// and therefore equivalent, if the resulting value is still zero.
+      /// </summary>
+      /// <param name="lhs">first value</param>
+      /// <param name="rhs">second value</param>
+      /// <returns>True if both arguments represent zero</returns>
+      using Base::AreZero;
 
-  /// <summary>
-  /// User defined conversion operator. Converts BFloat16_t to float.
-  /// </summary>
-  explicit operator float() const noexcept { return ToFloat(); }
+      /// <summary>
+      /// User defined conversion operator. Converts BFloat16_t to float.
+      /// </summary>
+      explicit operator float() const noexcept { return ToFloat(); }
 
-  // We do not have an inherited impl for the below operators
-  // as the internal class implements them a little differently
-  bool operator==(const BFloat16_t& rhs) const noexcept;
-  bool operator!=(const BFloat16_t& rhs) const noexcept { return !(*this == rhs); }
-  bool operator<(const BFloat16_t& rhs) const noexcept;
-};
+      // We do not have an inherited impl for the below operators
+      // as the internal class implements them a little differently
+      bool operator==(const BFloat16_t& rhs) const noexcept;
+      bool operator!=(const BFloat16_t& rhs) const noexcept { return !(*this == rhs); }
+      bool operator<(const BFloat16_t& rhs) const noexcept;
+    };
 
-static_assert(sizeof(BFloat16_t) == sizeof(uint16_t), "Sizes must match");
+    static_assert(sizeof(BFloat16_t) == sizeof(uint16_t), "Sizes must match");
 
-} // namespace OrtDataType
+  } // namespace OrtDataType
 
 } // namespace o2
 #endif
