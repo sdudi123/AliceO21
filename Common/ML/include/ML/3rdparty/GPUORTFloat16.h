@@ -275,7 +275,7 @@ union float32_bits {
 }; // namespace detail
 
 template <class Derived>
-GPUd() inline constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noexcept
+GPUdi() constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noexcept
 {
   detail::float32_bits f{};
   f.f = v;
@@ -324,7 +324,7 @@ GPUd() inline constexpr uint16_t Float16Impl<Derived>::ToUint16Impl(float v) noe
 }
 
 template <class Derived>
-GPUd() inline float Float16Impl<Derived>::ToFloatImpl() const noexcept
+GPUdi() float Float16Impl<Derived>::ToFloatImpl() const noexcept
 {
   constexpr detail::float32_bits magic = {113 << 23};
   constexpr unsigned int shifted_exp = 0x7c00 << 13; // exponent mask after shift
@@ -528,7 +528,7 @@ struct BFloat16Impl {
 };
 
 template <class Derived>
-GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
+GPUdi() uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
 {
   uint16_t result;
   if (o2::gpu::CAMath::IsNaN(v)) {
@@ -537,7 +537,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     auto get_msb_half = [](float fl) {
       uint16_t result;
 #ifdef GPUCA_GPUCODE
-      result = 0;
+      o2::gpu::CAMath::memcpy(&result, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
 #else
 #ifdef __cpp_if_constexpr
       if constexpr (detail::endian::native == detail::endian::little)
@@ -547,6 +547,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
       {
         std::memcpy(&result, reinterpret_cast<char*>(&fl) + sizeof(uint16_t), sizeof(uint16_t));
       } else {
+        static_assert(false, "ERROR!!!");
         std::memcpy(&result, &fl, sizeof(uint16_t));
       }
       return result;
@@ -566,17 +567,18 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     }
 
     template <class Derived>
-    GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
+    GPUdi() float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
     {
       if (IsNaN()) {
-        return std::numeric_limits<float>::quiet_NaN();
+        return o2::gpu::CAMath::QuietNaN();
       }
       float result;
+      char* const first = reinterpret_cast<char*>(&result);
+      char* const second = first + sizeof(uint16_t);
 #ifdef GPUCA_GPUCODE
-      result = 0; // Fixme: implement memcpy
+      first[0] = first[1] = 0;
+      o2::gpu::CAMath::memcpy(second, &val, sizeof(uint16_t));
 #else
-  char* const first = reinterpret_cast<char*>(&result);
-  char* const second = first + sizeof(uint16_t);
 #ifdef __cpp_if_constexpr
   if constexpr (detail::endian::native == detail::endian::little)
 #else
@@ -726,7 +728,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
       /// <summary>
       /// User defined conversion operator. Converts Float16_t to float.
       /// </summary>
-      explicit operator float() const noexcept { return ToFloat(); }
+      GPUdi() explicit operator float() const noexcept { return ToFloat(); }
 
       using Base::operator==;
       using Base::operator!=;
@@ -867,7 +869,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
       /// <summary>
       /// User defined conversion operator. Converts BFloat16_t to float.
       /// </summary>
-      explicit operator float() const noexcept { return ToFloat(); }
+      GPUdi() explicit operator float() const noexcept { return ToFloat(); }
 
       // We do not have an inherited impl for the below operators
       // as the internal class implements them a little differently

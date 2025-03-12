@@ -899,6 +899,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             clustererNN.nnClusterizerVerbosity = nn_settings.nnClusterizerVerbosity;
           }
 
+          int evalDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
+          clustererNN.nnClusterizerDtype = evalDtype;
+
           // Settings for the NN evaluation
           clustererNN.nnClassThreshold = nn_settings.nnClassThreshold;
           clustererNN.nnSigmoidTrafoClassThreshold = nn_settings.nnSigmoidTrafoClassThreshold;
@@ -920,7 +923,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           }
 
           float time_clusterizer = 0, time_fill = 0;
-          int evalDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
 
           for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNN.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clustererNN.nnClusterizerBatchedMode;
