@@ -49,7 +49,7 @@ struct HeatMapHelper {
     ImVec2 sliderMin = ImGui::GetItemRectMin();
 
     constexpr float MAX_BOX_X_SIZE = 16.f;
-    constexpr float MAX_BOX_Y_SIZE = 32.f;
+    constexpr float MAX_BOX_Y_SIZE = 16.f;
 
     ImVec2 size = ImVec2(sizeHint.x, std::min(sizeHint.y, MAX_BOX_Y_SIZE * getNumItems(0) + 2));
     ImU32 BORDER_COLOR = ImColor(200, 200, 200, 255);

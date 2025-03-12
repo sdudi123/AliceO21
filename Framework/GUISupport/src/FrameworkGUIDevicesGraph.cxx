@@ -692,7 +692,6 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
     bool old_any_active = ImGui::IsAnyItemActive();
     ImGui::SetCursorScreenPos(node_rect_min + NODE_WINDOW_PADDING);
     ImGui::BeginGroup(); // Lock horizontal position
-    ImGui::PushItemWidth(200.);
     ImGui::TextUnformatted(node->Name);
     switch (info.maxLogLevel) {
       case LogLevel::Critical:
@@ -715,7 +714,7 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
         break;
     }
 
-    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(160., 90.), controls[node->ID].firstWnd);
+    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(200., 160.), controls[node->ID].firstWnd);
     ImGui::EndGroup();
 
     // Save the size of what we have emitted and whether any of the widgets are being used
