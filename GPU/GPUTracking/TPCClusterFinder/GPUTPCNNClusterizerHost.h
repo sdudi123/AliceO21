@@ -39,7 +39,7 @@ class GPUTPCNNClusterizerHost
   GPUTPCNNClusterizerHost() = default;
   GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
 
-  void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output);
+  void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output, int32_t dtype);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters

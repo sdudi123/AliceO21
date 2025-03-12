@@ -931,7 +931,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
-            nnApplication.inferenceNetwork(clustererNN.model_class, clustererNN, iSize, clusterer.modelProbabilities);
+            nnApplication.networkInference(nnApplication.model_class, clustererNN, iSize, clustererNN.modelProbabilities, evalDtype);
             if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Assigning class labels
             } else {
@@ -939,10 +939,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
 
             if (!clustererNN.nnClusterizerUseCfRegression) {
-              nnApplication.inferenceNetwork(clustererNN.model_reg_1, clustererNN, iSize, clusterer.outputDataReg1);
+              nnApplication.networkInference(nnApplication.model_reg_1, clustererNN, iSize, clustererNN.outputDataReg1, evalDtype);
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Running the NN for regression class 1
               if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.reg_model_paths.size() > 1) {
-                nnApplication.inferenceNetwork(clustererNN.model_reg_2, clustererNN, iSize, clusterer.outputDataReg2);
+                nnApplication.networkInference(nnApplication.model_reg_2, clustererNN, iSize, clustererNN.outputDataReg2, evalDtype);
                 runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Running the NN for regression class 2
               }
             }

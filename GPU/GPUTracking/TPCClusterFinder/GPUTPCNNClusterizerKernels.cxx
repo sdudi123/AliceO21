@@ -22,6 +22,12 @@ using namespace o2::gpu::tpccf;
 #include "CfUtils.h"
 #include "ClusterAccumulator.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
+
+#if !defined(GPUCA_GPUCODE)
+#include "GPUHostDataTypes.h"
+#include "MCLabelAccumulator.h"
+#endif
+
 #ifdef GPUCA_GPUCODE
 #include "GPUTPCCFClusterizer.inc"
 #endif
