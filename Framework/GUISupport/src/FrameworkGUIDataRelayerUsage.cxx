@@ -41,21 +41,69 @@ struct HeatMapHelper {
                    std::function<ImU32(int value)> const& getColor,
                    std::function<void(int row, int column)> const& describeCell)
   {
-    ImVec2 size = ImVec2(sizeHint.x, std::min(sizeHint.y, 16.f * getNumItems(0) + 2));
+    float padding = 1;
+    // add slider to scroll between the grid display windows
+    size_t nw = getNumRecords() / WND;
+    ImGui::PushItemWidth(sizeHint.x);
+    ImGui::SliderInt("##window", &v, 1, nw, "wnd: %d", ImGuiSliderFlags_AlwaysClamp);
+    ImVec2 sliderMin = ImGui::GetItemRectMin();
+
+    constexpr float MAX_BOX_X_SIZE = 16.f;
+    constexpr float MAX_BOX_Y_SIZE = 32.f;
+
+    ImVec2 size = ImVec2(sizeHint.x, std::min(sizeHint.y, MAX_BOX_Y_SIZE * getNumItems(0) + 2));
     ImU32 BORDER_COLOR = ImColor(200, 200, 200, 255);
     ImU32 BACKGROUND_COLOR = ImColor(20, 20, 20, 255);
-    constexpr float MAX_BOX_X_SIZE = 16.f;
-    constexpr float MAX_BOX_Y_SIZE = 16.f;
+    ImU32 BORDER_COLOR_A = ImColor(200, 200, 200, 0);
+    ImU32 BACKGROUND_COLOR_A = ImColor(0, 0, 0, 0);
+
     ImDrawList* drawList = ImGui::GetWindowDrawList();
-    ImVec2 winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
-    size_t recordsWindow = v + WND;
+    ImVec2 winPos = sliderMin;
+
+    // overlay activity indicator on the slider
+    auto xsz = size.x / nw;
+    drawList->AddRectFilled(
+      ImVec2{0., 0.} + winPos,
+      ImVec2{size.x, size.y} + winPos,
+      BACKGROUND_COLOR_A);
+    drawList->AddRect(
+      ImVec2{0. - 1, -1} + winPos,
+      ImVec2{size.x + 1, size.y - 1} + winPos,
+      BORDER_COLOR_A);
+
+    const static auto colorA = ImColor(ImVec4{0.945, 0.096, 0.278, 0.5});
+    const static auto colorE = ImColor(ImVec4{0, 0, 0, 0});
+
+    drawList->PrimReserve(nw * 6, nw * 4);
+    for (size_t iw = 0; iw < nw; ++iw) {
+      ImVec2 xOffset{iw * xsz + 2 * padding, 0};
+      ImVec2 xSize{xsz - 2 * padding, 0};
+      ImVec2 yOffset{0, 2 * padding};
+      ImVec2 ySize{0, 16 - 4 * padding};
+      bool active = 0;
+      for (size_t ir = iw; ir < ((iw + WND > getNumRecords()) ? getNumRecords() : iw + WND); ++ir) {
+        for (size_t i = 0; i < getNumItems(ir); ++i) {
+          active = getValue(*getItem(ir, i)) > 0;
+          if (active) {
+            break;
+          }
+        }
+      }
+      drawList->PrimRect(
+        xOffset + yOffset + winPos,
+        xOffset + xSize + yOffset + ySize + winPos,
+        active ? colorA : colorE);
+    }
+
+    // display the grid
+    size_t recordsWindow = v * WND;
     auto boxSizeX = std::min(size.x / WND, MAX_BOX_X_SIZE);
     auto numInputs = getNumInputs();
-
+    winPos = ImGui::GetCursorScreenPos() + ImVec2{0, 7};
     ImGui::InvisibleButton("sensible area", ImVec2(size.x, size.y));
     if (ImGui::IsItemHovered()) {
       auto pos = ImGui::GetMousePos() - winPos;
-      auto slot = v + std::lround(std::trunc(pos.x / size.x * WND));
+      auto slot = (v - 1) * WND + std::lround(std::trunc(pos.x / size.x * WND));
       auto row = std::lround(std::trunc(pos.y / size.y * numInputs));
       describeCell(row, slot);
     }
@@ -68,18 +116,17 @@ struct HeatMapHelper {
       ImVec2(0. - 1, -1) + winPos,
       ImVec2{size.x + 1, size.y - 1} + winPos,
       BORDER_COLOR);
-    float padding = 1;
 
     size_t totalRects = 0;
-    for (size_t ri = v; ri < recordsWindow; ri++) {
+    for (size_t ri = (v - 1) * WND; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
       totalRects += getNumItems(record);
     }
 
     drawList->PrimReserve(totalRects * 6, totalRects * 4);
-    for (size_t ri = v; ri < recordsWindow; ri++) {
+    for (size_t ri = (v - 1) * WND; ri < recordsWindow; ri++) {
       auto record = getRecord(ri);
-      ImVec2 xOffset{((ri - v) * boxSizeX) + padding, 0};
+      ImVec2 xOffset{((ri - (v - 1) * WND) * boxSizeX) + padding, 0};
       ImVec2 xSize{boxSizeX - 2 * padding, 0};
       auto me = getNumItems(record);
       auto boxSizeY = std::min(size.y / me, MAX_BOX_Y_SIZE);
