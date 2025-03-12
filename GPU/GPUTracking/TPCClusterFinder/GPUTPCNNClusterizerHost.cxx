@@ -54,30 +54,11 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
   }
 }
 
-// Apply the neural network to the input data. Note: These are not GPU kernels. We let ONNX take care of that
-void GPUTPCNNClusterizerHost::inferenceNetworkClass(GPUTPCNNClusterizer& clusterer, size_t currentSize, int8_t dtype, uint batch_idx)
+void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output)
 {
   if (dtype == 0) {
-    model_class.inference<OrtDataType::Float16_t, float>(clusterer.inputData16, currentSize * clusterer.nnClusterizerElementSize, clusterer.modelProbabilities);
+    model.inference<OrtDataType::Float16_t, float>(clusterer.inputData16, size * clusterer.nnClusterizerElementSize, output);
   } else {
-    model_class.inference<float, float>(clusterer.inputData32, currentSize * clusterer.nnClusterizerElementSize, clusterer.modelProbabilities);
-  }
-}
-
-void GPUTPCNNClusterizerHost::inferenceNetworkReg1(GPUTPCNNClusterizer& clusterer, size_t currentSize, int8_t dtype, uint batch_idx)
-{
-  if (dtype == 0) {
-    model_reg_1.inference<OrtDataType::Float16_t, float>(clusterer.inputData16, currentSize * clusterer.nnClusterizerElementSize, clusterer.outputDataReg1);
-  } else {
-    model_reg_1.inference<float, float>(clusterer.inputData32, currentSize * clusterer.nnClusterizerElementSize, clusterer.outputDataReg1);
-  }
-}
-
-void GPUTPCNNClusterizerHost::inferenceNetworkReg2(GPUTPCNNClusterizer& clusterer, size_t currentSize, int8_t dtype, uint batch_idx)
-{
-  if (dtype == 0) {
-    model_reg_2.inference<OrtDataType::Float16_t, float>(clusterer.inputData16, currentSize * clusterer.nnClusterizerElementSize, clusterer.outputDataReg2);
-  } else {
-    model_reg_2.inference<float, float>(clusterer.inputData32, currentSize * clusterer.nnClusterizerElementSize, clusterer.outputDataReg2);
+    model.inference<float, float>(clusterer.inputData32, size * clusterer.nnClusterizerElementSize, output);
   }
 }

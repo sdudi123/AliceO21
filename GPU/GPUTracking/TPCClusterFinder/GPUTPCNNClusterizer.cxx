@@ -44,9 +44,6 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
       computePointerWithAlignment(mem, outputDataReg2, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
     }
   }
-
-  LOG(info) << "Alloc mem: " << nnClusterizerBatchedMode * nnClusterizerElementSize << " " << nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes << " " << mem;
-
   return mem;
 }
 

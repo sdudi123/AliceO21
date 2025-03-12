@@ -15,16 +15,16 @@
 #include "GPUTPCNNClusterizerKernels.h"
 #include "GPUTPCCFClusterizer.h"
 
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
+
 #include "CfConsts.h"
 #include "CfUtils.h"
 #include "ClusterAccumulator.h"
-#if !defined(GPUCA_GPUCODE)
-#include "GPUHostDataTypes.h"
-#include "MCLabelAccumulator.h"
+#include "ML/3rdparty/GPUORTFloat16.h"
+#ifdef GPUCA_GPUCODE
+#include "GPUTPCCFClusterizer.inc"
 #endif
-
-using namespace o2::gpu;
-using namespace o2::gpu::tpccf;
 
 // Defining individual thread functions for data filling, determining the class label and running the CF clusterizer
 template <>
@@ -139,7 +139,9 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
   clustererNN.centralCharges[glo_idx] = central_charge;
 
   int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.nnClusterizerSizeInputRow);
+#ifndef GPUCA_GPUCODE
   GPUCA_UNROLL(U(), U());
+#endif
   for (int r = -clustererNN.nnClusterizerSizeInputRow; r <= clustererNN.nnClusterizerSizeInputRow; r++) {
     bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
     int pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r, clusterer.Param().tpcGeometry);
@@ -148,7 +150,7 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
       for (int t = -clustererNN.nnClusterizerSizeInputTime; t <= clustererNN.nnClusterizerSizeInputTime; t++) {
         if (!is_boundary) {
           ChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clustererNN.clusterFlags[2 * glo_idx] && std::abs(p) < 3 && std::abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
+          if (r == 0 && !clustererNN.clusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
             clustererNN.clusterFlags[2 * glo_idx] = CfUtils::isPeak(isPeakMap[tmp_pos]);
             clustererNN.clusterFlags[2 * glo_idx + 1] = clustererNN.clusterFlags[2 * glo_idx];
           }

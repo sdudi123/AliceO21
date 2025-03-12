@@ -276,15 +276,11 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                         O2::GPUCommon
                                         O2::ReconstructionDataFormats
                                         O2::TPCFastTransformation
+                                        O2::ML
                   PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
                   SOURCES ${SRCS_DATATYPES})
-  if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
-    add_compile_definitions(GPUCA_HAS_ONNX=1)
-    target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX)
-    target_link_libraries(${targetName} PUBLIC O2::ML)
-  else()
-    target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
-  endif()
+  add_compile_definitions(GPUCA_HAS_ONNX=1)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX)
 
   o2_target_root_dictionary(GPUDataTypes
                             HEADERS ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL}
@@ -350,7 +346,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                          LABELS its COMPILE_ONLY)
 
   add_subdirectory(Interface)
-
 endif()
 
 # Main CMake part for Standalone

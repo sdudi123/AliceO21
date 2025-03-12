@@ -16,6 +16,7 @@
 #endif
 
 #include "GPUCommonDef.h"
+#include "GPUCommonMath.h"
 
 namespace o2
 {
@@ -530,11 +531,14 @@ template <class Derived>
 GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
 {
   uint16_t result;
-  if (std::isnan(v)) {
+  if (o2::gpu::CAMath::IsNaN(v)) {
     result = kPositiveQNaNBits;
   } else {
     auto get_msb_half = [](float fl) {
       uint16_t result;
+#ifdef GPUCA_GPUCODE
+      result = 0;
+#else
 #ifdef __cpp_if_constexpr
       if constexpr (detail::endian::native == detail::endian::little)
 #else
@@ -557,6 +561,7 @@ GPUd() inline uint16_t BFloat16Impl<Derived>::ToUint16Impl(float v) noexcept
     U32 += (upper_bits & 1) + kRoundToNearest;
     result = get_msb_half(F32);
   }
+#endif
   return result;
 }
 
@@ -567,6 +572,9 @@ GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
     return std::numeric_limits<float>::quiet_NaN();
   }
   float result;
+#ifdef GPUCA_GPUCODE
+  result = 0; // Fixme: implement memcpy
+#else
   char* const first = reinterpret_cast<char*>(&result);
   char* const second = first + sizeof(uint16_t);
 #ifdef __cpp_if_constexpr
@@ -581,6 +589,7 @@ GPUd() inline float BFloat16Impl<Derived>::ToFloatImpl() const noexcept
     std::memcpy(first, &val, sizeof(uint16_t));
     std::memset(second, 0, sizeof(uint16_t));
   }
+#endif
   return result;
 }
 
@@ -872,5 +881,4 @@ static_assert(sizeof(BFloat16_t) == sizeof(uint16_t), "Sizes must match");
 } // namespace OrtDataType
 
 } // namespace o2
-
 #endif

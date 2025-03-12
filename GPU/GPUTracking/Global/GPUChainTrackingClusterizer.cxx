@@ -858,7 +858,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       mRec->runParallelOuterLoop(doGPU, maxLane, [&](uint32_t lane) {
         uint32_t iSector = iSectorBase + lane;
         GPUTPCClusterFinder& clusterer = processors()->tpcClusterer[iSector];
+#ifdef GPUCA_HAS_ONNX
         GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
+#endif
         GPUTPCClusterFinder& clustererShadow = doGPU ? processorsShadow()->tpcClusterer[iSector] : clusterer;
 
         if (doGPU) {
@@ -929,7 +931,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
-            nnApplication.inferenceNetworkClass(clustererNN, iSize, evalDtype, batchStart);
+            nnApplication.inferenceNetwork(clustererNN.model_class, clustererNN, iSize, clusterer.modelProbabilities);
             if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Assigning class labels
             } else {
@@ -937,10 +939,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
 
             if (!clustererNN.nnClusterizerUseCfRegression) {
-              nnApplication.inferenceNetworkReg1(clustererNN, iSize, evalDtype, batchStart);
+              nnApplication.inferenceNetwork(clustererNN.model_reg_1, clustererNN, iSize, clusterer.outputDataReg1);
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Running the NN for regression class 1
               if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.reg_model_paths.size() > 1) {
-                nnApplication.inferenceNetworkReg2(clustererNN, iSize, evalDtype, batchStart);
+                nnApplication.inferenceNetwork(clustererNN.model_reg_2, clustererNN, iSize, clusterer.outputDataReg2);
                 runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, iSector, evalDtype, 0, batchStart); // Running the NN for regression class 2
               }
             }

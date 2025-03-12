@@ -19,7 +19,6 @@
 #include "GPUProcessor.h"
 #include "GPUDataTypes.h"
 #include "CfFragment.h"
-#include "ML/3rdparty/GPUORTFloat16.h"
 
 namespace o2
 {
