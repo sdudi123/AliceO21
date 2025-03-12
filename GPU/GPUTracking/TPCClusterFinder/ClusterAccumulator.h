@@ -30,8 +30,8 @@ namespace gpu
 {
 
 struct ChargePos;
-class GPUTPCGeometry;
 struct GPUParam;
+class GPUTPCGeometry;
 
 class ClusterAccumulator
 {
