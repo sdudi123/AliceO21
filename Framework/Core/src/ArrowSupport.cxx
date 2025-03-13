@@ -566,11 +566,10 @@ o2::framework::ServiceSpec ArrowSupport::arrowTableSlicingCacheSpec()
   return ServiceSpec{
     .name = "arrow-slicing-cache",
     .uniqueId = CommonServices::simpleServiceId<ArrowTableSlicingCache>(),
-    .init = [](ServiceRegistryRef services, DeviceState&, fair::mq::ProgOptions&) {
-      return ServiceHandle{TypeIdHelpers::uniqueId<ArrowTableSlicingCache>(),
-      new ArrowTableSlicingCache(Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeys},
-                                 Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeysUnsorted}),
-                                 ServiceKind::Stream, typeid(ArrowTableSlicingCache).name()}; },
+    .init = [](ServiceRegistryRef services, DeviceState&, fair::mq::ProgOptions&) { return ServiceHandle{TypeIdHelpers::uniqueId<ArrowTableSlicingCache>(),
+                                                                                                         new ArrowTableSlicingCache(Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeys},
+                                                                                                                                    Cache{services.get<ArrowTableSlicingCacheDef>().bindingsKeysUnsorted}),
+                                                                                                         ServiceKind::Stream, typeid(ArrowTableSlicingCache).name()}; },
     .configure = CommonServices::noConfiguration(),
     .preProcessing = [](ProcessingContext& pc, void* service_ptr) {
       auto* service = static_cast<ArrowTableSlicingCache*>(service_ptr);
