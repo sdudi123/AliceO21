@@ -1505,7 +1505,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.key.c_str());
     }
   }
   uint64_t offset = 0;
@@ -1542,7 +1542,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.key.c_str());
     }
   }
   auto selection = container.getSliceFor(value);
@@ -1571,7 +1571,7 @@ auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, framework:
 {
   if constexpr (OPT) {
     if (container.isMissing()) {
-      missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.second.c_str());
+      missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.key.c_str());
     }
   }
   uint64_t offset = 0;
