@@ -893,7 +893,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clustererNN.nnClusterizerElementSize = ((2 * nn_settings.nnClusterizerSizeInputRow + 1) * (2 * nn_settings.nnClusterizerSizeInputPad + 1) * (2 * nn_settings.nnClusterizerSizeInputTime + 1)) + (nn_settings.nnClusterizerAddIndexData ? 3 : 0);
           clustererNN.nnClusterizerBatchedMode = nn_settings.nnClusterizerBatchedMode;
           clustererNN.nnClusterizerBoundaryFillValue = nn_settings.nnClusterizerBoundaryFillValue;
-          clustererNN.nnClusterizerTotalClusters = clusterer.mPmemory->counters.nClusters;
+          clustererNN.nnClusterizerTotalClusters = clusterer.mNMaxClusterPerRow;
           if (nn_settings.nnClusterizerVerbosity < 0) {
             clustererNN.nnClusterizerVerbosity = nn_settings.nnInferenceVerbosity;
           } else {
