@@ -233,10 +233,10 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
   }
 
   std::vector<int64_t> outputShape{inputShape[0], mOutputShapes[0][1]};
-  size_t outputSize = (int64_t)(inputShape[0] * mOutputShapes[0][1]);
+  size_t outputSize = (int64_t)(input_size * mOutputShapes[0][1] / mInputShapes[0][1]);
   Ort::Value outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, outputSize, outputShape.data(), outputShape.size());
 
-  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, 1);
+  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, outputNamesChar.size()); // TODO: Not sure if 1 is correct here
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, size_t, float*);

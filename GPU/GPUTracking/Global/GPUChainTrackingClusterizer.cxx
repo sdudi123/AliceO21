@@ -888,9 +888,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       mRec->runParallelOuterLoop(doGPU, maxLane, [&](uint32_t lane) {
         uint32_t iSector = iSectorBase + lane;
         GPUTPCClusterFinder& clusterer = processors()->tpcClusterer[iSector];
-#ifdef GPUCA_HAS_ONNX
-        GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
-#endif
         GPUTPCClusterFinder& clustererShadow = doGPU ? processorsShadow()->tpcClusterer[iSector] : clusterer;
 
         if (doGPU) {
@@ -912,62 +909,58 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
         if (GetProcessingSettings().nn.applyNNclusterizer) {
 #ifdef GPUCA_HAS_ONNX
-
-          // Setting some initial sizes, important for memory allocation
+          GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
           const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
-          int evalDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
+          GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
+          
+          if (clustererNN.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
+            runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
+            DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
+          }
+          
+          float time_clusterizer = 0, time_fill = 0;
+          for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNN.nnClusterizerBatchedMode); batch++) {
+            uint batchStart = batch * clustererNN.nnClusterizerBatchedMode;
+            size_t iSize = CAMath::Min((uint)clustererNN.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
+            
+            auto start0 = std::chrono::high_resolution_clock::now();
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNN>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Filling the data
+            
+            auto stop0 = std::chrono::high_resolution_clock::now();
+            auto start1 = std::chrono::high_resolution_clock::now();
+            nnApplication.networkInference(nnApplication.model_class, clustererNN, iSize, clustererNN.modelProbabilities, clustererNN.nnClusterizerDtype);
+            if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Assigning class labels
+            } else {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Assigning class labels
+            }
 
-           GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
-           
-           if (clustererNN.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
-             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
-             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
-           }
-
-           if (clustererNN.nnSigmoidTrafoClassThreshold) {
-             // Inverse sigmoid transformation
-             clustererNN.nnClassThreshold = (float)std::log(clustererNN.nnClassThreshold / (1.f - clustererNN.nnClassThreshold));
-           }
-           
-           float time_clusterizer = 0, time_fill = 0;
-           for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNN.nnClusterizerBatchedMode); batch++) {
-             uint batchStart = batch * clustererNN.nnClusterizerBatchedMode;
-             size_t iSize = CAMath::Min((uint)clustererNN.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
-             
-             auto start0 = std::chrono::high_resolution_clock::now();
-             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNN>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Filling the data
-             
-             auto stop0 = std::chrono::high_resolution_clock::now();
-             auto start1 = std::chrono::high_resolution_clock::now();
-             nnApplication.networkInference(nnApplication.model_class, clustererNN, iSize, clustererNN.modelProbabilities, clustererNN.nnClusterizerDtype);
-             if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
-               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Assigning class labels
-             } else {
-               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Assigning class labels
-             }
-
-             if (!clustererNN.nnClusterizerUseCfRegression) {
-               nnApplication.networkInference(nnApplication.model_reg_1, clustererNN, iSize, clustererNN.outputDataReg1, clustererNN.nnClusterizerDtype);
-               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Running the NN for regression class 1
-               if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.reg_model_paths.size() > 1) {
-                 nnApplication.networkInference(nnApplication.model_reg_2, clustererNN, iSize, clustererNN.outputDataReg2, clustererNN.nnClusterizerDtype);
-                 runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Running the NN for regression class 2
-               }
-             }
-             auto stop1 = std::chrono::high_resolution_clock::now();
-             
-             time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
-             time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
-           }
-           auto start1 = std::chrono::high_resolution_clock::now();
-           if (clustererNN.nnClusterizerUseCfRegression) {
-             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
-           }
-           auto stop1 = std::chrono::high_resolution_clock::now();
-           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
-           if (clustererNN.nnClusterizerVerbosity < 3) {
-             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
-           }
+            if (!clustererNN.nnClusterizerUseCfRegression) {
+              nnApplication.networkInference(nnApplication.model_reg_1, clustererNN, iSize, clustererNN.outputDataReg1, clustererNN.nnClusterizerDtype);
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Running the NN for regression class 1
+              if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.reg_model_paths.size() > 1) {
+                nnApplication.networkInference(nnApplication.model_reg_2, clustererNN, iSize, clustererNN.outputDataReg2, clustererNN.nnClusterizerDtype);
+                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Running the NN for regression class 2
+              }
+            }
+            auto stop1 = std::chrono::high_resolution_clock::now();
+            
+            time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
+            time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
+          }
+          auto start1 = std::chrono::high_resolution_clock::now();
+          if (clustererNN.nnClusterizerUseCfRegression) {
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
+          }
+          auto stop1 = std::chrono::high_resolution_clock::now();
+          time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
+          if (clustererNN.nnClusterizerVerbosity < 3) {
+            int acceptedClusters = 0;
+            for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {
+              acceptedClusters += clustererNN.outputDataClass[i];
+            }
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters, " << acceptedClusters << " accepted. --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
+          }
 #else
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
 #endif
