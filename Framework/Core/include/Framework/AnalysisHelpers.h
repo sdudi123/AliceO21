@@ -717,8 +717,8 @@ auto Attach(T const& table)
 {
   using output_t = soa::Filtered<soa::Join<typename T::table_t, o2::soa::Table<o2::aod::Hash<"ATT"_h>, o2::aod::Hash<"ATT/0"_h>, o2::aod::Hash<"ATT"_h>, Cs...>>>;
   SelectionVector selection;
-  selection.reserve(table->getSelectedRows().size());
-  std::copy(table->getSelectedRows().begin(), table->getSelectedRows().end(), std::back_inserter(selection));
+  selection.reserve(table.getSelectedRows().size());
+  std::copy(table.getSelectedRows().begin(), table.getSelectedRows().end(), std::back_inserter(selection));
   return output_t{{table.asArrowTable()}, std::move(selection), table.offset()};
 }
 }  // namespace o2::soa
