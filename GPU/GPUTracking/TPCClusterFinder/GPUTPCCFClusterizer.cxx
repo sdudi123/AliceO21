@@ -80,10 +80,8 @@ GPUdii() void GPUTPCCFClusterizer::computeClustersImpl(int32_t nBlocks, int32_t 
     }
     return;
   }
-  pc.finalize(pos, charge, fragment.start, clusterer.Param().tpcGeometry);
-
   tpc::ClusterNative myCluster;
-  bool rejectCluster = !pc.toNative(pos, charge, myCluster, clusterer.Param());
+  bool rejectCluster = !pc.toNative(pos, charge, myCluster, clusterer.Param(), fragment.start, chargeMap);
 
   if (rejectCluster) {
     if (clusterPosInRow) {
@@ -261,7 +259,7 @@ GPUd() uint32_t GPUTPCCFClusterizer::sortIntoBuckets(processorType& clusterer, c
   if (index < maxElemsPerBucket) {
     buckets[maxElemsPerBucket * row + index] = cluster;
   } else {
-    clusterer.raiseError(GPUErrors::ERROR_CF_ROW_CLUSTER_OVERFLOW, clusterer.mISlice * 1000 + row, index, maxElemsPerBucket);
+    clusterer.raiseError(GPUErrors::ERROR_CF_ROW_CLUSTER_OVERFLOW, clusterer.mISector * 1000 + row, index, maxElemsPerBucket);
     CAMath::AtomicExch(&elemsInBucket[row], maxElemsPerBucket);
   }
   return index;

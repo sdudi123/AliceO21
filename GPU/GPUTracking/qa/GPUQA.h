@@ -33,9 +33,7 @@ typedef int16_t Color_t;
 
 #if !defined(GPUCA_BUILD_QA) || defined(GPUCA_GPUCODE)
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUQA
 {
@@ -59,8 +57,7 @@ class GPUQA
   static bool IsInitialized() { return false; }
   void UpdateChain(GPUChainTracking* chain) {}
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #else
 
@@ -89,7 +86,10 @@ namespace o2::gpu
 class GPUChainTracking;
 struct GPUParam;
 struct GPUTPCMCInfo;
+namespace internal
+{
 struct GPUQAGarbageCollection;
+} // namespace internal
 
 class GPUQA
 {
@@ -299,10 +299,10 @@ class GPUQA
   TPad* mPTracks;
   TLegend* mLTracks;
 
-  TH1F* mNCl;
-  TCanvas* mCNCl;
-  TPad* mPNCl;
-  TLegend* mLNCl;
+  TH1F* mNCl[2];
+  TCanvas* mCNCl[2];
+  TPad* mPNCl[2];
+  TLegend* mLNCl[2];
 
   TH2F* mClXY;
   TCanvas* mCClXY;
@@ -324,7 +324,7 @@ class GPUQA
   template <class T, typename... Args>
   void createHist(T*& h, const char* name, Args... args);
 
-  std::unique_ptr<GPUQAGarbageCollection> mGarbageCollector;
+  std::unique_ptr<internal::GPUQAGarbageCollection> mGarbageCollector;
   template <class T, typename... Args>
   T* createGarbageCollected(Args... args);
   void clearGarbagageCollector();

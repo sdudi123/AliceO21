@@ -15,6 +15,9 @@ o2_add_library(TRKSimulation
                        src/Digitizer.cxx
                        src/TRKServices.cxx
                        src/DPLDigitizerParam.cxx
+                       src/TRKPetalCase.cxx
+                       src/TRKPetalLayer.cxx
+                       src/TRKPetalDisk.cxx
                PUBLIC_LINK_LIBRARIES O2::TRKBase
                                      O2::FT3Simulation
                                      O2::ITSMFTSimulation
@@ -24,4 +27,7 @@ o2_target_root_dictionary(TRKSimulation
                           HEADERS include/TRKSimulation/Digitizer.h
                                   include/TRKSimulation/Detector.h
                                   include/TRKSimulation/TRKLayer.h
-                                  include/TRKSimulation/TRKServices.h)
+                                  include/TRKSimulation/TRKServices.h
+                                  include/TRKSimulation/TRKPetalCase.h
+                                  include/TRKSimulation/TRKPetalLayer.h
+                                  include/TRKSimulation/TRKPetalDisk.h)

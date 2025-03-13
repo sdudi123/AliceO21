@@ -142,6 +142,10 @@ else
   elif [[ $BEAMTYPE == "PbPb" ]]; then
     ITS_CONFIG_KEY+="ITSVertexerParam.lowMultBeamDistCut=0;ITSCATrackerParam.nROFsPerIterations=12;ITSCATrackerParam.perPrimaryVertexProcessing=true;"
   fi
+
+  if [[ $IS_SIMULATED_DATA == 0 && $CTFINPUT == 1 ]]; then # Enable fixes to the MCH readout mapping for async processing of real data
+    MCH_CONFIG_KEY+="MCHDigitModifier.updateST1=true;MCHDigitModifier.updateST2=true;"
+  fi
 fi
 [[ $CTFINPUT == 1 ]] && GPU_CONFIG_KEY+="GPU_proc.tpcInputWithClusterRejection=1;"
 [[ ! -z $NTRDTRKTHREADS ]] && TRD_CONFIG_KEY+="GPU_proc.ompThreads=$NTRDTRKTHREADS;"
@@ -255,7 +259,8 @@ if [[ $GPUTYPE == "HIP" ]]; then
     TIMESLICEOFFSET=$(($GPU_FIRST_ID + ($NUMAGPUIDS != 0 ? ($NGPUS * $NUMAID) : 0)))
     GPU_CONFIG+=" --environment \"ROCR_VISIBLE_DEVICES={timeslice${TIMESLICEOFFSET}}\""
   fi
-  [[ "${EPN_NODE_MI100:-}" != "1" ]] && export HSA_NO_SCRATCH_RECLAIM=1
+  [[ ${EPN_NODE_MI100:-} != "1" ]] && export HSA_NO_SCRATCH_RECLAIM=1
+  [[ $EPNSYNCMODE == 1 || ! -z ${OPTIMIZED_PARALLEL_ASYNC:-} ]] && [[ ${EPN_NODE_MI100:-} == "1" ]] && GPU_CONFIG_KEY+="GPU_proc.serializeGPU=3;"
   #export HSA_TOOLS_LIB=/opt/rocm/lib/librocm-debug-agent.so.2
 else
   GPU_CONFIG_KEY+="GPU_proc.deviceNum=-2;"
@@ -332,6 +337,7 @@ fi
 
 ( workflow_has_parameter AOD || [[ -z "$DISABLE_ROOT_OUTPUT" ]] || needs_root_output o2-emcal-cell-writer-workflow ) && has_detector EMC && RAW_EMC_SUBSPEC=" --subspecification 1 "
 has_detector_reco MID && has_detector_matching MCHMID && MFTMCHConf="FwdMatching.useMIDMatch=true;" || MFTMCHConf="FwdMatching.useMIDMatch=false;"
+[[ ! -z ${MFTMCH_NCANDIDATES_OPT:-} ]] && MFTMCHConf+="${MFTMCH_NCANDIDATES_OPT}"
 
 [[ $IS_SIMULATED_DATA == "1" ]] && EMCRAW2C_CONFIG+=" --no-checkactivelinks"
 
