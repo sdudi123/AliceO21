@@ -38,7 +38,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
 {
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
-  if (processors.tpcNNClusterer[sector].outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
+  auto& clustererNN = processors.tpcNNClusterer[sector];
+  if (clustererNN.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
     return;
   }
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
