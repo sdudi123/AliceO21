@@ -233,13 +233,13 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg1[model_output_index + 4],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg1[model_output_index],
                clustererNN.outputDataReg1[model_output_index + 2],
-               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
+               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
                clustererNN.outputDataReg1[model_output_index + 3],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
+    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -313,13 +313,13 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 8],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index],
                clustererNN.outputDataReg2[model_output_index + 4],
-               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
+               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
                clustererNN.outputDataReg2[model_output_index + 6],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
+    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -348,12 +348,12 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 9],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index + 1],
                clustererNN.outputDataReg2[model_output_index + 5],
-               static_cast<float>((clusterer.mPmemory->fragment).start) + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
+               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
                clustererNN.outputDataReg2[model_output_index + 7],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
-    rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param());
+    rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
