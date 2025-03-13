@@ -1397,10 +1397,10 @@ namespace o2::framework
 
 struct PreslicePolicyBase {
   const std::string binding;
-  StringPair bindingKey;
+  Entry bindingKey;
 
   bool isMissing() const;
-  StringPair const& getBindingKey() const;
+  Entry const& getBindingKey() const;
 };
 
 struct PreslicePolicySorted : public PreslicePolicyBase {
@@ -1425,7 +1425,7 @@ struct PresliceBase : public Policy {
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, Entry(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
   {
   }
 
