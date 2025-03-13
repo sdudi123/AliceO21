@@ -34,11 +34,11 @@ using namespace o2::gpu::tpccf;
 
 // Defining individual thread functions for data filling, determining the class label and running the CF clusterizer
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::runCfClusterizer>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::runCfClusterizer>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  auto& clusterer = processors.tpcClusterer[sector];
-  auto& clustererNN = processors.tpcNNClusterer[sector];
+  auto& clusterer = processors->tpcClusterer[sector];
+  auto& clustererNN = processors->tpcNNClusterer[sector];
   if (clustererNN.outputDataClass[glo_idx] == 0) { // default clusterizer should not be called in batched mode due to mess-up with thread indices
     return;
   }
@@ -50,22 +50,22 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   GPUTPCNNClusterizerKernels::fillInputData(nBlocks, nThreads, iBlock, iThread, processors, sector, dtype, batchStart);
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass1Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass1Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  processors.tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)(processors.tpcNNClusterer[sector].modelProbabilities[glo_idx] > processors.tpcNNClusterer[sector].nnClassThreshold);
+  processors->tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)(processors->tpcNNClusterer[sector].modelProbabilities[glo_idx] > processors->tpcNNClusterer[sector].nnClassThreshold);
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
-  auto& clusterer = processors.tpcNNClusterer[sector];
+  auto& clusterer = processors->tpcNNClusterer[sector];
   uint glo_idx = get_global_id(0);
   uint elem_iterator = glo_idx * clusterer.nnClusterizerModelClassNumOutputNodes;
   float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
@@ -82,20 +82,20 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::det
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass1Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass1Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  if (glo_idx >= processors.tpcClusterer[sector].mPmemory->counters.nClusters) {
+  if (glo_idx >= processors->tpcClusterer[sector].mPmemory->counters.nClusters) {
     return;
   }
   GPUTPCNNClusterizerKernels::publishClustersReg1(glo_idx, smem, processors, sector, dtype, onlyMC, batchStart);
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass2Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass2Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& notUsed, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  if (glo_idx >= processors.tpcClusterer[sector].mPmemory->counters.nClusters) {
+  if (glo_idx >= processors->tpcClusterer[sector].mPmemory->counters.nClusters) {
     return;
   }
   GPUTPCNNClusterizerKernels::publishClustersReg2(glo_idx, smem, processors, sector, dtype, onlyMC, batchStart);
@@ -128,11 +128,11 @@ GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int row, int pad, int global_
 }
 
 // Filling the input data for the neural network where there is no boundary
-GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, processorType& processors, uint8_t sector, int8_t dtype, uint batchStart)
+GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUConstantMem* processors, uint8_t sector, int8_t dtype, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
-  auto& clusterer = processors.tpcClusterer[sector];
-  auto& clustererNN = processors.tpcNNClusterer[sector];
+  auto& clusterer = processors->tpcClusterer[sector];
+  auto& clustererNN = processors->tpcNNClusterer[sector];
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   Array2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
 
@@ -192,10 +192,10 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
   }
 }
 
-GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
-  auto& clusterer = processors.tpcClusterer[sector];
-  auto& clustererNN = processors.tpcNNClusterer[sector];
+  auto& clusterer = processors->tpcClusterer[sector];
+  auto& clustererNN = processors->tpcNNClusterer[sector];
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
@@ -234,13 +234,13 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg1[model_output_index + 4],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg1[model_output_index],
                clustererNN.outputDataReg1[model_output_index + 2],
-               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
+               (clusterer.mPmemory->fragment).start + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg1[model_output_index + 1],
                clustererNN.outputDataReg1[model_output_index + 3],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
+    bool rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -272,10 +272,10 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
   }
 }
 
-GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSharedMemory& smem, GPUConstantMem* processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
-  auto& clusterer = processors.tpcClusterer[sector];
-  auto& clustererNN = processors.tpcNNClusterer[sector];
+  auto& clusterer = processors->tpcClusterer[sector];
+  auto& clustererNN = processors->tpcNNClusterer[sector];
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
@@ -314,13 +314,13 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 8],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index],
                clustererNN.outputDataReg2[model_output_index + 4],
-               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
+               (clusterer.mPmemory->fragment).start + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 2],
                clustererNN.outputDataReg2[model_output_index + 6],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
+    bool rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -349,12 +349,12 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
     pc.setFull(clustererNN.centralCharges[glo_idx] * clustererNN.outputDataReg2[model_output_index + 9],
                static_cast<float>(clustererNN.peakPositions[glo_idx].pad()) + clustererNN.outputDataReg2[model_output_index + 1],
                clustererNN.outputDataReg2[model_output_index + 5],
-               static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
+               (clusterer.mPmemory->fragment).start + static_cast<float>(clustererNN.peakPositions[glo_idx].time()) + clustererNN.outputDataReg2[model_output_index + 3],
                clustererNN.outputDataReg2[model_output_index + 7],
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
-    rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), (clusterer.mPmemory->fragment).start, chargeMap);
+    rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;

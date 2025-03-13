@@ -42,8 +42,7 @@ namespace o2::gpu
 {
 struct GPUConstantMem {
   GPUParam param;
-  GPUTPCTracker
-    tpcTrackers[GPUCA_NSECTORS];
+  GPUTPCTracker tpcTrackers[GPUCA_NSECTORS];
   GPUTPCConvert tpcConverter;
   GPUTPCCompression tpcCompressor;
   GPUTPCDecompression tpcDecompressor;
