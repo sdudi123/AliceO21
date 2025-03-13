@@ -38,6 +38,9 @@ void ITSTrackingInterface::initialise()
   std::vector<TrackingParameters> trackParams;
   const auto& trackConf = o2::its::TrackerParamConfig::Instance();
   float bFactor = std::abs(o2::base::Propagator::Instance()->getNominalBz()) / 5.0066791;
+  if (bFactor < 0.01) {
+    bFactor = 1.;
+  }
   if (mMode == TrackingMode::Unset) {
     mMode = (TrackingMode)(trackConf.trackingMode);
     LOGP(info, "Tracking mode not set, trying to fetch it from configurable params to: {}", asString(mMode));
@@ -78,8 +81,8 @@ void ITSTrackingInterface::initialise()
         if (trackConf.minTrackLgtIter[ip] > 0) {
           param.MinTrackLength = trackConf.minTrackLgtIter[ip];
         }
-        for (int ilg = trackConf.MaxTrackLenght; ilg >= trackConf.MinTrackLenght; ilg--) {
-          int lslot0 = (trackConf.MaxTrackLenght - ilg), lslot = lslot0 + ip * (trackConf.MaxTrackLenght - trackConf.MinTrackLenght + 1);
+        for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+          int lslot0 = (trackConf.MaxTrackLength - ilg), lslot = lslot0 + ip * (trackConf.MaxTrackLength - trackConf.MinTrackLength + 1);
           if (trackConf.minPtIterLgt[lslot] > 0.) {
             param.MinPt[lslot0] = trackConf.minPtIterLgt[lslot];
           }
@@ -120,17 +123,15 @@ void ITSTrackingInterface::initialise()
   for (auto& params : trackParams) {
     params.CorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
   }
-
   // adjust pT settings to actual mag. field
   for (size_t ip = 0; ip < trackParams.size(); ip++) {
     auto& param = trackParams[ip];
-    for (int ilg = trackConf.MaxTrackLenght; ilg >= trackConf.MinTrackLenght; ilg--) {
-      int lslot = trackConf.MaxTrackLenght - ilg;
+    param.TrackletMinPt *= bFactor;
+    for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+      int lslot = trackConf.MaxTrackLength - ilg;
       param.MinPt[lslot] *= bFactor;
-      param.TrackletMinPt *= bFactor;
     }
   }
-
   mTracker->setParameters(trackParams);
   mVertexer->setParameters(vertParams);
 }
@@ -383,7 +384,7 @@ void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContex
     geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot, o2::math_utils::TransformType::T2G));
     initialise();
     getConfiguration(pc);
-    //
+
     if (pc.services().get<const o2::framework::DeviceSpec>().inputTimesliceId == 0) { // print settings only for the 1st pipeling
       o2::its::VertexerParamConfig::Instance().printKeyValues();
       o2::its::TrackerParamConfig::Instance().printKeyValues();
