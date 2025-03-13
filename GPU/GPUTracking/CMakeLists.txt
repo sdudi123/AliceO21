@@ -162,35 +162,35 @@ set(HDRS_INSTALL
 set(SRCS_NO_CINT ${SRCS_NO_CINT} display/GPUDisplayInterface.cxx)
 
 set(SRCS_NO_CINT ${SRCS_NO_CINT}
-  Global/GPUChainITS.cxx
-  ITS/GPUITSFitter.cxx
-  ITS/GPUITSFitterKernels.cxx
-  dEdx/GPUdEdx.cxx
-  TPCConvert/GPUTPCConvert.cxx
-  TPCConvert/GPUTPCConvertKernel.cxx
-  DataCompression/GPUTPCCompression.cxx
-  DataCompression/GPUTPCCompressionTrackModel.cxx
-  DataCompression/GPUTPCCompressionKernels.cxx
-  DataCompression/GPUTPCDecompression.cxx
-  DataCompression/GPUTPCDecompressionKernels.cxx
-  DataCompression/TPCClusterDecompressor.cxx
-  DataCompression/GPUTPCClusterStatistics.cxx
-  TPCClusterFinder/GPUTPCClusterFinder.cxx
-  TPCClusterFinder/ClusterAccumulator.cxx
-  TPCClusterFinder/MCLabelAccumulator.cxx
-  TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
-  TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
-  TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
-  TPCClusterFinder/GPUTPCCFPeakFinder.cxx
-  TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
-  TPCClusterFinder/GPUTPCCFClusterizer.cxx
-  TPCClusterFinder/GPUTPCCFDeconvolution.cxx
-  TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
-  TPCClusterFinder/GPUTPCCFDecodeZS.cxx
-  TPCClusterFinder/GPUTPCCFGather.cxx
-  Refit/GPUTrackingRefit.cxx
-  Refit/GPUTrackingRefitKernel.cxx
-  Merger/GPUTPCGMO2Output.cxx)
+    Global/GPUChainITS.cxx
+    ITS/GPUITSFitter.cxx
+    ITS/GPUITSFitterKernels.cxx
+    dEdx/GPUdEdx.cxx
+    TPCConvert/GPUTPCConvert.cxx
+    TPCConvert/GPUTPCConvertKernel.cxx
+    DataCompression/GPUTPCCompression.cxx
+    DataCompression/GPUTPCCompressionTrackModel.cxx
+    DataCompression/GPUTPCCompressionKernels.cxx
+    DataCompression/GPUTPCDecompression.cxx
+    DataCompression/GPUTPCDecompressionKernels.cxx
+    DataCompression/TPCClusterDecompressor.cxx
+    DataCompression/GPUTPCClusterStatistics.cxx
+    TPCClusterFinder/GPUTPCClusterFinder.cxx
+    TPCClusterFinder/ClusterAccumulator.cxx
+    TPCClusterFinder/MCLabelAccumulator.cxx
+    TPCClusterFinder/GPUTPCCFCheckPadBaseline.cxx
+    TPCClusterFinder/GPUTPCCFStreamCompaction.cxx
+    TPCClusterFinder/GPUTPCCFChargeMapFiller.cxx
+    TPCClusterFinder/GPUTPCCFPeakFinder.cxx
+    TPCClusterFinder/GPUTPCCFNoiseSuppression.cxx
+    TPCClusterFinder/GPUTPCCFClusterizer.cxx
+    TPCClusterFinder/GPUTPCCFDeconvolution.cxx
+    TPCClusterFinder/GPUTPCCFMCLabelFlattener.cxx
+    TPCClusterFinder/GPUTPCCFDecodeZS.cxx
+    TPCClusterFinder/GPUTPCCFGather.cxx
+    Refit/GPUTrackingRefit.cxx
+    Refit/GPUTrackingRefitKernel.cxx
+    Merger/GPUTPCGMO2Output.cxx)
 
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerKernels.cxx TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerHost.cxx)
@@ -266,12 +266,11 @@ unset(HDRS_TMP)
 
 # Main CMake part for O2
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-
   o2_add_library(GPUDataTypes
                  TARGETVARNAME targetName
                  PUBLIC_INCLUDE_DIRECTORIES .
-                                             Definitions
-                                             DataTypes
+                                            Definitions
+                                            DataTypes
                  PUBLIC_LINK_LIBRARIES O2::GPUUtils
                                        O2::GPUCommon
                                        O2::ReconstructionDataFormats
@@ -279,7 +278,6 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::ML
                  PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
                  SOURCES ${SRCS_DATATYPES})
-  add_compile_definitions(GPUCA_HAS_ONNX=1)
   target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
 
   o2_target_root_dictionary(GPUDataTypes
