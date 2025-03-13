@@ -32,7 +32,7 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
   computePointerWithAlignment(mem, peakPositions, nnClusterizerBatchedMode);
   computePointerWithAlignment(mem, clusterFlags, 2 * nnClusterizerBatchedMode);
   computePointerWithAlignment(mem, centralCharges, nnClusterizerBatchedMode);
-  computePointerWithAlignment(mem, outputDataClass, nnClusterizerBatchedMode);
+  computePointerWithAlignment(mem, outputDataClass, nnClusterizerTotalClusters);
   if (nnClusterizerModelClassNumOutputNodes > 0) {
     computePointerWithAlignment(mem, modelProbabilities, nnClusterizerBatchedMode * nnClusterizerModelClassNumOutputNodes);
   }

@@ -893,6 +893,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           clustererNN.nnClusterizerElementSize = ((2 * nn_settings.nnClusterizerSizeInputRow + 1) * (2 * nn_settings.nnClusterizerSizeInputPad + 1) * (2 * nn_settings.nnClusterizerSizeInputTime + 1)) + (nn_settings.nnClusterizerAddIndexData ? 3 : 0);
           clustererNN.nnClusterizerBatchedMode = nn_settings.nnClusterizerBatchedMode;
           clustererNN.nnClusterizerBoundaryFillValue = nn_settings.nnClusterizerBoundaryFillValue;
+          clustererNN.nnClusterizerTotalClusters = clusterer.mPmemory->counters.nClusters;
           if (nn_settings.nnClusterizerVerbosity < 0) {
             clustererNN.nnClusterizerVerbosity = nn_settings.nnInferenceVerbosity;
           } else {
@@ -962,7 +963,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
 
           if (clustererNN.nnClusterizerVerbosity < 3) {
-            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", slice: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
 #else
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
