@@ -913,20 +913,20 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
           const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
           GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
-          
+
           if (clustererNN.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
             DoDebugAndDump(RecoStep::TPCClusterFinding, 262144 << 4, clusterer, &GPUTPCClusterFinder::DumpChargeMap, *mDebugFile, "Split Charges");
           }
-          
+
           float time_clusterizer = 0, time_fill = 0;
           for (int batch = 0; batch < std::ceil((float)clusterer.mPmemory->counters.nClusters / clustererNN.nnClusterizerBatchedMode); batch++) {
             uint batchStart = batch * clustererNN.nnClusterizerBatchedMode;
             size_t iSize = CAMath::Min((uint)clustererNN.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
-            
+
             auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNN>({GetGrid(iSize, lane, GPUReconstruction::krnlDeviceType::CPU), {iSector}}, processors(), iSector, clustererNN.nnClusterizerDtype, 0, batchStart); // Filling the data
-            
+
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
             nnApplication.networkInference(nnApplication.model_class, clustererNN, iSize, clustererNN.modelProbabilities, clustererNN.nnClusterizerDtype);
@@ -945,7 +945,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
               }
             }
             auto stop1 = std::chrono::high_resolution_clock::now();
-            
+
             time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
             time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
           }
