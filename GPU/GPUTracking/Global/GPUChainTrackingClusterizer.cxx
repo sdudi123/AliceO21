@@ -632,6 +632,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       clustererNN.nnClusterizerTotalClusters = maxClusters;
       clustererNN.nnClassThreshold = nn_settings.nnClassThreshold;
       clustererNN.nnSigmoidTrafoClassThreshold = nn_settings.nnSigmoidTrafoClassThreshold;
+      if (clustererNN.nnSigmoidTrafoClassThreshold) {
+        clustererNN.nnClassThreshold = (float)std::log(clustererNN.nnClassThreshold / (1.f - clustererNN.nnClassThreshold));
+      }
       if (nn_settings.nnClusterizerVerbosity < 0) {
         clustererNN.nnClusterizerVerbosity = nn_settings.nnInferenceVerbosity;
       } else {
