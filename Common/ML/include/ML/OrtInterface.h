@@ -84,8 +84,8 @@ class OrtModel
 
   // Environment settings
   bool mInitialized = false;
-  std::string modelPath, device = "cpu", dtype = "float"; // device options should be cpu, rocm, migraphx, cuda
-  int intraOpNumThreads = 0, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
+  std::string modelPath, device = "cpu", dtype = "float", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
+  int intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
   std::string printShape(const std::vector<int64_t>&);
 };

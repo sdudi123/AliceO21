@@ -52,6 +52,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
     allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
     intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
+    interOpNumThreads = (optionsMap.contains("inter-op-num-threads") ? std::stoi(optionsMap["inter-op-num-threads"]) : 0);
     loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
     enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
     enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
@@ -90,13 +91,14 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 
   if (device == "CPU") {
     (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
-    if (intraOpNumThreads > 1) {
+    (pImplOrt->sessionOptions).SetInterOpNumThreads(interOpNumThreads);
+    if (intraOpNumThreads > 1 || interOpNumThreads > 1) {
       (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
     } else if (intraOpNumThreads == 1) {
       (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
     }
     if (loggingLevel < 2) {
-      LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " threads";
+      LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " (intraOpNumThreads) and " << interOpNumThreads << " (interOpNumThreads) threads";
     }
   }
 
