@@ -154,6 +154,20 @@ std::string getTime(uint64_t ts)
 }
 
 //----------------------------------------------------------------------------
+std::string getDuration(uint64_t tStart, uint64_t tStop)
+{
+  /// get the duration (dd hh:mm:ss) between the two time stamps (ms)
+
+  auto dt = ms2s(tStop - tStart);
+  auto s = dt % 60;
+  auto m = (dt / 60) % 60;
+  auto h = (dt / 3600) % 24;
+  auto d = dt / 86400;
+
+  return fmt::format("{:02}d {:02}:{:02}:{:02}", d, h, m, s);
+}
+
+//----------------------------------------------------------------------------
 std::set<int> getRuns(std::string runList)
 {
   /// read the runList from an ASCII file, or a comma separated run list, or a single run
@@ -359,7 +373,7 @@ void checkDPBoundaries(const DPBMAP& dpBoundaries, bool scanHV, uint64_t tStart,
 }
 
 //----------------------------------------------------------------------------
-void printDPBoundaries(const DPBMAP& dpBoundaries, bool scanHV)
+void printDPBoundaries(const DPBMAP& dpBoundaries, bool scanHV, uint64_t timeInterval)
 {
   /// print the time boundaries of every HV/LV files found in the full time range
 
@@ -367,7 +381,13 @@ void printDPBoundaries(const DPBMAP& dpBoundaries, bool scanHV)
   printf("------------------------------------\n");
 
   for (auto [tStart, tStop] : dpBoundaries) {
-    printf("%llu - %llu (%s - %s)\n", tStart, tStop, getTime(tStart).c_str(), getTime(tStop).c_str());
+    printf("%llu - %llu (%s - %s)", tStart, tStop, getTime(tStart).c_str(), getTime(tStop).c_str());
+    if (tStop - tStart < 60000 * (timeInterval - 1) || tStop - tStart > 60000 * (timeInterval + 1)) {
+      printf("\e[0;31m ! warning: validity range %s != %llu±1 min\e[0m\n",
+             getDuration(tStart, tStop).c_str(), timeInterval);
+    } else {
+      printf("\n");
+    }
   }
 
   printf("------------------------------------\n");
@@ -400,20 +420,6 @@ void drawLimit(double limit, TCanvas* c)
   l->SetLineWidth(1);
   l->SetLineStyle(2);
   l->Draw();
-}
-
-//----------------------------------------------------------------------------
-std::string getDuration(uint64_t tStart, uint64_t tStop)
-{
-  /// get the duration (dd hh:mm:ss) between the two time stamps (ms)
-
-  auto dt = ms2s(tStop - tStart);
-  auto s = dt % 60;
-  auto m = (dt / 60) % 60;
-  auto h = (dt / 3600) % 24;
-  auto d = dt / 86400;
-
-  return fmt::format("{:02}d {:02}:{:02}:{:02}", d, h, m, s);
 }
 
 //----------------------------------------------------------------------------
@@ -1027,7 +1033,7 @@ int main(int argc, char** argv)
   auto dpBoundaries = getDPBoundaries(api, path.c_str(), runBoundaries.begin()->second.first,
                                       runBoundaries.rbegin()->second.second, timeInterval * 60000);
   if (printLevel > 0) {
-    printDPBoundaries(dpBoundaries, scanHV);
+    printDPBoundaries(dpBoundaries, scanHV, timeInterval);
   }
   checkDPBoundaries(dpBoundaries, scanHV, runBoundaries.begin()->second.first,
                     runBoundaries.rbegin()->second.second);
