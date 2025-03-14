@@ -229,7 +229,7 @@ AddOption(nnInferenceDeviceId, unsigned int, 0, "", 0, "(unsigned int) Specify i
 AddOption(nnInferenceAllocateDevMem, int, 0, "", 0, "(bool, default = 0), if the device memory should be allocated for inference")
 AddOption(nnInferenceDtype, std::string, "fp32", "", 0, "(std::string) Specify the datatype for which inference is performed (fp32: default, fp16)") // fp32 or fp16
 AddOption(nnInferenceThreadsPerNN, int, 0, "", 0, "Number of threads used to evaluate one neural network")
-AddOption(nnInferenceEnableOrtOptimization, unsigned int, 1, "", 0, "Enables graph optimizations in ONNX Runtime. Can be greater than 1!")
+AddOption(nnInferenceEnableOrtOptimization, unsigned int, 99, "", 0, "Enables graph optimizations in ONNX Runtime. Can be [0, 1, 2, 99] -> see https://github.com/microsoft/onnxruntime/blob/3f71d637a83dc3540753a8bb06740f67e926dc13/include/onnxruntime/core/session/onnxruntime_c_api.h#L347")
 AddOption(nnInferenceOrtProfiling, int, 0, "", 0, "Enables profiling of model execution in ONNX Runtime")
 AddOption(nnInferenceOrtProfilingPath, std::string, ".", "", 0, "If nnInferenceOrtProfiling is set, the path to store the profiling data")
 AddOption(nnInferenceVerbosity, int, 1, "", 0, "0: No messages; 1: Warnings; 2: Warnings + major debugs; >3: All debugs")

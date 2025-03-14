@@ -613,32 +613,34 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   }
 
 #ifdef GPUCA_HAS_ONNX
-  uint32_t maxClusters = -1;
-  for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-    maxClusters = std::max(maxClusters, processors()->tpcClusterer[iSector].mNMaxClusters);
-  }
-  for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-    GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
-    const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
-    clustererNN.nnClusterizerUseCfRegression = nn_settings.nnClusterizerUseCfRegression;
-    clustererNN.nnClusterizerSizeInputRow = nn_settings.nnClusterizerSizeInputRow;
-    clustererNN.nnClusterizerSizeInputPad = nn_settings.nnClusterizerSizeInputPad;
-    clustererNN.nnClusterizerSizeInputTime = nn_settings.nnClusterizerSizeInputTime;
-    clustererNN.nnClusterizerAddIndexData = nn_settings.nnClusterizerAddIndexData;
-    clustererNN.nnClusterizerElementSize = ((2 * nn_settings.nnClusterizerSizeInputRow + 1) * (2 * nn_settings.nnClusterizerSizeInputPad + 1) * (2 * nn_settings.nnClusterizerSizeInputTime + 1)) + (nn_settings.nnClusterizerAddIndexData ? 3 : 0);
-    clustererNN.nnClusterizerBatchedMode = nn_settings.nnClusterizerBatchedMode;
-    clustererNN.nnClusterizerBoundaryFillValue = nn_settings.nnClusterizerBoundaryFillValue;
-    clustererNN.nnClusterizerTotalClusters = maxClusters;
-    clustererNN.nnClassThreshold = nn_settings.nnClassThreshold;
-    clustererNN.nnSigmoidTrafoClassThreshold = nn_settings.nnSigmoidTrafoClassThreshold;
-    if (nn_settings.nnClusterizerVerbosity < 0) {
-      clustererNN.nnClusterizerVerbosity = nn_settings.nnInferenceVerbosity;
-    } else {
-      clustererNN.nnClusterizerVerbosity = nn_settings.nnClusterizerVerbosity;
+  if (GetProcessingSettings().nn.applyNNclusterizer) {
+    uint32_t maxClusters = -1;
+    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      maxClusters = std::max(maxClusters, processors()->tpcClusterer[iSector].mNMaxClusters);
     }
-    clustererNN.nnClusterizerDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
-    GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
-    AllocateRegisteredMemory(clustererNN.mMemoryId);
+    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
+      GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
+      const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
+      clustererNN.nnClusterizerUseCfRegression = nn_settings.nnClusterizerUseCfRegression;
+      clustererNN.nnClusterizerSizeInputRow = nn_settings.nnClusterizerSizeInputRow;
+      clustererNN.nnClusterizerSizeInputPad = nn_settings.nnClusterizerSizeInputPad;
+      clustererNN.nnClusterizerSizeInputTime = nn_settings.nnClusterizerSizeInputTime;
+      clustererNN.nnClusterizerAddIndexData = nn_settings.nnClusterizerAddIndexData;
+      clustererNN.nnClusterizerElementSize = ((2 * nn_settings.nnClusterizerSizeInputRow + 1) * (2 * nn_settings.nnClusterizerSizeInputPad + 1) * (2 * nn_settings.nnClusterizerSizeInputTime + 1)) + (nn_settings.nnClusterizerAddIndexData ? 3 : 0);
+      clustererNN.nnClusterizerBatchedMode = nn_settings.nnClusterizerBatchedMode;
+      clustererNN.nnClusterizerBoundaryFillValue = nn_settings.nnClusterizerBoundaryFillValue;
+      clustererNN.nnClusterizerTotalClusters = maxClusters;
+      clustererNN.nnClassThreshold = nn_settings.nnClassThreshold;
+      clustererNN.nnSigmoidTrafoClassThreshold = nn_settings.nnSigmoidTrafoClassThreshold;
+      if (nn_settings.nnClusterizerVerbosity < 0) {
+        clustererNN.nnClusterizerVerbosity = nn_settings.nnInferenceVerbosity;
+      } else {
+        clustererNN.nnClusterizerVerbosity = nn_settings.nnClusterizerVerbosity;
+      }
+      clustererNN.nnClusterizerDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
+      GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
+      AllocateRegisteredMemory(clustererNN.mMemoryId);
+    }
   }
 #endif
 
