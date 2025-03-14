@@ -41,26 +41,19 @@ class ClusterAccumulator
   GPUd() tpccf::Charge updateInner(PackedCharge, tpccf::Delta2);
   GPUd() tpccf::Charge updateOuter(PackedCharge, tpccf::Delta2);
 
-  GPUd() bool toNative(const ChargePos&, tpccf::Charge, tpc::ClusterNative&, const GPUParam&, tpccf::TPCTime, const Array2D<PackedCharge>&);
-  GPUd() bool toNativeSimple(const ChargePos&, tpccf::Charge, tpc::ClusterNative&, const GPUParam&, const Array2D<PackedCharge>&);
-
-  GPUd() void setFull(float qtot, float padMean, float padSigma, float timeMean, float timeSigma, uint8_t splitInTime, uint8_t splitInPad)
+  GPUd() void setFull(float qtot, float padMean, float padSigma, float timeMean, float timeSigma, uint8_t splitInPad, uint8_t splitInTime)
   {
     mQtot = qtot;
     mPadMean = padMean;
     mPadSigma = padSigma;
     mTimeMean = timeMean;
     mTimeSigma = timeSigma;
-    mSplitInTime = splitInTime;
     mSplitInPad = splitInPad;
+    mSplitInTime = splitInTime;
   }
-  GPUd() void setQtot(float qtot) { mQtot = qtot; }
-  GPUd() void setPadMean(float padMean) { mPadMean = padMean; }
-  GPUd() void setPadSigma(float padSigma) { mPadSigma = padSigma; }
-  GPUd() void setTimeMean(float timeMean) { mTimeMean = timeMean; }
-  GPUd() void setTimeSigma(float timeSigma) { mTimeSigma = timeSigma; }
-  GPUd() void setSplitInTime(uint8_t splitInTime) { mSplitInTime = splitInTime; }
-  GPUd() void setSplitInPad(uint8_t splitInPad) { mSplitInPad = splitInPad; }
+
+  GPUd() void finalize(const ChargePos&, const tpccf::Charge, tpccf::TPCTime);
+  GPUd() bool toNative(const ChargePos&, const tpccf::Charge, tpc::ClusterNative&, const GPUParam&, const Array2D<PackedCharge>&);
 
  private:
   float mQtot = 0;

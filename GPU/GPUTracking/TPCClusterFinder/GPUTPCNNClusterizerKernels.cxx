@@ -240,7 +240,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
+    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -320,7 +320,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
     tpc::ClusterNative myCluster;
-    bool rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
+    bool rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -354,7 +354,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
                clustererNN.clusterFlags[2 * glo_idx],
                clustererNN.clusterFlags[2 * glo_idx + 1]);
 
-    rejectCluster = !pc.toNativeSimple(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
+    rejectCluster = !pc.toNative(clustererNN.peakPositions[glo_idx], clustererNN.centralCharges[glo_idx], myCluster, clusterer.Param(), chargeMap);
     if (rejectCluster) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
