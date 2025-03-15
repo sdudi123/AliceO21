@@ -524,7 +524,7 @@ class AODProducerWorkflowDPL : public Task
   void addToTracksQATable(TracksQACursorType& tracksQACursor, TrackQA& trackQAInfoHolder);
 
   template <typename TRDsExtraCursorType>
-  void addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, int trkTableIdx);
+  void addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx);
 
   template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
   void addToMFTTracksTable(mftTracksCursorType& mftTracksCursor, AmbigMFTTracksCursorType& ambigMFTTracksCursor,

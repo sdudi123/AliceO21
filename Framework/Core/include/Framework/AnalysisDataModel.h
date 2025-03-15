@@ -394,6 +394,23 @@ DECLARE_SOA_DYNAMIC_COLUMN(TPCDeltaTBwd, tpcDeltaTBwd, //! Delta Backward of tra
 
 } // namespace v001
 
+namespace v002::extensions
+{
+using TRDEncoding = o2::aod::track::extensions::TRDSignalEncoding;
+DECLARE_SOA_DYNAMIC_COLUMN(TRDDEdx, trdDEDx, //! TRD dEdx signal (a.u.), returns 0. if no valid signal is provided
+                           [](float signal) -> float {
+                             TRDEncoding enc;
+                             enc.setSignal(signal);
+                             return enc.getDEdx();
+                           });
+DECLARE_SOA_DYNAMIC_COLUMN(TRDEProb, trdEProb, //! TRD electron probability [0., 1.), returns 0. if no valid signal is provided
+                           [](float signal) -> float {
+                             TRDEncoding enc;
+                             enc.setSignal(signal);
+                             return enc.getDEdx();
+                           });
+} // namespace v002::extensions
+
 DECLARE_SOA_DYNAMIC_COLUMN(HasITS, hasITS, //! Flag to check if track has a ITS match
                            [](uint8_t detectorMap) -> bool { return detectorMap & o2::aod::track::ITS; });
 DECLARE_SOA_DYNAMIC_COLUMN(HasTPC, hasTPC, //! Flag to check if track has a TPC match
@@ -617,7 +634,9 @@ DECLARE_SOA_TABLE_FULL_VERSIONED(StoredTracksExtra_002, "TracksExtra", "AOD", "T
                                  track::TPCNClsFindable, track::TPCNClsFindableMinusFound, track::TPCNClsFindableMinusPID, track::TPCNClsFindableMinusCrossedRows,
                                  track::TPCNClsShared, track::v001::extensions::TPCDeltaTFwd<track::TrackTimeRes, track::Flags>, track::v001::extensions::TPCDeltaTBwd<track::TrackTimeRes, track::Flags>,
                                  track::TRDPattern, track::ITSChi2NCl, track::TPCChi2NCl, track::TRDChi2, track::TOFChi2,
-                                 track::TPCSignal, track::TRDSignal, track::Length, track::TOFExpMom,
+                                 track::TPCSignal,
+                                 track::TRDSignal, track::v002::extensions::TRDDEdx<track::TRDSignal>, track::v002::extensions::TRDEProb<track::TRDSignal>,
+                                 track::Length, track::TOFExpMom,
                                  track::PIDForTracking<track::Flags>,
                                  track::IsPVContributor<track::Flags>,
                                  track::HasITS<track::v001::DetectorMap>, track::HasTPC<track::v001::DetectorMap>,

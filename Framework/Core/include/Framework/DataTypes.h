@@ -76,6 +76,7 @@ enum TRDTrackPattern : uint8_t {
   HasNeighbor = 0x40,
   HasCrossing = 0x80,
 };
+
 namespace extensions
 {
 struct TPCTimeErrEncoding {
@@ -121,6 +122,68 @@ struct TPCTimeErrEncoding {
     return static_cast<float>(encoding.deltas.timeBackward) / timeScaler * TPCBinNS;
   }
 };
+
+class TRDSignalEncoding
+{
+  union {
+    float signal{0};
+    struct {
+      uint16_t dEdx{0};  // range [0., 512.)
+      uint16_t eProb{0}; // range [0., 1.)
+    } __attribute((packed)) data;
+  } encoding{0};
+  static_assert(sizeof(float) == 2 * sizeof(uint16_t));
+
+ public:
+  static constexpr float dEdxMax{512.f};
+  static constexpr float dEdxScaler{(1 << 16) / dEdxMax};
+  static constexpr float eProbMax{1.f};
+  static constexpr float eProbScaler{(1 << 16) / eProbMax};
+
+  void setSignal(float signal)
+  {
+    if (signal == -1. || signal == -999.f) {
+      // these two signal produce valid looking values
+      // but for backward comp. and not to confuse we mask these two specifically
+      encoding.signal = 0.;
+    } else {
+      encoding.signal = signal;
+    }
+  }
+
+  void setDEdx(float v)
+  {
+    if (v >= 0. && v < dEdxMax) {
+      encoding.data.dEdx = static_cast<uint16_t>(v * dEdxScaler);
+    } else {
+      encoding.data.dEdx = 0.f;
+    }
+  }
+  void setEProb(float v)
+  {
+    if (v >= 0. && v < eProbMax) {
+      encoding.data.eProb = static_cast<uint16_t>(v * eProbScaler);
+    } else {
+      encoding.data.eProb = 0.f;
+    }
+  }
+
+  float getSignal() const noexcept
+  {
+    return encoding.signal;
+  }
+
+  float getDEdx() const noexcept
+  {
+    return static_cast<float>(encoding.data.dEdx) / dEdxScaler;
+  }
+
+  float getEProb() const noexcept
+  {
+    return static_cast<float>(encoding.data.eProb) / eProbScaler;
+  }
+};
+
 } // namespace extensions
 
 // Reference radius for extrapolated tracks

@@ -349,7 +349,7 @@ void AODProducerWorkflowDPL::addToTracksExtraTable(TracksExtraCursorType& tracks
                     truncateFloatFraction(extraInfoHolder.trdChi2, mTrackChi2),
                     truncateFloatFraction(extraInfoHolder.tofChi2, mTrackChi2),
                     truncateFloatFraction(extraInfoHolder.tpcSignal, mTrackSignal),
-                    truncateFloatFraction(extraInfoHolder.trdSignal, mTrackSignal),
+                    extraInfoHolder.trdSignal, // byte encoded value do not truncate
                     truncateFloatFraction(extraInfoHolder.length, mTrackSignal),
                     truncateFloatFraction(extraInfoHolder.tofExpMom, mTrack1Pt),
                     truncateFloatFraction(extraInfoHolder.trackEtaEMCAL, mTrackPosEMCAL),
@@ -390,24 +390,24 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
 }
 
 template <typename TRDsExtraCursorType>
-void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, int trkTableIdx)
+void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx)
 {
-  static int q0s[6] = {-1}, q1s[6] = {-1}, q2s[6] = {-1};
-  static float q0sCor[6] = {-1}, q1sCor[6] = {-1}, q2sCor[6] = {-1};
-  static float ttgls[6] = {-999}, tphis[6] = {-999};
+  const int NLAYERS = o2::trd::TrackTRD::EGPUTRDTrack::kNLayers;
+  int q0s[NLAYERS] = {-1}, q1s[NLAYERS] = {-1}, q2s[NLAYERS] = {-1};
+  float q0sCor[NLAYERS] = {-1}, q1sCor[NLAYERS] = {-1}, q2sCor[NLAYERS] = {-1};
+  float ttgls[NLAYERS] = {-999}, tphis[NLAYERS] = {-999};
 
   auto contributorsGID = recoData.getSingleDetectorRefs(trkIdx);
   if (!contributorsGID[GIndex::Source::TRD].isIndexSet()) { // should be redunant
     return;
   }
   const auto& trk = recoData.getTrack<o2::trd::TrackTRD>(contributorsGID[GIndex::Source::TRD]);
-  auto trkC = trk;
   const auto& trklets = recoData.getTRDTracklets();
   const auto& ctrklets = recoData.getTRDCalibratedTracklets();
-  for (int iLay{0}; iLay < 6; ++iLay) {
-    q0s[iLay] = q1s[iLay] = q2s[iLay] = -1;
-    q0sCor[iLay] = q1sCor[iLay] = q2sCor[iLay] = -1;
-    tphis[iLay] = ttgls[iLay] = -999;
+  auto trkC = trk; // local copy to propagate
+
+  float dEdx{0.};
+  for (int iLay{0}; iLay < NLAYERS; ++iLay) {
     auto trkltId = trk.getTrackletIndex(iLay);
     if (trkltId < 0) {
       continue;
@@ -421,45 +421,39 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
     int trkltSec = trkltDet / 30;
     if (trkltSec != o2::math_utils::angle2Sector(trkC.getAlpha())) {
       if (!trkC.rotate(o2::math_utils::sector2Angle(trkltSec))) {
-        break;
+        continue;
       }
     }
     if (!o2::base::Propagator::Instance()->PropagateToXBxByBz(trkC, ctrklets[trkltId].getX(), o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, mMatCorr)) {
-      break;
+      continue;
     }
 
     auto tphi = trkC.getSnp() / std::sqrt((1.f - trkC.getSnp()) * (1.f + trkC.getSnp()));
     auto trackletLength = std::sqrt(1.f + tphi * tphi + trkC.getTgl() * trkC.getTgl());
     float cor = mTRDLocalGain->getValue(tracklet.getHCID() / 2, tracklet.getPadCol(), tracklet.getPadRow()) * trackletLength;
-    q0s[iLay] = tracklet.getQ0();
-    q1s[iLay] = tracklet.getQ1();
-    q2s[iLay] = tracklet.getQ2();
-    q0sCor[iLay] = (float)tracklet.getQ0() / cor;
-    q1sCor[iLay] = (float)tracklet.getQ1() / cor;
-    q2sCor[iLay] = (float)tracklet.getQ2() / cor;
-    ttgls[iLay] = trkC.getTgl();
-    tphis[iLay] = tphi;
-
-    // z-row merging
-    if (trk.getIsCrossingNeighbor(iLay) && trk.getHasNeighbor()) {
-      for (const auto& trklt : trklets) {
-        if (tracklet.getTrackletWord() == trklt.getTrackletWord()) {
-          continue;
-        }
-        if (std::abs(tracklet.getPadCol() - trklt.getPadCol()) <= 1 && std::abs(tracklet.getPadRow() - trklt.getPadRow()) == 1) {
-          cor = mTRDLocalGain->getValue(trklt.getHCID() / 2, trklt.getPadCol(), trklt.getPadRow()) * trackletLength;
-          q0s[iLay] += trklt.getQ0();
-          q1s[iLay] += trklt.getQ1();
-          q2s[iLay] += trklt.getQ2();
-          q0sCor[iLay] += (float)trklt.getQ0() / cor;
-          q1sCor[iLay] += (float)trklt.getQ1() / cor;
-          q2sCor[iLay] += (float)trklt.getQ2() / cor;
-        }
-      }
+    if (mEnableTRDextra) {
+      q0s[iLay] = tracklet.getQ0();
+      q1s[iLay] = tracklet.getQ1();
+      q2s[iLay] = tracklet.getQ2();
+      q0sCor[iLay] = (float)tracklet.getQ0() / cor;
+      q1sCor[iLay] = (float)tracklet.getQ1() / cor;
+      q2sCor[iLay] = (float)tracklet.getQ2() / cor;
+      ttgls[iLay] = trkC.getTgl();
+      tphis[iLay] = tphi;
     }
-  }
 
-  trdExtraCursor(trkTableIdx, q0s, q1s, q2s, q0sCor, q1sCor, q2sCor, ttgls, tphis);
+    dEdx += (float)tracklet.getQTot() / cor;
+  }
+  dEdx /= (float)trkC.getNtracklets();
+
+  aod::track::extensions::TRDSignalEncoding enc;
+  enc.setDEdx(dEdx);
+  enc.setEProb(trk.getSignal());
+  extraInfo.trdSignal = enc.getSignal();
+
+  if (mEnableTRDextra) {
+    trdExtraCursor(trkTableIdx, q0s, q1s, q2s, q0sCor, q1sCor, q2sCor, ttgls, tphis);
+  }
 }
 
 template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
@@ -612,11 +606,12 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
           if (!isProp) {
             addToTracksTable(tracksCursor, tracksCovCursor, trOrig, collisionID, aod::track::TrackIU);
           }
-          addToTracksExtraTable(tracksExtraCursor, extraInfoHolder);
 
-          if (mEnableTRDextra && trackIndex.includesDet(GIndex::Source::TRD)) {
-            addToTRDsExtra(data, trdsExtraCursor, trackIndex, mTableTrID);
+          if (trackIndex.includesDet(GIndex::Source::TRD)) {
+            addToTRDsExtra(data, trdsExtraCursor, trackIndex, extraInfoHolder, mTableTrID);
           }
+
+          addToTracksExtraTable(tracksExtraCursor, extraInfoHolder);
 
           //  collecting table indices of barrel tracks for V0s table
           if (extraInfoHolder.bcSlice[0] >= 0 && collisionID < 0) {
@@ -2606,7 +2601,6 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
   if (contributorsGID[GIndex::Source::TRD].isIndexSet()) {                                        // ITS-TPC-TRD-TOF, TPC-TRD-TOF, TPC-TRD, ITS-TPC-TRD
     const auto& trdOrig = data.getTrack<o2::trd::TrackTRD>(contributorsGID[GIndex::Source::TRD]); // refitted TRD trac
     extraInfoHolder.trdChi2 = trdOrig.getChi2();
-    extraInfoHolder.trdSignal = trdOrig.getSignal();
     extraInfoHolder.trdPattern = getTRDPattern(trdOrig);
     if (extraInfoHolder.trackTimeRes < 0.) { // time is not set yet, this is possible only for TPC-TRD and ITS-TPC-TRD tracks, since those with TOF are set upstream
       // TRD is triggered: time uncertainty is within a BC
