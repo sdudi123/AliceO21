@@ -42,7 +42,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int nnClusterizerSizeInputTime = 3;
   int nnClusterizerElementSize = -1;
   bool nnClusterizerAddIndexData = true;
-  float nnClassThreshold = 0.16;
+  float nnClassThreshold = 0.01;
   bool nnSigmoidTrafoClassThreshold = 1;
   int nnClusterizerUseCfRegression = 0;
   int nnClusterizerBatchedMode = 1;
@@ -58,7 +58,6 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int mISector = -1;
 
   // Memory allocation for neural network
-  uint class2_elements = 0;
   float* inputData32 = nullptr;
   OrtDataType::Float16_t* inputData16 = nullptr;
   float* outputDataClass = nullptr;

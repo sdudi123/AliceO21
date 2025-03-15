@@ -34,7 +34,7 @@ using namespace o2::gpu::tpccf;
 
 // Defining individual thread functions for data filling, determining the class label and running the CF clusterizer
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::runCfClusterizer>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::runCfClusterizer>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
@@ -44,91 +44,13 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
   }
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAcc(clusterer));
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
   o2::gpu::GPUTPCCFClusterizer::GPUSharedMemory smem_new;
   GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
 }
 
 template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
-{
-  GPUTPCNNClusterizerKernels::fillInputData(nBlocks, nThreads, iBlock, iThread, processors, sector, dtype, batchStart);
-}
-
-template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass1Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
-{
-  uint glo_idx = get_global_id(0);
-  processors.tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)(processors.tpcNNClusterer[sector].modelProbabilities[glo_idx] > processors.tpcNNClusterer[sector].nnClassThreshold);
-}
-
-template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
-{
-  auto& clusterer = processors.tpcNNClusterer[sector];
-  uint glo_idx = get_global_id(0);
-  uint elem_iterator = glo_idx * clusterer.nnClusterizerModelClassNumOutputNodes;
-  float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
-  uint class_label = 0;
-  for (int pIdx = elem_iterator; pIdx < elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes; pIdx++) {
-    if (pIdx == elem_iterator) {
-      current_max_prob = clusterer.modelProbabilities[pIdx];
-    } else {
-      class_label = (clusterer.modelProbabilities[pIdx] > current_max_prob ? pIdx : class_label);
-    }
-  }
-  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
-  clusterer.outputDataClass[glo_idx + batchStart] = class_label;
-}
-
-template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass1Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
-{
-  uint glo_idx = get_global_id(0);
-  if (glo_idx >= processors.tpcClusterer[sector].mPmemory->counters.nClusters) {
-    return;
-  }
-  GPUTPCNNClusterizerKernels::publishClustersReg1(glo_idx, smem, processors, sector, dtype, onlyMC, batchStart);
-}
-
-template <>
-GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass2Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
-{
-  uint glo_idx = get_global_id(0);
-  if (glo_idx >= processors.tpcClusterer[sector].mPmemory->counters.nClusters) {
-    return;
-  }
-  GPUTPCNNClusterizerKernels::publishClustersReg2(glo_idx, smem, processors, sector, dtype, onlyMC, batchStart);
-}
-
-// THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
-GPUd() int GPUTPCNNClusterizerKernels::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
-{
-  return (int)((geo.NPads(row_current) - geo.NPads(row_ref)) / 2);
-}
-
-GPUd() int GPUTPCNNClusterizerKernels::rowOffset(int row, int global_shift)
-{
-  return (row > 62 ? global_shift : 0);
-}
-
-GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int row, int pad, int global_shift, const GPUTPCGeometry& geo)
-{
-  if (pad < 0 || row < 0) { // Faster short-circuit
-    return true;
-  } else if (row < 63) {
-    return (pad >= static_cast<int>(geo.NPads(row)));
-  } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
-    return true;
-  } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + global_shift)) {
-    return (pad >= static_cast<int>(geo.NPads(row - global_shift)));
-  } else {
-    return true;
-  }
-}
-
-// Filling the input data for the neural network where there is no boundary
-GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, processorType& processors, uint8_t sector, int8_t dtype, uint batchStart)
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNN>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
 {
   uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
@@ -144,7 +66,7 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
 
   clustererNN.peakPositions[glo_idx] = peak;
   clustererNN.centralCharges[glo_idx] = central_charge;
-  clustererNN.outputDataClass[glo_idx + batchStart] = -1;
+  clustererNN.outputDataClass[glo_idx + batchStart] = -1.f;
 
   int row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.nnClusterizerSizeInputRow);
 #ifndef GPUCA_GPUCODE
@@ -192,14 +114,43 @@ GPUd() void GPUTPCNNClusterizerKernels::fillInputData(int32_t nBlocks, int32_t n
   }
 }
 
-GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+template <>
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass1Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
 {
+  uint glo_idx = get_global_id(0);
+  processors.tpcNNClusterer[sector].outputDataClass[glo_idx + batchStart] = (int)(processors.tpcNNClusterer[sector].modelProbabilities[glo_idx] > processors.tpcNNClusterer[sector].nnClassThreshold);
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
+{
+  auto& clusterer = processors.tpcNNClusterer[sector];
+  uint glo_idx = get_global_id(0);
+  uint elem_iterator = glo_idx * clusterer.nnClusterizerModelClassNumOutputNodes;
+  float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
+  uint class_label = 0;
+  for (int pIdx = elem_iterator; pIdx < elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes; pIdx++) {
+    if (pIdx == elem_iterator) {
+      current_max_prob = clusterer.modelProbabilities[pIdx];
+    } else {
+      class_label = (clusterer.modelProbabilities[pIdx] > current_max_prob ? pIdx : class_label);
+    }
+  }
+  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
+  clusterer.outputDataClass[glo_idx + batchStart] = class_label;
+}
+
+template <>
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass1Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
+{
+  uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
+
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg1NumOutputNodes;
 
@@ -210,7 +161,7 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
     ClusterAccumulator pc;
 
     // Publishing logic is taken from default clusterizer
-    if (onlyMC) {
+    if (withMC) {
       ClusterAccumulator dummy_pc;
       CPU_ONLY(labelAcc->collect(clustererNN.peakPositions[glo_idx], chargeMap[clustererNN.peakPositions[glo_idx]].unpack()));
       GPUTPCCFClusterizer::buildCluster(
@@ -223,7 +174,6 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
         &dummy_pc,
         labelAcc);
     }
-
     if ((clusterer.mPmemory->fragment).isOverlap(clustererNN.peakPositions[glo_idx].time())) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -272,24 +222,25 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg1(uint glo_idx, GPUSha
   }
 }
 
-GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+template <>
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishClass2Regression>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint batchStart)
 {
+  uint glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
+
   Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CPU_ONLY(MCLabelAccumulator labelAccElem(clusterer));
   MCLabelAccumulator* labelAcc = CPU_PTR(&labelAccElem);
-  tpc::ClusterNative* clusterOut = (onlyMC) ? nullptr : clusterer.mPclusterByRow;
+  tpc::ClusterNative* clusterOut = (withMC) ? nullptr : clusterer.mPclusterByRow;
   uint full_glo_idx = glo_idx + batchStart;
   int model_output_index = glo_idx * clustererNN.nnClusterizerModelReg2NumOutputNodes;
-
-  // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.nnClusterizerModelReg2NumOutputNodes << " -- " << clustererNN.peakPositions.size() << " -- " << clustererNN.centralCharges.size();
 
   if (clustererNN.outputDataClass[full_glo_idx] > 0) {
 
     ClusterAccumulator pc;
 
-    if (onlyMC) {
+    if (withMC) {
       ClusterAccumulator dummy_pc;
       CPU_ONLY(labelAcc->collect(clustererNN.peakPositions[glo_idx], chargeMap[clustererNN.peakPositions[glo_idx]].unpack()));
       GPUTPCCFClusterizer::buildCluster(
@@ -302,7 +253,6 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
         &dummy_pc,
         labelAcc);
     }
-
     if ((clusterer.mPmemory->fragment).isOverlap(clustererNN.peakPositions[glo_idx].time())) {
       if (clusterer.mPclusterPosInRow) {
         clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
@@ -382,5 +332,31 @@ GPUd() void GPUTPCNNClusterizerKernels::publishClustersReg2(uint glo_idx, GPUSha
       clusterer.mPclusterPosInRow[full_glo_idx] = clusterer.mNMaxClusterPerRow;
     }
     return;
+  }
+}
+
+// THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
+GPUd() int GPUTPCNNClusterizerKernels::padOffset(int row_ref, int row_current, const GPUTPCGeometry& geo)
+{
+  return (int)((geo.NPads(row_current) - geo.NPads(row_ref)) / 2);
+}
+
+GPUd() int GPUTPCNNClusterizerKernels::rowOffset(int row, int global_shift)
+{
+  return (row > 62 ? global_shift : 0);
+}
+
+GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int row, int pad, int global_shift, const GPUTPCGeometry& geo)
+{
+  if (pad < 0 || row < 0) { // Faster short-circuit
+    return true;
+  } else if (row < 63) {
+    return (pad >= static_cast<int>(geo.NPads(row)));
+  } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
+    return true;
+  } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + global_shift)) {
+    return (pad >= static_cast<int>(geo.NPads(row - global_shift)));
+  } else {
+    return true;
   }
 }

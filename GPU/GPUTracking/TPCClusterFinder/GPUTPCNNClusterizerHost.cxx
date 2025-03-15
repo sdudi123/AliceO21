@@ -12,6 +12,8 @@
 /// \file GPUTPCNNClusterizerHost.cxx
 /// \author Christian Sonnabend
 
+#include <CommonUtils/StringUtils.h>
+
 #include "GPUTPCNNClusterizerHost.h"
 #include "GPUTPCNNClusterizer.h"
 #include "GPUSettings.h"
@@ -37,7 +39,7 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
   model_class.init(OrtOptions);
   clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
 
-  reg_model_paths = splitString(settings.nnRegressionPath, ":");
+  reg_model_paths = o2::utils::Str::tokenize(settings.nnRegressionPath, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {

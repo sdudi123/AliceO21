@@ -44,23 +44,6 @@ class GPUTPCNNClusterizerHost
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
   std::vector<std::string> reg_model_paths;
-
- private:
-  // Avoid including CommonUtils/StringUtils.h
-  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter)
-  {
-    std::vector<std::string> tokens;
-    std::size_t pos = 0;
-    std::size_t found;
-
-    while ((found = input.find(delimiter, pos)) != std::string::npos) {
-      tokens.push_back(input.substr(pos, found - pos));
-      pos = found + delimiter.length();
-    }
-    tokens.push_back(input.substr(pos));
-
-    return tokens;
-  }
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu
