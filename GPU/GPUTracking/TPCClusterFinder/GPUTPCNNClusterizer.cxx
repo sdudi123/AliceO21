@@ -24,7 +24,7 @@ void GPUTPCNNClusterizer::SetMaxData(const GPUTrackingInOutPointers& io) {}
 
 void* GPUTPCNNClusterizer::setIOPointers(void* mem)
 {
-  if (nnClusterizerBatchedMode > 0){
+  if (nnClusterizerBatchedMode > 0) {
     if (nnClusterizerDtype == 0 && nnClusterizerElementSize > 0) {
       computePointerWithAlignment(mem, inputData16, nnClusterizerBatchedMode * nnClusterizerElementSize);
     } else if (nnClusterizerDtype == 1 && nnClusterizerElementSize > 0) {
