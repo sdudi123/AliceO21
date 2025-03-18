@@ -10,7 +10,6 @@
 # or submit itself to any jurisdiction.
 
 set(MODULE GPUTracking)
-cmake_minimum_required(VERSION 3.27 FATAL_ERROR)
 
 # set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O0") # to uncomment if needed, tired of typing this...
 # set(GPUCA_BUILD_DEBUG 1)
@@ -159,8 +158,8 @@ set(HDRS_INSTALL
 )
 
 set(SRCS_NO_CINT ${SRCS_NO_CINT} display/GPUDisplayInterface.cxx)
-set(SRCS_NO_CINT
-    ${SRCS_NO_CINT}
+
+set(SRCS_NO_CINT ${SRCS_NO_CINT}
     Global/GPUChainITS.cxx
     ITS/GPUITSFitter.cxx
     ITS/GPUITSFitterKernels.cxx
@@ -190,6 +189,10 @@ set(SRCS_NO_CINT
     Refit/GPUTrackingRefit.cxx
     Refit/GPUTrackingRefitKernel.cxx
     Merger/GPUTPCGMO2Output.cxx)
+
+if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+  list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerKernels.cxx TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerHost.cxx)
+endif()
 
 set(SRCS_DATATYPES
     ${SRCS_DATATYPES}
@@ -273,6 +276,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                  PRIVATE_LINK_LIBRARIES O2::DataFormatsTPC
                  SOURCES ${SRCS_DATATYPES})
   target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
+
   o2_target_root_dictionary(GPUDataTypes
                             HEADERS ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL}
                             LINKDEF GPUTrackingLinkDef_O2_DataTypes.h)
@@ -292,6 +296,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
                                        O2::TPCFastTransformation
                                        O2::DetectorsRaw
                                        O2::Steer
+                                       O2::ML
                  PUBLIC_INCLUDE_DIRECTORIES .
                                             Definitions
                                             DataTypes
@@ -317,7 +322,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
     ${targetName}
     PRIVATE $<TARGET_PROPERTY:O2::Framework,INTERFACE_INCLUDE_DIRECTORIES>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
 
   o2_target_root_dictionary(${MODULE}
                             HEADERS ${HDRS_CINT_O2} ${HDRS_CINT_O2_ADDITIONAL}

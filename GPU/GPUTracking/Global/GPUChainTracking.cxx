@@ -103,6 +103,9 @@ void GPUChainTracking::RegisterPermanentMemoryAndProcessors()
   if (GetRecoSteps() & RecoStep::TPCClusterFinding) {
     for (uint32_t i = 0; i < NSECTORS; i++) {
       mRec->RegisterGPUProcessor(&processors()->tpcClusterer[i], GetRecoStepsGPU() & RecoStep::TPCClusterFinding);
+#ifdef GPUCA_HAS_ONNX
+      mRec->RegisterGPUProcessor(&processors()->tpcNNClusterer[i], GetRecoStepsGPU() & RecoStep::TPCClusterFinding);
+#endif
     }
   }
   if (GetRecoSteps() & RecoStep::Refit) {
@@ -148,6 +151,9 @@ void GPUChainTracking::RegisterGPUProcessors()
   if (GetRecoStepsGPU() & RecoStep::TPCClusterFinding) {
     for (uint32_t i = 0; i < NSECTORS; i++) {
       mRec->RegisterGPUDeviceProcessor(&processorsShadow()->tpcClusterer[i], &processors()->tpcClusterer[i]);
+#ifdef GPUCA_HAS_ONNX
+      mRec->RegisterGPUDeviceProcessor(&processorsShadow()->tpcNNClusterer[i], &processors()->tpcNNClusterer[i]);
+#endif
     }
   }
   if (GetRecoStepsGPU() & RecoStep::Refit) {
@@ -260,7 +266,7 @@ bool GPUChainTracking::ValidateSettings()
     GPUError("configured max time bin exceeds 256 orbits");
     return false;
   }
-  if ((GetRecoStepsGPU() & RecoStep::TPCClusterFinding) && std::max(GetProcessingSettings().nTPCClustererLanes + 1, GetProcessingSettings().nTPCClustererLanes * 2) + (GetProcessingSettings().doublePipeline ? 1 : 0) > mRec->NStreams()) {
+  if ((GetRecoStepsGPU() & RecoStep::TPCClusterFinding) && std::max(GetProcessingSettings().nTPCClustererLanes + 1, GetProcessingSettings().nTPCClustererLanes * 2) + (GetProcessingSettings().doublePipeline ? 1 : 0) > (int32_t)mRec->NStreams()) {
     GPUError("NStreams (%d) must be > nTPCClustererLanes (%d)", mRec->NStreams(), (int32_t)GetProcessingSettings().nTPCClustererLanes);
     return false;
   }

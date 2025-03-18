@@ -34,12 +34,15 @@
 #include "GPUKernelDebugOutput.h"
 #endif
 
+#ifdef GPUCA_HAS_ONNX
+#include "GPUTPCNNClusterizer.h"
+#endif
+
 namespace o2::gpu
 {
 struct GPUConstantMem {
   GPUParam param;
-  GPUTPCTracker
-    tpcTrackers[GPUCA_NSECTORS];
+  GPUTPCTracker tpcTrackers[GPUCA_NSECTORS];
   GPUTPCConvert tpcConverter;
   GPUTPCCompression tpcCompressor;
   GPUTPCDecompression tpcDecompressor;
@@ -54,6 +57,9 @@ struct GPUConstantMem {
   GPUErrors errorCodes;
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
   GPUKernelDebugOutput debugOutput;
+#endif
+#ifdef GPUCA_HAS_ONNX
+  GPUTPCNNClusterizer tpcNNClusterer[GPUCA_NSECTORS];
 #endif
 
   template <int32_t I>
@@ -90,7 +96,7 @@ static constexpr size_t gGPUConstantMemBufferSize = (sizeof(GPUConstantMem) + si
 #endif
 } // namespace o2::gpu
 #if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
-GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer;
+GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer; // TODO: This should go into o2::gpu namespace, but then CUDA or HIP would not find the symbol
 #endif // GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
 namespace o2::gpu
 {
