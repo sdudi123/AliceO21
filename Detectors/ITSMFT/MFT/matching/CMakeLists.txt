@@ -9,15 +9,14 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-add_subdirectory(base)
-add_subdirectory(simulation)
-add_subdirectory(macros)
-add_subdirectory(tracking)
-add_subdirectory(workflow)
-add_subdirectory(calibration)
-add_subdirectory(condition)
-add_subdirectory(assessment)
-add_subdirectory(alignment)
-add_subdirectory(matching)
-
-o2_data_file(COPY data DESTINATION Detectors/Geometry/MFT/)
+o2_add_library(MFTMuonMatching
+    SOURCES src/MftMuonMatchingUtils.cxx
+            src/MatchingTagAndProbe.cxx
+    PUBLIC_LINK_LIBRARIES O2::CCDB
+                          O2::DataFormatsMFT
+                          O2::DetectorsCalibration
+                          O2::DetectorsDCS
+			  O2::GlobalTracking
+			  O2::ReconstructionDataFormats
+                          O2::DataFormatsGlobalTracking
+                          Microsoft.GSL::GSL)
