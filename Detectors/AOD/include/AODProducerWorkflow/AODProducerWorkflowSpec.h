@@ -210,8 +210,9 @@ class BunchCrossings
 }; // end internal class
 
 // Steering bits for additional output during AOD production
-enum struct AODProducerStreamerFlags : uint8_t {
+enum class AODProducerStreamerFlags : uint8_t {
   TrackQA,
+  TRDExtra,
 };
 
 class AODProducerWorkflowDPL : public Task

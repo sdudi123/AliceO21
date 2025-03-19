@@ -396,6 +396,7 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
   int q0s[NLAYERS] = {-1}, q1s[NLAYERS] = {-1}, q2s[NLAYERS] = {-1};
   float q0sCor[NLAYERS] = {-1}, q1sCor[NLAYERS] = {-1}, q2sCor[NLAYERS] = {-1};
   float ttgls[NLAYERS] = {-999}, tphis[NLAYERS] = {-999};
+  o2::trd::Tracklet64 trkletsa[NLAYERS];
 
   auto contributorsGID = recoData.getSingleDetectorRefs(trkIdx);
   if (!contributorsGID[GIndex::Source::TRD].isIndexSet()) { // should be redunant
@@ -416,6 +417,7 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
     if (mTRDNoiseMap->isTrackletFromNoisyMCM(tracklet)) {
       continue;
     }
+    trkletsa[iLay] = tracklet;
     // we need to propagate into TRD local system
     int trkltDet = tracklet.getDetector();
     int trkltSec = trkltDet / 30;
@@ -453,6 +455,60 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
 
   if (mEnableTRDextra) {
     trdExtraCursor(trkTableIdx, q0s, q1s, q2s, q0sCor, q1sCor, q2sCor, ttgls, tphis);
+  }
+
+  if (mStreamerFlags[AODProducerStreamerFlags::TRDExtra]) {
+    const auto& tpctrk = recoData.getTrack<o2::tpc::TrackTPC>(contributorsGID[GIndex::Source::TPC]);
+    (*mStreamer) << "trdExtra"
+                 << "dEdx=" << dEdx
+                 << "eProb=" << trk.getSignal()
+                 << "q00=" << q0s[0]
+                 << "q01=" << q0s[1]
+                 << "q02=" << q0s[2]
+                 << "q03=" << q0s[3]
+                 << "q04=" << q0s[4]
+                 << "q05=" << q0s[5]
+                 << "q10=" << q1s[0]
+                 << "q11=" << q1s[1]
+                 << "q12=" << q1s[2]
+                 << "q13=" << q1s[3]
+                 << "q14=" << q1s[4]
+                 << "q15=" << q1s[5]
+                 << "q20=" << q2s[0]
+                 << "q21=" << q2s[1]
+                 << "q22=" << q2s[2]
+                 << "q23=" << q2s[3]
+                 << "q24=" << q2s[4]
+                 << "q25=" << q2s[5]
+                 << "q00Cor=" << q0sCor[0]
+                 << "q01Cor=" << q0sCor[1]
+                 << "q02Cor=" << q0sCor[2]
+                 << "q03Cor=" << q0sCor[3]
+                 << "q04Cor=" << q0sCor[4]
+                 << "q05Cor=" << q0sCor[5]
+                 << "q10Cor=" << q1sCor[0]
+                 << "q11Cor=" << q1sCor[1]
+                 << "q12Cor=" << q1sCor[2]
+                 << "q13Cor=" << q1sCor[3]
+                 << "q14Cor=" << q1sCor[4]
+                 << "q15Cor=" << q1sCor[5]
+                 << "q20Cor=" << q2sCor[0]
+                 << "q21Cor=" << q2sCor[1]
+                 << "q22Cor=" << q2sCor[2]
+                 << "q23Cor=" << q2sCor[3]
+                 << "q24Cor=" << q2sCor[4]
+                 << "q25Cor=" << q2sCor[5]
+                 << "pattern=" << getTRDPattern(trk)
+                 << "tracklet0=" << trkletsa[0]
+                 << "tracklet1=" << trkletsa[1]
+                 << "tracklet2=" << trkletsa[2]
+                 << "tracklet3=" << trkletsa[3]
+                 << "tracklet4=" << trkletsa[4]
+                 << "tracklet5=" << trkletsa[5]
+                 << "tpctrk=" << tpctrk
+                 << "trdtrk=" << trk
+                 << "globaltrk=" << recoData.getTrack<o2::track::TrackParCov>(trkIdx)
+                 << "\n";
   }
 }
 
