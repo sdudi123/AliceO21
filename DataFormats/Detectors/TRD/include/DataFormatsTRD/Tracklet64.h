@@ -190,6 +190,10 @@ class Tracklet64
       return getDynamicCharge((mtrackletWord & Q2mask) >> Q2bs);
     }
   }; // no unit
+  GPUd() int getQTot() const
+  {
+    return getQ0() + getQ1() + getQ2();
+  }; // no unit
 
   // ----- Setters for tracklet word manipulation -----
   GPUd() void setTrackletWord(uint64_t trackletword) { mtrackletWord = trackletword; }
