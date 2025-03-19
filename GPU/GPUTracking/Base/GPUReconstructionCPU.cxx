@@ -112,7 +112,12 @@ inline void GPUReconstructionCPUBackend::runKernelBackendInternal<GPUMemClean16,
 template <class T, int32_t I, typename... Args>
 void GPUReconstructionCPUBackend::runKernelBackend(const krnlSetupArgs<T, I, Args...>& args)
 {
+#pragma GCC diagnostic push
+#if defined(__clang__)
+#pragma GCC diagnostic ignored "-Wunused-lambda-capture" // this is not alway captured below
+#endif
   std::apply([this, &args](auto&... vals) { runKernelBackendInternal<T, I, Args...>(args.s, vals...); }, args.v);
+#pragma GCC diagnostic push
 }
 
 template <class T, int32_t I>
@@ -215,6 +220,10 @@ int32_t GPUReconstructionCPU::RunChains()
   mStatNEvents++;
   mNEventsProcessed++;
 
+  if (mProcessingSettings.debugLevel >= 3 || mProcessingSettings.allocDebugLevel) {
+    printf("Allocated memory when starting processing %34s", "");
+    PrintMemoryOverview();
+  }
   mTimerTotal.Start();
   const std::clock_t cpuTimerStart = std::clock();
   if (mProcessingSettings.doublePipeline) {
@@ -232,9 +241,16 @@ int32_t GPUReconstructionCPU::RunChains()
         return retVal;
       }
     }
+    if (GetProcessingSettings().tpcFreeAllocatedMemoryAfterProcessing) {
+      ClearAllocatedMemory();
+    }
   }
   mTimerTotal.Stop();
   mStatCPUTime += (double)(std::clock() - cpuTimerStart) / CLOCKS_PER_SEC;
+  if (mProcessingSettings.debugLevel >= 3 || mProcessingSettings.allocDebugLevel) {
+    printf("Allocated memory when ending processing %36s", "");
+    PrintMemoryOverview();
+  }
 
   mStatWallTime = (mTimerTotal.GetElapsedTime() * 1000000. / mStatNEvents);
   std::string nEventReport;
