@@ -1,5 +1,5 @@
 // Copyright 2019-2020 CERN and copyright holders of ALICE O2.
-// See https://alice-o2.web.cern.ch/copyright for details.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
 // All rights not expressly granted are reserved.
 //
 // This software is distributed under the terms of the GNU General Public
@@ -17,7 +17,7 @@ namespace its3
 {
 
 ChipDigitsContainer::ChipDigitsContainer(UShort_t idx)
-  : o2::itsmft::ChipDigitsContainer(idx){}
+  : o2::itsmft::ChipDigitsContainer(idx) {}
 
 bool ChipDigitsContainer::isIB() const
 {
