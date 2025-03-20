@@ -612,14 +612,16 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   }
 
 #ifdef GPUCA_HAS_ONNX
+  const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
+  GPUTPCNNClusterizerHost nnApplication; // potentially this needs to be GPUTPCNNClusterizerHost nnApplication[NSECTORS]; Technically ONNX ->Run() is threadsafe at inference time since its read-only
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     uint32_t maxClusters = 0;
+    nnApplication.init(nn_settings);
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
       maxClusters = std::max(maxClusters, processors()->tpcClusterer[iSector].mNMaxClusters);
     }
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
-      const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
       clustererNN.nnClusterizerUseCfRegression = nn_settings.nnClusterizerUseCfRegression;
       clustererNN.nnClusterizerSizeInputRow = nn_settings.nnClusterizerSizeInputRow;
       clustererNN.nnClusterizerSizeInputPad = nn_settings.nnClusterizerSizeInputPad;
@@ -640,7 +642,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         clustererNN.nnClusterizerVerbosity = nn_settings.nnClusterizerVerbosity;
       }
       clustererNN.nnClusterizerDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
-      GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
+      nnApplication.initClusterizer(nn_settings, clustererNN);
       AllocateRegisteredMemory(clustererNN.mMemoryId);
     }
   }
@@ -916,7 +918,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 #ifdef GPUCA_HAS_ONNX
           GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
           const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
-          GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
           int withMC = (doGPU && propagateMCLabels);
 
           if (clustererNN.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
