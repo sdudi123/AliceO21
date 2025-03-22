@@ -20,6 +20,7 @@
 #include "DataFormatsPHOS/Cell.h"
 #include "DataFormatsTRD/TrackTRD.h"
 #include "TRDBase/PadCalibrationsAliases.h"
+#include "TRDBase/TrackletTransformer.h"
 #include "DataFormatsTRD/NoiseCalibration.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "DetectorsBase/Propagator.h"
@@ -250,6 +251,7 @@ class AODProducerWorkflowDPL : public Task
 
   const o2::trd::LocalGainFactor* mTRDLocalGain; // TRD local gain factors from krypton calibration
   const o2::trd::NoiseStatusMCM* mTRDNoiseMap;   // TRD noise map
+  std::unique_ptr<o2::trd::TrackletTransformer> mTRDTransformer;
 
   std::unordered_set<GIndex> mGIDUsedBySVtx;
   std::unordered_set<GIndex> mGIDUsedByStr;
