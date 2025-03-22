@@ -390,12 +390,13 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
 }
 
 template <typename TRDsExtraCursorType>
-void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx)
+void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, int colIdx, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx)
 {
   const int NLAYERS = o2::trd::TrackTRD::EGPUTRDTrack::kNLayers;
   int q0s[NLAYERS] = {-1}, q1s[NLAYERS] = {-1}, q2s[NLAYERS] = {-1};
   float q0sCor[NLAYERS] = {-1}, q1sCor[NLAYERS] = {-1}, q2sCor[NLAYERS] = {-1};
   float ttgls[NLAYERS] = {-999}, tphis[NLAYERS] = {-999};
+  float gain[NLAYERS] = {-999}, length[NLAYERS] = {-999};
   std::vector<o2::trd::Tracklet64> trkletsa(NLAYERS);
   std::vector<o2::trd::CalibratedTracklet> ctrkletsa(NLAYERS);
   std::vector<o2::trd::CalibratedTracklet> cloctrkletsa(NLAYERS);
@@ -411,15 +412,13 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
 
   float dEdx{0.};
   uint8_t pattern = 0;
+  uint8_t noisy = 0;
   for (int iLay{0}; iLay < NLAYERS; ++iLay) {
     auto trkltId = trk.getTrackletIndex(iLay);
     if (trkltId < 0) {
       continue;
     }
     const auto& tracklet = trklets[trkltId];
-    if (mTRDNoiseMap->isTrackletFromNoisyMCM(tracklet)) {
-      continue;
-    }
     trkletsa[iLay] = tracklet;
     ctrkletsa[iLay] = ctrklets[trkltId];
     cloctrkletsa[iLay] = mTRDTransformer->transformTracklet(tracklet, false);
@@ -436,18 +435,23 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
     }
 
     auto tphi = trkC.getSnp() / std::sqrt((1.f - trkC.getSnp()) * (1.f + trkC.getSnp()));
-    auto trackletLength = std::sqrt(1.f + tphi * tphi + trkC.getTgl() * trkC.getTgl());
-    float cor = mTRDLocalGain->getValue(tracklet.getHCID() / 2, tracklet.getPadCol(), tracklet.getPadRow()) * trackletLength;
+    length[iLay] = std::sqrt(1.f + tphi * tphi + trkC.getTgl() * trkC.getTgl());
+    gain[iLay] = mTRDLocalGain->getValue(tracklet.getHCID() / 2, tracklet.getPadCol(), tracklet.getPadRow());
+    float cor = 1.f / (gain[iLay] * length[iLay]);
     q0s[iLay] = tracklet.getQ0();
     q1s[iLay] = tracklet.getQ1();
     q2s[iLay] = tracklet.getQ2();
-    q0sCor[iLay] = (float)tracklet.getQ0() / cor;
-    q1sCor[iLay] = (float)tracklet.getQ1() / cor;
-    q2sCor[iLay] = (float)tracklet.getQ2() / cor;
+    q0sCor[iLay] = (float)tracklet.getQ0() * cor;
+    q1sCor[iLay] = (float)tracklet.getQ1() * cor;
+    q2sCor[iLay] = (float)tracklet.getQ2() * cor;
     ttgls[iLay] = trkC.getTgl();
     tphis[iLay] = tphi;
 
-    dEdx += (float)tracklet.getQTot() / cor;
+    if (!mTRDNoiseMap->isTrackletFromNoisyMCM(tracklet)) {
+      dEdx += (float)tracklet.getQTot() * cor;
+    } else {
+      noisy |= 0x1 << iLay;
+    }
     pattern |= 0x1 << iLay;
   }
   if (trk.getHasNeighbor()) {
@@ -468,6 +472,7 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
   }
 
   if (mStreamerFlags[AODProducerStreamerFlags::TRDExtra]) {
+    const auto& pv = recoData.getPrimaryVertex(colIdx);
     const auto& tpctrk = recoData.getTrack<o2::tpc::TrackTPC>(contributorsGID[GIndex::Source::TPC]);
     o2::dataformats::MatchInfoTOF tofMtc;
     o2::track::TrackParCov toftrk;
@@ -485,7 +490,10 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
                  << "q0sCor[6]=" << q0sCor
                  << "q1sCor[6]=" << q1sCor
                  << "q2sCor[6]=" << q2sCor
+                 << "gain[6]=" << gain
+                 << "length[6]=" << length
                  << "pattern=" << pattern
+                 << "noisy=" << noisy
                  << "tracklets=" << trkletsa
                  << "ctracklets=" << ctrkletsa
                  << "cloctracklets=" << cloctrkletsa
@@ -494,6 +502,9 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
                  << "toftrk=" << toftrk
                  << "tofMtc=" << tofMtc
                  << "globaltrk=" << recoData.getTrack<o2::track::TrackParCov>(trkIdx)
+                 << "pv=" << pv
+                 << "tfID=" << mCurTFNumber
+                 << "runNumber=" << mRunNumber
                  << "\n";
   }
 }
@@ -650,7 +661,7 @@ void AODProducerWorkflowDPL::fillTrackTablesPerCollision(int collisionID,
           }
 
           if (trackIndex.includesDet(GIndex::Source::TRD)) {
-            addToTRDsExtra(data, trdsExtraCursor, trackIndex, extraInfoHolder, mTableTrID);
+            addToTRDsExtra(data, trdsExtraCursor, collisionID, trackIndex, extraInfoHolder, mTableTrID);
           }
 
           addToTracksExtraTable(tracksExtraCursor, extraInfoHolder);
@@ -2021,13 +2032,12 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   // initialize the bunch crossing container for further use below
   mBCLookup.init(bcsMap);
 
-  uint64_t tfNumber;
   const int runNumber = (mRunNumber == -1) ? int(tinfo.runNumber) : mRunNumber;
   if (mTFNumber == -1L) {
     // TODO has to use absolute time of TF
-    tfNumber = uint64_t(tinfo.firstTForbit) + (uint64_t(tinfo.runNumber) << 32); // getTFNumber(mStartIR, runNumber);
+    mCurTFNumber = uint64_t(tinfo.firstTForbit) + (uint64_t(tinfo.runNumber) << 32); // getTFNumber(mStartIR, runNumber);
   } else {
-    tfNumber = mTFNumber;
+    mCurTFNumber = mTFNumber;
   }
 
   std::vector<float> aAmplitudes, aTimes;
@@ -2502,7 +2512,7 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   mGIDUsedBySVtx.clear();
   mGIDUsedByStr.clear();
 
-  originCursor(tfNumber);
+  originCursor(mCurTFNumber);
 
   // sending metadata to writer
   TString dataType = mUseMC ? "MC" : "RAW";
@@ -2513,7 +2523,7 @@ void AODProducerWorkflowDPL::run(ProcessingContext& pc)
   pc.outputs().snapshot(Output{"AMD", "AODMetadataKeys", 0}, mMetaDataKeys);
   pc.outputs().snapshot(Output{"AMD", "AODMetadataVals", 0}, mMetaDataVals);
 
-  pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, tfNumber);
+  pc.outputs().snapshot(Output{"TFN", "TFNumber", 0}, mCurTFNumber);
   pc.outputs().snapshot(Output{"TFF", "TFFilename", 0}, "");
 
   mTimer.Stop();

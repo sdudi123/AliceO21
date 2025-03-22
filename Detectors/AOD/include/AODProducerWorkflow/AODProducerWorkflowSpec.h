@@ -269,6 +269,7 @@ class AODProducerWorkflowDPL : public Task
 
   GID::mask_t mInputSources;
   int64_t mTFNumber{-1};
+  uint64_t mCurTFNumber{0};
   int mRunNumber{-1};
   int mTruncate{1};
   int mRecoOnly{0};
@@ -527,7 +528,7 @@ class AODProducerWorkflowDPL : public Task
   void addToTracksQATable(TracksQACursorType& tracksQACursor, TrackQA& trackQAInfoHolder);
 
   template <typename TRDsExtraCursorType>
-  void addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx);
+  void addToTRDsExtra(const o2::globaltracking::RecoContainer& recoData, TRDsExtraCursorType& trdExtraCursor, int colIdx, const GIndex& trkIdx, TrackExtraInfo& extraInfo, int trkTableIdx);
 
   template <typename mftTracksCursorType, typename AmbigMFTTracksCursorType>
   void addToMFTTracksTable(mftTracksCursorType& mftTracksCursor, AmbigMFTTracksCursorType& ambigMFTTracksCursor,
