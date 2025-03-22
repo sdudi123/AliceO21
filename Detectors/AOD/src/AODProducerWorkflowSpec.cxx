@@ -461,6 +461,13 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
 
   if (mStreamerFlags[AODProducerStreamerFlags::TRDExtra]) {
     const auto& tpctrk = recoData.getTrack<o2::tpc::TrackTPC>(contributorsGID[GIndex::Source::TPC]);
+    o2::dataformats::MatchInfoTOF tofMtc;
+    o2::track::TrackParCov toftrk;
+    toftrk.invalidate();
+    if (contributorsGID[GIndex::Source::TOF].isIndexSet()) {
+      tofMtc = recoData.getTOFMatch(trkIdx);
+      toftrk = recoData.getTrackParamOut(trkIdx);
+    }
     (*mStreamer) << "trdExtra"
                  << "dEdx=" << dEdx
                  << "eProb=" << trk.getSignal()
@@ -476,6 +483,8 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
                  << "cloctracklets=" << cloctrkletsa
                  << "tpctrk=" << tpctrk
                  << "trdtrk=" << trk
+                 << "toftrk=" << toftrk
+                 << "tofMtc=" << tofMtc
                  << "globaltrk=" << recoData.getTrack<o2::track::TrackParCov>(trkIdx)
                  << "\n";
   }
