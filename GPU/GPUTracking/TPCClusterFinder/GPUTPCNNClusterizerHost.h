@@ -41,6 +41,7 @@ class GPUTPCNNClusterizerHost
 
   void init(const GPUSettingsProcessingNNclusterizer&);
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
+  void loadFromCCDB(std::unordered_map<std::string, std::string>);
 
   void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output, int32_t dtype);
 

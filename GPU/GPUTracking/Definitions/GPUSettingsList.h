@@ -249,6 +249,14 @@ AddOption(nnClassificationPath, std::string, "network_class.onnx", "", 0, "The c
 AddOption(nnClassThreshold, float, 0.5, "", 0, "The cutoff at which clusters will be accepted / rejected.")
 AddOption(nnRegressionPath, std::string, "network_reg.onnx", "", 0, "The regression network path")
 AddOption(nnSigmoidTrafoClassThreshold, int, 1, "", 0, "If true (default), then the classification threshold is transformed by an inverse sigmoid function. This depends on how the network was trained (with a sigmoid as acitvation function in the last layer or not).")
+// CCDB
+AddOption(nnLoadFromCCDB, int, 1, "", 0, "If 1 networks are fetched from ccdb, else locally")
+AddOption(nnCCDBURL, std::string, "http://alice-ccdb.cern.ch", "", 0, "The CCDB URL from where the network files are fetched")
+AddOption(nnCCDBPath, std::string, "Users/c/csonnabe/TPC/Clusterization", "", 0, "Folder path containing the networks")
+AddOption(nnCCDBWithMomentum, int, 1, "", 0, "Distinguishes between the network with and without momentum output for the regression")
+AddOption(nnCCDBLayerType, std::string, "FC", "", 0, "Distinguishes between network with different layer types. Options: FC, CNN")
+AddOption(nnCCDBBeamType, std::string, "", "", 0, "Distinguishes between networks trained for different beam types. Options: PbPb, pp")
+AddOption(nnCCDBInteractionRate, int, -1, "", 0, "Distinguishes between networks for different interaction rates [kHz].")
 AddHelp("help", 'h')
 EndConfig()
 
