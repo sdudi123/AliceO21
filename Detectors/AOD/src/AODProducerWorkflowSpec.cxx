@@ -410,6 +410,7 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
   auto trkC = trk; // local copy to propagate
 
   float dEdx{0.};
+  uint8_t pattern = 0;
   for (int iLay{0}; iLay < NLAYERS; ++iLay) {
     auto trkltId = trk.getTrackletIndex(iLay);
     if (trkltId < 0) {
@@ -447,6 +448,13 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
     tphis[iLay] = tphi;
 
     dEdx += (float)tracklet.getQTot() / cor;
+    pattern |= 0x1 << iLay;
+  }
+  if (trk.getHasNeighbor()) {
+    pattern |= 0x1 << 6;
+  }
+  if (trk.getHasPadrowCrossing()) {
+    pattern |= 0x1 << 7;
   }
   dEdx /= (float)trkC.getNtracklets();
 
@@ -477,7 +485,7 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
                  << "q0sCor[6]=" << q0sCor
                  << "q1sCor[6]=" << q1sCor
                  << "q2sCor[6]=" << q2sCor
-                 << "pattern=" << getTRDPattern(trk)
+                 << "pattern=" << pattern
                  << "tracklets=" << trkletsa
                  << "ctracklets=" << ctrkletsa
                  << "cloctracklets=" << cloctrkletsa
