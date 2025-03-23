@@ -616,26 +616,29 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   GPUTPCNNClusterizerHost nnApplication; // potentially this needs to be GPUTPCNNClusterizerHost nnApplication[NSECTORS]; Technically ONNX ->Run() is threadsafe at inference time since its read-only
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     if(nn_settings.nnLoadFromCCDB) {
-      std::unordered_map<std::string, std::string> ccdbSettings = {
+      std::map<std::string, std::string> ccdbSettings = {
+        {"nnCCDBURL", nn_settings.nnCCDBURL},
         {"nnCCDBPath", nn_settings.nnCCDBPath},
-        {"inputDType", nn_settings.inputDType},
-        {"outputDType", nn_settings.outputDType},
+        {"inputDType", nn_settings.nnInferenceInputDType},
+        {"outputDType", nn_settings.nnInferenceOutputDType},
         {"nnCCDBWithMomentum", std::to_string(nn_settings.nnCCDBWithMomentum)},
-        {"nnCCDBLayerType", nn_settings.nnCCDBLayerType},
         {"nnCCDBBeamType", nn_settings.nnCCDBBeamType},
         {"nnCCDBInteractionRate", std::to_string(nn_settings.nnCCDBInteractionRate)}
       };
 
-      std::unordered_map<std::string, std::string> networkRetrieval = ccdbSettings;
+      std::map<std::string, std::string> networkRetrieval = ccdbSettings;
 
+      networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBClassificationLayerType;
       networkRetrieval["nnCCDBEvalType"] = "classification_c1";
       networkRetrieval["outputFile"] = "net_classification_c1.onnx";
       nnApplication.loadFromCCDB(networkRetrieval);
 
+      networkRetrieval["nnCCDBLayerType"] = nn_settings.nnCCDBRegressionLayerType;
       networkRetrieval["nnCCDBEvalType"] = "regression_c1";
       networkRetrieval["outputFile"] = "net_regression_c1.onnx";
       nnApplication.loadFromCCDB(networkRetrieval);
     }
+
     uint32_t maxClusters = 0;
     nnApplication.init(nn_settings);
     for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
