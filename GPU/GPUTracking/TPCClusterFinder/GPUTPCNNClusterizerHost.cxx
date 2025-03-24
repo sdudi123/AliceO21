@@ -22,7 +22,7 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings)
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(GPUSettingsProcessingNNclusterizer settings)
 {
   init(settings);
 }
@@ -53,7 +53,7 @@ void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> se
   }
 }
 
-void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
+void GPUTPCNNClusterizerHost::init(GPUSettingsProcessingNNclusterizer settings)
 {
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},

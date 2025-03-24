@@ -37,9 +37,9 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&);
+  GPUTPCNNClusterizerHost(GPUSettingsProcessingNNclusterizer);
 
-  void init(const GPUSettingsProcessingNNclusterizer&);
+  void init(GPUSettingsProcessingNNclusterizer);
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
   void loadFromCCDB(std::map<std::string, std::string>);
 
