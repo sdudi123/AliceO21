@@ -492,6 +492,8 @@ void AODProducerWorkflowDPL::addToTRDsExtra(const o2::globaltracking::RecoContai
                  << "q2sCor[6]=" << q2sCor
                  << "gain[6]=" << gain
                  << "length[6]=" << length
+                 << "loctgls[6]=" << ttgls
+                 << "locphis[6]=" << tphis
                  << "pattern=" << pattern
                  << "noisy=" << noisy
                  << "tracklets=" << trkletsa
