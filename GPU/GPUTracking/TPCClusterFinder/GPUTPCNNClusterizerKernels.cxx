@@ -125,20 +125,24 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::det
 template <>
 GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::determineClass2Labels>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
 {
-  auto& clusterer = processors.tpcNNClusterer[sector];
+  auto& clustererNN = processors.tpcNNClusterer[sector];
   uint glo_idx = get_global_id(0);
-  uint elem_iterator = glo_idx * clusterer.nnClusterizerModelClassNumOutputNodes;
+  uint elem_iterator = glo_idx * clustererNN.nnClusterizerModelClassNumOutputNodes;
   float current_max_prob = 0.f; // If the neural network doesn't contain the softmax as a last layer, the outputs can range in [-infty, infty]
   uint class_label = 0;
-  for (int pIdx = elem_iterator; pIdx < elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes; pIdx++) {
+  for (int pIdx = elem_iterator; pIdx < elem_iterator + clustererNN.nnClusterizerModelClassNumOutputNodes; pIdx++) {
     if (pIdx == elem_iterator) {
-      current_max_prob = clusterer.modelProbabilities[pIdx];
+      current_max_prob = clustererNN.modelProbabilities[pIdx];
     } else {
-      class_label = (clusterer.modelProbabilities[pIdx] > current_max_prob ? pIdx : class_label);
+      class_label = (clustererNN.modelProbabilities[pIdx] > current_max_prob ? pIdx : class_label);
     }
   }
-  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clusterer.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
-  clusterer.outputDataClass[glo_idx + batchStart] = class_label;
+  // uint class_label = std::distance(elem_iterator, std::max_element(elem_iterator, elem_iterator + clustererNN.nnClusterizerModelClassNumOutputNodes)); // Multiple outputs of the class network are the probabilities for each class. The highest one "wins"
+  clustererNN.outputDataClass[glo_idx + batchStart] = class_label;
+  if (class_label > 1) {
+    clustererNN.clusterFlags[2 * glo_idx] = 1;
+    clustererNN.clusterFlags[2 * glo_idx + 1] = 1;
+  }
 }
 
 template <>
@@ -157,7 +161,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
   // LOG(info) << glo_idx << " -- " << model_output_index << " / " << clustererNN.outputDataReg1.size() << " / " << clustererNN.nnClusterizerModelReg1NumOutputNodes << " -- " << clusterer.peakPositions.size() << " -- " << clusterer.centralCharges.size();
 
-  if (clustererNN.outputDataClass[full_glo_idx] == 1) {
+  if (clustererNN.outputDataClass[full_glo_idx] == 1 || (clustererNN.nnClusterizerModelReg2NumOutputNodes == -1 && clustererNN.outputDataClass[full_glo_idx] >= 1)) {
 
     ClusterAccumulator pc;
 

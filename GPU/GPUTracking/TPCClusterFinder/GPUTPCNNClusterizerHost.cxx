@@ -105,7 +105,6 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"device", settings.nnInferenceDevice},
     {"device-id", std::to_string(settings.nnInferenceDeviceId)},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
-    {"dtype", settings.nnInferenceDtype},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
@@ -134,7 +133,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
 {
   clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+    if (model_class.getNumOutputNodes()[0][1] == 1 || model_reg_2.isInitialized()) {
       clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
     } else {
       clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
