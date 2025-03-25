@@ -64,9 +64,36 @@ function(set_target_hip_arch target)
   endif()
 endfunction()
 
-# Detect and enable CUDA
-STRING(REGEX REPLACE "\-std=[^ ]*" "" O2_GPU_CMAKE_CXX_FLAGS_NOSTD "${CMAKE_CXX_FLAGS}") # Need to strip c++17 imposed by alidist defaults
+# Need to strip c++17 imposed by alidist defaults
+STRING(REGEX REPLACE "\-std=[^ ]*" "" O2_GPU_CMAKE_CXX_FLAGS_NOSTD "${CMAKE_CXX_FLAGS}")
 
+# ---------------------------------- Fast Math / Deterministic Mode ----------------------------------
+# set(GPUCA_DETERMINISTIC_MODE WHOLEO2)          # Override
+set(GPUCA_DETERMINISTIC_MODE_MAP_OFF 0)
+set(GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH 1) # No -ffast-math and similar compile flags for GPU folder
+set(GPUCA_DETERMINISTIC_MODE_MAP_OPTO2 2)        # In addition, -O2 optimization on host for GPU folder
+set(GPUCA_DETERMINISTIC_MODE_MAP_GPU 3)          # In addition, GPUCA_DETERMINISTIC_MODE define for GPU folder
+set(GPUCA_DETERMINISTIC_MODE_MAP_ON 3)           # Synonym for GPU
+set(GPUCA_DETERMINISTIC_MODE_MAP_WHOLEO2 4)      # As GPU but for whole O2 code
+if(NOT DEFINED GPUCA_DETERMINISTIC_MODE)
+  set(GPUCA_DETERMINISTIC_MODE 0)
+elseif(NOT GPUCA_DETERMINISTIC_MODE MATCHES "^[0-9]+$")
+  if(NOT DEFINED GPUCA_DETERMINISTIC_MODE_MAP_${GPUCA_DETERMINISTIC_MODE})
+    message(FATAL_ERROR "Invalid setting ${GPUCA_DETERMINISTIC_MODE} for GPUCA_DETERMINISTIC_MODE")
+  endif()
+  set(GPUCA_DETERMINISTIC_MODE ${GPUCA_DETERMINISTIC_MODE_MAP_${GPUCA_DETERMINISTIC_MODE}})
+  message(STATUS "Set to ${GPUCA_DETERMINISTIC_MODE}")
+endif()
+set(GPUCA_CXX_NO_FAST_MATH_FLAGS "-fno-fast-math -ffp-contract=off")
+set(GPUCA_CUDA_NO_FAST_MATH_FLAGS "--ftz=false --prec-div=true --prec-sqrt=true --fmad false")
+if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_WHOLEO2})
+  add_definitions(-DGPUCA_DETERMINISTIC_MODE)
+  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_NO_FAST_MATH_FLAGS}")
+  set(CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_C_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_NO_FAST_MATH_FLAGS}")
+endif()
+
+
+# ---------------------------------- CUDA ----------------------------------
 if(ENABLE_CUDA)
   set(CMAKE_CUDA_STANDARD ${CMAKE_CXX_STANDARD})
   set(CMAKE_CUDA_STANDARD_REQUIRED TRUE)
@@ -124,8 +151,7 @@ if(ENABLE_CUDA)
     else()
       set(CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -Xptxas -O4 -Xcompiler -O4")
     endif()
-    set(GPUCA_CUDA_NO_FAST_MATH_FLAGS "--ftz=false --prec-div=true --prec-sqrt=true --fmad false")
-    if(DEFINED GPUCA_NO_FAST_MATH AND "${GPUCA_NO_FAST_MATH}")
+    if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
       set(CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CUDA_NO_FAST_MATH_FLAGS}")
     elseif(NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
       set(CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CUDA_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -use_fast_math --ftz=true")#
@@ -146,7 +172,7 @@ if(ENABLE_CUDA)
   endif()
 endif()
 
-# Detect and enable OpenCL 1.2 from AMD
+# ---------------------------------- HIP ----------------------------------
 if(ENABLE_OPENCL)
   find_package(OpenCL)
   if(ENABLE_OPENCL AND NOT ENABLE_OPENCL STREQUAL "AUTO")
@@ -154,11 +180,6 @@ if(ENABLE_OPENCL)
   else()
     set_package_properties(OpenCL PROPERTIES TYPE OPTIONAL)
   endif()
-endif()
-
-# Detect and enable OpenCL 2.x
-if(ENABLE_OPENCL)
-  find_package(OpenCL)
   find_package(LLVM)
   if(LLVM_FOUND)
     find_package(Clang)
@@ -196,7 +217,7 @@ if(ENABLE_OPENCL)
   endif()
 endif()
 
-# Detect and enable HIP
+# ---------------------------------- HIP ----------------------------------
 if(ENABLE_HIP)
   if(NOT "$ENV{CMAKE_PREFIX_PATH}" MATCHES "rocm" AND NOT CMAKE_PREFIX_PATH MATCHES "rocm" AND EXISTS "/opt/rocm/lib/cmake/")
     list(APPEND CMAKE_PREFIX_PATH "/opt/rocm/lib/cmake")
@@ -269,7 +290,7 @@ if(ENABLE_HIP)
     if(HIP_AMDGPUTARGET)
       set(CMAKE_HIP_ARCHITECTURES "${HIP_AMDGPUTARGET}") # If GPU build is enforced we override autodetection
     endif()
-    if(NOT DEFINED GPUCA_NO_FAST_MATH OR NOT ${GPUCA_NO_FAST_MATH})
+    if(NOT GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
       string(APPEND O2_HIP_CMAKE_CXX_FLAGS " -fgpu-flush-denormals-to-zero -ffast-math")
     endif()
     set(CMAKE_HIP_FLAGS "${O2_GPU_CMAKE_CXX_FLAGS_NOSTD} ${CMAKE_HIP_FLAGS} ${O2_HIP_CMAKE_CXX_FLAGS}")
@@ -303,7 +324,6 @@ if(ENABLE_HIP)
     endif()
     message(FATAL_ERROR "HIP requested but some of the above packages are not found")
   endif()
-
 endif()
 
 # if we end up here without a FATAL, it means we have found the "O2GPU" package

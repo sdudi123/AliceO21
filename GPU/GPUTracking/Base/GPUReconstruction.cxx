@@ -147,8 +147,12 @@ int32_t GPUReconstruction::Init()
   if (InitDevice()) {
     return 1;
   }
-  mHostMemoryPoolEnd = (char*)mHostMemoryBase + mHostMemorySize;
-  mDeviceMemoryPoolEnd = (char*)mDeviceMemoryBase + mDeviceMemorySize;
+  if (mProcessingSettings.memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_GLOBAL) {
+    mHostMemoryPoolEnd = (char*)mHostMemoryBase + mHostMemorySize;
+    mDeviceMemoryPoolEnd = (char*)mDeviceMemoryBase + mDeviceMemorySize;
+  } else {
+    mHostMemoryPoolEnd = mDeviceMemoryPoolEnd = nullptr;
+  }
   if (InitPhasePermanentMemory()) {
     return 1;
   }
@@ -257,8 +261,8 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings.deterministicGPUReconstruction = mProcessingSettings.debugLevel >= 6;
   }
   if (mProcessingSettings.deterministicGPUReconstruction) {
-#ifndef GPUCA_NO_FAST_MATH
-    GPUError("Warning, deterministicGPUReconstruction needs GPUCA_NO_FAST_MATH for being fully deterministic, without only most indeterminism by concurrency is removed, but floating point effects remain!");
+#ifndef GPUCA_DETERMINISTIC_MODE
+    GPUError("Warning, deterministicGPUReconstruction needs GPUCA_DETERMINISTIC_MODE for being fully deterministic, without only most indeterminism by concurrency is removed, but floating point effects remain!");
 #endif
     mProcessingSettings.overrideClusterizerFragmentLen = TPC_MAX_FRAGMENT_LEN_GPU;
     param().rec.tpc.nWaysOuter = true;
@@ -860,14 +864,18 @@ void GPUReconstruction::ClearAllocatedMemory(bool clearOutputs)
       FreeRegisteredMemory(i);
     }
   }
-  mHostMemoryPool = GPUProcessor::alignPointer<GPUCA_MEMALIGN>(mHostMemoryPermanent);
-  mDeviceMemoryPool = GPUProcessor::alignPointer<GPUCA_MEMALIGN>(mDeviceMemoryPermanent);
   mUnmanagedChunks.clear();
-  mVolatileMemoryStart = nullptr;
   mNonPersistentMemoryStack.clear();
   mNonPersistentIndividualAllocations.clear();
-  mHostMemoryPoolEnd = mHostMemoryPoolBlocked ? mHostMemoryPoolBlocked : ((char*)mHostMemoryBase + mHostMemorySize);
-  mDeviceMemoryPoolEnd = mDeviceMemoryPoolBlocked ? mDeviceMemoryPoolBlocked : ((char*)mDeviceMemoryBase + mDeviceMemorySize);
+  mVolatileMemoryStart = nullptr;
+  if (mProcessingSettings.memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_GLOBAL) {
+    mHostMemoryPool = GPUProcessor::alignPointer<GPUCA_MEMALIGN>(mHostMemoryPermanent);
+    mDeviceMemoryPool = GPUProcessor::alignPointer<GPUCA_MEMALIGN>(mDeviceMemoryPermanent);
+    mHostMemoryPoolEnd = mHostMemoryPoolBlocked ? mHostMemoryPoolBlocked : ((char*)mHostMemoryBase + mHostMemorySize);
+    mDeviceMemoryPoolEnd = mDeviceMemoryPoolBlocked ? mDeviceMemoryPoolBlocked : ((char*)mDeviceMemoryBase + mDeviceMemorySize);
+  } else {
+    mHostMemoryPool = mDeviceMemoryPool = mHostMemoryPoolEnd = mDeviceMemoryPoolEnd = nullptr;
+  }
 }
 
 void GPUReconstruction::UpdateMaxMemoryUsed()
