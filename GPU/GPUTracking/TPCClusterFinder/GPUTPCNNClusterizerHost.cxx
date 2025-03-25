@@ -27,15 +27,16 @@ GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNcl
   init(settings);
 }
 
-void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings) {
+void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings)
+{
   o2::ccdb::CcdbApi ccdbApi;
   ccdbApi.init(settings["nnCCDBURL"]);
 
   metadata["inputDType"] = settings["inputDType"];
   metadata["outputDType"] = settings["outputDType"];
-  metadata["nnCCDBEvalType"] = settings["nnCCDBEvalType"]; // classification_1C, classification_2C, regression_1C, regression_2C
+  metadata["nnCCDBEvalType"] = settings["nnCCDBEvalType"];         // classification_1C, classification_2C, regression_1C, regression_2C
   metadata["nnCCDBWithMomentum"] = settings["nnCCDBWithMomentum"]; // 0, 1 -> Only for regression model
-  metadata["nnCCDBLayerType"] = settings["nnCCDBLayerType"]; // FC, CNN
+  metadata["nnCCDBLayerType"] = settings["nnCCDBLayerType"];       // FC, CNN
   if (settings["nnCCDBInteractionRate"] != "" && std::stoi(settings["nnCCDBInteractionRate"]) > 0) {
     metadata["nnCCDBInteractionRate"] = settings["nnCCDBInteractionRate"];
   }
@@ -58,7 +59,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
   std::vector<std::string> reg_model_paths;
 
-  if(settings.nnLoadFromCCDB) {
+  if (settings.nnLoadFromCCDB) {
     std::map<std::string, std::string> ccdbSettings = {
       {"nnCCDBURL", settings.nnCCDBURL},
       {"nnCCDBPath", settings.nnCCDBPath},
@@ -66,8 +67,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
       {"outputDType", settings.nnInferenceOutputDType},
       {"nnCCDBWithMomentum", std::to_string(settings.nnCCDBWithMomentum)},
       {"nnCCDBBeamType", settings.nnCCDBBeamType},
-      {"nnCCDBInteractionRate", std::to_string(settings.nnCCDBInteractionRate)}
-    };
+      {"nnCCDBInteractionRate", std::to_string(settings.nnCCDBInteractionRate)}};
 
     std::string nnFetchFolder = "";
     std::vector<std::string> fetchMode = o2::utils::Str::tokenize(settings.nnCCDBFetchMode, ':');

@@ -49,9 +49,9 @@ class GPUTPCNNClusterizerHost
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
   std::vector<std::string> reg_model_paths;
 
-  private:
-    std::map<std::string, std::string> metadata;
-    std::map<std::string, std::string> headers;
+ private:
+  std::map<std::string, std::string> metadata;
+  std::map<std::string, std::string> headers;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu
