@@ -284,7 +284,7 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> numZFake[NLAYERS];
 
   std::unique_ptr<TH1D> numLayers;
-  std::unique_ptr<TH1D> denLayers;  
+  std::unique_ptr<TH1D> denLayers;
   std::unique_ptr<TH1D> numGoodLayers;
   std::unique_ptr<TH1D> numFakeLayers;
 
@@ -2075,7 +2075,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
 
   /// all Z
   std::unique_ptr<TCanvas> effZAll = std::make_unique<TCanvas>("effZAll");
-  auto numZGoodAll =std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesZ[0]->Clone("numZGoodAll"));
+  auto numZGoodAll = std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesZ[0]->Clone("numZGoodAll"));
   numZGoodAll->Add(mNGoodMatchesZ[1].get());
   numZGoodAll->Add(mNGoodMatchesZ[2].get());
   numZGoodAll->Write();
@@ -2291,8 +2291,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
           continue;
         }
 
-
-        if (mUseMC){ //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
+        if (mUseMC) { //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
           if (std::find(mExcludedChipMC.begin(), mExcludedChipMC.end(), clusOriginal.getChipID()) != mExcludedChipMC.end()) {
             continue;
           }
@@ -2494,8 +2493,7 @@ void EfficiencyStudy::process(o2::globaltracking::RecoContainer& recoData)
     // studyClusterSelectionMC();
     // countDuplicatedAfterCuts();
     getEfficiency(mUseMC);
-  } 
-  else{
+  } else {
     getEfficiency(mUseMC);
   }
 
