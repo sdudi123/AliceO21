@@ -128,10 +128,10 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> mPhiOriginal[NLAYERS];
   std::unique_ptr<TH1D> mEtaOriginal[NLAYERS];
   std::unique_ptr<TH1D> mPtOriginal[NLAYERS];
-  TH1D* mPtDuplicated[NLAYERS];
-  TH1D* mEtaDuplicated[NLAYERS];
-  TH1D* mPhiDuplicated[NLAYERS];
-  TH1D* mPhiOriginalIfDuplicated[NLAYERS];
+  std::unique_ptr<TH1D> mPtDuplicated[NLAYERS];
+  std::unique_ptr<TH1D> mEtaDuplicated[NLAYERS];
+  std::unique_ptr<TH1D> mPhiDuplicated[NLAYERS];
+  std::unique_ptr<TH1D> mPhiOriginalIfDuplicated[NLAYERS];
 
   std::unique_ptr<TH2D> mZvsPhiDUplicated[NLAYERS];
 
@@ -148,37 +148,37 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> mEfficiencyGoodMatch_layer[NLAYERS];
   std::unique_ptr<TH1D> mEfficiencyFakeMatch_layer[NLAYERS];
   std::unique_ptr<TH1D> mEfficiencyTotal_layer[NLAYERS];
-  TH2D* mEfficiencyGoodMatchPt_layer[NLAYERS];
-  TH2D* mEfficiencyFakeMatchPt_layer[NLAYERS];
-  TH2D* mEfficiencyGoodMatchEta_layer[NLAYERS];
-  TH2D* mEfficiencyFakeMatchEta_layer[NLAYERS];
-  TH2D* mEfficiencyGoodMatchPhi_layer[NLAYERS];
-  TH2D* mEfficiencyGoodMatchPhiOriginal_layer[NLAYERS];
-  TH2D* mEfficiencyFakeMatchPhi_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyGoodMatchPt_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyFakeMatchPt_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyGoodMatchEta_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyFakeMatchEta_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyGoodMatchPhi_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyGoodMatchPhiOriginal_layer[NLAYERS];
+  std::unique_ptr<TH2D> mEfficiencyFakeMatchPhi_layer[NLAYERS];
 
-  // TH2D* mEfficiencyColEta[NLAYERS];
-  TH2D* mDenColEta[NLAYERS];
-  TH2D* mNumColEta[NLAYERS];
-  TH2D* mDenRowPhi[NLAYERS];
-  TH2D* mNumRowPhi[NLAYERS];
-  TH2D* mDenRowCol[NLAYERS];
-  TH2D* mNumRowCol[NLAYERS];
+  // std::unique_ptr<TH2D> mEfficiencyColEta[NLAYERS];
+  std::unique_ptr<TH2D> mDenColEta[NLAYERS];
+  std::unique_ptr<TH2D> mNumColEta[NLAYERS];
+  std::unique_ptr<TH2D> mDenRowPhi[NLAYERS];
+  std::unique_ptr<TH2D> mNumRowPhi[NLAYERS];
+  std::unique_ptr<TH2D> mDenRowCol[NLAYERS];
+  std::unique_ptr<TH2D> mNumRowCol[NLAYERS];
 
   // phi, eta, pt of the duplicated cluster per layer
-  TH2D* mPt_EtaDupl[NLAYERS];
+  std::unique_ptr<TH2D> mPt_EtaDupl[NLAYERS];
 
   // duplicated per layer and per cut
   std::unique_ptr<TH1D> mDuplicatedEtaAllPt[NLAYERS];
   std::unique_ptr<TH1D> mDuplicatedEta[NLAYERS][3];
   std::unique_ptr<TH1D> mDuplicatedPhiAllPt[NLAYERS];
   std::unique_ptr<TH1D> mDuplicatedPhi[NLAYERS][3];
-  TH1D* mDuplicatedPt[NLAYERS];
-  TH1D* mDuplicatedRow[NLAYERS];
-  TH1D* mDuplicatedCol[NLAYERS];
-  TH1D* mDuplicatedZ[NLAYERS];
-  TH2D* mDuplicatedPtEta[NLAYERS];
-  TH2D* mDuplicatedPtPhi[NLAYERS];
-  TH2D* mDuplicatedEtaPhi[NLAYERS];
+  std::unique_ptr<TH1D> mDuplicatedPt[NLAYERS];
+  std::unique_ptr<TH1D> mDuplicatedRow[NLAYERS];
+  std::unique_ptr<TH1D> mDuplicatedCol[NLAYERS];
+  std::unique_ptr<TH1D> mDuplicatedZ[NLAYERS];
+  std::unique_ptr<TH2D> mDuplicatedPtEta[NLAYERS];
+  std::unique_ptr<TH2D> mDuplicatedPtPhi[NLAYERS];
+  std::unique_ptr<TH2D> mDuplicatedEtaPhi[NLAYERS];
 
   // matches per layer and per cut
   std::unique_ptr<TH1D> mNGoodMatchesEtaAllPt[NLAYERS];
@@ -191,26 +191,26 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> mNFakeMatchesPhiAllPt[NLAYERS];
   std::unique_ptr<TH1D> mNFakeMatchesPhi[NLAYERS][3];
 
-  TH1D* mNGoodMatchesPt[NLAYERS];
-  TH1D* mNFakeMatchesPt[NLAYERS];
+  std::unique_ptr<TH1D> mNGoodMatchesPt[NLAYERS];
+  std::unique_ptr<TH1D> mNFakeMatchesPt[NLAYERS];
 
-  TH1D* mNGoodMatchesRow[NLAYERS];
-  TH1D* mNFakeMatchesRow[NLAYERS];
+  std::unique_ptr<TH1D> mNGoodMatchesRow[NLAYERS];
+  std::unique_ptr<TH1D> mNFakeMatchesRow[NLAYERS];
 
-  TH1D* mNGoodMatchesCol[NLAYERS];
-  TH1D* mNFakeMatchesCol[NLAYERS];
+  std::unique_ptr<TH1D> mNGoodMatchesCol[NLAYERS];
+  std::unique_ptr<TH1D> mNFakeMatchesCol[NLAYERS];
 
-  TH1D* mNGoodMatchesZ[NLAYERS];
-  TH1D* mNFakeMatchesZ[NLAYERS];
+  std::unique_ptr<TH1D> mNGoodMatchesZ[NLAYERS];
+  std::unique_ptr<TH1D> mNFakeMatchesZ[NLAYERS];
 
-  TH2D* mNGoodMatchesPtEta[NLAYERS];
-  TH2D* mNFakeMatchesPtEta[NLAYERS];
+  std::unique_ptr<TH2D> mNGoodMatchesPtEta[NLAYERS];
+  std::unique_ptr<TH2D> mNFakeMatchesPtEta[NLAYERS];
 
-  TH2D* mNGoodMatchesPtPhi[NLAYERS];
-  TH2D* mNFakeMatchesPtPhi[NLAYERS];
+  std::unique_ptr<TH2D> mNGoodMatchesPtPhi[NLAYERS];
+  std::unique_ptr<TH2D> mNFakeMatchesPtPhi[NLAYERS];
 
-  TH2D* mNGoodMatchesEtaPhi[NLAYERS];
-  TH2D* mNFakeMatchesEtaPhi[NLAYERS];
+  std::unique_ptr<TH2D> mNGoodMatchesEtaPhi[NLAYERS];
+  std::unique_ptr<TH2D> mNFakeMatchesEtaPhi[NLAYERS];
 
   // calculating the efficiency with TEfficiency class
   std::unique_ptr<TEfficiency> mEffPtGood[NLAYERS];
@@ -238,15 +238,15 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TEfficiency> mEffPhiFakeAllPt[NLAYERS];
   std::unique_ptr<TEfficiency> mEffPhiFake[NLAYERS][3];
 
-  TH2D* mnGoodMatchesPt_layer[NLAYERS];
-  TH2D* mnFakeMatchesPt_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnGoodMatchesPt_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnFakeMatchesPt_layer[NLAYERS];
 
-  TH2D* mnGoodMatchesEta_layer[NLAYERS];
-  TH2D* mnFakeMatchesEta_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnGoodMatchesEta_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnFakeMatchesEta_layer[NLAYERS];
 
-  TH2D* mnGoodMatchesPhi_layer[NLAYERS];
-  TH2D* mnGoodMatchesPhiOriginal_layer[NLAYERS];
-  TH2D* mnFakeMatchesPhi_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnGoodMatchesPhi_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnGoodMatchesPhiOriginal_layer[NLAYERS];
+  std::unique_ptr<TH2D> mnFakeMatchesPhi_layer[NLAYERS];
 
   std::unique_ptr<TH1D> DCAxyData[NLAYERS];
   std::unique_ptr<TH1D> DCAzData[NLAYERS];
@@ -254,39 +254,39 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> DCAxyRejected[NLAYERS];
   std::unique_ptr<TH1D> DCAzRejected[NLAYERS];
 
-  TH1D* denPt[NLAYERS];
-  TH1D* numPt[NLAYERS];
-  TH1D* numPtGood[NLAYERS];
-  TH1D* numPtFake[NLAYERS];
+  std::unique_ptr<TH1D> denPt[NLAYERS];
+  std::unique_ptr<TH1D> numPt[NLAYERS];
+  std::unique_ptr<TH1D> numPtGood[NLAYERS];
+  std::unique_ptr<TH1D> numPtFake[NLAYERS];
 
-  TH1D* denPhi[NLAYERS];
-  TH1D* numPhi[NLAYERS];
-  TH1D* numPhiGood[NLAYERS];
-  TH1D* numPhiFake[NLAYERS];
+  std::unique_ptr<TH1D> denPhi[NLAYERS];
+  std::unique_ptr<TH1D> numPhi[NLAYERS];
+  std::unique_ptr<TH1D> numPhiGood[NLAYERS];
+  std::unique_ptr<TH1D> numPhiFake[NLAYERS];
 
-  TH1D* denEta[NLAYERS];
-  TH1D* numEta[NLAYERS];
-  TH1D* numEtaGood[NLAYERS];
-  TH1D* numEtaFake[NLAYERS];
+  std::unique_ptr<TH1D> denEta[NLAYERS];
+  std::unique_ptr<TH1D> numEta[NLAYERS];
+  std::unique_ptr<TH1D> numEtaGood[NLAYERS];
+  std::unique_ptr<TH1D> numEtaFake[NLAYERS];
 
-  TH1D* denRow[NLAYERS];
-  TH1D* numRow[NLAYERS];
-  TH1D* numRowGood[NLAYERS];
-  TH1D* numRowFake[NLAYERS];
+  std::unique_ptr<TH1D> denRow[NLAYERS];
+  std::unique_ptr<TH1D> numRow[NLAYERS];
+  std::unique_ptr<TH1D> numRowGood[NLAYERS];
+  std::unique_ptr<TH1D> numRowFake[NLAYERS];
 
-  TH1D* denCol[NLAYERS];
-  TH1D* numCol[NLAYERS];
-  TH1D* numColGood[NLAYERS];
-  TH1D* numColFake[NLAYERS];
-  TH1D* denZ[NLAYERS];
-  TH1D* numZ[NLAYERS];
-  TH1D* numZGood[NLAYERS];
-  TH1D* numZFake[NLAYERS];
+  std::unique_ptr<TH1D> denCol[NLAYERS];
+  std::unique_ptr<TH1D> numCol[NLAYERS];
+  std::unique_ptr<TH1D> numColGood[NLAYERS];
+  std::unique_ptr<TH1D> numColFake[NLAYERS];
+  std::unique_ptr<TH1D> denZ[NLAYERS];
+  std::unique_ptr<TH1D> numZ[NLAYERS];
+  std::unique_ptr<TH1D> numZGood[NLAYERS];
+  std::unique_ptr<TH1D> numZFake[NLAYERS];
 
-  TH1D* numLayers;
-  TH1D* denLayers;
-  TH1D* numGoodLayers;
-  TH1D* numFakeLayers;
+  std::unique_ptr<TH1D> numLayers;
+  std::unique_ptr<TH1D> denLayers;  
+  std::unique_ptr<TH1D> numGoodLayers;
+  std::unique_ptr<TH1D> numFakeLayers;
 
   int nDuplicatedClusters[NLAYERS] = {0};
   int nTracksSelected[NLAYERS] = {0}; // denominator fot the efficiency calculation
@@ -300,17 +300,17 @@ class EfficiencyStudy : public Task
   std::unique_ptr<TH1D> chi2trackAccepted;
 
   /// checking where the duplicated not found are (histograms filled with the orifinal cluster variables)
-  TH1D* phiFound[NLAYERS];
-  TH1D* rowFound[NLAYERS];
-  TH1D* phiNotFound[NLAYERS];
-  TH1D* rowNotFound[NLAYERS];
-  TH1D* zFound[NLAYERS];
-  TH1D* zNotFound[NLAYERS];
-  TH2D* colFoundOriginalVsDuplicated[NLAYERS];
-  TH1D* colFoundOriginal[NLAYERS];
-  TH1D* colNotFound[NLAYERS];
-  TH1D* radiusFound[NLAYERS];
-  TH1D* radiusNotFound[NLAYERS];
+  std::unique_ptr<TH1D> phiFound[NLAYERS];
+  std::unique_ptr<TH1D> rowFound[NLAYERS];
+  std::unique_ptr<TH1D> phiNotFound[NLAYERS];
+  std::unique_ptr<TH1D> rowNotFound[NLAYERS];
+  std::unique_ptr<TH1D> zFound[NLAYERS];
+  std::unique_ptr<TH1D> zNotFound[NLAYERS];
+  std::unique_ptr<TH2D> colFoundOriginalVsDuplicated[NLAYERS];
+  std::unique_ptr<TH1D> colFoundOriginal[NLAYERS];
+  std::unique_ptr<TH1D> colNotFound[NLAYERS];
+  std::unique_ptr<TH1D> radiusFound[NLAYERS];
+  std::unique_ptr<TH1D> radiusNotFound[NLAYERS];
   std::unique_ptr<TH2D> m2DClusterFoundPositions;
   std::unique_ptr<TH2D> m2DClusterNotFoundPositions;
   std::unique_ptr<TH1D> mChipNotFound;
@@ -365,10 +365,10 @@ void EfficiencyStudy::init(InitContext& ic)
   chipOrigVsOverlap = std::make_unique<TH2D>("chipOrigVsOverlap", ";chipID Overlap;chipID Original", 9, 0, 9, 9, 0, 9);
   chipmap = std::make_unique<TH2D>("chipmap", ";Column;Row", 1024, 0, 1023, 512, -0.5, 511.5);
 
-  numLayers = new TH1D("numLayers", "numLayers; ; Efficiency", 3, -0.5, 2.5);
-  numGoodLayers = new TH1D("numGoodLayers", "numGoodLayers; ; Efficiency", 3, -0.5, 2.5);
-  numFakeLayers = new TH1D("numFakeLayers", "numFakeLayers; ; Efficiency", 3, -0.5, 2.5);
-  denLayers = new TH1D("denLayers", "denLayers; ; Efficiency", 3, -0.5, 2.5);
+  numLayers = std::make_unique<TH1D>("numLayers", "numLayers; ; Efficiency", 3, -0.5, 2.5);
+  numGoodLayers = std::make_unique<TH1D>("numGoodLayers", "numGoodLayers; ; Efficiency", 3, -0.5, 2.5);
+  numFakeLayers = std::make_unique<TH1D>("numFakeLayers", "numFakeLayers; ; Efficiency", 3, -0.5, 2.5);
+  denLayers = std::make_unique<TH1D>("denLayers", "denLayers; ; Efficiency", 3, -0.5, 2.5);
 
   for (int i = 0; i < NLAYERS; i++) {
 
@@ -389,10 +389,10 @@ void EfficiencyStudy::init(InitContext& ic)
 
     mZvsPhiDUplicated[i] = std::make_unique<TH2D>(Form("zvsphiDuplicated_L%d", i), ";z (cm);phi (rad)", 400, -20, 20, 90, -3.2, 3.2);
 
-    mPtDuplicated[i] = new TH1D(Form("ptDuplicated_L%d", i), ";pt (GeV/c); ", nbPt, 0, 7.5); // xbins);
-    mEtaDuplicated[i] = new TH1D(Form("etaDuplicated_L%d", i), ";eta; ", 40, -2, 2);
-    mPhiDuplicated[i] = new TH1D(Form("phiDuplicated_L%d", i), ";phi (rad); ", 90, -3.2, 3.2);
-    mPhiOriginalIfDuplicated[i] = new TH1D(Form("phiOriginalIfDuplicated_L%d", i), ";phi (rad); ", 90, -3.2, 3.2);
+    mPtDuplicated[i] = std::make_unique<TH1D>(Form("ptDuplicated_L%d", i), ";pt (GeV/c); ", nbPt, 0, 7.5); // xbins);
+    mEtaDuplicated[i] = std::make_unique<TH1D>(Form("etaDuplicated_L%d", i), ";eta; ", 40, -2, 2);
+    mPhiDuplicated[i] = std::make_unique<TH1D>(Form("phiDuplicated_L%d", i), ";phi (rad); ", 90, -3.2, 3.2);
+    mPhiOriginalIfDuplicated[i] = std::make_unique<TH1D>(Form("phiOriginalIfDuplicated_L%d", i), ";phi (rad); ", 90, -3.2, 3.2);
     mDCAxyDuplicated_layer[i] = std::make_unique<TH1D>(Form("dcaXYDuplicated_layer_L%d", i), "Distance between track and duplicated cluster  ;DCA xy (cm); ", 100, -0.01, 0.01);
     mDCAzDuplicated_layer[i] = std::make_unique<TH1D>(Form("dcaZDuplicated_layer_L%d", i), "Distance between track and duplicated cluster  ;DCA z (cm); ", 100, -0.01, 0.01);
 
@@ -400,65 +400,65 @@ void EfficiencyStudy::init(InitContext& ic)
     mEfficiencyFakeMatch_layer[i] = std::make_unique<TH1D>(Form("mEfficiencyFakeMatch_layer_L%d", i), ";#sigma(DCA) cut;Efficiency;", 20, 0.5, 20.5);
     mEfficiencyTotal_layer[i] = std::make_unique<TH1D>(Form("mEfficiencyTotal_layer_L%d", i), ";#sigma(DCA) cut;Efficiency;", 20, 0.5, 20.5);
 
-    mEfficiencyGoodMatchPt_layer[i] = new TH2D(Form("mEfficiencyGoodMatchPt_layer_L%d", i), ";#it{p}_{T} (GeV/c);#sigma(DCA) cut;Efficiency;", nbPt, 0, 7.5, /* xbins*/ 20, 0.5, 20.5);
-    mEfficiencyFakeMatchPt_layer[i] = new TH2D(Form("mEfficiencyFakeMatchPt_layer_L%d", i), ";#it{p}_{T} (GeV/c);#sigma(DCA) cut;Efficiency;", nbPt, 0, 7.5, /* xbins*/ 20, 0.5, 20.5);
+    mEfficiencyGoodMatchPt_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyGoodMatchPt_layer_L%d", i), ";#it{p}_{T} (GeV/c);#sigma(DCA) cut;Efficiency;", nbPt, 0, 7.5, /* xbins*/ 20, 0.5, 20.5);
+    mEfficiencyFakeMatchPt_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyFakeMatchPt_layer_L%d", i), ";#it{p}_{T} (GeV/c);#sigma(DCA) cut;Efficiency;", nbPt, 0, 7.5, /* xbins*/ 20, 0.5, 20.5);
 
-    mEfficiencyGoodMatchEta_layer[i] = new TH2D(Form("mEfficiencyGoodMatchEta_layer_L%d", i), ";#eta;#sigma(DCA) cut;Efficiency;", 40, -2, 2, 20, 0.5, 20.5);
-    mEfficiencyFakeMatchEta_layer[i] = new TH2D(Form("mEfficiencyFakeMatchEta_layer_L%d", i), ";#eta;#sigma(DCA) cut;Efficiency;", 40, -2, 2, 20, 0.5, 20.5);
+    mEfficiencyGoodMatchEta_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyGoodMatchEta_layer_L%d", i), ";#eta;#sigma(DCA) cut;Efficiency;", 40, -2, 2, 20, 0.5, 20.5);
+    mEfficiencyFakeMatchEta_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyFakeMatchEta_layer_L%d", i), ";#eta;#sigma(DCA) cut;Efficiency;", 40, -2, 2, 20, 0.5, 20.5);
 
-    mEfficiencyGoodMatchPhi_layer[i] = new TH2D(Form("mEfficiencyGoodMatchPhi_layer_L%d", i), ";#phi;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
-    mEfficiencyGoodMatchPhiOriginal_layer[i] = new TH2D(Form("mEfficiencyGoodMatchPhiOriginal_layer_L%d", i), ";#phi Original;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
-    mEfficiencyFakeMatchPhi_layer[i] = new TH2D(Form("mEfficiencyFakeMatchPhi_layer_L%d", i), ";#phi;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mEfficiencyGoodMatchPhi_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyGoodMatchPhi_layer_L%d", i), ";#phi;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mEfficiencyGoodMatchPhiOriginal_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyGoodMatchPhiOriginal_layer_L%d", i), ";#phi Original;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mEfficiencyFakeMatchPhi_layer[i] = std::make_unique<TH2D>(Form("mEfficiencyFakeMatchPhi_layer_L%d", i), ";#phi;#sigma(DCA) cut;Efficiency;", 90, -3.2, 3.2, 20, 0.5, 20.5);
 
-    mPt_EtaDupl[i] = new TH2D(Form("mPt_EtaDupl_L%d", i), ";#it{p}_{T} (GeV/c);#eta; ", 100, 0, 10, 100, -2, 2);
+    mPt_EtaDupl[i] = std::make_unique<TH2D>(Form("mPt_EtaDupl_L%d", i), ";#it{p}_{T} (GeV/c);#eta; ", 100, 0, 10, 100, -2, 2);
 
-    mDuplicatedPt[i] = new TH1D(Form("mDuplicatedPt_log_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    mDuplicatedPt[i] = std::make_unique<TH1D>(Form("mDuplicatedPt_log_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/);
     mDuplicatedPt[i]->Sumw2();
-    mNGoodMatchesPt[i] = new TH1D(Form("mNGoodMatchesPt_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    mNGoodMatchesPt[i] = std::make_unique<TH1D>(Form("mNGoodMatchesPt_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/);
     mNGoodMatchesPt[i]->Sumw2();
-    mNFakeMatchesPt[i] = new TH1D(Form("mNFakeMatchesPt_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of fake matches L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    mNFakeMatchesPt[i] = std::make_unique<TH1D>(Form("mNFakeMatchesPt_L%d", i), Form("; #it{p}_{T} (GeV/c); Number of fake matches L%d", i), nbPt, 0, 7.5 /* xbins*/);
     mNFakeMatchesPt[i]->Sumw2();
 
-    mDuplicatedRow[i] = new TH1D(Form("mDuplicatedRow_L%d", i), Form("; Row; Number of duplciated clusters L%d", i), 128, -0.5, 511.5);
+    mDuplicatedRow[i] = std::make_unique<TH1D>(Form("mDuplicatedRow_L%d", i), Form("; Row; Number of duplciated clusters L%d", i), 128, -0.5, 511.5);
     mDuplicatedRow[i]->Sumw2();
-    mNGoodMatchesRow[i] = new TH1D(Form("mNGoodMatchesRow_L%d", i), Form("; Row; Number of good matches L%d", i), 128, -0.5, 511.5);
+    mNGoodMatchesRow[i] = std::make_unique<TH1D>(Form("mNGoodMatchesRow_L%d", i), Form("; Row; Number of good matches L%d", i), 128, -0.5, 511.5);
     mNGoodMatchesRow[i]->Sumw2();
-    mNFakeMatchesRow[i] = new TH1D(Form("mNFakeMatchesRow_L%d", i), Form(";Row; Number of fake matches L%d", i), 128, -0.5, 511.5);
+    mNFakeMatchesRow[i] = std::make_unique<TH1D>(Form("mNFakeMatchesRow_L%d", i), Form(";Row; Number of fake matches L%d", i), 128, -0.5, 511.5);
     mNFakeMatchesRow[i]->Sumw2();
 
-    mDuplicatedCol[i] = new TH1D(Form("mDuplicatedCol_L%d", i), Form("; Col; Number of duplciated clusters L%d", i), 128, -0.5, 1023.5);
+    mDuplicatedCol[i] = std::make_unique<TH1D>(Form("mDuplicatedCol_L%d", i), Form("; Col; Number of duplciated clusters L%d", i), 128, -0.5, 1023.5);
     mDuplicatedCol[i]->Sumw2();
-    mNGoodMatchesCol[i] = new TH1D(Form("mNGoodMatchesCol_L%d", i), Form("; Col; Number of good matches L%d", i), 128, -0.5, 1023.5);
+    mNGoodMatchesCol[i] = std::make_unique<TH1D>(Form("mNGoodMatchesCol_L%d", i), Form("; Col; Number of good matches L%d", i), 128, -0.5, 1023.5);
     mNGoodMatchesCol[i]->Sumw2();
-    mNFakeMatchesCol[i] = new TH1D(Form("mNFakeMatchesCol_L%d", i), Form(";Col; Number of fake matches L%d", i), 128, -0.5, 1023.5);
+    mNFakeMatchesCol[i] = std::make_unique<TH1D>(Form("mNFakeMatchesCol_L%d", i), Form(";Col; Number of fake matches L%d", i), 128, -0.5, 1023.5);
     mNFakeMatchesCol[i]->Sumw2();
 
-    mDuplicatedZ[i] = new TH1D(Form("mDuplicatedZ_L%d", i), Form("; Z (cm); Number of duplciated clusters L%d", i), 100, -15, 15);
+    mDuplicatedZ[i] = std::make_unique<TH1D>(Form("mDuplicatedZ_L%d", i), Form("; Z (cm); Number of duplciated clusters L%d", i), 100, -15, 15);
     mDuplicatedZ[i]->Sumw2();
-    mNGoodMatchesZ[i] = new TH1D(Form("mNGoodMatchesZ_L%d", i), Form("; Z (cm); Number of good matches L%d", i), 100, -15, 15);
+    mNGoodMatchesZ[i] = std::make_unique<TH1D>(Form("mNGoodMatchesZ_L%d", i), Form("; Z (cm); Number of good matches L%d", i), 100, -15, 15);
     mNGoodMatchesZ[i]->Sumw2();
-    mNFakeMatchesZ[i] = new TH1D(Form("mNFakeMatchesZ_L%d", i), Form(";Z (cm); Number of fake matches L%d", i), 100, -15, 15);
+    mNFakeMatchesZ[i] = std::make_unique<TH1D>(Form("mNFakeMatchesZ_L%d", i), Form(";Z (cm); Number of fake matches L%d", i), 100, -15, 15);
     mNFakeMatchesZ[i]->Sumw2();
 
-    mDuplicatedPtEta[i] = new TH2D(Form("mDuplicatedPtEta_log_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
+    mDuplicatedPtEta[i] = std::make_unique<TH2D>(Form("mDuplicatedPtEta_log_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
     mDuplicatedPtEta[i]->Sumw2();
-    mNGoodMatchesPtEta[i] = new TH2D(Form("mNGoodMatchesPtEta_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
+    mNGoodMatchesPtEta[i] = std::make_unique<TH2D>(Form("mNGoodMatchesPtEta_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
     mNGoodMatchesPtEta[i]->Sumw2();
-    mNFakeMatchesPtEta[i] = new TH2D(Form("mNFakeMatchesPtEta_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
+    mNFakeMatchesPtEta[i] = std::make_unique<TH2D>(Form("mNFakeMatchesPtEta_L%d", i), Form("; #it{p}_{T} (GeV/c);#eta; Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 40, -2, 2);
     mNFakeMatchesPtEta[i]->Sumw2();
 
-    mDuplicatedPtPhi[i] = new TH2D(Form("mDuplicatedPtPhi_log_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
+    mDuplicatedPtPhi[i] = std::make_unique<TH2D>(Form("mDuplicatedPtPhi_log_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of duplciated clusters L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
     mDuplicatedPtPhi[i]->Sumw2();
-    mNGoodMatchesPtPhi[i] = new TH2D(Form("mNGoodMatchesPtPhi_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
+    mNGoodMatchesPtPhi[i] = std::make_unique<TH2D>(Form("mNGoodMatchesPtPhi_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
     mNGoodMatchesPtPhi[i]->Sumw2();
-    mNFakeMatchesPtPhi[i] = new TH2D(Form("mNFakeMatchesPtPhi_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
+    mNFakeMatchesPtPhi[i] = std::make_unique<TH2D>(Form("mNFakeMatchesPtPhi_L%d", i), Form("; #it{p}_{T} (GeV/c);#phi (rad); Number of good matches L%d", i), nbPt, 0, 7.5 /* xbins*/, 90, -3.2, 3.2);
     mNFakeMatchesPtPhi[i]->Sumw2();
 
-    mDuplicatedEtaPhi[i] = new TH2D(Form("mDuplicatedEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of duplciated clusters L%d", i), 40, -2, 2, 90, -3.2, 3.2);
+    mDuplicatedEtaPhi[i] = std::make_unique<TH2D>(Form("mDuplicatedEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of duplciated clusters L%d", i), 40, -2, 2, 90, -3.2, 3.2);
     mDuplicatedEtaPhi[i]->Sumw2();
-    mNGoodMatchesEtaPhi[i] = new TH2D(Form("mNGoodMatchesEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of good matches L%d", i), 40, -2, 2, 90, -3.2, 3.2);
+    mNGoodMatchesEtaPhi[i] = std::make_unique<TH2D>(Form("mNGoodMatchesEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of good matches L%d", i), 40, -2, 2, 90, -3.2, 3.2);
     mNGoodMatchesEtaPhi[i]->Sumw2();
-    mNFakeMatchesEtaPhi[i] = new TH2D(Form("mNFakeMatchesEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of good matches L%d", i), 40, -2, 2, 90, -3.2, 3.2);
+    mNFakeMatchesEtaPhi[i] = std::make_unique<TH2D>(Form("mNFakeMatchesEtaPhi_L%d", i), Form("; #eta;#phi (rad); Number of good matches L%d", i), 40, -2, 2, 90, -3.2, 3.2);
     mNFakeMatchesEtaPhi[i]->Sumw2();
 
     mDuplicatedEtaAllPt[i] = std::make_unique<TH1D>(Form("mDuplicatedEtaAllPt_L%d", i), Form("; #eta; Number of duplicated clusters L%d", i), 40, -2, 2);
@@ -469,67 +469,67 @@ void EfficiencyStudy::init(InitContext& ic)
     mNGoodMatchesPhiAllPt[i] = std::make_unique<TH1D>(Form("mNGoodMatchesPhiAllPt_L%d", i), Form("; #phi (rad); Number of good matches L%d", i), 90, -3.2, 3.2);
     mNFakeMatchesPhiAllPt[i] = std::make_unique<TH1D>(Form("mNFakeMatchesPhiAllPt_L%d", i), Form("; #phi (rad); Number of fake matches L%d", i), 90, -3.2, 3.2);
 
-    mnGoodMatchesPt_layer[i] = new TH2D(Form("mnGoodMatchesPt_layer_L%d", i), ";pt; nGoodMatches", nbPt, 0, 7.5 /* xbins*/, 20, 0.5, 20.5);
-    mnFakeMatchesPt_layer[i] = new TH2D(Form("mnFakeMatchesPt_layer_L%d", i), ";pt; nFakeMatches", nbPt, 0, 7.5 /* xbins*/, 20, 0.5, 20.5);
-    mnGoodMatchesEta_layer[i] = new TH2D(Form("mnGoodMatchesEta_layer_L%d", i), ";#eta; nGoodMatches", 40, -2, 2, 20, 0.5, 20.5);
-    mnFakeMatchesEta_layer[i] = new TH2D(Form("mnFakeMatchesEta_layer_L%d", i), ";#eta; nFakeMatches", 40, -2, 2, 20, 0.5, 20.5);
-    mnGoodMatchesPhi_layer[i] = new TH2D(Form("mnGoodMatchesPhi_layer_L%d", i), ";#Phi; nGoodMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
-    mnGoodMatchesPhiOriginal_layer[i] = new TH2D(Form("mnGoodMatchesPhiOriginal_layer_L%d", i), ";#Phi of the original Cluster; nGoodMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
-    mnFakeMatchesPhi_layer[i] = new TH2D(Form("mnFakeMatchesPhi_layer_L%d", i), ";#Phi; nFakeMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mnGoodMatchesPt_layer[i] = std::make_unique<TH2D>(Form("mnGoodMatchesPt_layer_L%d", i), ";pt; nGoodMatches", nbPt, 0, 7.5 /* xbins*/, 20, 0.5, 20.5);
+    mnFakeMatchesPt_layer[i] = std::make_unique<TH2D>(Form("mnFakeMatchesPt_layer_L%d", i), ";pt; nFakeMatches", nbPt, 0, 7.5 /* xbins*/, 20, 0.5, 20.5);
+    mnGoodMatchesEta_layer[i] = std::make_unique<TH2D>(Form("mnGoodMatchesEta_layer_L%d", i), ";#eta; nGoodMatches", 40, -2, 2, 20, 0.5, 20.5);
+    mnFakeMatchesEta_layer[i] = std::make_unique<TH2D>(Form("mnFakeMatchesEta_layer_L%d", i), ";#eta; nFakeMatches", 40, -2, 2, 20, 0.5, 20.5);
+    mnGoodMatchesPhi_layer[i] = std::make_unique<TH2D>(Form("mnGoodMatchesPhi_layer_L%d", i), ";#Phi; nGoodMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mnGoodMatchesPhiOriginal_layer[i] = std::make_unique<TH2D>(Form("mnGoodMatchesPhiOriginal_layer_L%d", i), ";#Phi of the original Cluster; nGoodMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
+    mnFakeMatchesPhi_layer[i] = std::make_unique<TH2D>(Form("mnFakeMatchesPhi_layer_L%d", i), ";#Phi; nFakeMatches", 90, -3.2, 3.2, 20, 0.5, 20.5);
 
-    denPt[i] = new TH1D(Form("denPt_L%d", i), Form("denPt_L%d", i), nbPt, 0, 7.5 /* xbins*/);
-    numPt[i] = new TH1D(Form("numPt_L%d", i), Form("numPt_L%d", i), nbPt, 0, 7.5 /* xbins*/);
-    numPtGood[i] = new TH1D(Form("numPtGood_L%d", i), Form("numPtGood_L%d", i), nbPt, 0, 7.5 /* xbins*/);
-    numPtFake[i] = new TH1D(Form("numPtFake_L%d", i), Form("numPtFake_L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    denPt[i] = std::make_unique<TH1D>(Form("denPt_L%d", i), Form("denPt_L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    numPt[i] = std::make_unique<TH1D>(Form("numPt_L%d", i), Form("numPt_L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    numPtGood[i] = std::make_unique<TH1D>(Form("numPtGood_L%d", i), Form("numPtGood_L%d", i), nbPt, 0, 7.5 /* xbins*/);
+    numPtFake[i] = std::make_unique<TH1D>(Form("numPtFake_L%d", i), Form("numPtFake_L%d", i), nbPt, 0, 7.5 /* xbins*/);
 
-    denPhi[i] = new TH1D(Form("denPhi_L%d", i), Form("denPhi_L%d", i), 90, -3.2, 3.2);
-    numPhi[i] = new TH1D(Form("numPhi_L%d", i), Form("numPhi_L%d", i), 90, -3.2, 3.2);
-    numPhiGood[i] = new TH1D(Form("numPhiGood_L%d", i), Form("numPhiGood_L%d", i), 90, -3.2, 3.2);
-    numPhiFake[i] = new TH1D(Form("numPhiFake_L%d", i), Form("numPhiFake_L%d", i), 90, -3.2, 3.2);
+    denPhi[i] = std::make_unique<TH1D>(Form("denPhi_L%d", i), Form("denPhi_L%d", i), 90, -3.2, 3.2);
+    numPhi[i] = std::make_unique<TH1D>(Form("numPhi_L%d", i), Form("numPhi_L%d", i), 90, -3.2, 3.2);
+    numPhiGood[i] = std::make_unique<TH1D>(Form("numPhiGood_L%d", i), Form("numPhiGood_L%d", i), 90, -3.2, 3.2);
+    numPhiFake[i] = std::make_unique<TH1D>(Form("numPhiFake_L%d", i), Form("numPhiFake_L%d", i), 90, -3.2, 3.2);
 
-    denEta[i] = new TH1D(Form("denEta_L%d", i), Form("denEta_L%d", i), 200, -2, 2);
-    numEta[i] = new TH1D(Form("numEta_L%d", i), Form("numEta_L%d", i), 200, -2, 2);
-    numEtaGood[i] = new TH1D(Form("numEtaGood_L%d", i), Form("numEtaGood_L%d", i), 200, -2, 2);
-    numEtaFake[i] = new TH1D(Form("numEtaFake_L%d", i), Form("numEtaFake_L%d", i), 200, -2, 2);
+    denEta[i] = std::make_unique<TH1D>(Form("denEta_L%d", i), Form("denEta_L%d", i), 200, -2, 2);
+    numEta[i] = std::make_unique<TH1D>(Form("numEta_L%d", i), Form("numEta_L%d", i), 200, -2, 2);
+    numEtaGood[i] = std::make_unique<TH1D>(Form("numEtaGood_L%d", i), Form("numEtaGood_L%d", i), 200, -2, 2);
+    numEtaFake[i] = std::make_unique<TH1D>(Form("numEtaFake_L%d", i), Form("numEtaFake_L%d", i), 200, -2, 2);
 
-    denRow[i] = new TH1D(Form("denRow_L%d", i), Form("denRow_L%d", i), 128, -0.5, 511.5);
-    numRow[i] = new TH1D(Form("numRow_L%d", i), Form("numRow_L%d", i), 128, -0.5, 511.5);
-    numRowGood[i] = new TH1D(Form("numRowGood_L%d", i), Form("numRowGood_L%d", i), 128, -0.5, 511.5);
-    numRowFake[i] = new TH1D(Form("numRowFake_L%d", i), Form("numRowFake_L%d", i), 128, -0.5, 511.5);
+    denRow[i] = std::make_unique<TH1D>(Form("denRow_L%d", i), Form("denRow_L%d", i), 128, -0.5, 511.5);
+    numRow[i] = std::make_unique<TH1D>(Form("numRow_L%d", i), Form("numRow_L%d", i), 128, -0.5, 511.5);
+    numRowGood[i] = std::make_unique<TH1D>(Form("numRowGood_L%d", i), Form("numRowGood_L%d", i), 128, -0.5, 511.5);
+    numRowFake[i] = std::make_unique<TH1D>(Form("numRowFake_L%d", i), Form("numRowFake_L%d", i), 128, -0.5, 511.5);
 
-    denCol[i] = new TH1D(Form("denCol_L%d", i), Form("denCol_L%d", i), 128, -0.5, 1023.5);
-    numCol[i] = new TH1D(Form("numCol_L%d", i), Form("numCol_L%d", i), 128, -0.5, 1023.5);
-    numColGood[i] = new TH1D(Form("numColGood_L%d", i), Form("numColGood_L%d", i), 128, -0.5, 1023.5);
-    numColFake[i] = new TH1D(Form("numColFake_L%d", i), Form("numColFake_L%d", i), 128, -0.5, 1023.5);
+    denCol[i] = std::make_unique<TH1D>(Form("denCol_L%d", i), Form("denCol_L%d", i), 128, -0.5, 1023.5);
+    numCol[i] = std::make_unique<TH1D>(Form("numCol_L%d", i), Form("numCol_L%d", i), 128, -0.5, 1023.5);
+    numColGood[i] = std::make_unique<TH1D>(Form("numColGood_L%d", i), Form("numColGood_L%d", i), 128, -0.5, 1023.5);
+    numColFake[i] = std::make_unique<TH1D>(Form("numColFake_L%d", i), Form("numColFake_L%d", i), 128, -0.5, 1023.5);
 
-    denZ[i] = new TH1D(Form("denZ_L%d", i), Form("denZ_L%d", i), 100, -15, 15);
-    numZ[i] = new TH1D(Form("numZ_L%d", i), Form("numZ_L%d", i), 100, -15, 15);
-    numZGood[i] = new TH1D(Form("numZGood_L%d", i), Form("numZGood_L%d", i), 100, -15, 15);
-    numZFake[i] = new TH1D(Form("numZFake_L%d", i), Form("numZFake_L%d", i), 100, -15, 15);
+    denZ[i] = std::make_unique<TH1D>(Form("denZ_L%d", i), Form("denZ_L%d", i), 100, -15, 15);
+    numZ[i] = std::make_unique<TH1D>(Form("numZ_L%d", i), Form("numZ_L%d", i), 100, -15, 15);
+    numZGood[i] = std::make_unique<TH1D>(Form("numZGood_L%d", i), Form("numZGood_L%d", i), 100, -15, 15);
+    numZFake[i] = std::make_unique<TH1D>(Form("numZFake_L%d", i), Form("numZFake_L%d", i), 100, -15, 15);
 
-    mDenColEta[i] = new TH2D(Form("mDenColEta_L%d", i), Form("mDenColEta_L%d", i), 128, -0.5, 1023.5, 50, -1, 1);
-    mNumColEta[i] = new TH2D(Form("mNumColEta_L%d", i), Form("mNumColEta_L%d", i), 128, -0.5, 1023.5, 50, -1, 1);
+    mDenColEta[i] = std::make_unique<TH2D>(Form("mDenColEta_L%d", i), Form("mDenColEta_L%d", i), 128, -0.5, 1023.5, 50, -1, 1);
+    mNumColEta[i] = std::make_unique<TH2D>(Form("mNumColEta_L%d", i), Form("mNumColEta_L%d", i), 128, -0.5, 1023.5, 50, -1, 1);
 
-    mDenRowPhi[i] = new TH2D(Form("mDenRowPhi_L%d", i), Form("mDenRowPhi_L%d", i), 128, -0.5, 511.5, 90, -3.2, 3.2);
-    mNumRowPhi[i] = new TH2D(Form("mNumRowPhi_L%d", i), Form("mNumRowPhi_L%d", i), 128, -0.5, 511.5, 90, -3.2, 3.2);
+    mDenRowPhi[i] = std::make_unique<TH2D>(Form("mDenRowPhi_L%d", i), Form("mDenRowPhi_L%d", i), 128, -0.5, 511.5, 90, -3.2, 3.2);
+    mNumRowPhi[i] = std::make_unique<TH2D>(Form("mNumRowPhi_L%d", i), Form("mNumRowPhi_L%d", i), 128, -0.5, 511.5, 90, -3.2, 3.2);
 
-    mDenRowCol[i] = new TH2D(Form("mDenRowCol_L%d", i), Form("mDenRowCol_L%d", i), 128, -0.5, 511.5, 128, -0.5, 1023.5);
-    mNumRowCol[i] = new TH2D(Form("mNumRowCol_L%d", i), Form("mNumRowCol_L%d", i), 128, -0.5, 511.5, 128, -0.5, 1023.5);
+    mDenRowCol[i] = std::make_unique<TH2D>(Form("mDenRowCol_L%d", i), Form("mDenRowCol_L%d", i), 128, -0.5, 511.5, 128, -0.5, 1023.5);
+    mNumRowCol[i] = std::make_unique<TH2D>(Form("mNumRowCol_L%d", i), Form("mNumRowCol_L%d", i), 128, -0.5, 511.5, 128, -0.5, 1023.5);
 
     IPOriginalxy[i] = std::make_unique<TH1D>(Form("IPOriginalxy_L%d", i), Form("IPOriginalxy_L%d", i), 500, -0.002, 0.002);
     IPOriginalz[i] = std::make_unique<TH1D>(Form("IPOriginalz_L%d", i), Form("IPOriginalz_L%d", i), 200, -10, 10);
 
-    phiFound[i] = new TH1D(Form("phiFound_L%d", i), Form("phiFound_L%d", i), 190, -3.2, 3.2);
-    rowFound[i] = new TH1D(Form("rowFound_L%d", i), Form("rowFound_L%d", i), 128, -0.5, 511.5);
-    phiNotFound[i] = new TH1D(Form("phiNotFound_L%d", i), Form("phiNotFound_L%d", i), 90, -3.2, 3.2);
-    rowNotFound[i] = new TH1D(Form("rowNotFound_L%d", i), Form("rowNotFound_L%d", i), 128, -0.5, 511.5);
-    zFound[i] = new TH1D(Form("zFound_L%d", i), Form("zFound_L%d", i), 100, -15, 15);
-    zNotFound[i] = new TH1D(Form("zNotFound%d", i), Form("zNotFound%d", i), 100, -15, 15);
-    colFoundOriginalVsDuplicated[i] = new TH2D(Form("colFoundOriginalVsDuplicated_L%d", i), Form("colFoundOriginalVsDuplicated_L%d; Col Original cluster; Col Overlap cluster", i), 9216, -0.5, 9215.5, 9216, -0.5, 9215.5);
-    colFoundOriginal[i] = new TH1D(Form("colFoundOriginal_L%d", i), Form("colFoundOriginal_L%d; Col Original cluster;", i), 9216, -0.5, 9215.5);
-    colNotFound[i] = new TH1D(Form("colNotFound_L%d", i), Form("colNotFound_L%d", i), 9216, -0.5, 9215.5);
-    radiusFound[i] = new TH1D(Form("radiusFound_L%d", i), Form("radiusFound_L%d", i), 80, 0, 6);
-    radiusNotFound[i] = new TH1D(Form("radiusNotFound_L%d", i), Form("radiusNotFound_L%d", i), 80, 0, 4);
+    phiFound[i] = std::make_unique<TH1D>(Form("phiFound_L%d", i), Form("phiFound_L%d", i), 190, -3.2, 3.2);
+    rowFound[i] = std::make_unique<TH1D>(Form("rowFound_L%d", i), Form("rowFound_L%d", i), 128, -0.5, 511.5);
+    phiNotFound[i] = std::make_unique<TH1D>(Form("phiNotFound_L%d", i), Form("phiNotFound_L%d", i), 90, -3.2, 3.2);
+    rowNotFound[i] = std::make_unique<TH1D>(Form("rowNotFound_L%d", i), Form("rowNotFound_L%d", i), 128, -0.5, 511.5);
+    zFound[i] = std::make_unique<TH1D>(Form("zFound_L%d", i), Form("zFound_L%d", i), 100, -15, 15);
+    zNotFound[i] = std::make_unique<TH1D>(Form("zNotFound%d", i), Form("zNotFound%d", i), 100, -15, 15);
+    colFoundOriginalVsDuplicated[i] = std::make_unique<TH2D>(Form("colFoundOriginalVsDuplicated_L%d", i), Form("colFoundOriginalVsDuplicated_L%d; Col Original cluster; Col Overlap cluster", i), 9216, -0.5, 9215.5, 9216, -0.5, 9215.5);
+    colFoundOriginal[i] = std::make_unique<TH1D>(Form("colFoundOriginal_L%d", i), Form("colFoundOriginal_L%d; Col Original cluster;", i), 9216, -0.5, 9215.5);
+    colNotFound[i] = std::make_unique<TH1D>(Form("colNotFound_L%d", i), Form("colNotFound_L%d", i), 9216, -0.5, 9215.5);
+    radiusFound[i] = std::make_unique<TH1D>(Form("radiusFound_L%d", i), Form("radiusFound_L%d", i), 80, 0, 6);
+    radiusNotFound[i] = std::make_unique<TH1D>(Form("radiusNotFound_L%d", i), Form("radiusNotFound_L%d", i), 80, 0, 4);
 
     for (int j = 0; j < 3; j++) {
       mDuplicatedEta[i][j] = std::make_unique<TH1D>(Form("mDuplicatedEta_L%d_pt%d", i, j), Form("%f < #it{p}_{T} < %f GeV/c; #eta; Number of duplicated clusters L%d", mrangesPt[j][0], mrangesPt[j][1], i), 40, -2, 2);
@@ -1543,36 +1543,36 @@ void EfficiencyStudy::studyClusterSelectionMC()
   mOutFile->cd("EfficiencyCuts/");
 
   std::cout << "Calculating efficiency..." << std::endl;
-  TH1D* axpt = new TH1D("axpt", "", 1, 0.05, 7.5);
-  TH1D* axRow = new TH1D("axRow", "", 1, -0.5, 511.5);
-  TH1D* axCol = new TH1D("axRow", "", 1, -0.5, 1023.5);
-  TH1D* axZ = new TH1D("axZ", "", 1, -15, 15);
-  TH2D* axptetaGood = new TH2D("axptetaGood", "", 1, 0.05, 7.5, 1, -2, 2);
-  TH2D* axptetaFake = new TH2D("axptetaFake", "", 1, 0.05, 7.5, 1, -2, 2);
-  TH2D* axptphiGood = new TH2D("axptphiGood", "", 1, 0.05, 7.5, 1, -3.2, 3.2);
-  TH2D* axptphiFake = new TH2D("axptphiFake", "", 1, 0.05, 7.5, 1, -3.2, 3.2);
-  TH2D* axetaphiGood = new TH2D("axetaphiGood", "", 1, -2, 2, 1, -3.2, 3.2);
-  TH2D* axetaphiFake = new TH2D("axetaphiFake", "", 1, -2, 2, 1, -3.2, 3.2);
-  TH1D* axetaAllPt = new TH1D("axetaAllPt", "", 1, -2, 2);
-  TH1D* axeta[NLAYERS];
-  TH1D* axphi[NLAYERS];
+  std::unique_ptr<TH1D> axpt = std::make_unique<TH1D>("axpt", "", 1, 0.05, 7.5);
+  std::unique_ptr<TH1D> axRow = std::make_unique<TH1D>("axRow", "", 1, -0.5, 511.5);
+  std::unique_ptr<TH1D> axCol = std::make_unique<TH1D>("axRow", "", 1, -0.5, 1023.5);
+  std::unique_ptr<TH1D> axZ = std::make_unique<TH1D>("axZ", "", 1, -15, 15);
+  std::unique_ptr<TH2D> axptetaGood = std::make_unique<TH2D>("axptetaGood", "", 1, 0.05, 7.5, 1, -2, 2);
+  std::unique_ptr<TH2D> axptetaFake = std::make_unique<TH2D>("axptetaFake", "", 1, 0.05, 7.5, 1, -2, 2);
+  std::unique_ptr<TH2D> axptphiGood = std::make_unique<TH2D>("axptphiGood", "", 1, 0.05, 7.5, 1, -3.2, 3.2);
+  std::unique_ptr<TH2D> axptphiFake = std::make_unique<TH2D>("axptphiFake", "", 1, 0.05, 7.5, 1, -3.2, 3.2);
+  std::unique_ptr<TH2D> axetaphiGood = std::make_unique<TH2D>("axetaphiGood", "", 1, -2, 2, 1, -3.2, 3.2);
+  std::unique_ptr<TH2D> axetaphiFake = std::make_unique<TH2D>("axetaphiFake", "", 1, -2, 2, 1, -3.2, 3.2);
+  std::unique_ptr<TH1D> axetaAllPt = std::make_unique<TH1D>("axetaAllPt", "", 1, -2, 2);
+  std::unique_ptr<TH1D> axeta[NLAYERS];
+  std::unique_ptr<TH1D> axphi[NLAYERS];
   for (int ipt = 0; ipt < 3; ipt++) {
-    axeta[ipt] = new TH1D(Form("axeta%d", ipt), Form("axeta%d", ipt), 1, -2, 2);
-    axphi[ipt] = new TH1D(Form("axphi%d", ipt), Form("axphi%d", ipt), 1, -3.2, 3.2);
+    axeta[ipt] = std::make_unique<TH1D>(Form("axeta%d", ipt), Form("axeta%d", ipt), 1, -2, 2);
+    axphi[ipt] = std::make_unique<TH1D>(Form("axphi%d", ipt), Form("axphi%d", ipt), 1, -3.2, 3.2);
   }
-  TH1D* axphiAllPt = new TH1D("axphi", "", 1, -3.2, 3.2);
+  std::unique_ptr<TH1D> axphiAllPt = std::make_unique<TH1D>("axphi", "", 1, -3.2, 3.2);
 
-  TCanvas* effPt[NLAYERS];
-  TCanvas* effRow[NLAYERS];
-  TCanvas* effCol[NLAYERS];
-  TCanvas* effZ[NLAYERS];
-  TCanvas* effPtEta[NLAYERS][2];
-  TCanvas* effPtPhi[NLAYERS][2];
-  TCanvas* effEtaPhi[NLAYERS][2];
-  TCanvas* effEtaAllPt[NLAYERS];
-  TCanvas* effEta[NLAYERS][3];
-  TCanvas* effPhiAllPt[NLAYERS];
-  TCanvas* effPhi[NLAYERS][3];
+  std::unique_ptr<TCanvas> effPt[NLAYERS];
+  std::unique_ptr<TCanvas> effRow[NLAYERS];
+  std::unique_ptr<TCanvas> effCol[NLAYERS];
+  std::unique_ptr<TCanvas> effZ[NLAYERS];
+  std::unique_ptr<TCanvas> effPtEta[NLAYERS][2];
+  std::unique_ptr<TCanvas> effPtPhi[NLAYERS][2];
+  std::unique_ptr<TCanvas> effEtaPhi[NLAYERS][2];
+  std::unique_ptr<TCanvas> effEtaAllPt[NLAYERS];
+  std::unique_ptr<TCanvas> effEta[NLAYERS][3];
+  std::unique_ptr<TCanvas> effPhiAllPt[NLAYERS];
+  std::unique_ptr<TCanvas> effPhi[NLAYERS][3];
 
   ///////////////// plotting results
   for (int l = 0; l < 3; l++) {
@@ -1581,7 +1581,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     }
 
     // Pt
-    effPt[l] = new TCanvas(Form("effPt_L%d", l));
+    effPt[l] = std::make_unique<TCanvas>(Form("effPt_L%d", l));
 
     mEffPtGood[l] = std::make_unique<TEfficiency>(*mNGoodMatchesPt[l], *mDuplicatedPt[l]);
     stileEfficiencyGraph(mEffPtGood[l], Form("mEffPtGood_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});Efficiency", l), false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
@@ -1609,7 +1609,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effPt[l]->Write();
 
     // PtEtaGood
-    effPtEta[l][0] = new TCanvas(Form("effPtEtaGood_L%d", l));
+    effPtEta[l][0] = std::make_unique<TCanvas>(Form("effPtEtaGood_L%d", l));
 
     mEffPtEtaGood[l] = std::make_unique<TEfficiency>(*mNGoodMatchesPtEta[l], *mDuplicatedPtEta[l]);
     stileEfficiencyGraph(mEffPtEtaGood[l], Form("mEffPtEtaGood_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});#eta;Efficiency", l), true);
@@ -1640,7 +1640,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     }
 
     // Row
-    effRow[l] = new TCanvas(Form("effRow_L%d", l));
+    effRow[l] = std::make_unique<TCanvas>(Form("effRow_L%d", l));
 
     for (int ibin = 1; ibin <= mNGoodMatchesRow[l]->GetNbinsX(); ibin++) {
       std::cout << "--- Good Row: Npass = " << mNGoodMatchesRow[l]->GetBinContent(ibin) << ",  Nall = " << mDuplicatedRow[l]->GetBinContent(ibin) << " for ibin = " << ibin << std::endl;
@@ -1672,7 +1672,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effRow[l]->Write();
 
     // Col
-    effCol[l] = new TCanvas(Form("effCol_L%d", l));
+    effCol[l] = std::make_unique<TCanvas>(Form("effCol_L%d", l));
 
     for (int ibin = 1; ibin <= mNGoodMatchesCol[l]->GetNbinsX(); ibin++) {
       std::cout << "--- Good Col: Npass = " << mNGoodMatchesCol[l]->GetBinContent(ibin) << ",  Nall = " << mDuplicatedCol[l]->GetBinContent(ibin) << " for ibin = " << ibin << std::endl;
@@ -1704,7 +1704,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effCol[l]->Write();
 
     // Z
-    effZ[l] = new TCanvas(Form("effZ_L%d", l));
+    effZ[l] = std::make_unique<TCanvas>(Form("effZ_L%d", l));
 
     for (int ibin = 1; ibin <= mNGoodMatchesZ[l]->GetNbinsX(); ibin++) {
       std::cout << "--- Good Z: Npass = " << mNGoodMatchesZ[l]->GetBinContent(ibin) << ",  Nall = " << mDuplicatedZ[l]->GetBinContent(ibin) << " for ibin = " << ibin << std::endl;
@@ -1736,7 +1736,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effZ[l]->Write();
 
     // PtEtaGood
-    effPtEta[l][0] = new TCanvas(Form("effPtEtaGood_L%d", l));
+    effPtEta[l][0] = std::make_unique<TCanvas>(Form("effPtEtaGood_L%d", l));
 
     mEffPtEtaGood[l] = std::make_unique<TEfficiency>(*mNGoodMatchesPtEta[l], *mDuplicatedPtEta[l]);
     stileEfficiencyGraph(mEffPtEtaGood[l], Form("mEffPtEtaGood_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});#eta;Efficiency", l), true);
@@ -1767,7 +1767,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     }
 
     // PtEtaFake
-    effPtEta[l][1] = new TCanvas(Form("effPtEtaFake_L%d", l));
+    effPtEta[l][1] = std::make_unique<TCanvas>(Form("effPtEtaFake_L%d", l));
 
     mEffPtEtaFake[l] = std::make_unique<TEfficiency>(*mNFakeMatchesPtEta[l], *mDuplicatedPtEta[l]);
     stileEfficiencyGraph(mEffPtEtaFake[l], Form("mEffPtEtaFake_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});#eta;Efficiency", l), true);
@@ -1781,7 +1781,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effPtEta[l][1]->Write();
 
     // PtPhiGood
-    effPtPhi[l][0] = new TCanvas(Form("effPtPhiGood_L%d", l));
+    effPtPhi[l][0] = std::make_unique<TCanvas>(Form("effPtPhiGood_L%d", l));
 
     mEffPtPhiGood[l] = std::make_unique<TEfficiency>(*mNGoodMatchesPtPhi[l], *mDuplicatedPtPhi[l]);
     stileEfficiencyGraph(mEffPtPhiGood[l], Form("mEffPtPhiGood_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});#phi (rad);Efficiency", l), true);
@@ -1807,7 +1807,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     }
 
     // PtPhiFake
-    effPtPhi[l][1] = new TCanvas(Form("effPtPhiFake_L%d", l));
+    effPtPhi[l][1] = std::make_unique<TCanvas>(Form("effPtPhiFake_L%d", l));
 
     mEffPtPhiFake[l] = std::make_unique<TEfficiency>(*mNFakeMatchesPtPhi[l], *mDuplicatedPtPhi[l]);
     stileEfficiencyGraph(mEffPtPhiFake[l], Form("mEffPtPhiFake_L%d", l), Form("L%d;#it{p}_{T} (GeV/#it{c});#phi (rad);Efficiency", l), true);
@@ -1821,7 +1821,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     effPtPhi[l][1]->Write();
 
     // EtaPhiGood
-    effEtaPhi[l][0] = new TCanvas(Form("effEtaPhiGood_L%d", l));
+    effEtaPhi[l][0] = std::make_unique<TCanvas>(Form("effEtaPhiGood_L%d", l));
 
     mEffEtaPhiGood[l] = std::make_unique<TEfficiency>(*mNGoodMatchesEtaPhi[l], *mDuplicatedEtaPhi[l]);
     stileEfficiencyGraph(mEffEtaPhiGood[l], Form("mEffEtaPhiGood_L%d", l), Form("L%d;#eta;#phi (rad);Efficiency", l), true);
@@ -1847,7 +1847,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     }
 
     // EtaPhiFake
-    effEtaPhi[l][1] = new TCanvas(Form("effEtaPhiFake_L%d", l));
+    effEtaPhi[l][1] = std::make_unique<TCanvas>(Form("effEtaPhiFake_L%d", l));
 
     mEffEtaPhiFake[l] = std::make_unique<TEfficiency>(*mNFakeMatchesEtaPhi[l], *mDuplicatedEtaPhi[l]);
     stileEfficiencyGraph(mEffEtaPhiFake[l], Form("mEffEtaPhiFake_L%d", l), Form("L%d;#eta;#phi (rad);Efficiency", l), true);
@@ -1865,7 +1865,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
       std::cout << "Eta L" << l << "\n\n";
     }
 
-    effEtaAllPt[l] = new TCanvas(Form("effEtaAllPt_L%d", l));
+    effEtaAllPt[l] = std::make_unique<TCanvas>(Form("effEtaAllPt_L%d", l));
 
     mEffEtaGoodAllPt[l] = std::make_unique<TEfficiency>(*mNGoodMatchesEtaAllPt[l], *mDuplicatedEtaAllPt[l]);
     stileEfficiencyGraph(mEffEtaGoodAllPt[l], Form("mEffEtaGoodAllPt_L%d", l), Form("L%d;#eta;Efficiency", l), false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
@@ -1897,7 +1897,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
     /// eta and phi in different pt ranges
     for (int ipt = 0; ipt < 3; ipt++) {
       // eta
-      effEta[l][ipt] = new TCanvas(Form("effEta_L%d_pt%d", l, ipt));
+      effEta[l][ipt] = std::make_unique<TCanvas>(Form("effEta_L%d_pt%d", l, ipt));
 
       mEffEtaGood[l][ipt] = std::make_unique<TEfficiency>(*mNGoodMatchesEta[l][ipt], *mDuplicatedEta[l][ipt]);
       stileEfficiencyGraph(mEffEtaGood[l][ipt], Form("mEffEtaGood_L%d_pt%d", l, ipt), Form("L%d     %.1f #leq #it{p}_{T} < %.1f GeV/#it{c};#eta;Efficiency", l, mrangesPt[ipt][0], mrangesPt[ipt][1]), false, kFullDiamond, 1, kGreen + 3, kGreen + 3);
@@ -1928,7 +1928,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
       effEta[l][ipt]->Write();
 
       // phi
-      effPhi[l][ipt] = new TCanvas(Form("effPhi_L%d_pt%d", l, ipt));
+      effPhi[l][ipt] = std::make_unique<TCanvas>(Form("effPhi_L%d_pt%d", l, ipt));
 
       for (int ibin = 1; ibin <= mNGoodMatchesPhi[l][ipt]->GetNbinsX(); ibin++) {
         if (mNGoodMatchesPhi[l][ipt]->GetBinContent(ibin) > mDuplicatedPhi[l][ipt]->GetBinContent(ibin)) {
@@ -1973,7 +1973,7 @@ void EfficiencyStudy::studyClusterSelectionMC()
       std::cout << "Phi L" << l << "\n\n";
     }
 
-    effPhiAllPt[l] = new TCanvas(Form("effPhiAllPt_L%d", l));
+    effPhiAllPt[l] = std::make_unique<TCanvas>(Form("effPhiAllPt_L%d", l));
 
     for (int ibin = 1; ibin <= mNGoodMatchesPhiAllPt[l]->GetNbinsX(); ibin++) {
       if (mNGoodMatchesPhiAllPt[l]->GetBinContent(ibin) > mDuplicatedPhiAllPt[l]->GetBinContent(ibin)) {
@@ -2012,18 +2012,18 @@ void EfficiencyStudy::studyClusterSelectionMC()
   }
 
   /// all Row
-  TCanvas* effRowAll = new TCanvas("effRowAll");
-  TH1D* numRowGoodAll = (TH1D*)mNGoodMatchesRow[0]->Clone("numRowGoodAll");
-  numRowGoodAll->Add(mNGoodMatchesRow[1]);
-  numRowGoodAll->Add(mNGoodMatchesRow[2]);
+  std::unique_ptr<TCanvas> effRowAll = std::make_unique<TCanvas>("effRowAll");
+  auto numRowGoodAll = std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesRow[0]->Clone("numRowGoodAll"));
+  numRowGoodAll->Add(mNGoodMatchesRow[1].get());
+  numRowGoodAll->Add(mNGoodMatchesRow[2].get());
   numRowGoodAll->Write();
-  TH1D* numRowFakeAll = (TH1D*)mNFakeMatchesRow[0]->Clone("numRowFakeAll");
-  numRowFakeAll->Add(mNFakeMatchesRow[1]);
-  numRowFakeAll->Add(mNFakeMatchesRow[2]);
+  auto numRowFakeAll = std::unique_ptr<TH1D>((TH1D*)mNFakeMatchesRow[0]->Clone("numRowFakeAll"));
+  numRowFakeAll->Add(mNFakeMatchesRow[1].get());
+  numRowFakeAll->Add(mNFakeMatchesRow[2].get());
   numRowFakeAll->Write();
-  TH1D* denRowAll = (TH1D*)mDuplicatedRow[0]->Clone("denRowAll");
-  denRowAll->Add(mDuplicatedRow[1]);
-  denRowAll->Add(mDuplicatedRow[2]);
+  auto denRowAll = std::unique_ptr<TH1D>((TH1D*)mDuplicatedRow[0]->Clone("denRowAll"));
+  denRowAll->Add(mDuplicatedRow[1].get());
+  denRowAll->Add(mDuplicatedRow[2].get());
   denRowAll->Write();
 
   std::unique_ptr<TEfficiency> mEffRowGoodAll = std::make_unique<TEfficiency>(*numRowGoodAll, *denRowAll);
@@ -2043,18 +2043,18 @@ void EfficiencyStudy::studyClusterSelectionMC()
   effRowAll->Write();
 
   /// all Col
-  TCanvas* effColAll = new TCanvas("effColAll");
-  TH1D* numColGoodAll = (TH1D*)mNGoodMatchesCol[0]->Clone("numColGoodAll");
-  numColGoodAll->Add(mNGoodMatchesCol[1]);
-  numColGoodAll->Add(mNGoodMatchesCol[2]);
+  std::unique_ptr<TCanvas> effColAll = std::make_unique<TCanvas>("effColAll");
+  auto numColGoodAll = std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesCol[0]->Clone("numColGoodAll"));
+  numColGoodAll->Add(mNGoodMatchesCol[1].get());
+  numColGoodAll->Add(mNGoodMatchesCol[2].get());
   numColGoodAll->Write();
-  TH1D* numColFakeAll = (TH1D*)mNFakeMatchesCol[0]->Clone("numColFakeAll");
-  numColFakeAll->Add(mNFakeMatchesCol[1]);
-  numColFakeAll->Add(mNFakeMatchesCol[2]);
+  auto numColFakeAll = std::unique_ptr<TH1D>((TH1D*)mNFakeMatchesCol[0]->Clone("numColFakeAll"));
+  numColFakeAll->Add(mNFakeMatchesCol[1].get());
+  numColFakeAll->Add(mNFakeMatchesCol[2].get());
   numColFakeAll->Write();
-  TH1D* denColAll = (TH1D*)mDuplicatedCol[0]->Clone("denColAll");
-  denColAll->Add(mDuplicatedCol[1]);
-  denColAll->Add(mDuplicatedCol[2]);
+  auto denColAll = std::unique_ptr<TH1D>((TH1D*)mDuplicatedCol[0]->Clone("denColAll"));
+  denColAll->Add(mDuplicatedCol[1].get());
+  denColAll->Add(mDuplicatedCol[2].get());
   denColAll->Write();
 
   std::unique_ptr<TEfficiency> mEffColGoodAll = std::make_unique<TEfficiency>(*numColGoodAll, *denColAll);
@@ -2074,18 +2074,18 @@ void EfficiencyStudy::studyClusterSelectionMC()
   effColAll->Write();
 
   /// all Z
-  TCanvas* effZAll = new TCanvas("effZAll");
-  TH1D* numZGoodAll = (TH1D*)mNGoodMatchesZ[0]->Clone("numZGoodAll");
-  numZGoodAll->Add(mNGoodMatchesZ[1]);
-  numZGoodAll->Add(mNGoodMatchesZ[2]);
+  std::unique_ptr<TCanvas> effZAll = std::make_unique<TCanvas>("effZAll");
+  auto numZGoodAll =std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesZ[0]->Clone("numZGoodAll"));
+  numZGoodAll->Add(mNGoodMatchesZ[1].get());
+  numZGoodAll->Add(mNGoodMatchesZ[2].get());
   numZGoodAll->Write();
-  TH1D* numZFakeAll = (TH1D*)mNFakeMatchesZ[0]->Clone("numZFakeAll");
-  numZFakeAll->Add(mNFakeMatchesZ[1]);
-  numZFakeAll->Add(mNFakeMatchesZ[2]);
+  auto numZFakeAll = std::unique_ptr<TH1D>((TH1D*)mNFakeMatchesZ[0]->Clone("numZFakeAll"));
+  numZFakeAll->Add(mNFakeMatchesZ[1].get());
+  numZFakeAll->Add(mNFakeMatchesZ[2].get());
   numZFakeAll->Write();
-  TH1D* denZAll = (TH1D*)mDuplicatedZ[0]->Clone("denZAll");
-  denZAll->Add(mDuplicatedZ[1]);
-  denZAll->Add(mDuplicatedZ[2]);
+  auto denZAll = std::unique_ptr<TH1D>((TH1D*)mDuplicatedZ[0]->Clone("denZAll"));
+  denZAll->Add(mDuplicatedZ[1].get());
+  denZAll->Add(mDuplicatedZ[2].get());
   denZAll->Write();
 
   std::unique_ptr<TEfficiency> mEffZGoodAll = std::make_unique<TEfficiency>(*numZGoodAll, *denZAll);
@@ -2105,16 +2105,16 @@ void EfficiencyStudy::studyClusterSelectionMC()
   effZAll->Write();
 
   /// all Eta
-  TCanvas* effEtaAll = new TCanvas("effEtaAll");
-  TH1D* numEtaGoodAll = (TH1D*)mNGoodMatchesEtaAllPt[0]->Clone("numEtaGoodAll");
+  std::unique_ptr<TCanvas> effEtaAll = std::make_unique<TCanvas>("effEtaAll");
+  auto numEtaGoodAll = std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesEtaAllPt[0]->Clone("numEtaGoodAll"));
   numEtaGoodAll->Add(mNGoodMatchesEtaAllPt[1].get());
   numEtaGoodAll->Add(mNGoodMatchesEtaAllPt[2].get());
   numEtaGoodAll->Write();
-  TH1D* numEtaFakeAll = (TH1D*)mNFakeMatchesEtaAllPt[0]->Clone("numEtaFakeAll");
+  auto numEtaFakeAll = std::unique_ptr<TH1D>((TH1D*)mNFakeMatchesEtaAllPt[0]->Clone("numEtaFakeAll"));
   numEtaFakeAll->Add(mNFakeMatchesEtaAllPt[1].get());
   numEtaFakeAll->Add(mNFakeMatchesEtaAllPt[2].get());
   numEtaFakeAll->Write();
-  TH1D* denEtaAll = (TH1D*)mDuplicatedEtaAllPt[0]->Clone("denEtaAll");
+  auto denEtaAll = std::unique_ptr<TH1D>((TH1D*)mDuplicatedEtaAllPt[0]->Clone("denEtaAll"));
   denEtaAll->Add(mDuplicatedEtaAllPt[1].get());
   denEtaAll->Add(mDuplicatedEtaAllPt[2].get());
   denEtaAll->Write();
@@ -2136,16 +2136,16 @@ void EfficiencyStudy::studyClusterSelectionMC()
   effEtaAll->Write();
 
   /// all Phi
-  TCanvas* effPhiAll = new TCanvas("effPhiAll");
-  TH1D* numPhiGoodAll = (TH1D*)mNGoodMatchesPhiAllPt[0]->Clone("numPhiGoodAll");
+  std::unique_ptr<TCanvas> effPhiAll = std::make_unique<TCanvas>("effPhiAll");
+  auto numPhiGoodAll = std::unique_ptr<TH1D>((TH1D*)mNGoodMatchesPhiAllPt[0]->Clone("numPhiGoodAll"));
   numPhiGoodAll->Add(mNGoodMatchesPhiAllPt[1].get());
   numPhiGoodAll->Add(mNGoodMatchesPhiAllPt[2].get());
   numPhiGoodAll->Write();
-  TH1D* numPhiFakeAll = (TH1D*)mNFakeMatchesPhiAllPt[0]->Clone("numPhiFakeAll");
+  auto numPhiFakeAll = std::unique_ptr<TH1D>((TH1D*)mNFakeMatchesPhiAllPt[0]->Clone("numPhiFakeAll"));
   numPhiFakeAll->Add(mNFakeMatchesPhiAllPt[1].get());
   numPhiFakeAll->Add(mNFakeMatchesPhiAllPt[2].get());
   numPhiFakeAll->Write();
-  TH1D* denPhiAll = (TH1D*)mDuplicatedPhiAllPt[0]->Clone("denPhiAll");
+  auto denPhiAll = std::unique_ptr<TH1D>((TH1D*)mDuplicatedPhiAllPt[0]->Clone("denPhiAll"));
   denPhiAll->Add(mDuplicatedPhiAllPt[1].get());
   denPhiAll->Add(mDuplicatedPhiAllPt[2].get());
   denPhiAll->Write();
@@ -2291,8 +2291,9 @@ void EfficiencyStudy::getEfficiency(bool isMC)
           continue;
         }
 
-        if (mUseMC) { //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
-          if (std::find(mExcludedChipMC->begin(), mExcludedChipMC->end(), clusOriginal.getChipID()) != mExcludedChipMC->end()) {
+
+        if (mUseMC){ //// excluding known bad chips in MC which are not bad in data --- to be checked based on the anchored run
+          if (std::find(mExcludedChipMC.begin(), mExcludedChipMC.end(), clusOriginal.getChipID()) != mExcludedChipMC.end()) {
             continue;
           }
         }
@@ -2414,6 +2415,7 @@ void EfficiencyStudy::getEfficiency(bool isMC)
           radiusNotFound[layerOriginal]->Fill(sqrt(clusOriginalPointGlob.x() * clusOriginalPointGlob.x() + clusOriginalPointGlob.y() * clusOriginalPointGlob.y()));
           colNotFound[layerOriginal]->Fill(clusOriginal.getCol() + (1024 * (clusOriginal.getChipID() % 9)));
           rowNotFound[layerOriginal]->Fill(rowOriginal);
+          zNotFound[layerOriginal]->Fill(clusOriginalPointGlob.z());
           phiNotFound[layerOriginal]->Fill(phiOriginal);
           continue;
         }
@@ -2491,8 +2493,9 @@ void EfficiencyStudy::process(o2::globaltracking::RecoContainer& recoData)
     studyDCAcutsMC();
     // studyClusterSelectionMC();
     // countDuplicatedAfterCuts();
-    // getEfficiency(mUseMC);
-  } else {
+    getEfficiency(mUseMC);
+  } 
+  else{
     getEfficiency(mUseMC);
   }
 
@@ -2545,9 +2548,7 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
 
     mOutFile->cd("Pt_Eta_Phi/");
     for (int i = 0; i < NLAYERS; i++) {
-      mPhiOriginal[i]->Write();
       mDuplicatedPhiAllPt[i]->Write();
-      mPtOriginal[i]->Write();
       mPtDuplicated[i]->Write();
       mEtaDuplicated[i]->Write();
       mPhiDuplicated[i]->Write();
@@ -2556,7 +2557,6 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
       mDuplicatedPtEta[i]->Write();
       mDuplicatedPtPhi[i]->Write();
       mDuplicatedEtaPhi[i]->Write();
-      mEtaOriginal[i]->Write();
       mDuplicatedEtaAllPt[i]->Write();
       mDuplicatedRow[i]->Write();
       mDuplicatedCol[i]->Write();
@@ -2588,33 +2588,33 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
   chi2trackAccepted->Write();
 
   mOutFile->cd("EfficiencyFinal/");
-  TList* listNum = new TList;
-  TList* listDen = new TList;
-  TH1D* numPhiAll = (TH1D*)numPhi[0]->Clone("numPhiAll");
-  TH1D* denPhiAll = (TH1D*)denPhi[0]->Clone("denPhiAll");
+  TList listNum;
+  TList listDen;
+  auto numPhiAll = std::unique_ptr<TH1D>((TH1D*)numPhi[0]->Clone("numPhiAll"));
+  auto denPhiAll = std::unique_ptr<TH1D>((TH1D*)denPhi[0]->Clone("denPhiAll"));
 
-  TList* listNumColEta = new TList;
-  TList* listDenColEta = new TList;
-  TH1D* numColEtaAll = (TH1D*)mNumColEta[0]->Clone("numColEtaAll");
-  TH1D* denColEtaAll = (TH1D*)mDenColEta[0]->Clone("denColEtaAll");
+  TList listNumColEta;
+  TList listDenColEta;
+  auto numColEtaAll = std::unique_ptr<TH1D>((TH1D*)mNumColEta[0]->Clone("numColEtaAll"));
+  auto denColEtaAll = std::unique_ptr<TH1D>((TH1D*)mDenColEta[0]->Clone("denColEtaAll"));
 
-  TList* listNumRowPhi = new TList;
-  TList* listDenRowPhi = new TList;
-  TH1D* numRowPhiAll = (TH1D*)mNumRowPhi[0]->Clone("numRowPhiAll");
-  TH1D* denRowPhiAll = (TH1D*)mDenRowPhi[0]->Clone("denRowPhiAll");
+  TList listNumRowPhi;
+  TList listDenRowPhi;
+  auto numRowPhiAll = std::unique_ptr<TH1D>((TH1D*)mNumRowPhi[0]->Clone("numRowPhiAll"));
+  auto denRowPhiAll = std::unique_ptr<TH1D>((TH1D*)mDenRowPhi[0]->Clone("denRowPhiAll"));
 
-  TList* listNumRowCol = new TList;
-  TList* listDenRowCol = new TList;
-  TH1D* numRowColAll = (TH1D*)mNumRowCol[0]->Clone("numRowColAll");
-  TH1D* denRowColAll = (TH1D*)mDenRowCol[0]->Clone("denRowColAll");
+  TList listNumRowCol;
+  TList listDenRowCol;
+  auto numRowColAll = std::unique_ptr<TH1D>((TH1D*)mNumRowCol[0]->Clone("numRowColAll"));
+  auto denRowColAll = std::unique_ptr<TH1D>((TH1D*)mDenRowCol[0]->Clone("denRowColAll"));
 
-  TEfficiency* effLayers = new TEfficiency(*numLayers, *denLayers);
+  std::unique_ptr<TEfficiency> effLayers = std::make_unique<TEfficiency>(*numLayers, *denLayers);
   effLayers->SetName("effLayers");
   effLayers->SetTitle("; ;Efficiency");
-  TEfficiency* effLayersGood = new TEfficiency(*numGoodLayers, *denLayers);
+  std::unique_ptr<TEfficiency> effLayersGood = std::make_unique<TEfficiency>(*numGoodLayers, *denLayers);
   effLayersGood->SetName("effLayersGood");
   effLayersGood->SetTitle("; ;Efficiency Good Matches");
-  TEfficiency* effLayersFake = new TEfficiency(*numFakeLayers, *denLayers);
+  std::unique_ptr<TEfficiency> effLayersFake = std::make_unique<TEfficiency>(*numFakeLayers, *denLayers);
   effLayersFake->SetName("effLayersFake");
   effLayersFake->SetTitle("; ;Efficiency Fake Matches");
   effLayers->Write();
@@ -2627,109 +2627,109 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
 
   for (int l = 0; l < NLAYERS; l++) {
 
-    TEfficiency* effPt = new TEfficiency(*numPt[l], *denPt[l]);
+    std::unique_ptr<TEfficiency> effPt = std::make_unique<TEfficiency>(*numPt[l], *denPt[l]);
     effPt->SetName(Form("effPt_layer%d", l));
     effPt->SetTitle(Form("L%d;p_{T} (GeV/c);Efficiency", l));
-    TEfficiency* effPtGood = new TEfficiency(*numPtGood[l], *denPt[l]);
+    std::unique_ptr<TEfficiency> effPtGood = std::make_unique<TEfficiency>(*numPtGood[l], *denPt[l]);
     effPtGood->SetName(Form("effPtGood_layer%d", l));
     effPtGood->SetTitle(Form("L%d;p_{T} (GeV/c);Efficiency Good Matches", l));
-    TEfficiency* effPtFake = new TEfficiency(*numPtFake[l], *denPt[l]);
+    std::unique_ptr<TEfficiency> effPtFake = std::make_unique<TEfficiency>(*numPtFake[l], *denPt[l]);
     effPtFake->SetName(Form("effPtFake_layer%d", l));
     effPtFake->SetTitle(Form("L%d;p_{T} (GeV/c);Efficiency Fake Matches", l));
     effPt->Write();
     effPtGood->Write();
     effPtFake->Write();
 
-    TEfficiency* effPhi = new TEfficiency(*numPhi[l], *denPhi[l]);
+    std::unique_ptr<TEfficiency> effPhi = std::make_unique<TEfficiency>(*numPhi[l], *denPhi[l]);
     effPhi->SetName(Form("effPhi_layer%d", l));
     effPhi->SetTitle(Form("L%d;#phi;Efficiency", l));
-    TEfficiency* effPhiGood = new TEfficiency(*numPhiGood[l], *denPhi[l]);
+    std::unique_ptr<TEfficiency> effPhiGood = std::make_unique<TEfficiency>(*numPhiGood[l], *denPhi[l]);
     effPhiGood->SetName(Form("effPhiGood_layer%d", l));
     effPhiGood->SetTitle(Form("L%d;#phi;Efficiency Good Matches", l));
-    TEfficiency* effPhiFake = new TEfficiency(*numPhiFake[l], *denPhi[l]);
+    std::unique_ptr<TEfficiency> effPhiFake = std::make_unique<TEfficiency>(*numPhiFake[l], *denPhi[l]);
     effPhiFake->SetName(Form("effPhiFake_layer%d", l));
     effPhiFake->SetTitle(Form("L%d;#phi;Efficiency Fake Matches", l));
     effPhi->Write();
     effPhiGood->Write();
     effPhiFake->Write();
-    listNum->Add(numPhi[l]);
-    listDen->Add(denPhi[l]);
+    listNum.Add(numPhi[l].get());
+    listDen.Add(denPhi[l].get());
 
-    TEfficiency* effEta = new TEfficiency(*numEta[l], *denEta[l]);
+    std::unique_ptr<TEfficiency> effEta = std::make_unique<TEfficiency>(*numEta[l], *denEta[l]);
     effEta->SetName(Form("effEta_layer%d", l));
     effEta->SetTitle(Form("L%d;#eta;Efficiency", l));
-    TEfficiency* effEtaGood = new TEfficiency(*numEtaGood[l], *denEta[l]);
+    std::unique_ptr<TEfficiency> effEtaGood = std::make_unique<TEfficiency>(*numEtaGood[l], *denEta[l]);
     effEtaGood->SetName(Form("effEtaGood_layer%d", l));
     effEtaGood->SetTitle(Form("L%d;#eta;Efficiency Good Matches", l));
-    TEfficiency* effEtaFake = new TEfficiency(*numEtaFake[l], *denEta[l]);
+    std::unique_ptr<TEfficiency> effEtaFake = std::make_unique<TEfficiency>(*numEtaFake[l], *denEta[l]);
     effEtaFake->SetName(Form("effEtaFake_layer%d", l));
     effEtaFake->SetTitle(Form("L%d;#eta;Efficiency Fake Matches", l));
     effEta->Write();
     effEtaGood->Write();
     effEtaFake->Write();
 
-    TEfficiency* effRow = new TEfficiency(*numRow[l], *denRow[l]);
+    std::unique_ptr<TEfficiency> effRow = std::make_unique<TEfficiency>(*numRow[l], *denRow[l]);
     effRow->SetName(Form("effRow_layer%d", l));
     effRow->SetTitle(Form("L%d;#Row;Efficiency", l));
-    TEfficiency* effRowGood = new TEfficiency(*numRowGood[l], *denRow[l]);
+    std::unique_ptr<TEfficiency> effRowGood = std::make_unique<TEfficiency>(*numRowGood[l], *denRow[l]);
     effRowGood->SetName(Form("effRowGood_layer%d", l));
     effRowGood->SetTitle(Form("L%d;#Row;Efficiency Good Matches", l));
-    TEfficiency* effRowFake = new TEfficiency(*numRowFake[l], *denRow[l]);
+    std::unique_ptr<TEfficiency> effRowFake = std::make_unique<TEfficiency>(*numRowFake[l], *denRow[l]);
     effRowFake->SetName(Form("effRowFake_layer%d", l));
     effRowFake->SetTitle(Form("L%d;#Row;Efficiency Fake Matches", l));
     effRow->Write();
     effRowGood->Write();
     effRowFake->Write();
 
-    TEfficiency* effCol = new TEfficiency(*numCol[l], *denCol[l]);
+    std::unique_ptr<TEfficiency> effCol = std::make_unique<TEfficiency>(*numCol[l], *denCol[l]);
     effCol->SetName(Form("effCol_layer%d", l));
     effCol->SetTitle(Form("L%d;#Col;Efficiency", l));
-    TEfficiency* effColGood = new TEfficiency(*numColGood[l], *denCol[l]);
+    std::unique_ptr<TEfficiency> effColGood = std::make_unique<TEfficiency>(*numColGood[l], *denCol[l]);
     effColGood->SetName(Form("effColGood_layer%d", l));
     effColGood->SetTitle(Form("L%d;#Col;Efficiency Good Matches", l));
-    TEfficiency* effColFake = new TEfficiency(*numColFake[l], *denCol[l]);
+    std::unique_ptr<TEfficiency> effColFake = std::make_unique<TEfficiency>(*numColFake[l], *denCol[l]);
     effColFake->SetName(Form("effColFake_layer%d", l));
     effColFake->SetTitle(Form("L%d;#Col;Efficiency Fake Matches", l));
     effCol->Write();
     effColGood->Write();
     effColFake->Write();
 
-    TEfficiency* effZ = new TEfficiency(*numZ[l], *denZ[l]);
+    std::unique_ptr<TEfficiency> effZ = std::make_unique<TEfficiency>(*numZ[l], *denZ[l]);
     effZ->SetName(Form("effZ_layer%d", l));
     effZ->SetTitle(Form("L%d;#Z (cm);Efficiency", l));
-    TEfficiency* effZGood = new TEfficiency(*numZGood[l], *denZ[l]);
+    std::unique_ptr<TEfficiency> effZGood = std::make_unique<TEfficiency>(*numZGood[l], *denZ[l]);
     effZGood->SetName(Form("effZGood_layer%d", l));
     effZGood->SetTitle(Form("L%d;#Z (cm);Efficiency Good Matches", l));
-    TEfficiency* effZFake = new TEfficiency(*numZFake[l], *denZ[l]);
+    std::unique_ptr<TEfficiency> effZFake = std::make_unique<TEfficiency>(*numZFake[l], *denZ[l]);
     effZFake->SetName(Form("effZFake_layer%d", l));
     effZFake->SetTitle(Form("L%d;#Z (cm);Efficiency Fake Matches", l));
     effZ->Write();
     effZGood->Write();
     effZFake->Write();
 
-    TEfficiency* effColEta = new TEfficiency(*mNumColEta[l], *mDenColEta[l]);
+    std::unique_ptr<TEfficiency> effColEta = std::make_unique<TEfficiency>(*mNumColEta[l], *mDenColEta[l]);
     effColEta->SetName(Form("effColEta_layer%d", l));
     effColEta->SetTitle(Form("L%d;Column;#eta", l));
     effColEta->Write();
 
-    listNumColEta->Add(mNumColEta[l]);
-    listDenColEta->Add(mDenColEta[l]);
+    listNumColEta.Add(mNumColEta[l].get());
+    listDenColEta.Add(mDenColEta[l].get());
 
-    TEfficiency* effRowPhi = new TEfficiency(*mNumRowPhi[l], *mDenRowPhi[l]);
+    std::unique_ptr<TEfficiency> effRowPhi = std::make_unique<TEfficiency>(*mNumRowPhi[l], *mDenRowPhi[l]);
     effRowPhi->SetName(Form("effRowPhi_layer%d", l));
     effRowPhi->SetTitle(Form("L%d;Column;#eta", l));
     effRowPhi->Write();
 
-    listNumRowPhi->Add(mNumRowPhi[l]);
-    listDenRowPhi->Add(mDenRowPhi[l]);
+    listNumRowPhi.Add(mNumRowPhi[l].get());
+    listDenRowPhi.Add(mDenRowPhi[l].get());
 
-    TEfficiency* effRowCol = new TEfficiency(*mNumRowCol[l], *mDenRowCol[l]);
+    std::unique_ptr<TEfficiency> effRowCol = std::make_unique<TEfficiency>(*mNumRowCol[l], *mDenRowCol[l]);
     effRowCol->SetName(Form("effRowCol_layer%d", l));
     effRowCol->SetTitle(Form("L%d;Column;#eta", l));
     effRowCol->Write();
 
-    listNumRowCol->Add(mNumRowCol[l]);
-    listDenRowCol->Add(mDenRowCol[l]);
+    listNumRowCol.Add(mNumRowCol[l].get());
+    listDenRowCol.Add(mDenRowCol[l].get());
 
     mNumRowCol[l]->Write();
     mDenRowCol[l]->Write();
@@ -2750,41 +2750,40 @@ void EfficiencyStudy::endOfStream(EndOfStreamContext& ec)
     numZ[l]->Write();
     denZ[l]->Write();
   }
+  numPhiAll->Merge(&listNum);
+  denPhiAll->Merge(&listDen);
 
-  numPhiAll->Merge(listNum);
-  denPhiAll->Merge(listDen);
+  numColEtaAll->Merge(&listNumColEta);
+  denColEtaAll->Merge(&listDenColEta);
 
-  numColEtaAll->Merge(listNumColEta);
-  denColEtaAll->Merge(listDenColEta);
+  numRowPhiAll->Merge(&listNumRowPhi);
+  denRowPhiAll->Merge(&listDenRowPhi);
 
-  numRowPhiAll->Merge(listNumRowPhi);
-  denRowPhiAll->Merge(listDenRowPhi);
+  numRowColAll->Merge(&listNumRowCol);
+  denRowColAll->Merge(&listDenRowCol);
 
-  numRowColAll->Merge(listNumRowCol);
-  denRowColAll->Merge(listDenRowCol);
-
-  TEfficiency* effPhiAll = new TEfficiency(*numPhiAll, *denPhiAll);
+  std::unique_ptr<TEfficiency> effPhiAll = std::make_unique<TEfficiency>(*numPhiAll, *denPhiAll);
   effPhiAll->SetName("effPhi_AllLayers");
   effPhiAll->SetTitle("L0 + L1 + L2;#phi;Efficiency");
   effPhiAll->Write();
   numPhiAll->Write();
   denPhiAll->Write();
 
-  TEfficiency* effColEtaAll = new TEfficiency(*numColEtaAll, *denColEtaAll);
+  std::unique_ptr<TEfficiency> effColEtaAll = std::make_unique<TEfficiency>(*numColEtaAll, *denColEtaAll);
   effColEtaAll->SetName("effColEta_AllLayers");
   effColEtaAll->SetTitle("L0 + L1 + L2;Column;#eta");
   effColEtaAll->Write();
   numColEtaAll->Write();
   denColEtaAll->Write();
 
-  TEfficiency* effRowPhiAll = new TEfficiency(*numRowPhiAll, *denRowPhiAll);
+  std::unique_ptr<TEfficiency> effRowPhiAll = std::make_unique<TEfficiency>(*numRowPhiAll, *denRowPhiAll);
   effRowPhiAll->SetName("effRowPhi_AllLayers");
   effRowPhiAll->SetTitle("L0 + L1 + L2;Column;#eta");
   effRowPhiAll->Write();
   numRowPhiAll->Write();
   denRowPhiAll->Write();
 
-  TEfficiency* effRowColAll = new TEfficiency(*numRowColAll, *denRowColAll);
+  std::unique_ptr<TEfficiency> effRowColAll = std::make_unique<TEfficiency>(*numRowColAll, *denRowColAll);
   effRowColAll->SetName("effRowCol_AllLayers");
   effRowColAll->SetTitle("L0 + L1 + L2;Column;#eta");
   effRowColAll->Write();
