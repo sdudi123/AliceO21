@@ -48,8 +48,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   if (!optionsMap["model-path"].empty()) {
     modelPath = optionsMap["model-path"];
     device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
-    dtype = (optionsMap.contains("dtype") ? optionsMap["dtype"] : "float");
-    deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
+    streamId = (optionsMap.contains("stream-id") ? std::stoi(optionsMap["stream-id"]) : 0);
     allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
     intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
     interOpNumThreads = (optionsMap.contains("inter-op-num-threads") ? std::stoi(optionsMap["inter-op-num-threads"]) : 0);
@@ -61,7 +60,8 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 #if defined(ORT_ROCM_BUILD)
 #if ORT_ROCM_BUILD == 1
   if (device == "ROCM") {
-    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
+    // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, streamId));
+    o2::gpu::SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
     LOG(info) << "(ORT) ROCM execution provider set";
   }
 #endif
@@ -69,7 +69,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 #if defined(ORT_MIGRAPHX_BUILD)
 #if ORT_MIGRAPHX_BUILD == 1
   if (device == "MIGRAPHX") {
-    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
+    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, streamId));
     LOG(info) << "(ORT) MIGraphX execution provider set";
   }
 #endif
@@ -77,7 +77,8 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 #if defined(ORT_CUDA_BUILD)
 #if ORT_CUDA_BUILD == 1
   if (device == "CUDA") {
-    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
+    // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, streamId));
+    o2::gpu::SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
     LOG(info) << "(ORT) CUDA execution provider set";
     dev_mem_str = "Cuda";
   }
@@ -85,7 +86,7 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 #endif
 
   if (allocateDeviceMemory) {
-    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
+    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, streamId, OrtMemType::OrtMemTypeDefault);
     LOG(info) << "(ORT) Memory info set to on-device memory";
   }
 
