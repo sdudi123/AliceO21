@@ -696,7 +696,7 @@ int32_t GPUReconstructionHIP::SetONNXGPUStream(OrtSessionOptions* session_option
   // Create ROCm provider options
   const auto& api = Ort::GetApi();
   OrtROCMProviderOptions rocm_options{};
-  rocm_options.has_user_compute_stream = 1;  // Indicate that we are passing a user stream
+  rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
   rocm_options.user_compute_stream = &mInternals->Streams[stream];
 
   // Append the ROCm execution provider with the custom HIP stream
