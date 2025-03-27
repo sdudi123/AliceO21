@@ -640,7 +640,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         clustererNN.nnClusterizerVerbosity = nn_settings.nnClusterizerVerbosity;
       }
       clustererNN.nnClusterizerDtype = nn_settings.nnInferenceDtype.find("32") != std::string::npos;
-      GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN);
+      GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN, iSector);
       AllocateRegisteredMemory(clustererNN.mMemoryId);
     }
   }

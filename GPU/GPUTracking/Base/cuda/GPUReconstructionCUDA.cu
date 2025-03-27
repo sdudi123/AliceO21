@@ -16,7 +16,6 @@
 #include "GPUReconstructionCUDAIncludesHost.h"
 
 #include <cuda_profiler_api.h>
-#include "ML/OrtInterface.h"
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"
@@ -692,7 +691,7 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
 }
 
 #ifdef GPUCA_HAS_ONNX
-int32_t GPUReconstructionCUDA::SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream)
+int32_t GPUReconstructionHIP::SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream)
 {
   // Create ROCm provider options
   const auto& api = Ort::GetApi();

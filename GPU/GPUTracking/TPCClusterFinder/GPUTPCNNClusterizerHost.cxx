@@ -19,12 +19,12 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
+GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer, int32_t streamId)
 {
   OrtOptions = {
     {"model-path", settings.nnClassificationPath},
     {"device", settings.nnInferenceDevice},
-    {"device-id", std::to_string(settings.nnInferenceDeviceId)},
+    {"stream-id", std::to_string(streamId)},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
     {"dtype", settings.nnInferenceDtype},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
