@@ -61,7 +61,7 @@ class RecPoints
   enum ETimeType { kTimeMean,
                    kTimeA,
                    kTimeC,
-                   kVertex };
+                   kTimeVertex };
 
   // Enum for trigger nits specified in rec-points and AOD data
   enum ETriggerBits { kOrA = 0,           // OrA time-trigger signal
@@ -125,8 +125,8 @@ class RecPoints
   bool isValidTime(int side) const { return getCollisionTime(side) < o2::InteractionRecord::DummyTime; }
   void setCollisionTime(short time, int side) { mCollisionTime[side] = time; }
 
-  short getVertex() const { return getCollisionTime(kVertex); }
-  void setVertex(short vertex) { mCollisionTime[kVertex] = vertex; }
+  short getVertex() const { return getCollisionTime(kTimeVertex); }
+  void setVertex(short vertex) { mCollisionTime[kTimeVertex] = vertex; }
 
   o2::fit::Triggers getTrigger() const { return mTriggers; }
   void setTriggers(o2::fit::Triggers trig) { mTriggers = trig; }
@@ -149,9 +149,9 @@ class RecPoints
   void initRecPointTriggers(const o2::fit::Triggers& digitTriggers, uint8_t extraTrgWord = 0)
   {
     const auto digitTriggerWord = digitTriggers.getTriggersignals();
-    const auto trgAndTechWordPair = parseDigitTriggerWord(digitTriggerWord, true);
+    const auto trgAndTechWordPair = o2::fit::Triggers::parseDigitTriggerWord(digitTriggerWord, true);
     mTriggers.setTriggers(trgAndTechWordPair.first | extraTrgWord);
-    mTechWord = trgAndTechWordPair.second;
+    mTechnicalWord = trgAndTechWordPair.second;
   }
 
   std::array<short, 4> mCollisionTime = {sDummyCollissionTime,

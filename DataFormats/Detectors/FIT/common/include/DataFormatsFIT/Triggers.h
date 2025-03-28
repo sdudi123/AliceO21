@@ -110,6 +110,10 @@ class Triggers
     timeA = atimeA;
     timeC = atimeC;
   }
+  void setTriggers(uint8_t trgsig)
+  {
+    triggersignals = trgsig;
+  }
 
   void setTriggers(Bool_t isA, Bool_t isC, Bool_t isVrtx, Bool_t isCnt, Bool_t isSCnt, uint8_t chanA, uint8_t chanC, int32_t aamplA,
                    int32_t aamplC, int16_t atimeA, int16_t atimeC, Bool_t isLaser, Bool_t isOutputsAreBlocked, Bool_t isDataValid)
