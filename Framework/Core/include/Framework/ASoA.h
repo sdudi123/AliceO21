@@ -1042,6 +1042,12 @@ consteval auto getBinding() -> void
 {
 }
 
+template <typename T, typename... Cs>
+consteval auto inBindings(framework::pack<Cs...>)
+{
+  return framework::has_type_at_v<T>(framework::pack<decltype(getBinding<Cs>())...>{});
+}
+
 template <typename D, typename O, typename IP, typename... C>
 struct TableIterator : IP, C... {
  public:
@@ -1049,9 +1055,6 @@ struct TableIterator : IP, C... {
   using policy_t = IP;
   using all_columns = framework::pack<C...>;
   using persistent_columns_t = framework::selected_pack<soa::is_persistent_column_t, C...>;
-  using bindings_pack_t = decltype([]<typename... Cs>(framework::pack<Cs...>) {
-    return framework::pack<decltype(getBinding<Cs>())...>{};
-  }(all_columns{}));
 
   TableIterator(arrow::ChunkedArray* columnData[sizeof...(C)], IP&& policy)
     : IP{policy},
@@ -1825,8 +1828,6 @@ class Table
   template <typename IP, typename Parent, typename... T>
   struct TableIteratorBase : base_iterator<IP> {
     using columns_t = typename Parent::columns_t;
-    using bindings_pack_t = typename base_iterator<IP>::bindings_pack_t;
-    // static constexpr const std::array<TableRef, sizeof...(T)> originals{T::ref...};
     static constexpr auto originals = Parent::originals;
     using policy_t = IP;
     using parent_t = Parent;
@@ -1915,17 +1916,21 @@ class Table
     template <typename TI>
     auto getId() const
     {
-      using decayed = std::decay_t<TI>;
-      if constexpr (framework::has_type<decayed>(bindings_pack_t{})) { // index to another table
-        constexpr auto idx = framework::has_type_at_v<decayed>(bindings_pack_t{});
-        return framework::pack_element_t<idx, columns_t>::getId();
-      } else if constexpr (std::same_as<decayed, Parent>) { // self index
-        return this->globalIndex();
-      } else if constexpr (is_indexing_column<decayed>) { // soa::Index<>
-        return this->globalIndex();
-      } else {
-        return static_cast<int32_t>(-1);
-      }
+      return static_cast<int32_t>(-1);
+    }
+
+    template <typename TI>
+      requires(std::same_as<std::decay_t<TI>, Parent> || is_indexing_column<std::decay_t<TI>>)
+    auto getId() const
+    {
+      return this->globalIndex();
+    }
+
+    template <typename TI>
+      requires(inBindings<std::decay_t<TI>>(typename Parent::all_columns{}) < framework::pack_size(typename Parent::all_columns{}))
+    auto getId() const
+    {
+      return inBindings<std::decay_t<TI>>(typename Parent::all_columns{});
     }
 
     template <soa::is_dynamic_column CD, typename... CDArgs>
