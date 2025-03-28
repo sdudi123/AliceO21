@@ -88,7 +88,7 @@ RP CollisionTimeRecoTask::processDigit(const o2::ft0::Digit& digit,
         ndigitsC++;
       }
       isActiveC = true;
-      isFlangeEvent |= channelData.CFDTime > -450 && channelData.CFDTime < -350;
+      isFlangeEvent |= channelData.CFDTime < -350 && channelData.CFDTime > -450;
     }
   }
   std::array<short, 4> mCollisionTime = {RP::sDummyCollissionTime, RP::sDummyCollissionTime, RP::sDummyCollissionTime, RP::sDummyCollissionTime};
