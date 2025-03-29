@@ -661,11 +661,12 @@ void GPUReconstructionCUDA::endGPUProfiling()
   GPUChkErr(cudaProfilerStop());
 }
 
-#ifdef GPUCA_HAS_ONNX
-int32_t GPUReconstructionCUDA::SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream)
+#if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
+void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream)
 {
   OrtCUDAProviderOptionsV2* cuda_options = nullptr;
   CreateCUDAProviderOptions(&cuda_options);
+  OrtSessionOptions* raw_options = session_options->operator OrtSessionOptions*();
 
   // std::vector<const char*> keys{"device_id", "gpu_mem_limit", "arena_extend_strategy", "cudnn_conv_algo_search", "do_copy_in_default_stream", "cudnn_conv_use_max_workspace", "cudnn_conv1d_pad_to_nc1d"};
   // std::vector<const char*> values{"0", "2147483648", "kSameAsRequested", "DEFAULT", "1", "1", "1"};
@@ -673,12 +674,10 @@ int32_t GPUReconstructionCUDA::SetONNXGPUStream(OrtSessionOptions* session_optio
 
   // this implicitly sets "has_user_compute_stream"
   UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", &mInternals->Streams[stream]);
-  Ort::ThrowOnError(SessionOptionsAppendExecutionProvider_CUDA_V2(session_options, cuda_options));
+  Ort::ThrowOnError(SessionOptionsAppendExecutionProvider_CUDA_V2(raw_options, cuda_options));
 
   // Finally, don't forget to release the provider options
   ReleaseCUDAProviderOptions(cuda_options);
-
-  return 0;
 }
 #endif // GPUCA_HAS_ONNX
 
@@ -690,8 +689,8 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
   return retVal;
 }
 
-#ifdef GPUCA_HAS_ONNX
-int32_t GPUReconstructionHIP::SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream)
+#if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
+void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream)
 {
   // Create ROCm provider options
   const auto& api = Ort::GetApi();
@@ -699,10 +698,13 @@ int32_t GPUReconstructionHIP::SetONNXGPUStream(OrtSessionOptions* session_option
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
   rocm_options.user_compute_stream = &mInternals->Streams[stream];
 
+  // Get the raw OrtSessionOptions pointer from the Ort::SessionOptions wrapper
+  OrtSessionOptions* raw_options = session_options->operator OrtSessionOptions*();
+
   // Append the ROCm execution provider with the custom HIP stream
-  Ort::ThrowOnError(api.SessionOptionsAppendExecutionProvider_ROCM(session_options, &rocm_options));
-  return 0;
+  Ort::ThrowOnError(api.SessionOptionsAppendExecutionProvider_ROCM(raw_options, &rocm_options));
 }
+
 #endif // GPUCA_HAS_ONNX
 #endif // __HIPCC__
 

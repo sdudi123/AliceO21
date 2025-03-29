@@ -90,7 +90,7 @@ class GPUReconstructionProcessing : public GPUReconstruction
   void AddGPUEvents(T*& events);
 
   virtual std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() override;
-  virtual int32_t SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream) { return 0; }
+  virtual void SetONNXGPUStream(OrtSessionOptions* session_options, int32_t stream) {}
 
   struct RecoStepTimerMeta {
     HighResTimer timerToGPU;

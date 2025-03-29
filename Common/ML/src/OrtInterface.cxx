@@ -35,6 +35,16 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
 };
 
+Ort::SessionOptions* OrtModel::updateSessionOptions()
+{
+  return &(pImplOrt->sessionOptions);
+}
+
+Ort::MemoryInfo* OrtModel::updateMemoryInfo()
+{
+  return &(pImplOrt->memoryInfo);
+}
+
 void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
 {
 
@@ -56,39 +66,41 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
     enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
     enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
 
-    std::string dev_mem_str = "Hip";
-#if defined(ORT_ROCM_BUILD)
-#if ORT_ROCM_BUILD == 1
-  if (device == "ROCM") {
-    // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, streamId));
-    o2::gpu::SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
-    LOG(info) << "(ORT) ROCM execution provider set";
-  }
-#endif
-#endif
-#if defined(ORT_MIGRAPHX_BUILD)
-#if ORT_MIGRAPHX_BUILD == 1
-  if (device == "MIGRAPHX") {
-    Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, streamId));
-    LOG(info) << "(ORT) MIGraphX execution provider set";
-  }
-#endif
-#endif
-#if defined(ORT_CUDA_BUILD)
-#if ORT_CUDA_BUILD == 1
-  if (device == "CUDA") {
-    // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, streamId));
-    o2::gpu::SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
-    LOG(info) << "(ORT) CUDA execution provider set";
-    dev_mem_str = "Cuda";
-  }
-#endif
-#endif
+// #if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
+//   if (device == "ROCM") {
+//     // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, streamId));
+//     SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
+//     LOG(info) << "(ORT) ROCM execution provider set";
+//   }
+// #endif
+// #if defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1
+//   if (device == "MIGRAPHX") {
+//     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, streamId));
+//     LOG(info) << "(ORT) MIGraphX execution provider set";
+//   }
+// #endif
+// #if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
+//   if (device == "CUDA") {
+//     // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, streamId));
+//     SetONNXGPUStream(pImplOrt->sessionOptions, streamId);
+//     LOG(info) << "(ORT) CUDA execution provider set";
+//     dev_mem_str = "Cuda";
+//   }
+// #endif
 
+#if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (allocateDeviceMemory) {
+    std::string dev_mem_str = "";
+    if (device == "ROCM") {
+      dev_mem_str = "Hip";
+    }
+    if (device == "CUDA") {
+      dev_mem_str = "Cuda";
+    }
     pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, streamId, OrtMemType::OrtMemTypeDefault);
     LOG(info) << "(ORT) Memory info set to on-device memory";
   }
+#endif
 
   if (device == "CPU") {
     (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);

@@ -26,6 +26,11 @@
 // O2 includes
 #include "Framework/Logger.h"
 
+namespace Ort {
+  struct SessionOptions;
+  struct MemoryInfo;
+}
+
 namespace o2
 {
 
@@ -42,6 +47,8 @@ class OrtModel
   void init(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
   void reset(std::unordered_map<std::string, std::string>);
   bool isInitialized() { return mInitialized; }
+  Ort::SessionOptions* updateSessionOptions();
+  Ort::MemoryInfo* updateMemoryInfo();
 
   virtual ~OrtModel() = default;
 

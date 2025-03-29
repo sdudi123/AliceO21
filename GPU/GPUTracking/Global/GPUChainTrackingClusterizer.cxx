@@ -917,6 +917,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[iSector];
           const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
           GPUTPCNNClusterizerHost nnApplication(nn_settings, clustererNN, lane);
+          SetONNXGPUStream(nnApplication.model_class.updateSessionOptions(), lane);
+          SetONNXGPUStream(nnApplication.model_reg_1.updateSessionOptions(), lane);
+          SetONNXGPUStream(nnApplication.model_reg_2.updateSessionOptions(), lane);
 
           if (clustererNN.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
