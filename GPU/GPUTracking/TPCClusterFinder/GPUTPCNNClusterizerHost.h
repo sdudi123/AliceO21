@@ -37,7 +37,11 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&, int32_t = 0);
+  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, int32_t = 0);
+
+  void init(const GPUSettingsProcessingNNclusterizer&, int32_t = 0);
+  void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
+  void loadFromCCDB(std::map<std::string, std::string>);
 
   void networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clusterer, size_t size, float* output, int32_t dtype);
 
@@ -46,21 +50,8 @@ class GPUTPCNNClusterizerHost
   std::vector<std::string> reg_model_paths;
 
  private:
-  // Avoid including CommonUtils/StringUtils.h
-  std::vector<std::string> splitString(const std::string& input, const std::string& delimiter)
-  {
-    std::vector<std::string> tokens;
-    std::size_t pos = 0;
-    std::size_t found;
-
-    while ((found = input.find(delimiter, pos)) != std::string::npos) {
-      tokens.push_back(input.substr(pos, found - pos));
-      pos = found + delimiter.length();
-    }
-    tokens.push_back(input.substr(pos));
-
-    return tokens;
-  }
+  std::map<std::string, std::string> metadata;
+  std::map<std::string, std::string> headers;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu
