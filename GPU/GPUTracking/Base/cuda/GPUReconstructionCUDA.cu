@@ -662,8 +662,9 @@ void GPUReconstructionCUDA::endGPUProfiling()
 }
 
 #if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
-void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream)
+void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream, int32_t* deviceId)
 {
+  cudaGetDevice(deviceId);
   OrtCUDAProviderOptionsV2* cuda_options = nullptr;
   CreateCUDAProviderOptions(&cuda_options);
   OrtSessionOptions* raw_options = session_options->operator OrtSessionOptions*();
@@ -690,9 +691,10 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
 }
 
 #if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
-void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream)
+void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions* session_options, int32_t stream, int32_t* deviceId)
 {
   // Create ROCm provider options
+  cudaGetDevice(deviceId);
   const auto& api = Ort::GetApi();
   OrtROCMProviderOptions rocm_options{};
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream

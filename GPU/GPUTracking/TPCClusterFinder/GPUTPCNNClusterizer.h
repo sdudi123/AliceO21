@@ -34,6 +34,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   void RegisterMemoryAllocation();
   void InitializeProcessor();
   void SetMaxData(const GPUTrackingInOutPointers&);
+  std::vector<int32_t> pointerSizes();
 
   // Neural network clusterization
 

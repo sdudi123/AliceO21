@@ -116,7 +116,7 @@ class GPUReconstructionCPU : public GPUReconstructionKernels<GPUReconstructionCP
   virtual size_t TransferMemoryInternal(GPUMemoryResource* res, int32_t stream, deviceEvent* ev, deviceEvent* evList, int32_t nEvents, bool toGPU, const void* src, void* dst);
 
   // ONNX runtime
-  virtual void SetONNXGPUStream(Ort::SessionOptions*, int32_t) {}
+  virtual void SetONNXGPUStream(Ort::SessionOptions*, int32_t, int32_t*) {}
 
   int32_t InitDevice() override;
   int32_t ExitDevice() override;

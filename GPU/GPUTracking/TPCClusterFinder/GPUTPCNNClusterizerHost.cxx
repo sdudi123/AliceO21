@@ -142,11 +142,11 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   }
 }
 
-void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype)
+void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype, int32_t deviceId)
 {
   if (dtype == 0) {
-    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output);
+    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output, deviceId);
   } else {
-    model.inference<float, float>(clustererNN.inputData32, size, output);
+    model.inference<float, float>(clustererNN.inputData32, size, output, deviceId);
   }
 }
