@@ -12,7 +12,8 @@
 /// \file GPUReconstructionCUDAKernels.cu
 /// \author David Rohr
 
-#include "GPUReconstructionCUDAIncludesHost.h"
+#include "GPUReconstructionCUDAIncludesSystem.h"
+#include "GPUReconstructionCUDADef.h"
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"
@@ -83,17 +84,14 @@ void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Ar
 #define GPUCA_KRNL_REG(args) __launch_bounds__(GPUCA_M_MAX2_3(GPUCA_M_STRIP(args)))
 
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 1 // ---------- COMPILE_MODE = perkernel ----------
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types) \
-  GPUCA_KRNL_PROP(x_class, x_attributes)                                   \
-  template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...) template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
 #else // ---------- COMPILE_MODE = onefile | rdc ----------
 #if defined(GPUCA_KERNEL_COMPILE_MODE) && GPUCA_KERNEL_COMPILE_MODE == 2
 #define GPUCA_KRNL_DEFONLY // COMPILE_MODE = rdc
 #endif
 
-#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types) \
-  GPUCA_KRNL_PROP(x_class, x_attributes)                                   \
-  GPUCA_KRNL_HOST(x_class, x_attributes, x_arguments, x_forward, x_types)  \
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, ...)        \
+  GPUCA_KRNL_HOST(x_class, x_attributes, x_arguments, x_forward, x_types, __VA_ARGS__) \
   template void GPUReconstructionCUDABackend::runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args);
 
 #ifndef __HIPCC__ // CUDA version
@@ -111,13 +109,6 @@ void GPUReconstructionCUDABackend::runKernelBackend(const krnlSetupArgs<T, I, Ar
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
 
-void GPUReconstructionCUDABackend::getRTCKernelCalls(std::vector<std::string>& kernels)
-{
-#define GPUCA_KRNL(...) kernels.emplace_back(GPUCA_M_STR(GPUCA_KRNLGPU(__VA_ARGS__)));
-#include "GPUReconstructionKernelList.h"
-#undef GPUCA_KRNL
-}
-
 #ifndef GPUCA_NO_CONSTANT_MEMORY
 static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstSymbol([]() {
   void* retVal = nullptr;
@@ -127,3 +118,14 @@ static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstS
   return retVal;
 });
 #endif
+
+void GPUReconstructionCUDABackend::getRTCKernelCalls(std::vector<std::string>& kernels)
+{
+#undef GPUCA_KRNL_LB
+#undef __launch_bounds__
+#define GPUCA_KRNL(...) kernels.emplace_back(GPUCA_M_STR(GPUCA_KRNLGPU(__VA_ARGS__)));
+#define GPUCA_KRNL_LB(x_class, x_attributes, ...) GPUCA_KRNL(x_class, (REG, (GPUCA_M_CAT(GPUCA_RTC_LB_, GPUCA_M_KRNL_NAME(x_class))), GPUCA_M_STRIP(x_attributes)), __VA_ARGS__)
+#include "GPUReconstructionKernelList.h"
+#undef GPUCA_KRNL
+#undef GPUCA_KRNL_LB
+}

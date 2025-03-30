@@ -17,11 +17,12 @@ set(MODULE GPUTracking)
 if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
   set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_NO_FAST_MATH_FLAGS}")
   if(GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_OPTO2})
-    set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O2 ${GPUCA_CLANG_FTZ}")
+    set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O2")
   endif()
 elseif(NOT CMAKE_BUILD_TYPE_UPPER STREQUAL "DEBUG")
-  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O3 -ffast-math ${GPUCA_CLANG_FTZ}")
+  set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} -O3 -ffast-math")
 endif()
+set(CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER} "${CMAKE_CXX_FLAGS_${CMAKE_BUILD_TYPE_UPPER}} ${GPUCA_CXX_DENORMALS_FLAGS}")
 
 include(cmake/helpers.cmake)
 
@@ -128,7 +129,7 @@ set(HDRS_INSTALL
     DataTypes/GPUTriggerOutputs.h
     Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
-    Definitions/GPUDefGPUParameters.h
+    Definitions/GPUDefParametersDefault.h
     Definitions/GPUDef.h
     Definitions/GPUDefMacros.h
     Definitions/GPULogging.h
@@ -246,10 +247,18 @@ file(GENERATE
      OUTPUT include_gpu_onthefly/GPUNoFastMathKernels.h
      INPUT cmake/GPUNoFastMathKernels.template.h
 )
+file(GENERATE
+     OUTPUT include_gpu_onthefly/GPUDefParameters.h
+     INPUT Definitions/GPUDefParameters.template.h
+)
+file(GENERATE
+     OUTPUT include_gpu_onthefly/GPUDefParametersLoad.inc
+     INPUT Definitions/GPUDefParametersLoad.template.inc
+)
 if(NOT ALIGPU_BUILD_TYPE STREQUAL "O2")
   include_directories(${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly)
 endif()
-set(HDRS_INSTALL ${HDRS_INSTALL} ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUReconstructionKernelList.h)
+set(HDRS_INSTALL ${HDRS_INSTALL} ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUReconstructionKernelList.h ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParameters.h ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoad.inc)
 include(kernels.cmake)
 
 # Optional sources depending on optional dependencies
@@ -367,13 +376,18 @@ if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
 
   if(GPUCA_CONFIG_ROOT)
     ROOT_GENERATE_DICTIONARY(G__${targetName} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_CINT_O2_ADDITIONAL} GPUTrackingLinkDef_Standalone.h MODULE ${targetName})
-    INSTALL(FILES
+    install(FILES
       ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}_rdict.pcm
       ${CMAKE_CURRENT_BINARY_DIR}/lib${targetName}.rootmap
     DESTINATION .)
   else()
     target_compile_definitions(${targetName} PRIVATE GPUCA_NO_ROOT)
   endif()
+  install(FILES ${HDRS_SRCS} ${HDRS_CINT_O2} ${HDRS_CINT_DATATYPES} ${HDRS_INSTALL}
+          DESTINATION include)
+  install(DIRECTORY utils
+          DESTINATION include
+          FILES_MATCHING PATTERN *.h)
 endif()
 
 # GPUReconstructionLibrary needs to know which GPU backends are enabled for proper error messages
