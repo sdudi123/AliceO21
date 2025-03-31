@@ -1061,7 +1061,7 @@ struct TableIterator : IP, C... {
 
   TableIterator(arrow::ChunkedArray* columnData[sizeof...(C)], IP&& policy)
     : IP{policy},
-      C(columnData[framework::has_type_at_v<C>(all_columns{})])...
+      C(columnData[framework::has_type_at_v<C>(framework::pack<C...>{})])...
   {
     bind();
   }
@@ -1069,7 +1069,7 @@ struct TableIterator : IP, C... {
   TableIterator(arrow::ChunkedArray* columnData[sizeof...(C)], IP&& policy)
     requires(has_index<C...>)
     : IP{policy},
-      C(columnData[framework::has_type_at_v<C>(all_columns{})])...
+      C(columnData[framework::has_type_at_v<C>(framework::pack<C...>{})])...
   {
     bind();
     // In case we have an index column might need to constrain the actual
@@ -1147,60 +1147,38 @@ struct TableIterator : IP, C... {
     return *this;
   }
 
-  template <typename... CL, typename TA>
-  void doSetCurrentIndex(framework::pack<CL...>, TA* current)
-  {
-    (doSetCurrentIndexImpl<CL>(current), ...);
-  }
-
   template <typename CL>
   auto getCurrent() const
   {
     return CL::getCurrentRaw();
   }
 
-  template <typename... Cs>
-  auto getIndexBindingsImpl(framework::pack<Cs...>) const
-  {
-    std::vector<o2::soa::Binding> result;
-    (doGetIndexBindingImpl<Cs>(result), ...);
-    return result;
-  }
-
   auto getIndexBindings() const
   {
-    return getIndexBindingsImpl(all_columns{});
+    std::vector<o2::soa::Binding> result;
+    (doGetIndexBindingImpl<C>(result), ...);
+    return result;
   }
 
   template <typename... TA>
   void bindExternalIndices(TA*... current)
   {
-    (doSetCurrentIndex(all_columns{}, current), ...);
-  }
-
-  template <typename... Cs>
-  void doSetCurrentIndexRaw(framework::pack<Cs...> p, std::vector<o2::soa::Binding>&& bindings)
-  {
-    (doSetCurrentIndexRawImpl<Cs>(bindings[framework::has_type_at_v<Cs>(p)]), ...);
-  }
-
-  template <typename... Cs, typename I>
-  void doSetCurrentInternal(framework::pack<Cs...>, I const* ptr)
-  {
-    o2::soa::Binding b;
-    b.bind(ptr);
-    (doSetCurrentInternalImpl<Cs>(b), ...);
+    ([this]<typename... Cs, typename TT>(framework::pack<Cs...>, TT* t){
+      (doSetCurrentIndexImpl<Cs>(t), ...);
+    }(framework::pack<C...>{}, current), ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& bindings)
   {
-    doSetCurrentIndexRaw(all_columns{}, std::forward<std::vector<o2::soa::Binding>>(bindings));
+    (doSetCurrentIndexRawImpl<C>(bindings[framework::has_type_at_v<C>(framework::pack<C...>{})]), ...);
   }
 
   template <typename I>
   void bindInternalIndices(I const* table)
   {
-    doSetCurrentInternal(all_columns{}, table);
+    o2::soa::Binding b;
+    b.bind(table);
+    (doSetCurrentInternalImpl<C>(b), ...);
   }
 
  private:
