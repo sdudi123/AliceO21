@@ -1163,9 +1163,10 @@ struct TableIterator : IP, C... {
   template <typename... TA>
   void bindExternalIndices(TA*... current)
   {
-    ([this]<typename... Cs, typename TT>(framework::pack<Cs...>, TT* t){
+    ([this]<typename... Cs, typename TT>(framework::pack<Cs...>, TT* t) {
       (doSetCurrentIndexImpl<Cs>(t), ...);
-    }(framework::pack<C...>{}, current), ...);
+    }(framework::pack<C...>{}, current),
+     ...);
   }
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& bindings)
