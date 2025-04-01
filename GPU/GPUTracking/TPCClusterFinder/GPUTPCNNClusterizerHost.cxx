@@ -97,7 +97,7 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
 
   OrtOptions = {
     {"model-path", class_model_path},
-    {"device", settings.nnInferenceDevice},
+    {"device-type", settings.nnInferenceDevice},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
@@ -128,36 +128,43 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
   }
 }
 
-void GPUTPCNNClusterizerHost::initModels() {
-  if (!model_class.isInitialized() && modelsUsed[0]) {
-    model_class.initEnvironment();
-  }
-  if (!model_reg_1.isInitialized() && modelsUsed[1]) {
-    model_reg_1.initEnvironment();
-  }
-  if (!model_reg_2.isInitialized() && modelsUsed[2]) {
-    model_reg_2.initEnvironment();
-  }
-}
-
-void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clusterer)
+void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclusterizer& settings, GPUTPCNNClusterizer& clustererNN)
 {
-  clusterer.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
+  clustererNN.nnClusterizerUseCfRegression = settings.nnClusterizerUseCfRegression;
+  clustererNN.nnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
+  clustererNN.nnClusterizerSizeInputPad = settings.nnClusterizerSizeInputPad;
+  clustererNN.nnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
+  clustererNN.nnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
+  clustererNN.nnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
+  clustererNN.nnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
+  clustererNN.nnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
+  clustererNN.nnClassThreshold = settings.nnClassThreshold;
+  clustererNN.nnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
+  if (clustererNN.nnSigmoidTrafoClassThreshold) {
+    clustererNN.nnClassThreshold = (float)std::log(clustererNN.nnClassThreshold / (1.f - clustererNN.nnClassThreshold));
+  }
+  if (settings.nnClusterizerVerbosity < 0) {
+    clustererNN.nnClusterizerVerbosity = settings.nnInferenceVerbosity;
+  } else {
+    clustererNN.nnClusterizerVerbosity = settings.nnClusterizerVerbosity;
+  }
+  clustererNN.nnInferenceInputDType = settings.nnInferenceInputDType.find("32") != std::string::npos;
+  clustererNN.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || model_reg_2.isInitialized()) {
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
     } else {
-      clusterer.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
-      clusterer.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
+      clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
+      clustererNN.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
     }
   }
 }
 
-void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype, int32_t deviceId)
+void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype)
 {
   if (dtype == 0) {
-    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output, deviceId);
+    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output);
   } else {
-    model.inference<float, float>(clustererNN.inputData32, size, output, deviceId);
+    model.inference<float, float>(clustererNN.inputData32, size, output);
   }
 }

@@ -57,6 +57,7 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int nnClusterizerModelReg2NumOutputNodes = -1;
   int nnInferenceInputDType = 0; // 0: float16, 1: float32
   int mISector = -1;
+  int deviceId = -1;
 
   // Memory allocation for neural network
   float* inputData32 = nullptr;

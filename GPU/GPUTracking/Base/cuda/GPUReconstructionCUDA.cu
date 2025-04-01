@@ -673,7 +673,7 @@ void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_option
   // UpdateCUDAProviderOptions(cuda_options, keys.data(), values.data(), keys.size());
 
   // this implicitly sets "has_user_compute_stream"
-  UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", &mInternals->Streams[stream]);
+  UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", mInternals->Streams[stream]);
   session_options.AppendExecutionProvider_CUDA_V2(cuda_options);
 
   // Finally, don't forget to release the provider options
@@ -694,7 +694,7 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
 {
   // Create ROCm provider options
   cudaGetDevice(deviceId);
-  const auto& api = Ort::GetApi();
+  // const auto& api = Ort::GetApi();
   // api.GetCurrentGpuDeviceId(deviceId);
   OrtROCMProviderOptions rocm_options;
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream

@@ -41,24 +41,34 @@ class OrtModel
 {
 
  public:
-  // Constructor
+  // Constructors & destructors
   OrtModel() = default;
-  OrtModel(std::unordered_map<std::string, std::string> optionsMap) {
-    initOptions(optionsMap);
-    initEnvironment();
-  }
+  OrtModel(std::unordered_map<std::string, std::string> optionsMap) { init(optionsMap); }
   void init(std::unordered_map<std::string, std::string> optionsMap) {
     initOptions(optionsMap);
     initEnvironment();
   }
+  virtual ~OrtModel() = default;
+
+  // General purpose
   void initOptions(std::unordered_map<std::string, std::string> optionsMap);
   void initEnvironment();
+  void memoryOnDevice(int32_t = 0);
   bool isInitialized() { return mInitialized; }
-  Ort::SessionOptions& updateSessionOptions();
-  Ort::MemoryInfo& updateMemoryInfo();
-  void setIO();
+  void resetSession();
 
-  virtual ~OrtModel() = default;
+  // Getters
+  std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
+  std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
+  std::vector<std::string> getInputNames() const { return mInputNames; }
+  std::vector<std::string> getOutputNames() const { return mOutputNames; }
+  Ort::SessionOptions& getSessionOptions();
+  Ort::MemoryInfo& getMemoryInfo();
+
+  // Setters
+  void setDeviceId(int32_t id) { deviceId = id; }
+  void setIO();
+  void setActiveThreads(int threads) { intraOpNumThreads = threads; }
 
   // Conversion
   template <class I, class O>
@@ -66,29 +76,16 @@ class OrtModel
 
   // Inferencing
   template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
-  std::vector<O> inference(std::vector<I>&, int32_t = -1);
+  std::vector<O> inference(std::vector<I>&);
 
-  template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. O2::gpu::OrtDataType::Float16_t from O2/GPU/GPUTracking/ML/convert_float16.h
-  std::vector<O> inference(std::vector<std::vector<I>>&, int32_t = -1);
+  template <class I, class O>
+  std::vector<O> inference(std::vector<std::vector<I>>&);
 
-  template <class I, class O> // class I is the input data type, e.g. float, class O is the output data type, e.g. OrtDataType::Float16_t from O2/Common/ML/include/ML/GPUORTFloat16.h
-  void inference(I*, size_t, O*, int32_t = -1);
-
-  // template<class I, class T, class O> // class I is the input data type, e.g. float, class T the throughput data type and class O is the output data type
-  // std::vector<O> inference(std::vector<I>&);
-
-  // Reset session
-  void resetSession();
-
-  std::vector<std::vector<int64_t>> getNumInputNodes() const { return mInputShapes; }
-  std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
-  std::vector<std::string> getInputNames() const { return mInputNames; }
-  std::vector<std::string> getOutputNames() const { return mOutputNames; }
-
-  void setActiveThreads(int threads) { intraOpNumThreads = threads; }
+  template <class I, class O>
+  void inference(I*, size_t, O*);
 
  private:
-  // ORT variables -> need to be hidden as Pimpl
+  // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;
   OrtVariables* pImplOrt;
 
@@ -99,8 +96,8 @@ class OrtModel
 
   // Environment settings
   bool mInitialized = false;
-  std::string modelPath, envName = "", device = "cpu", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
-  int intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
+  std::string modelPath, envName = "", deviceType = "CPU", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
+  int32_t intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = -1, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
   std::string printShape(const std::vector<int64_t>&);
 };
