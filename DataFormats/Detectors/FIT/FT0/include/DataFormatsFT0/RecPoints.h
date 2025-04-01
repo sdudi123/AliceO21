@@ -109,7 +109,7 @@ class RecPoints
             const o2::InteractionRecord& ir,
             const std::array<short, 4>& arrTimes,
             const o2::fit::Triggers& digitTriggers,
-            uint8_t extraTriggerWord) : mIntRecord(ir), mCollisionTime(arrTimes)
+            uint8_t extraTriggerWord) : mIntRecord(ir), mCollisionTime(arrTimes), mTriggers(digitTriggers)
   {
     ref.setFirstEntry(chDataFirstEntryPos);
     ref.setEntries(chDataNEntries);
