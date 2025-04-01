@@ -37,16 +37,18 @@ class GPUTPCNNClusterizerHost
 {
  public:
   GPUTPCNNClusterizerHost() = default;
-  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer&, int32_t = 0);
+  GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings) { init(settings); }
 
-  void init(const GPUSettingsProcessingNNclusterizer&, int32_t = 0);
+  void init(const GPUSettingsProcessingNNclusterizer&);
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
+  void initModels();
   void loadFromCCDB(std::map<std::string, std::string>);
 
   void networkInference(o2::ml::OrtModel, GPUTPCNNClusterizer&, size_t, float*, int32_t, int32_t);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
+  std::vector<bool> modelsUsed = {false, false, false}; // 0: class, 1: reg_1, 2: reg_2
   std::vector<std::string> reg_model_paths;
 
  private:

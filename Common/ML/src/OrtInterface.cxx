@@ -35,19 +35,13 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
 };
 
-Ort::SessionOptions* OrtModel::updateSessionOptions()
+Ort::SessionOptions& OrtModel::updateSessionOptions()
 {
-  return &(pImplOrt->sessionOptions);
+  return pImplOrt->sessionOptions;
 }
 
-Ort::MemoryInfo* OrtModel::updateMemoryInfo()
+void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsMap)
 {
-  return &(pImplOrt->memoryInfo);
-}
-
-void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
-{
-
   pImplOrt = new OrtVariables();
 
   // Load from options map
@@ -58,71 +52,57 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   if (!optionsMap["model-path"].empty()) {
     modelPath = optionsMap["model-path"];
     device = (optionsMap.contains("device") ? optionsMap["device"] : "CPU");
-    deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : 0);
     allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
     intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
     interOpNumThreads = (optionsMap.contains("inter-op-num-threads") ? std::stoi(optionsMap["inter-op-num-threads"]) : 0);
     loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
     enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
     enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
+    envName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
 
-// #if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
-//   if (device == "ROCM") {
-//     // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_ROCM(pImplOrt->sessionOptions, deviceId));
-//     SetONNXGPUStream(pImplOrt->sessionOptions, deviceId);
-//     LOG(info) << "(ORT) ROCM execution provider set";
-//   }
-// #endif
-// #if defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1
-//   if (device == "MIGRAPHX") {
-//     Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_MIGraphX(pImplOrt->sessionOptions, deviceId));
-//     LOG(info) << "(ORT) MIGraphX execution provider set";
-//   }
-// #endif
-// #if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
-//   if (device == "CUDA") {
-//     // Ort::ThrowOnError(OrtSessionOptionsAppendExecutionProvider_CUDA(pImplOrt->sessionOptions, deviceId));
-//     SetONNXGPUStream(pImplOrt->sessionOptions, deviceId);
-//     LOG(info) << "(ORT) CUDA execution provider set";
-//     dev_mem_str = "Cuda";
-//   }
-// #endif
-
-  if (device == "CPU") {
-    (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
-    (pImplOrt->sessionOptions).SetInterOpNumThreads(interOpNumThreads);
-    if (intraOpNumThreads > 1 || interOpNumThreads > 1) {
-      (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
-    } else if (intraOpNumThreads == 1) {
-      (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+    if (device == "CPU") {
+      (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
+      (pImplOrt->sessionOptions).SetInterOpNumThreads(interOpNumThreads);
+      if (intraOpNumThreads > 1 || interOpNumThreads > 1) {
+        (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
+      } else if (intraOpNumThreads == 1) {
+        (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
+      }
+      if (loggingLevel < 2) {
+        LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " (intraOpNumThreads) and " << interOpNumThreads << " (interOpNumThreads) threads";
+      }
     }
-    if (loggingLevel < 2) {
-      LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " (intraOpNumThreads) and " << interOpNumThreads << " (interOpNumThreads) threads";
-    }
-  }
 
-  (pImplOrt->sessionOptions).DisableMemPattern();
-  (pImplOrt->sessionOptions).DisableCpuMemArena();
+    // OrtROCMProviderOptions rocm_options{};
+    // (pImplOrt->sessionOptions).AppendExecutionProvider_ROCM(rocm_options);
 
-  if (enableProfiling) {
-    if (optionsMap.contains("profiling-output-path")) {
-      (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
+    (pImplOrt->sessionOptions).DisableMemPattern();
+    (pImplOrt->sessionOptions).DisableCpuMemArena();
+
+    if (enableProfiling) {
+      if (optionsMap.contains("profiling-output-path")) {
+        (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
+      } else {
+        LOG(warning) << "(ORT) If profiling is enabled, optionsMap[\"profiling-output-path\"] should be set. Disabling profiling for now.";
+        (pImplOrt->sessionOptions).DisableProfiling();
+      }
     } else {
-      LOG(warning) << "(ORT) If profiling is enabled, optionsMap[\"profiling-output-path\"] should be set. Disabling profiling for now.";
       (pImplOrt->sessionOptions).DisableProfiling();
     }
+
+    (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
+    (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
   } else {
-    (pImplOrt->sessionOptions).DisableProfiling();
+    LOG(fatal) << "(ORT) Model path cannot be empty!";
   }
+}
 
+void OrtModel::initEnvironment()
+{
   mInitialized = true;
-
-  (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
-  (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
-
   pImplOrt->env = std::make_shared<Ort::Env>(
     OrtLoggingLevel(loggingLevel),
-    (optionsMap["onnx-environment-name"].empty() ? "onnx_model_inference" : optionsMap["onnx-environment-name"].c_str()),
+    (envName.empty() ? "ORT" : envName.c_str()),
     // Integrate ORT logging into Fairlogger
     [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
       if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
@@ -143,6 +123,10 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
   pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
+  setIO();
+}
+
+void OrtModel::setIO() {
   for (size_t i = 0; i < (pImplOrt->session)->GetInputCount(); ++i) {
     mInputNames.push_back((pImplOrt->session)->GetInputNameAllocated(i, pImplOrt->allocator).get());
   }
@@ -162,7 +146,6 @@ void OrtModel::reset(std::unordered_map<std::string, std::string> optionsMap)
   outputNamesChar.resize(mOutputNames.size(), nullptr);
   std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
                  [&](const std::string& str) { return str.c_str(); });
-  }
   if (loggingLevel < 2) {
     LOG(info) << "(ORT) Model loaded successfully! (input: " << printShape(mInputShapes[0]) << ", output: " << printShape(mOutputShapes[0]) << ")";
   }
@@ -203,9 +186,6 @@ std::vector<O> OrtModel::inference(std::vector<I>& input, int32_t deviceIndex)
 {
 #if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (allocateDeviceMemory) {
-    if (deviceIndex >= 0) {
-      deviceId = deviceIndex;
-    }
     std::string dev_mem_str = "";
     if (device == "ROCM") {
       dev_mem_str = "Hip";
@@ -213,8 +193,8 @@ std::vector<O> OrtModel::inference(std::vector<I>& input, int32_t deviceIndex)
     if (device == "CUDA") {
       dev_mem_str = "Cuda";
     }
-    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
-    LOG(info) << "(ORT) Memory info set to on-device memory";
+    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
+    LOG(info) << "(ORT) Memory info set to on-device memory for device " << device << " with ID "<< deviceIndex;
   }
 #endif
   std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
@@ -241,11 +221,12 @@ template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Fl
 template <class I, class O>
 void OrtModel::inference(I* input, size_t input_size, O* output, int32_t deviceIndex)
 {
+  // std::vector<std::string> providers = Ort::GetAvailableProviders();
+  // for (const auto& provider : providers) {
+  //     LOG(info) << "Available Execution Provider: " << provider;
+  // }
 #if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (allocateDeviceMemory) {
-    if (deviceIndex >= 0) {
-      deviceId = deviceIndex;
-    }
     std::string dev_mem_str = "";
     if (device == "ROCM") {
       dev_mem_str = "Hip";
@@ -253,8 +234,8 @@ void OrtModel::inference(I* input, size_t input_size, O* output, int32_t deviceI
     if (device == "CUDA") {
       dev_mem_str = "Cuda";
     }
-    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
-    LOG(info) << "(ORT) Memory info set to on-device memory";
+    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
+    LOG(info) << "(ORT) Memory info set to on-device memory for device " << device << " with ID "<< deviceIndex;
   }
 #endif
   std::vector<int64_t> inputShape{input_size, (int64_t)mInputShapes[0][1]};
@@ -268,7 +249,7 @@ void OrtModel::inference(I* input, size_t input_size, O* output, int32_t deviceI
   std::vector<int64_t> outputShape{input_size, mOutputShapes[0][1]};
   Ort::Value outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size * mOutputShapes[0][1], outputShape.data(), outputShape.size());
 
-  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, outputNamesChar.size()); // TODO: Not sure if 1 is always correct here
+  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, outputNamesChar.size());
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, size_t, float*, int32_t);
@@ -280,9 +261,6 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input, int32_t d
 {
 #if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (allocateDeviceMemory) {
-    if (deviceIndex >= 0) {
-       deviceId = deviceIndex;
-    }
     std::string dev_mem_str = "";
     if (device == "ROCM") {
       dev_mem_str = "Hip";
@@ -290,8 +268,8 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input, int32_t d
     if (device == "CUDA") {
       dev_mem_str = "Cuda";
     }
-    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceId, OrtMemType::OrtMemTypeDefault);
-    LOG(info) << "(ORT) Memory info set to on-device memory";
+    pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
+    LOG(info) << "(ORT) Memory info set to on-device memory for device " << device << " with ID " << deviceIndex;
   }
 #endif
   std::vector<Ort::Value> inputTensor;

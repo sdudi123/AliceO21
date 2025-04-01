@@ -43,12 +43,19 @@ class OrtModel
  public:
   // Constructor
   OrtModel() = default;
-  OrtModel(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
-  void init(std::unordered_map<std::string, std::string> optionsMap) { reset(optionsMap); }
-  void reset(std::unordered_map<std::string, std::string>);
+  OrtModel(std::unordered_map<std::string, std::string> optionsMap) {
+    initOptions(optionsMap);
+    initEnvironment();
+  }
+  void init(std::unordered_map<std::string, std::string> optionsMap) {
+    initOptions(optionsMap);
+    initEnvironment();
+  }
+  void initOptions(std::unordered_map<std::string, std::string> optionsMap);
+  void initEnvironment();
   bool isInitialized() { return mInitialized; }
-  Ort::SessionOptions* updateSessionOptions();
-  Ort::MemoryInfo* updateMemoryInfo();
+  Ort::SessionOptions& updateSessionOptions();
+  void setIO();
 
   virtual ~OrtModel() = default;
 
@@ -91,7 +98,7 @@ class OrtModel
 
   // Environment settings
   bool mInitialized = false;
-  std::string modelPath, device = "cpu", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
+  std::string modelPath, envName = "", device = "cpu", thread_affinity = ""; // device options should be cpu, rocm, migraphx, cuda
   int intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = 0, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
   std::string printShape(const std::vector<int64_t>&);

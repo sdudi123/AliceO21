@@ -22,7 +22,9 @@
 #include <functional>
 #include <atomic>
 
-struct OrtSessionOptions;
+namespace Ort {
+struct SessionOptions;
+}
 
 namespace o2::gpu
 {
@@ -90,7 +92,7 @@ class GPUReconstructionProcessing : public GPUReconstruction
   void AddGPUEvents(T*& events);
 
   virtual std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() override;
-  virtual void SetONNXGPUStream(OrtSessionOptions*, int32_t, int32_t*) {}
+  virtual void SetONNXGPUStream(Ort::SessionOptions&, int32_t, int32_t*) {}
 
   struct RecoStepTimerMeta {
     HighResTimer timerToGPU;

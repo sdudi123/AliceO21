@@ -22,11 +22,6 @@
 
 using namespace o2::gpu;
 
-GPUTPCNNClusterizerHost::GPUTPCNNClusterizerHost(const GPUSettingsProcessingNNclusterizer& settings, int32_t deviceId)
-{
-  init(settings, deviceId);
-}
-
 void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings)
 {
   o2::ccdb::CcdbApi ccdbApi;
@@ -54,7 +49,7 @@ void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> se
   }
 }
 
-void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings, int32_t deviceId)
+void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
 {
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
   std::vector<std::string> reg_model_paths;
@@ -103,7 +98,6 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
   OrtOptions = {
     {"model-path", class_model_path},
     {"device", settings.nnInferenceDevice},
-    {"device-id", std::to_string(deviceId)},
     {"allocate-device-memory", std::to_string(settings.nnInferenceAllocateDevMem)},
     {"intra-op-num-threads", std::to_string(settings.nnInferenceIntraOpNumThreads)},
     {"inter-op-num-threads", std::to_string(settings.nnInferenceInterOpNumThreads)},
@@ -112,20 +106,37 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
 
-  model_class.init(OrtOptions);
+  LOG(info) << "Model path: " << class_model_path;
+  model_class.initOptions(OrtOptions);
+  modelsUsed[0] = true;
 
   reg_model_paths = o2::utils::Str::tokenize(reg_model_path, ':');
 
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || reg_model_paths.size() == 1) {
+    if (reg_model_paths.size() == 1) {
       OrtOptions["model-path"] = reg_model_paths[0];
-      model_reg_1.init(OrtOptions);
+      model_reg_1.initOptions(OrtOptions);
+      modelsUsed[1] = true;
     } else {
       OrtOptions["model-path"] = reg_model_paths[0];
-      model_reg_1.init(OrtOptions);
+      model_reg_1.initOptions(OrtOptions);
+      modelsUsed[1] = true;
       OrtOptions["model-path"] = reg_model_paths[1];
-      model_reg_2.init(OrtOptions);
+      model_reg_2.initOptions(OrtOptions);
+      modelsUsed[2] = true;
     }
+  }
+}
+
+void GPUTPCNNClusterizerHost::initModels() {
+  if (!model_class.isInitialized() && modelsUsed[0]) {
+    model_class.initEnvironment();
+  }
+  if (!model_reg_1.isInitialized() && modelsUsed[1]) {
+    model_reg_1.initEnvironment();
+  }
+  if (!model_reg_2.isInitialized() && modelsUsed[2]) {
+    model_reg_2.initEnvironment();
   }
 }
 
