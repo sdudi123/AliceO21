@@ -130,7 +130,7 @@ class RecPoints
 
   o2::fit::Triggers getTrigger() const { return mTriggers; }
   void setTriggers(o2::fit::Triggers trig) { mTriggers = trig; }
-
+  uint8_t getTechnicalWord() const { return mTechnicalWord; }
   static constexpr uint8_t makeExtraTrgWord(bool isActiveA = true, bool isActiveC = true, bool isFlangeEvent = true)
   {
     return (static_cast<uint8_t>(isActiveA) << kIsActiveSideA) |
