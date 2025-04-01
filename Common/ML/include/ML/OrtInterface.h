@@ -55,6 +55,7 @@ class OrtModel
   void initEnvironment();
   bool isInitialized() { return mInitialized; }
   Ort::SessionOptions& updateSessionOptions();
+  Ort::MemoryInfo& updateMemoryInfo();
   void setIO();
 
   virtual ~OrtModel() = default;

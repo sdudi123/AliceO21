@@ -697,16 +697,11 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   const auto& api = Ort::GetApi();
   // api.GetCurrentGpuDeviceId(deviceId);
   OrtROCMProviderOptions rocm_options;
-  LOG(info) << "Creating ROCm provider options";
-  // rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
-  // LOG(info) << "Setting user compute stream";
-  // rocm_options.user_compute_stream = &(mInternals->Streams[stream]);
-  // LOG(info) << "Stream is set with streamId " << stream << " and reference " << &(mInternals->Streams[stream]);
+  rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
+  rocm_options.user_compute_stream = mInternals->Streams[stream];
   session_options.AppendExecutionProvider_ROCM(rocm_options);
-  LOG(info) << "Appending ROCm provider options";
   // OrtSessionOptionsAppendExecutionProvider_ROCM(session_options, *deviceId);
   // api.ReleaseROCMProviderOptions(rocm_options);
-  LOG(info) << "Releasing ROCm provider options";
 }
 
 #endif // GPUCA_HAS_ONNX

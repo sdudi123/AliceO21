@@ -40,6 +40,11 @@ Ort::SessionOptions& OrtModel::updateSessionOptions()
   return pImplOrt->sessionOptions;
 }
 
+Ort::MemoryInfo& OrtModel::updateMemoryInfo()
+{
+  return pImplOrt->memoryInfo;
+}
+
 void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsMap)
 {
   pImplOrt = new OrtVariables();

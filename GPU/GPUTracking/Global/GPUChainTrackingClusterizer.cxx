@@ -988,7 +988,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
-            LOG(info) << "ONNX stream set. Device ID is " << deviceId << " for stream " << lane;
             nnApplication.networkInference(nnApplication.model_class, clustererNNShadow, iSize, clustererNNShadow.modelProbabilities, clustererNNShadow.nnInferenceInputDType, deviceId);
             if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Assigning class labels
