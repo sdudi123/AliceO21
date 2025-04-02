@@ -125,19 +125,24 @@ class DCAFitterN
   };
 
   enum FitStatus : uint8_t { // fit status of crossing hypothesis
-    None = 0,                // no status set
-    Converged = 1,           // fit converged
-    NoCrossing = 2,          // no reasaonable crossing was found
-    RejRadius = 3,           // radius of crossing was not acceptable
-    RejTrackX = 4,           // one candidate track x was below the mimimum required radius
-    RejTrackRoughZ = 5,      // rejected by rough cut on tracks Z difference
-    RejChi2Max = 6,          // rejected by maximum chi2 cut
-    FailProp = 7,            // propagation of at least prong to PCA failed
-    FailInvCov = 8,          // inversion of cov.-matrix failed
-    FailInvWeight = 9,       // inversion of Ti weight matrix failed
-    FailInv2ndDeriv = 10,    // inversion of 2nd derivatives failed
-    FailCorrTracks = 11,     // correction of tracks to updated x failed
-    FailCloserAlt = 12,      // alternative PCA is closer
+    None,                    // no status set (should not be possible!)
+
+    /* Good Conditions */
+    Converged, // fit converged
+    MaxIter,   // max iterations reached before fit convergence
+
+    /* Error Conditions */
+    NoCrossing,      // no reasaonable crossing was found
+    RejRadius,       // radius of crossing was not acceptable
+    RejTrackX,       // one candidate track x was below the mimimum required radius
+    RejTrackRoughZ,  // rejected by rough cut on tracks Z difference
+    RejChi2Max,      // rejected by maximum chi2 cut
+    FailProp,        // propagation of at least prong to PCA failed
+    FailInvCov,      // inversion of cov.-matrix failed
+    FailInvWeight,   // inversion of Ti weight matrix failed
+    FailInv2ndDeriv, // inversion of 2nd derivatives failed
+    FailCorrTracks,  // correction of tracks to updated x failed
+    FailCloserAlt,   // alternative PCA is closer
   };
 
   static constexpr int getNProngs() { return N; }
@@ -334,6 +339,10 @@ class DCAFitterN
     mCurHyp = 0;
     mAllowAltPreference = true;
     mOrder.fill(0);
+    mPropFailed.fill(false);
+    mTrPropDone.fill(false);
+    mNIters.fill(0);
+    mChi2.fill(-1);
     mFitStatus.fill(FitStatus::None);
   }
 
@@ -431,9 +440,6 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
     mFitStatus[mCurHyp] = FitStatus::NoCrossing;
     return 0;
   }
-  for (int ih = 0; ih < MAXHYP; ih++) {
-    mPropFailed[ih] = false;
-  }
   if (mUseAbsDCA) {
     calcRMatrices(); // needed for fast residuals derivatives calculation in case of abs. distance minimization
   }
@@ -455,9 +461,6 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
     }
     mCrossIDCur = ic;
     mCrossIDAlt = (mCrossings.nDCA == 2 && mAllowAltPreference) ? 1 - ic : -1; // works for max 2 crossings
-    mNIters[mCurHyp] = 0;
-    mTrPropDone[mCurHyp] = false;
-    mChi2[mCurHyp] = -1.;
     mPCA[mCurHyp][0] = mCrossings.xDCA[ic];
     mPCA[mCurHyp][1] = mCrossings.yDCA[ic];
 
@@ -1033,6 +1036,9 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
   if (mChi2[mCurHyp] >= mMaxChi2) {
@@ -1102,6 +1108,9 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
   if (mChi2[mCurHyp] >= mMaxChi2) {
