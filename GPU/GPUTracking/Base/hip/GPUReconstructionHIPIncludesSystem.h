@@ -8,36 +8,21 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-///
 
-#include <cuda_runtime.h>
-#include "ITStrackingGPU/Stream.h"
-#include "ITStrackingGPU/Utils.h"
-#include "GPUCommonLogger.h"
+/// \file GPUReconstructionHIPIncludesSystem.h
+/// \author David Rohr
 
-namespace o2
-{
-namespace its
-{
-namespace gpu
-{
-using utils::checkGPUError;
+#ifndef O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
+#define O2_GPU_RECONSTRUCTIONHIPINCLUDES_H
 
-Stream::Stream()
-{
-  checkGPUError(cudaStreamCreate(&mStream));
-}
-Stream::~Stream()
-{
-  LOGP(info, "Destroying stream");
-  checkGPUError(cudaStreamDestroy(mStream));
-}
+#include <hip/hip_runtime.h>
+#include <hip/hip_ext.h>
+#include <hipcub/hipcub.hpp>
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wshadow" // FIXME: Is this still needed?
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
+#pragma GCC diagnostic pop
 
-const GPUStream& Stream::get() const
-{
-  return mStream;
-}
-
-} // namespace gpu
-} // namespace its
-} // namespace o2
+#endif

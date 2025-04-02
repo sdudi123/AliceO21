@@ -29,6 +29,8 @@ struct SessionOptions;
 namespace o2::gpu
 {
 
+struct GPUDefParameters;
+
 namespace gpu_reconstruction_kernels
 {
 struct deviceEvent {
@@ -67,7 +69,7 @@ class threadContext
 class GPUReconstructionProcessing : public GPUReconstruction
 {
  public:
-  ~GPUReconstructionProcessing() override = default;
+  ~GPUReconstructionProcessing() override;
 
   // Threading
   int32_t getNKernelHostThreads(bool splitCores);
@@ -82,7 +84,7 @@ class GPUReconstructionProcessing : public GPUReconstruction
   static const char* GetKernelName();
   const std::string& GetKernelName(int32_t i) const { return mKernelNames[i]; }
   template <class T, int32_t I = 0>
-  static uint32_t GetKernelNum(int32_t k = -1);
+  static uint32_t GetKernelNum();
 
   // Public queries for timers
   auto& getRecoStepTimer(RecoStep step) { return mTimersRecoSteps[getRecoStepNum(step)]; }
@@ -106,7 +108,7 @@ class GPUReconstructionProcessing : public GPUReconstruction
   };
 
  protected:
-  GPUReconstructionProcessing(const GPUSettingsDeviceBackend& cfg) : GPUReconstruction(cfg) {}
+  GPUReconstructionProcessing(const GPUSettingsDeviceBackend& cfg);
   using deviceEvent = gpu_reconstruction_kernels::deviceEvent;
 
   static const std::vector<std::string> mKernelNames;
@@ -136,6 +138,9 @@ class GPUReconstructionProcessing : public GPUReconstruction
   HighResTimer& getKernelTimer(RecoStep step, int32_t num = 0, size_t addMemorySize = 0, bool increment = true);
   template <class T, int32_t J = -1>
   HighResTimer& getTimer(const char* name, int32_t num = -1);
+
+  GPUDefParameters* mParCPU = nullptr;
+  GPUDefParameters* mParDevice = nullptr;
 
  private:
   uint32_t getNextTimerId();

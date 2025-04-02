@@ -13,6 +13,7 @@
 /// \author David Rohr
 
 #include "GPUReconstructionOCLIncludesHost.h"
+#include "GPUDefParametersLoad.inc"
 
 #include <map>
 
@@ -36,6 +37,7 @@ GPUReconstructionOCLBackend::GPUReconstructionOCLBackend(const GPUSettingsDevice
 {
   if (mMaster == nullptr) {
     mInternals = new GPUReconstructionOCLInternals;
+    *mParDevice = o2::gpu::internal::GPUDefParametersLoad();
   }
   mDeviceBackendSettings.deviceType = DeviceType::OCL;
 }

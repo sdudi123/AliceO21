@@ -8,37 +8,20 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-///
-/// \file Stream.h
-/// \brief
-///
 
-#ifndef ITSTRACKINGGPU_STREAM_H_
-#define ITSTRACKINGGPU_STREAM_H_
+/// \file GPUDefParameters.h
+/// \author David Rohr
 
-#include "ITStracking/Definitions.h"
+#ifndef GPUDEFPARAMETERS_H
+#define GPUDEFPARAMETERS_H
 
-namespace o2
+namespace o2::gpu
 {
-namespace its
-{
-namespace gpu
-{
+struct GPUDefParameters {  // clang-format off
+  int32_t par_LB_maxThreads[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
+  int32_t par_LB_minBlocks[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
+  int32_t par_LB_forceBlocks[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
+};  // clang-format on
+}  // namespace o2::gpu
 
-class Stream final
-{
-
- public:
-  Stream();
-  ~Stream();
-
-  [[nodiscard]] const GPUStream& get() const;
-
- private:
-  GPUStream mStream;
-};
-} // namespace gpu
-} // namespace its
-} // namespace o2
-
-#endif /* TRAKINGITSU_INCLUDE_GPU_STREAM_H_ */
+#endif
