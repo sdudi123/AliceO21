@@ -617,18 +617,16 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     uint32_t maxClusters = 0;
-    for (uint32_t lane = 0; lane < GetProcessingSettings().nTPCClustererLanes; lane++) {
+    int32_t deviceId = -1;
+    int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
+    for (uint32_t lane = 0; lane < NSECTORS; lane++) {
       maxClusters = std::max(maxClusters, processors()->tpcClusterer[lane].mNMaxClusters);
     }
-    for (uint32_t lane = 0; lane < GetProcessingSettings().nTPCClustererLanes; lane++) {
+    mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[lane];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[lane] : clustererNN;
 
-      int32_t deviceId = -1;
-      if (clustererNNShadow.nnClusterizerVerbosity < 3) {
-        LOG(info) << "Allocating ONNX stream for lane " << lane << " and lane " << lane;
-      }
       if (nnApplications[lane].modelsUsed[0]) {
         SetONNXGPUStream((nnApplications[lane].model_class).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_class).setDeviceId(deviceId);
@@ -644,21 +642,32 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         (nnApplications[lane].model_reg_2).setDeviceId(deviceId);
         (nnApplications[lane].model_reg_2).initEnvironment();
       }
-
+      if (clustererNNShadow.nnClusterizerVerbosity < 3) {
+        LOG(info) << "Allocated ONNX stream for lane " << lane << " and device " << deviceId;
+      }
+    });
+    mRec->runParallelOuterLoop(doGPU, NSECTORS, [&](uint32_t sector) {
+      GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
+      GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
+      int32_t lane = sector % numLanes;
       if (doGPU){
         clustererNNShadow.deviceId = deviceId;
-        clustererNNShadow.mISector = lane;
+        clustererNNShadow.mISector = sector;
         clustererNNShadow.nnClusterizerTotalClusters = maxClusters;
         nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow);
       } else {
         // TODO: not sure if this part is needed at all
         clustererNN.deviceId = deviceId;
-        clustererNN.mISector = lane;
+        clustererNN.mISector = sector;
         clustererNN.nnClusterizerTotalClusters = maxClusters;
         nnApplications[lane].initClusterizer(nn_settings, clustererNN);
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
-    }
+      if (doGPU){
+        WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&clustererNN - (char*)processors(), &clustererNNShadow, sizeof(clustererNN), lane);
+        TransferMemoryResourcesToGPU(RecoStep::TPCClusterFinding, &clustererNNShadow, lane);
+      }
+    });
   }
 #endif
 
@@ -934,12 +943,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[lane] : clustererNN;
           GPUTPCNNClusterizerHost& nnApplication = nnApplications[lane];
 
+          LOG(info) << "clustererNNShadow.inputData32: " << clustererNNShadow.inputData32;
+          LOG(info) << "clustererShadow.mPclusterInRow: " << clustererShadow.mPclusterInRow;
+
           int withMC = (doGPU && propagateMCLabels);
-          if (doGPU){
-            // SetupGPUProcessor(&clustererNN, true);
-            WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&clustererNN - (char*)processors(), &clustererNNShadow, sizeof(clustererNN), lane);
-            TransferMemoryResourcesToGPU(RecoStep::TPCClusterFinding, &clustererNNShadow, lane);
-          }
 
           if (clustererNNShadow.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
             runKernel<GPUTPCCFDeconvolution>({GetGrid(clusterer.mPmemory->counters.nPositions, lane), {iSector}});
