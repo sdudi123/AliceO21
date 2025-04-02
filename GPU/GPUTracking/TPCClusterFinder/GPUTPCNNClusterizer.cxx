@@ -26,20 +26,35 @@ void* GPUTPCNNClusterizer::setIOPointers(void* mem)
 {
   if (nnClusterizerBatchedMode > 0) {
     if (nnInferenceInputDType == 0 && nnClusterizerElementSize > 0) {
-      computePointerWithAlignment(mem, inputData16, nnClusterizerBatchedMode * nnClusterizerElementSize);
+      computePointerWithAlignment(mem, inputData_16, nnClusterizerBatchedMode * nnClusterizerElementSize);
     } else if (nnInferenceInputDType == 1 && nnClusterizerElementSize > 0) {
-      computePointerWithAlignment(mem, inputData32, nnClusterizerBatchedMode * nnClusterizerElementSize);
+      computePointerWithAlignment(mem, inputData_32, nnClusterizerBatchedMode * nnClusterizerElementSize);
     }
     computePointerWithAlignment(mem, clusterFlags, 2 * nnClusterizerBatchedMode);
-    if (nnClusterizerModelClassNumOutputNodes > 0) {
-      computePointerWithAlignment(mem, modelProbabilities, nnClusterizerBatchedMode * nnClusterizerModelClassNumOutputNodes);
-    }
-    if (!nnClusterizerUseCfRegression) {
-      if (nnClusterizerModelReg1NumOutputNodes > 0) {
-        computePointerWithAlignment(mem, outputDataReg1, nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes);
+
+    if (nnInferenceOutputDType == 0 && nnClusterizerElementSize > 0) {
+      if (nnClusterizerModelClassNumOutputNodes > 0) {
+        computePointerWithAlignment(mem, modelProbabilities_16, nnClusterizerBatchedMode * nnClusterizerModelClassNumOutputNodes);
       }
-      if (nnClusterizerModelReg2NumOutputNodes > 0) {
-        computePointerWithAlignment(mem, outputDataReg2, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
+      if (!nnClusterizerUseCfRegression) {
+        if (nnClusterizerModelReg1NumOutputNodes > 0) {
+          computePointerWithAlignment(mem, outputDataReg1_16, nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes);
+        }
+        if (nnClusterizerModelReg2NumOutputNodes > 0) {
+          computePointerWithAlignment(mem, outputDataReg2_16, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
+        }
+      }
+    } else if (nnInferenceOutputDType == 1 && nnClusterizerElementSize > 0) {
+      if (nnClusterizerModelClassNumOutputNodes > 0) {
+        computePointerWithAlignment(mem, modelProbabilities_32, nnClusterizerBatchedMode * nnClusterizerModelClassNumOutputNodes);
+      }
+      if (!nnClusterizerUseCfRegression) {
+        if (nnClusterizerModelReg1NumOutputNodes > 0) {
+          computePointerWithAlignment(mem, outputDataReg1_32, nnClusterizerBatchedMode * nnClusterizerModelReg1NumOutputNodes);
+        }
+        if (nnClusterizerModelReg2NumOutputNodes > 0) {
+          computePointerWithAlignment(mem, outputDataReg2_32, nnClusterizerBatchedMode * nnClusterizerModelReg2NumOutputNodes);
+        }
       }
     }
   }

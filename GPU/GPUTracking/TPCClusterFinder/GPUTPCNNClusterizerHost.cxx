@@ -149,6 +149,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
     clustererNN.nnClusterizerVerbosity = settings.nnClusterizerVerbosity;
   }
   clustererNN.nnInferenceInputDType = settings.nnInferenceInputDType.find("32") != std::string::npos;
+  clustererNN.nnInferenceOutputDType = settings.nnInferenceOutputDType.find("32") != std::string::npos;
   clustererNN.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
     if (model_class.getNumOutputNodes()[0][1] == 1 || model_reg_2.isInitialized()) {
@@ -157,14 +158,5 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
       clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
       clustererNN.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
     }
-  }
-}
-
-void GPUTPCNNClusterizerHost::networkInference(o2::ml::OrtModel model, GPUTPCNNClusterizer& clustererNN, size_t size, float* output, int32_t dtype)
-{
-  if (dtype == 0) {
-    model.inference<OrtDataType::Float16_t, float>(clustererNN.inputData16, size, output);
-  } else {
-    model.inference<float, float>(clustererNN.inputData32, size, output);
   }
 }

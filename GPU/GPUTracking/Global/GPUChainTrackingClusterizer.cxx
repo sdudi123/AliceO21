@@ -943,9 +943,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[lane] : clustererNN;
           GPUTPCNNClusterizerHost& nnApplication = nnApplications[lane];
 
-          LOG(info) << "clustererNNShadow.inputData32: " << clustererNNShadow.inputData32;
-          LOG(info) << "clustererShadow.mPclusterInRow: " << clustererShadow.mPclusterInRow;
-
           int withMC = (doGPU && propagateMCLabels);
 
           if (clustererNNShadow.nnClusterizerUseCfRegression || (int)(nn_settings.nnClusterizerApplyCfDeconvolution)) {
@@ -963,19 +960,58 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
-            nnApplication.networkInference(nnApplication.model_class, clustererNNShadow, iSize, clustererNNShadow.modelProbabilities, clustererNNShadow.nnInferenceInputDType);
-            if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Assigning class labels
-            } else {
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Assigning class labels
-            }
 
+            // nnApplication.networkInference(nnApplication.model_class, clustererNNShadow, iSize, clustererNNShadow.modelProbabilities, clustererNNShadow.nnInferenceInputDType);
+            if (clustererNNShadow.nnInferenceInputDType == 0) {
+              if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                (nnApplication.model_class).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.modelProbabilities_16);
+              } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                (nnApplication.model_class).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.modelProbabilities_32);
+              }
+            } else if (clustererNNShadow.nnInferenceInputDType == 1) {
+              if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                (nnApplication.model_class).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.modelProbabilities_16);
+              } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                (nnApplication.model_class).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.modelProbabilities_32);
+              }
+            }
+            if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Assigning class labels
+            } else {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass2Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Assigning class labels
+            }
             if (!clustererNNShadow.nnClusterizerUseCfRegression) {
-              nnApplication.networkInference(nnApplication.model_reg_1, clustererNNShadow, iSize, clustererNNShadow.outputDataReg1, clustererNNShadow.nnInferenceInputDType);
-              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 1
+              // nnApplication.networkInference(nnApplication.model_reg_1, clustererNNShadow, iSize, clustererNNShadow.outputDataReg1, clustererNNShadow.nnInferenceInputDType);
+              if (clustererNNShadow.nnInferenceInputDType == 0) {
+                if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg1_16);
+                } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg1_32);
+                }
+              } else if (clustererNNShadow.nnInferenceInputDType == 1) {
+                if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg1_16);
+                } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                  (nnApplication.model_reg_1).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg1_32);
+                }
+              }
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass1Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Running the NN for regression class 1
               if (nnApplication.model_class.getNumOutputNodes()[0][1] > 1 && nnApplication.model_reg_2.isInitialized()) {
-                nnApplication.networkInference(nnApplication.model_reg_2, clustererNNShadow, iSize, clustererNNShadow.outputDataReg2, clustererNNShadow.nnInferenceInputDType);
-                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Running the NN for regression class 2
+                // nnApplication.networkInference(nnApplication.model_reg_2, clustererNNShadow, iSize, clustererNNShadow.outputDataReg2, clustererNNShadow.nnInferenceInputDType);
+                if (clustererNNShadow.nnInferenceInputDType == 0) {
+                  if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg2_16);
+                  } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.outputDataReg2_32);
+                  }
+                } else if (clustererNNShadow.nnInferenceInputDType == 1) {
+                  if (clustererNNShadow.nnInferenceOutputDType == 0) {
+                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg2_16);
+                  } else if (clustererNNShadow.nnInferenceOutputDType == 1) {
+                    (nnApplication.model_reg_2).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.outputDataReg2_32);
+                  }
+                }
+                runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishClass2Regression>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Running the NN for regression class 2
               }
             }
             auto stop1 = std::chrono::high_resolution_clock::now();

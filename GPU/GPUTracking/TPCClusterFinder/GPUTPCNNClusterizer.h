@@ -56,20 +56,27 @@ class GPUTPCNNClusterizer : public GPUProcessor
   int nnClusterizerModelReg1NumOutputNodes = -1;
   int nnClusterizerModelReg2NumOutputNodes = -1;
   int nnInferenceInputDType = 0; // 0: float16, 1: float32
+  int nnInferenceOutputDType = 0; // 0: float16, 1: float32
   int mISector = -1;
   int deviceId = -1;
 
   // Memory allocation for neural network
-  float* inputData32 = nullptr;
-  OrtDataType::Float16_t* inputData16 = nullptr;
-  float* outputDataClass = nullptr;
-  float* modelProbabilities = nullptr;
-  float* outputDataReg1 = nullptr;
-  float* outputDataReg2 = nullptr;
 
-  ChargePos* peakPositions = nullptr;
-  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptrx
-  float* centralCharges = nullptr;
+  bool* clusterFlags = nullptr; // mSplitInTime, mSplitInPad. Techincally both flags are set in the same way -> ClusterAccumulator.cx=nullptr
+  int* outputDataClass = nullptr;
+
+  // FP32
+  float* inputData_32 = nullptr;
+  float* modelProbabilities_32 = nullptr;
+  float* outputDataReg1_32 = nullptr;
+  float* outputDataReg2_32 = nullptr;
+
+  // FP16
+  OrtDataType::Float16_t* inputData_16 = nullptr;
+  OrtDataType::Float16_t* modelProbabilities_16 = nullptr;
+  OrtDataType::Float16_t* outputDataReg1_16 = nullptr;
+  OrtDataType::Float16_t* outputDataReg2_16 = nullptr;
+
   int16_t mMemoryId = -1;
 }; // class GPUTPCNNClusterizer
 
