@@ -1082,7 +1082,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
       if (mLoggerBadInv.needToLog()) {
-        printf("itter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
         mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
       }
       mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
