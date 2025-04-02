@@ -75,21 +75,20 @@ struct TrackDeriv {
 ///< Log log-throttling helper
 struct LogLogThrottler {
   size_t evCount{0};
-  size_t evCountPrev{0};
-  size_t logCount{0};
-
+  size_t nextLog{1};
   GPUdi() bool needToLog()
   {
-    if (size_t(o2::gpu::GPUCommonMath::Log(++evCount)) + 1 > logCount) {
-      logCount++;
+    if (++evCount > nextLog) {
+      nextLog *= 2;
       return true;
     }
     return false;
   }
-
-  GPUdi() size_t getNMuted() const { return evCount - evCountPrev - 1; }
-
-  GPUdi() void clear() { evCount = evCountPrev = logCount = 0; }
+  GPUdi() void clear()
+  {
+    evCount = 0;
+    nextLog = 1;
+  }
 };
 
 template <int N, typename... Args>
@@ -747,12 +746,11 @@ GPUd() bool DCAFitterN<N, Args...>::recalculatePCAWithErrors(int cand)
         if (mLoggerBadCov.needToLog()) {
 #ifndef GPUCA_GPUCODE
           printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
-                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
 #else
           printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
-                 mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
 #endif
-          mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
         }
         mFitStatus[mCurHyp] = FitStatus::FailInvCov;
         if (mBadCovPolicy == Discard) {
@@ -975,12 +973,11 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
       if (mLoggerBadCov.needToLog()) {
 #ifndef GPUCA_GPUCODE
         printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
-               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].asString().c_str());
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
 #else
         printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
-               mFitterID, mLoggerBadCov.getNMuted(), mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
 #endif
-        mLoggerBadCov.evCountPrev = mLoggerBadCov.evCount;
       }
       mFitStatus[mCurHyp] = FitStatus::FailInvCov;
       if (mBadCovPolicy == Discard) {
@@ -1010,8 +1007,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
       if (mLoggerBadInv.needToLog()) {
-        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
-        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
       }
       mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
@@ -1082,8 +1078,7 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
       if (mLoggerBadInv.needToLog()) {
-        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.getNMuted());
-        mLoggerBadInv.evCountPrev = mLoggerBadInv.evCount;
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
       }
       mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
@@ -1247,11 +1242,10 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateParamToX(o2::track::TrackPar& t, f
     mPropFailed[mCurHyp] = true;
     if (mLoggerBadProp.needToLog()) {
 #ifndef GPUCA_GPUCODE
-      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
 #else
-      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
 #endif
-      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
     }
   }
   return res;
@@ -1274,11 +1268,10 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateToX(o2::track::TrackParCov& t, flo
     mPropFailed[mCurHyp] = true;
     if (mLoggerBadProp.needToLog()) {
 #ifndef GPUCA_GPUCODE
-      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.getNMuted(), t.asString().c_str());
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
 #else
-      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.getNMuted());
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
 #endif
-      mLoggerBadProp.evCountPrev = mLoggerBadProp.evCount;
     }
   }
   return res;
