@@ -426,7 +426,7 @@ template <typename T>
 concept has_extension = is_metadata<T> && not_void<typename T::extension_table_t>;
 
 template <typename T>
-concept has_configurable_extension = has_extension<T> && requires(T t) { typename T::configurable_t; std::same_as<std::true_type, typename T::configurable_t>; };
+concept has_configurable_extension = has_extension<T> && requires(T t) { typename T::configurable_t; requires std::same_as<std::true_type, typename T::configurable_t>; };
 
 template <typename T>
 concept is_spawnable_column = std::same_as<typename T::spawnable_t, std::true_type>;
