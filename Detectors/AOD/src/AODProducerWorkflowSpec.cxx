@@ -365,6 +365,7 @@ void AODProducerWorkflowDPL::addToTracksQATable(TracksQACursorType& tracksQACurs
     trackQAInfoHolder.tpcdcaR,
     trackQAInfoHolder.tpcdcaZ,
     trackQAInfoHolder.tpcClusterByteMask,
+    trackQAInfoHolder.tpcSignalTodEdxNorm,
     trackQAInfoHolder.tpcdEdxMax0R,
     trackQAInfoHolder.tpcdEdxMax1R,
     trackQAInfoHolder.tpcdEdxMax2R,
@@ -2542,14 +2543,15 @@ AODProducerWorkflowDPL::TrackExtraInfo AODProducerWorkflowDPL::processBarrelTrac
   if (contributorsGID[GIndex::Source::TPC].isIndexSet()) {
     const auto& tpcOrig = data.getTPCTrack(contributorsGID[GIndex::TPC]);
     const auto& tpcClData = mTPCCounters[contributorsGID[GIndex::TPC]];
+    const auto& dEdx = tpcOrig.getdEdx().dEdxTotTPC > 0 ? tpcOrig.getdEdx() : tpcOrig.getdEdxAlt();
     extraInfoHolder.tpcInnerParam = tpcOrig.getP() / tpcOrig.getAbsCharge();
     extraInfoHolder.tpcChi2NCl = tpcOrig.getNClusters() ? tpcOrig.getChi2() / tpcOrig.getNClusters() : 0;
-    extraInfoHolder.tpcSignal = tpcOrig.getdEdx().dEdxTotTPC;
+    extraInfoHolder.tpcSignal = dEdx.dEdxTotTPC;
     extraInfoHolder.tpcNClsFindable = tpcOrig.getNClusters();
     extraInfoHolder.tpcNClsFindableMinusFound = tpcOrig.getNClusters() - tpcClData.found;
     extraInfoHolder.tpcNClsFindableMinusCrossedRows = tpcOrig.getNClusters() - tpcClData.crossed;
     extraInfoHolder.tpcNClsShared = tpcClData.shared;
-    uint32_t clsUsedForPID = tpcOrig.getdEdx().NHitsIROC + tpcOrig.getdEdx().NHitsOROC1 + tpcOrig.getdEdx().NHitsOROC2 + tpcOrig.getdEdx().NHitsOROC3;
+    uint32_t clsUsedForPID = dEdx.NHitsIROC + dEdx.NHitsOROC1 + dEdx.NHitsOROC2 + dEdx.NHitsOROC3;
     extraInfoHolder.tpcNClsFindableMinusPID = tpcOrig.getNClusters() - clsUsedForPID;
     if (src == GIndex::TPC) { // standalone TPC track should set its time from their timebins range
       if (needBCSlice) {
@@ -2625,16 +2627,19 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
     }
     trackQAHolder.tpcTime0 = tpcOrig.getTime0();
     trackQAHolder.tpcClusterByteMask = byteMask;
-    const float dEdxNorm = (tpcOrig.getdEdx().dEdxTotTPC > 0) ? 100. / tpcOrig.getdEdx().dEdxTotTPC : 0;
-    trackQAHolder.tpcdEdxMax0R = uint8_t(tpcOrig.getdEdx().dEdxMaxIROC * dEdxNorm);
-    trackQAHolder.tpcdEdxMax1R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC1 * dEdxNorm);
-    trackQAHolder.tpcdEdxMax2R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC2 * dEdxNorm);
-    trackQAHolder.tpcdEdxMax3R = uint8_t(tpcOrig.getdEdx().dEdxMaxOROC3 * dEdxNorm);
+    const auto& dEdxInfoAlt = tpcOrig.getdEdxAlt(); // tpcOrig.getdEdx()
+    const float dEdxNorm = (dEdxInfoAlt.dEdxTotTPC > 0) ? 100. / dEdxInfoAlt.dEdxTotTPC : 0;
+    float aodTPCSignal = tpcOrig.getdEdx().dEdxTotTPC > 0 ? tpcOrig.getdEdx().dEdxTotTPC : dEdxInfoAlt.dEdxTotTPC; // what was stored in the AOD
+    trackQAHolder.tpcSignalTodEdxNorm = uint8_t(aodTPCSignal * dEdxNorm);
+    trackQAHolder.tpcdEdxMax0R = uint8_t(dEdxInfoAlt.dEdxMaxIROC * dEdxNorm);
+    trackQAHolder.tpcdEdxMax1R = uint8_t(dEdxInfoAlt.dEdxMaxOROC1 * dEdxNorm);
+    trackQAHolder.tpcdEdxMax2R = uint8_t(dEdxInfoAlt.dEdxMaxOROC2 * dEdxNorm);
+    trackQAHolder.tpcdEdxMax3R = uint8_t(dEdxInfoAlt.dEdxMaxOROC3 * dEdxNorm);
     //
-    trackQAHolder.tpcdEdxTot0R = uint8_t(tpcOrig.getdEdx().dEdxTotIROC * dEdxNorm);
-    trackQAHolder.tpcdEdxTot1R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC1 * dEdxNorm);
-    trackQAHolder.tpcdEdxTot2R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC2 * dEdxNorm);
-    trackQAHolder.tpcdEdxTot3R = uint8_t(tpcOrig.getdEdx().dEdxTotOROC3 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot0R = uint8_t(dEdxInfoAlt.dEdxTotIROC * dEdxNorm);
+    trackQAHolder.tpcdEdxTot1R = uint8_t(dEdxInfoAlt.dEdxTotOROC1 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot2R = uint8_t(dEdxInfoAlt.dEdxTotOROC2 * dEdxNorm);
+    trackQAHolder.tpcdEdxTot3R = uint8_t(dEdxInfoAlt.dEdxTotOROC3 * dEdxNorm);
     ///
     float scaleTOF{0};
     auto contributorsGIDA = data.getSingleDetectorRefs(trackIndex);
@@ -2708,6 +2713,7 @@ AODProducerWorkflowDPL::TrackQA AODProducerWorkflowDPL::processBarrelTrackQA(int
                        << "trackQAHolder.tpcdcaR=" << trackQAHolder.tpcdcaR
                        << "trackQAHolder.tpcdcaZ=" << trackQAHolder.tpcdcaZ
                        << "trackQAHolder.tpcdcaClusterByteMask=" << trackQAHolder.tpcClusterByteMask
+                       << "trackQAHolder.tpcSignalTodEdxNorm=" << trackQAHolder.tpcSignalTodEdxNorm
                        << "trackQAHolder.tpcdEdxMax0R=" << trackQAHolder.tpcdEdxMax0R
                        << "trackQAHolder.tpcdEdxMax1R=" << trackQAHolder.tpcdEdxMax1R
                        << "trackQAHolder.tpcdEdxMax2R=" << trackQAHolder.tpcdEdxMax2R

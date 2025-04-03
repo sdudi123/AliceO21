@@ -416,6 +416,7 @@ class AODProducerWorkflowDPL : public Task
     int16_t tpcdcaR{};
     int16_t tpcdcaZ{};
     uint8_t tpcClusterByteMask{};
+    uint8_t tpcSignalTodEdxNorm{};
     uint8_t tpcdEdxMax0R{};
     uint8_t tpcdEdxMax1R{};
     uint8_t tpcdEdxMax2R{};

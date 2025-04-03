@@ -683,7 +683,8 @@ DECLARE_SOA_COLUMN(TPCTime0, tpcTime0, float);                            //! tp
 DECLARE_SOA_COLUMN(TPCDCAR, tpcdcaR, int16_t);                            //! tpc only DCAr
 DECLARE_SOA_COLUMN(TPCDCAZ, tpcdcaZ, int16_t);                            //! tpc only DCAz
 DECLARE_SOA_COLUMN(TPCClusterByteMask, tpcClusterByteMask, uint8_t);      //! tracklet bitmask - track defining 8 tracklets (152=8*19 rows) bit set if nCluster>thr (default 5)
-DECLARE_SOA_COLUMN(TPCdEdxMax0R, tpcdEdxMax0R, uint8_t);                  //! TPC dEdxQMax -ROC0/dEdx
+DECLARE_SOA_COLUMN(TPCSignalTodEdxNorm, tpcSignalTodEdxNorm, uint8_t);    //! 100*TrackExtra.TPCSignal/TrackTPC.mdEdxAlt
+DECLARE_SOA_COLUMN(TPCdEdxMax0R, tpcdEdxMax0R, uint8_t);                  //! TPC dEdxQMax -ROC0/dEdx from TrackTPC.mdEdxAlt
 DECLARE_SOA_COLUMN(TPCdEdxMax1R, tpcdEdxMax1R, uint8_t);                  //! TPC dEdxQMax -ROC1/dEdx
 DECLARE_SOA_COLUMN(TPCdEdxMax2R, tpcdEdxMax2R, uint8_t);                  //! TPC dEdxQMax -ROC2/dEdx
 DECLARE_SOA_COLUMN(TPCdEdxMax3R, tpcdEdxMax3R, uint8_t);                  //! TPC dEdxQMax -ROC3/dEdx
@@ -736,7 +737,17 @@ DECLARE_SOA_TABLE_VERSIONED(TracksQA_002, "AOD", "TRACKQA", 2, //! trackQA infor
                             trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
                                              trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
 
-using TracksQAVersion = TracksQA_002;
+DECLARE_SOA_TABLE_VERSIONED(TracksQA_003, "AOD", "TRACKQA", 3, //! trackQA information - version 3 - including alternative dedx normalization
+                            o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask, trackqa::TPCSignalTodEdxNorm,
+                            trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
+                            trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R,
+                            trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                            trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt,
+                            trackqa::DeltaTOFdX, trackqa::DeltaTOFdZ,
+                            trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                                             trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
+
+using TracksQAVersion = TracksQA_003;
 using TracksQA = TracksQAVersion::iterator;
 
 namespace fwdtrack
