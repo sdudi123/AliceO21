@@ -148,11 +148,10 @@ set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.co
 # -------------------------------- End RTC -------------------------------------------------------
 
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-  set(TMP_BASELIB O2::GPUTracking)
   o2_add_library(
     ${MODULE}
     SOURCES ${SRCS}
-    PUBLIC_LINK_LIBRARIES ${TMP_BASELIB} O2::ITStrackingHIP
+    PUBLIC_LINK_LIBRARIES O2::GPUTracking O2::ITStrackingHIP
     PRIVATE_INCLUDE_DIRECTORIES
       ${CMAKE_SOURCE_DIR}/Detectors/Base/src
       ${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
@@ -171,10 +170,9 @@ endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   set(targetName "${MODULE}")
-  set(TMP_BASELIB GPUTracking)
   add_library(${MODULE} SHARED ${SRCS})
   add_library(O2::${MODULE} ALIAS ${MODULE})
-  target_link_libraries(${MODULE} PUBLIC ${TMP_BASELIB})
+  target_link_libraries(${MODULE} PUBLIC O2::GPUTracking)
   install(TARGETS GPUTrackingHIP)
   include_directories(${GPUCA_HIP_SOURCE_DIR})
 endif()
@@ -182,8 +180,10 @@ endif()
 target_compile_definitions(${targetName} PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
 
 add_library(${MODULE}_CXX OBJECT ${SRCS_CXX}) # Adding a C++ library for the .cxx code of the HIP library, such that it does not link to HIP libraries, and CMake HIP Language doesn't add HIP compile flags.
-target_compile_definitions(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:${TMP_BASELIB},COMPILE_DEFINITIONS>)
-target_include_directories(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:${TMP_BASELIB},INCLUDE_DIRECTORIES>)
+target_compile_definitions(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>)
+target_include_directories(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,INCLUDE_DIRECTORIES>)
+target_link_libraries(${MODULE}_CXX PRIVATE $<TARGET_PROPERTY:O2::GPUTracking,LINK_LIBRARIES>)
+add_dependencies(${MODULE}_CXX O2::GPUTracking)
 target_link_libraries(${targetName} PRIVATE ${MODULE}_CXX)
 
 if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
@@ -205,14 +205,14 @@ endif()
 if(GPUCA_HIP_COMPILE_MODE STREQUAL "onefile")
   target_compile_definitions(${targetName} PRIVATE GPUCA_KERNEL_COMPILE_MODE=0)
 elseif(GPUCA_HIP_COMPILE_MODE STREQUAL "perkernel")
-  #add_library(GPUTrackingHIPKernels OBJECT $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,PREPEND,${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_>,APPEND,.cu>, >)
-  #set_property(TARGET GPUTrackingHIPKernels PROPERTY HIP_FATBIN_COMPILATION ON)
-  add_subdirectory(per_kernel)
+  add_library(GPUTrackingHIPKernels OBJECT $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,PREPEND,${O2_GPU_KERNEL_WRAPPER_FOLDER}/krnl_>,APPEND,.hip>, >)
+  target_compile_options(GPUTrackingHIPKernels PRIVATE "--cuda-device-only")
   target_compile_options(GPUTrackingHIPKernels PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fno-gpu-rdc>)
   target_link_options(GPUTrackingHIPKernels PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fno-gpu-rdc>)
   target_compile_definitions(${targetName} PRIVATE GPUCA_KERNEL_COMPILE_MODE=1)
   target_compile_definitions(GPUTrackingHIPKernels PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
   target_include_directories(GPUTrackingHIPKernels PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
+  target_link_libraries(GPUTrackingHIPKernels PRIVATE $<TARGET_PROPERTY:${targetName},LINK_LIBRARIES>)
   if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
     add_dependencies(GPUTrackingHIPKernels ${MODULE}_HIPIFIED)
   endif()
@@ -249,6 +249,7 @@ target_compile_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUA
 target_link_options(GPUTrackingHIPExternalProvider PRIVATE $<$<COMPILE_LANGUAGE:HIP>:-fgpu-rdc>)
 target_compile_definitions(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
 target_include_directories(GPUTrackingHIPExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
+add_dependencies(GPUTrackingHIPExternalProvider O2::GPUTracking) # must not depend on GPU backend to avoid cyclic dependencies
 if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
   add_dependencies(GPUTrackingHIPExternalProvider ${MODULE}_HIPIFIED)
 endif()

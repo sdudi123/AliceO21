@@ -110,11 +110,10 @@ set(SRCS ${SRCS} ${GPU_RTC_BIN}.src.o ${GPU_RTC_BIN}.command.o ${GPU_RTC_BIN}.co
 # -------------------------------- End RTC -------------------------------------------------------
 
 if(ALIGPU_BUILD_TYPE STREQUAL "O2")
-  set(TMP_BASELIB O2::GPUTracking)
   o2_add_library(
     ${MODULE}
     SOURCES ${SRCS}
-    PUBLIC_LINK_LIBRARIES ${TMP_BASELIB} O2::ITStrackingCUDA
+    PUBLIC_LINK_LIBRARIES O2::GPUTracking O2::ITStrackingCUDA
     PRIVATE_INCLUDE_DIRECTORIES
       ${CMAKE_SOURCE_DIR}/Detectors/Base/src
       ${CMAKE_SOURCE_DIR}/Detectors/TRD/base/src
@@ -127,10 +126,9 @@ endif()
 
 if(ALIGPU_BUILD_TYPE STREQUAL "Standalone")
   set(targetName "${MODULE}")
-  set(TMP_BASELIB GPUTracking)
   add_library(${MODULE} SHARED ${SRCS})
   add_library(O2::${MODULE} ALIAS ${MODULE})
-  target_link_libraries(${MODULE} PUBLIC ${TMP_BASELIB})
+  target_link_libraries(${MODULE} PUBLIC O2::GPUTracking)
   install(TARGETS GPUTrackingCUDA)
   include_directories(${CMAKE_CURRENT_SOURCE_DIR})
 endif()
@@ -158,6 +156,7 @@ elseif(GPUCA_CUDA_COMPILE_MODE STREQUAL "perkernel")
   target_compile_definitions(${targetName} PRIVATE GPUCA_KERNEL_COMPILE_MODE=1)
   target_compile_definitions(GPUTrackingCUDAKernels PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
   target_include_directories(GPUTrackingCUDAKernels PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
+  target_link_libraries(GPUTrackingCUDAKernels PRIVATE $<TARGET_PROPERTY:${targetName},LINK_LIBRARIES>)
   file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/cuda_kernel_module_fatbin)
   add_custom_command(
     OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUTrackingCUDAKernelModules.o
@@ -189,3 +188,4 @@ add_library(O2::GPUTrackingCUDAExternalProvider ALIAS GPUTrackingCUDAExternalPro
 set_property(TARGET GPUTrackingCUDAExternalProvider PROPERTY CUDA_SEPARABLE_COMPILATION ON)
 target_compile_definitions(GPUTrackingCUDAExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},COMPILE_DEFINITIONS>)
 target_include_directories(GPUTrackingCUDAExternalProvider PRIVATE $<TARGET_PROPERTY:${targetName},INCLUDE_DIRECTORIES>)
+add_dependencies(GPUTrackingCUDAExternalProvider O2::GPUTracking) # must not depend on GPU backend to avoid cyclic dependencies
