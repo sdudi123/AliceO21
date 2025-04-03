@@ -64,11 +64,15 @@ class OrtModel
   std::vector<std::string> getOutputNames() const { return mOutputNames; }
   Ort::SessionOptions& getSessionOptions();
   Ort::MemoryInfo& getMemoryInfo();
+  int32_t getIntraOpNumThreads() const { return intraOpNumThreads; }
+  int32_t getInterOpNumThreads() const { return interOpNumThreads; }
 
   // Setters
   void setDeviceId(int32_t id) { deviceId = id; }
   void setIO();
   void setActiveThreads(int threads) { intraOpNumThreads = threads; }
+  void setIntraOpNumThreads(int threads) { if(deviceType == "CPU") { intraOpNumThreads = threads; } }
+  void setInterOpNumThreads(int threads) { if(deviceType == "CPU") { interOpNumThreads = threads; } }
 
   // Conversion
   template <class I, class O>

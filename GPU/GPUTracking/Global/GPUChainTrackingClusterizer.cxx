@@ -627,6 +627,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     uint32_t maxClusters = 0;
     int32_t deviceId = -1;
     int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
+    int32_t maxThreads = mRec->MemoryScalers()->nTPCdigits / 6000;
     for (uint32_t lane = 0; lane < NSECTORS; lane++) {
       maxClusters = std::max(maxClusters, processors()->tpcClusterer[lane].mNMaxClusters);
     }
@@ -635,16 +636,25 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       if (nnApplications[lane].modelsUsed[0]) {
         SetONNXGPUStream((nnApplications[lane].model_class).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_class).setDeviceId(deviceId);
+        if (nnApplications[lane].model_class.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].model_class.setIntraOpNumThreads(maxThreads);
+        }
         (nnApplications[lane].model_class).initEnvironment();
       }
       if (nnApplications[lane].modelsUsed[1]) {
         SetONNXGPUStream((nnApplications[lane].model_reg_1).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_reg_1).setDeviceId(deviceId);
+        if (nnApplications[lane].model_reg_1.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].model_reg_1.setIntraOpNumThreads(maxThreads);
+        }
         (nnApplications[lane].model_reg_1).initEnvironment();
       }
       if (nnApplications[lane].modelsUsed[2]) {
         SetONNXGPUStream((nnApplications[lane].model_reg_2).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_reg_2).setDeviceId(deviceId);
+        if (nnApplications[lane].model_reg_2.getIntraOpNumThreads() > maxThreads) {
+          nnApplications[lane].model_reg_2.setIntraOpNumThreads(maxThreads);
+        }
         (nnApplications[lane].model_reg_2).initEnvironment();
       }
       if (nn_settings.nnClusterizerVerbosity < 3) {
