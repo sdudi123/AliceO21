@@ -3162,7 +3162,7 @@ consteval auto getIndexTargets()
   using _Name_ = _Name_##From<o2::aod::Hash<_Origin_ ""_h>>;
 
 #define DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE(_Name_, _Table_, _Description_, ...) \
-  O2HASH(#_Name_ "CfgExtension");                                                   \
+  O2HASH(#_Name_ "CfgExtension");                                                    \
   DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE_FULL(_Name_, #_Name_ "CfgExtension", _Table_, "AOD", "EX" _Description_, 0, __VA_ARGS__)
 
 #define DECLARE_SOA_INDEX_TABLE_FULL(_Name_, _Key_, _Origin_, _Version_, _Desc_, _Exclusive_, ...)                                         \

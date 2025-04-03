@@ -141,17 +141,20 @@ bool requestInputs(std::vector<InputSpec>&, T const&)
 }
 
 template <is_spawns T>
-const char* controlOption() {
+const char* controlOption()
+{
   return "control:spawn";
 }
 
 template <is_builds T>
-const char* controlOption() {
+const char* controlOption()
+{
   return "control:build";
 }
 
 template <is_defines T>
-const char* controlOption() {
+const char* controlOption()
+{
   return "control:define";
 }
 

@@ -416,7 +416,7 @@ struct Filter {
     (void)designateSubtrees(node.get());
   }
 
-  Filter& operator= (Filter&& other) noexcept
+  Filter& operator=(Filter&& other) noexcept
   {
     node = std::move(other.node);
     return *this;

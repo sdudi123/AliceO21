@@ -77,7 +77,7 @@ TEST_CASE("TestTableSpawner")
   }
 
   Defines<ExcPoints> excpts;
-  excpts.projectors[0] = test::x* test::x + test::y * test::y + test::z * test::z;
+  excpts.projectors[0] = test::x * test::x + test::y * test::y + test::z * test::z;
 
   auto extension_2 = ExcPointsCfgExtension{o2::framework::spawner<o2::aod::Hash<"EXCFGPTS/0"_h>>({t1}, o2::aod::Hash<"ExcPoints"_h>::str, excpts.projectors.data(), excpts.projector)};
   auto excpoints = ExcPoints{{t1, extension_2.asArrowTable()}, 0};
