@@ -611,6 +611,14 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     RunTPCClusterizer_prepare(true); // Restore some pointers, allocated by the other pipeline, and set to 0 by SetupGPUProcessor (since not allocated in this pipeline)
   }
 
+  if (doGPU && mIOPtrs.tpcZS) {
+    processorsShadow()->ioPtrs.tpcZS = mInputsShadow->mPzsMeta;
+    WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->ioPtrs - (char*)processors(), &processorsShadow()->ioPtrs, sizeof(processorsShadow()->ioPtrs), mRec->NStreams() - 1);
+  }
+  if (doGPU) {
+    WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)processors()->tpcClusterer - (char*)processors(), processorsShadow()->tpcClusterer, sizeof(GPUTPCClusterFinder) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
+  }
+
 #ifdef GPUCA_HAS_ONNX
   const GPUSettingsProcessingNNclusterizer& nn_settings = GetProcessingSettings().nn;
   GPUTPCNNClusterizerHost nnApplications[GetProcessingSettings().nTPCClustererLanes];
@@ -624,9 +632,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     }
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
-      GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[lane];
-      GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[lane] : clustererNN;
-
       if (nnApplications[lane].modelsUsed[0]) {
         SetONNXGPUStream((nnApplications[lane].model_class).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_class).setDeviceId(deviceId);
@@ -642,7 +647,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         (nnApplications[lane].model_reg_2).setDeviceId(deviceId);
         (nnApplications[lane].model_reg_2).initEnvironment();
       }
-      if (clustererNNShadow.nnClusterizerVerbosity < 3) {
+      if (nn_settings.nnClusterizerVerbosity < 3) {
         LOG(info) << "Allocated ONNX stream for lane " << lane << " and device " << deviceId;
       }
     });
@@ -650,34 +655,23 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       GPUTPCNNClusterizer& clustererNN = processors()->tpcNNClusterer[sector];
       GPUTPCNNClusterizer& clustererNNShadow = doGPU ? processorsShadow()->tpcNNClusterer[sector] : clustererNN;
       int32_t lane = sector % numLanes;
+      clustererNN.deviceId = deviceId;
+      clustererNN.mISector = sector;
+      clustererNN.nnClusterizerTotalClusters = maxClusters;
+      nnApplications[lane].initClusterizer(nn_settings, clustererNN);
       if (doGPU){
         clustererNNShadow.deviceId = deviceId;
         clustererNNShadow.mISector = sector;
         clustererNNShadow.nnClusterizerTotalClusters = maxClusters;
         nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow);
-      } else {
-        // TODO: not sure if this part is needed at all
-        clustererNN.deviceId = deviceId;
-        clustererNN.mISector = sector;
-        clustererNN.nnClusterizerTotalClusters = maxClusters;
-        nnApplications[lane].initClusterizer(nn_settings, clustererNN);
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
-      if (doGPU){
-        WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&clustererNN - (char*)processors(), &clustererNNShadow, sizeof(clustererNN), lane);
-        TransferMemoryResourcesToGPU(RecoStep::TPCClusterFinding, &clustererNNShadow, lane);
-      }
     });
+    if (doGPU){
+      WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer)*NSECTORS, mRec->NStreams() - 1, &mEvents->init);
+    }
   }
 #endif
-
-  if (doGPU && mIOPtrs.tpcZS) {
-    processorsShadow()->ioPtrs.tpcZS = mInputsShadow->mPzsMeta;
-    WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->ioPtrs - (char*)processors(), &processorsShadow()->ioPtrs, sizeof(processorsShadow()->ioPtrs), mRec->NStreams() - 1);
-  }
-  if (doGPU) {
-    WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)processors()->tpcClusterer - (char*)processors(), processorsShadow()->tpcClusterer, sizeof(GPUTPCClusterFinder) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
-  }
 
   size_t nClsTotal = 0;
   ClusterNativeAccess* tmpNativeAccess = mClusterNativeAccess.get();
@@ -961,7 +955,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             auto stop0 = std::chrono::high_resolution_clock::now();
             auto start1 = std::chrono::high_resolution_clock::now();
 
-            // nnApplication.networkInference(nnApplication.model_class, clustererNNShadow, iSize, clustererNNShadow.modelProbabilities, clustererNNShadow.nnInferenceInputDType);
             if (clustererNNShadow.nnInferenceInputDType == 0) {
               if (clustererNNShadow.nnInferenceOutputDType == 0) {
                 (nnApplication.model_class).inference(clustererNNShadow.inputData_16, iSize, clustererNNShadow.modelProbabilities_16);
@@ -975,6 +968,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
                 (nnApplication.model_class).inference(clustererNNShadow.inputData_32, iSize, clustererNNShadow.modelProbabilities_32);
               }
             }
+
             if (nnApplication.model_class.getNumOutputNodes()[0][1] == 1) {
               runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::determineClass1Labels>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceOutputDType, withMC, batchStart); // Assigning class labels
             } else {

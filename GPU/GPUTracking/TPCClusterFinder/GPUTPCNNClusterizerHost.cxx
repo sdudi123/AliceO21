@@ -138,10 +138,11 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.nnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
   clustererNN.nnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
   clustererNN.nnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
-  clustererNN.nnClassThreshold = settings.nnClassThreshold;
   clustererNN.nnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
   if (clustererNN.nnSigmoidTrafoClassThreshold) {
-    clustererNN.nnClassThreshold = (float)std::log(clustererNN.nnClassThreshold / (1.f - clustererNN.nnClassThreshold));
+    clustererNN.nnClassThreshold = (float)std::log(settings.nnClassThreshold / (1.f - settings.nnClassThreshold));
+  } else {
+    clustererNN.nnClassThreshold = settings.nnClassThreshold;
   }
   if (settings.nnClusterizerVerbosity < 0) {
     clustererNN.nnClusterizerVerbosity = settings.nnInferenceVerbosity;
@@ -152,7 +153,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.nnInferenceOutputDType = settings.nnInferenceOutputDType.find("32") != std::string::npos;
   clustererNN.nnClusterizerModelClassNumOutputNodes = model_class.getNumOutputNodes()[0][1];
   if (!settings.nnClusterizerUseCfRegression) {
-    if (model_class.getNumOutputNodes()[0][1] == 1 || model_reg_2.isInitialized()) {
+    if (model_class.getNumOutputNodes()[0][1] == 1 || !model_reg_2.isInitialized()) {
       clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
     } else {
       clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
