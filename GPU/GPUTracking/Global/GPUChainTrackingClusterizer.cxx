@@ -950,9 +950,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             size_t iSize = CAMath::Min((uint)clustererNNShadow.nnClusterizerBatchedMode, (uint)(clusterer.mPmemory->counters.nClusters - batchStart));
 
             auto start0 = std::chrono::high_resolution_clock::now();
-            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNN>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Filling the data
-
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.nnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Filling the data
             auto stop0 = std::chrono::high_resolution_clock::now();
+
             auto start1 = std::chrono::high_resolution_clock::now();
 
             if (clustererNNShadow.nnInferenceInputDType == 0) {

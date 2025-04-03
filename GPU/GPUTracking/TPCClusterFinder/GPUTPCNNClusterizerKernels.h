@@ -53,10 +53,11 @@ class GPUTPCNNClusterizerKernels : public GPUKernelTemplate
   enum K : int32_t {
     runCfClusterizer = 0,
     fillInputNN = 1,
-    determineClass1Labels = 2,
-    determineClass2Labels = 3,
-    publishClass1Regression = 4,
-    publishClass2Regression = 5,
+    fillInputNNSingleElement = 2,
+    determineClass1Labels = 3,
+    determineClass2Labels = 4,
+    publishClass1Regression = 5,
+    publishClass2Regression = 6,
   };
 
   template <int32_t iKernel = defaultKernel, typename... Args>
