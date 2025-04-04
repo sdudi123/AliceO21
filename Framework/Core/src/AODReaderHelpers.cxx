@@ -83,7 +83,8 @@ static inline auto extractOriginals(ProcessingContext& pc)
     return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
   }(std::make_index_sequence<refs.size()>());
 }
-namespace {
+namespace
+{
 template <typename D>
   requires(D::exclusive)
 auto make_build(D metadata, InputSpec const& input, ProcessingContext& pc)
@@ -109,7 +110,7 @@ auto make_build(D metadata, InputSpec const& input, ProcessingContext& pc)
                                                                                                         extractOriginals<sources.size(), sources>(pc),
                                                                                                         index_pack_t{});
 }
-}
+} // namespace
 
 AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& requested)
 {
@@ -149,7 +150,8 @@ AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& req
   }};
 }
 
-namespace{
+namespace
+{
 template <o2::aod::is_aod_hash D>
 auto make_spawn(InputSpec const& input, ProcessingContext& pc)
 {
@@ -158,7 +160,7 @@ auto make_spawn(InputSpec const& input, ProcessingContext& pc)
   static std::shared_ptr<gandiva::Projector> projector = nullptr;
   return o2::framework::spawner<D>(extractOriginals<sources.size(), sources>(pc), input.binding.c_str(), projector);
 }
-}
+} // namespace
 
 AlgorithmSpec AODReaderHelpers::aodSpawnerCallback(std::vector<InputSpec>& requested)
 {
