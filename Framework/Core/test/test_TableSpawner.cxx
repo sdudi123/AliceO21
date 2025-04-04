@@ -50,8 +50,10 @@ TEST_CASE("TestTableSpawner")
   auto t1 = b1.finalize();
   Points st1{t1};
 
+  std::shared_ptr<gandiva::Projector> projector = nullptr;
+
   auto expoints_a = o2::soa::Extend<o2::aod::Points, test::Rsq, test::Sin>(st1);
-  auto extension = ExPointsExtension{o2::framework::spawner<o2::aod::Hash<"EXPTSNG/0"_h>>(t1, o2::aod::Hash<"ExPoints"_h>::str)};
+  auto extension = ExPointsExtension{o2::framework::spawner<o2::aod::Hash<"EXPTSNG/0"_h>>(t1, o2::aod::Hash<"ExPoints"_h>::str, projector)};
   auto expoints = ExPoints{{t1, extension.asArrowTable()}, 0};
 
   REQUIRE(expoints_a.size() == 9);
