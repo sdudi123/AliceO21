@@ -624,13 +624,9 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   GPUTPCNNClusterizerHost nnApplications[GetProcessingSettings().nTPCClustererLanes];
 
   if (GetProcessingSettings().nn.applyNNclusterizer) {
-    uint32_t maxClusters = 0;
     int32_t deviceId = -1;
     int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
     int32_t maxThreads = mRec->MemoryScalers()->nTPCdigits / 6000;
-    for (uint32_t lane = 0; lane < NSECTORS; lane++) {
-      maxClusters = std::max(maxClusters, processors()->tpcClusterer[lane].mNMaxClusters);
-    }
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
       if (nnApplications[lane].modelsUsed[0]) {
@@ -667,12 +663,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       int32_t lane = sector % numLanes;
       clustererNN.deviceId = deviceId;
       clustererNN.mISector = sector;
-      clustererNN.nnClusterizerTotalClusters = maxClusters;
+      clustererNN.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
       nnApplications[lane].initClusterizer(nn_settings, clustererNN);
       if (doGPU){
         clustererNNShadow.deviceId = deviceId;
         clustererNNShadow.mISector = sector;
-        clustererNNShadow.nnClusterizerTotalClusters = maxClusters;
+        clustererNNShadow.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
         nnApplications[lane].initClusterizer(nn_settings, clustererNNShadow);
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
@@ -1034,7 +1030,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {
               acceptedClusters += clustererNNShadow.outputDataClass[i];
             }
-            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters, " << acceptedClusters << " accepted. --> " << clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
+            LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters, " << acceptedClusters << " accepted. --> " << (int32_t)clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
 #else
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
