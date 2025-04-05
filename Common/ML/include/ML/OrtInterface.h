@@ -88,6 +88,9 @@ class OrtModel
   template <class I, class O>
   void inference(I*, size_t, O*);
 
+  template <class I, class O>
+  void inference(I**, size_t, O*);
+
  private:
   // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;
@@ -96,7 +99,9 @@ class OrtModel
   // Input & Output specifications of the loaded network
   std::vector<const char*> inputNamesChar, outputNamesChar;
   std::vector<std::string> mInputNames, mOutputNames;
-  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes;
+  std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, inputShapesCopy, outputShapesCopy; // Input shapes
+  std::vector<int64_t> inputSizePerNode, outputSizePerNode; // Output shapes
+  int32_t mInputsTotal = 0, mOutputsTotal = 0; // Total number of inputs and outputs
 
   // Environment settings
   bool mInitialized = false;
@@ -104,6 +109,7 @@ class OrtModel
   int32_t intraOpNumThreads = 1, interOpNumThreads = 1, deviceId = -1, enableProfiling = 0, loggingLevel = 0, allocateDeviceMemory = 0, enableOptimizations = 0;
 
   std::string printShape(const std::vector<int64_t>&);
+  std::string printShape(const std::vector<std::vector<int64_t>>&, std::vector<std::string>&);
 };
 
 } // namespace ml

@@ -124,11 +124,11 @@ void OrtModel::initEnvironment()
   (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
   pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
 
-  if (loggingLevel < 2) {
-    LOG(info) << "(ORT) Model loaded successfully! (input: " << printShape(mInputShapes[0]) << ", output: " << printShape(mOutputShapes[0]) << ")";
-  }
-
   setIO();
+
+  if (loggingLevel < 2) {
+    LOG(info) << "(ORT) Model loaded successfully! (inputs: " << printShape(mInputShapes, mInputNames) << ", outputs: " << printShape(mOutputShapes, mInputNames) << ")";
+  }
 }
 
 void OrtModel::memoryOnDevice(int32_t deviceIndex)
@@ -201,13 +201,45 @@ void OrtModel::setIO() {
   outputNamesChar.resize(mOutputNames.size(), nullptr);
   std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
                  [&](const std::string& str) { return str.c_str(); });
+
+  inputShapesCopy = mInputShapes;
+  outputShapesCopy = mOutputShapes;
+  inputSizePerNode.resize(mInputShapes.size(), 1);
+  outputSizePerNode.resize(mOutputShapes.size(), 1);
+  mInputsTotal = 1;
+  for (size_t i = 0; i < mInputShapes.size(); ++i) {
+    if(mInputShapes[i].size() > 0) {
+      for (size_t j = 1; j < mInputShapes[i].size(); ++j) {
+        if (mInputShapes[i][j] > 0) {
+          mInputsTotal *= mInputShapes[i][j];
+          inputSizePerNode[i] *= mInputShapes[i][j];
+        }
+      }
+    }
+  }
+  mOutputsTotal = 1;
+  for (size_t i = 0; i < mOutputShapes.size(); ++i) {
+    if(mOutputShapes[i].size() > 0) {
+      for (size_t j = 1; j < mOutputShapes[i].size(); ++j) {
+        if (mOutputShapes[i][j] > 0) {
+          mOutputsTotal *= mOutputShapes[i][j];
+          outputSizePerNode[i] *= mOutputShapes[i][j];
+        }
+      }
+    }
+  }
 }
 
 // Inference
 template <class I, class O>
 std::vector<O> OrtModel::inference(std::vector<I>& input)
 {
-  std::vector<int64_t> inputShape{(int64_t)(input.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
+  std::vector<int64_t> inputShape = mInputShapes[0];
+  inputShape[0] = input.size();
+  for (size_t i = 1; i < mInputShapes[0].size(); ++i)
+  {
+    inputShape[0] /= mInputShapes[0][i];
+  }
   std::vector<Ort::Value> inputTensor;
   if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
     inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input.data()), input.size(), inputShape.data(), inputShape.size()));
@@ -223,9 +255,7 @@ std::vector<O> OrtModel::inference(std::vector<I>& input)
 }
 
 template std::vector<float> OrtModel::inference<float, float>(std::vector<float>&);
-
 template std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(std::vector<OrtDataType::Float16_t>&);
-
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
 
 template <class I, class O>
@@ -255,32 +285,118 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, size_t, OrtDataType::Float16_t*);
-
 template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, size_t, float*);
-
 template void OrtModel::inference<float, OrtDataType::Float16_t>(float*, size_t, OrtDataType::Float16_t*);
-
 template void OrtModel::inference<float, float>(float*, size_t, float*);
 
 template <class I, class O>
-std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& input)
-{
-  std::vector<Ort::Value> inputTensor;
-  for (auto i : input) {
-    std::vector<int64_t> inputShape{(int64_t)(i.size() / mInputShapes[0][1]), (int64_t)mInputShapes[0][1]};
+void OrtModel::inference(I** input, size_t input_size, O* output) {
+  std::vector<Ort::Value> inputTensors(inputShapesCopy.size());
+
+  for (size_t i = 0; i < inputShapesCopy.size(); ++i) {
+
+    inputShapesCopy[i][0] = input_size; // batch-size
+    outputShapesCopy[i][0] = input_size; // batch-size
+
     if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
-      inputTensor.emplace_back(Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(i.data()), i.size(), inputShape.data(), inputShape.size()));
+      inputTensors[i] = Ort::Value::CreateTensor<Ort::Float16_t>(
+          pImplOrt->memoryInfo,
+          reinterpret_cast<Ort::Float16_t*>(input[i]),
+          inputSizePerNode[i]*input_size,
+          inputShapesCopy[i].data(),
+          inputShapesCopy[i].size());
     } else {
-      inputTensor.emplace_back(Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, i.data(), i.size(), inputShape.data(), inputShape.size()));
+      inputTensors[i] = Ort::Value::CreateTensor<I>(
+          pImplOrt->memoryInfo,
+          input[i],
+          inputSizePerNode[i]*input_size,
+          inputShapesCopy[i].data(),
+          inputShapesCopy[i].size());
     }
   }
-  // input.clear();
-  auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
-  O* outputValues = reinterpret_cast<O*>(outputTensors[0].template GetTensorMutableData<O>());
-  std::vector<O> outputValuesVec{outputValues, outputValues + inputTensor.size() / mInputShapes[0][1] * mOutputShapes[0][1]};
-  outputTensors.clear();
-  return outputValuesVec;
+
+  Ort::Value outputTensor = Ort::Value(nullptr);
+  if constexpr (std::is_same_v<O, OrtDataType::Float16_t>) {
+    outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(
+      pImplOrt->memoryInfo,
+      reinterpret_cast<Ort::Float16_t*>(output),
+      outputSizePerNode[0]*input_size, // assumes that there is only one output node
+      outputShapesCopy[0].data(),
+      outputShapesCopy[0].size());
+  } else {
+    outputTensor = Ort::Value::CreateTensor<O>(
+      pImplOrt->memoryInfo,
+      output,
+      outputSizePerNode[0]*input_size, // assumes that there is only one output node
+      outputShapesCopy[0].data(),
+      outputShapesCopy[0].size());
+  }
+
+  // === Run inference ===
+  pImplOrt->session->Run(
+    pImplOrt->runOptions,
+    inputNamesChar.data(),
+    inputTensors.data(),
+    inputNamesChar.size(),
+    outputNamesChar.data(),
+    &outputTensor,
+    outputNamesChar.size()
+  );
 }
+
+template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t**, size_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t**, size_t, float*);
+template void OrtModel::inference<float, OrtDataType::Float16_t>(float**, size_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<float, float>(float**, size_t, float*);
+
+template <class I, class O>
+std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& inputs)
+{
+    std::vector<Ort::Value> input_tensors;
+
+    for (size_t i = 0; i < inputs.size(); ++i) {
+
+      inputShapesCopy[i][0] = inputs[i].size() / inputSizePerNode[i]; // batch-size
+
+      if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
+          input_tensors.emplace_back(
+              Ort::Value::CreateTensor<Ort::Float16_t>(
+                  pImplOrt->memoryInfo,
+                  reinterpret_cast<Ort::Float16_t*>(inputs[i].data()),
+                  inputSizePerNode[i]*inputShapesCopy[i][0],
+                  inputShapesCopy[i].data(),
+                  inputShapesCopy[i].size()));
+      } else {
+          input_tensors.emplace_back(
+              Ort::Value::CreateTensor<I>(
+                  pImplOrt->memoryInfo,
+                  inputs[i].data(),
+                  inputSizePerNode[i]*inputShapesCopy[i][0],
+                  inputShapesCopy[i].data(),
+                  inputShapesCopy[i].size()));
+      }
+    }
+
+    int32_t totalOutputSize = mOutputsTotal*inputShapesCopy[0][0];
+
+    // === Run inference ===
+    auto output_tensors = pImplOrt->session->Run(
+        pImplOrt->runOptions,
+        inputNamesChar.data(),
+        input_tensors.data(),
+        input_tensors.size(),
+        outputNamesChar.data(),
+        outputNamesChar.size());
+
+    // === Extract output values ===
+    O* output_data = output_tensors[0].template GetTensorMutableData<O>();
+    std::vector<O> output_vec(output_data, output_data + totalOutputSize);
+    output_tensors.clear();
+    return output_vec;
+}
+
+template std::vector<float> OrtModel::inference<float, float>(std::vector<std::vector<float>>&);
+template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>&);
 
 // private
 std::string OrtModel::printShape(const std::vector<int64_t>& v)
@@ -290,6 +406,19 @@ std::string OrtModel::printShape(const std::vector<int64_t>& v)
     ss << v[i] << "x";
   }
   ss << v[v.size() - 1];
+  return ss.str();
+}
+
+std::string OrtModel::printShape(const std::vector<std::vector<int64_t>>& v, std::vector<std::string>& n)
+{
+  std::stringstream ss("");
+  for (size_t i = 0; i < v.size(); i++) {
+    ss << n[i] << " -> (";
+    for (size_t j = 0; j < v[i].size() - 1; j++) {
+      ss << v[i][j] << "x";
+    }
+    ss << v[i][v[i].size() - 1] << "); ";
+  }
   return ss.str();
 }
 
