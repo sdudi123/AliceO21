@@ -18,6 +18,7 @@
 #include <regex>
 #include "CommonUtils/StringUtils.h"
 #include <fairlogger/Logger.h>
+
 using namespace o2::ctp;
 ///
 /// Active run to keep cfg and saclers of active runs
@@ -232,10 +233,53 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     return 0;
   }
   if (topic.find("soxorbit") != std::string::npos) {
-    return 0;
+    std::vector<std::string> tokens = o2::utils::Str::tokenize(message, ' ');
+    int ret = 0;
+    if(tokens.size() == 3) {
+      long timestamp = std::stol(tokens[0]);
+      uint32_t runnumber = std::stoul(tokens[1]);
+      uint32_t orbit = std::stoul(tokens[2]);
+      ret = saveSoxOrbit(timestamp,runnumber,orbit);
+      LOG(info) << "soxorbit: " << timestamp << " "  << runnumber << " " << orbit;
+      std::string logmessage;
+      if(ret) {
+        logmessage = "Failed to update CCDB with SOX orbit.";
+      } else {
+        logmessage = "CCDB updated with SOX orbit.";
+      }
+      int rlog = mInfoLogger.log(logmessage.c_str());
+      if(rlog) {
+        LOG(warn) << "Writing to infologger failed.";
+      }
+    } else {
+      LOG(error) << "Topic soxorbit dize !=3: " << message << " token size:" << tokens.size();
+      ret = 1;
+    }
+    return ret;
   }
   if (topic.find("orbitreset") != std::string::npos) {
-    return 0;
+    std::vector<std::string> tokens = o2::utils::Str::tokenize(message, ' ');
+    int ret = 0;
+    if(tokens.size()  == 1) {
+      long timestamp = std::stol(tokens[0]);
+      ret = saveOrbitReset(timestamp);
+      LOG(info) << "orbitreset: " << timestamp;
+      std::string logmessage;
+      if(ret) {
+        logmessage = "Failed to update CCDB with orbitreset.";
+        return 1;
+      } else {
+        logmessage = "CCDB updated with orbitreset.";
+      }
+      int rlog = mInfoLogger.log(logmessage.c_str());
+      if(rlog) {
+        LOG(warn) << "Writing to infologger failed.";
+      }
+    } else {
+      LOG(error) << "Topic orbit reset != 2: " << message << " token size:" << tokens.size();
+      ret = 1;
+    }
+    return ret;
   }
   static int nerror = 0;
   if (topic.find("sox") != std::string::npos) {
