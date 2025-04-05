@@ -20,7 +20,6 @@
 #include "BookkeepingApi/BkpClient.h"
 #include <InfoLogger/InfoLogger.hxx>
 
-
 using namespace o2::bkp::api;
 namespace o2
 {
