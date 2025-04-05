@@ -239,7 +239,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       long timestamp = std::stol(tokens[0]);
       uint32_t runnumber = std::stoul(tokens[1]);
       uint32_t orbit = std::stoul(tokens[2]);
-      ret = saveSoxOrbit(timestamp, runnumber, orbit);
+      ret = saveSoxOrbit(runnumber, orbit, timestamp);
       LOG(info) << "soxorbit: " << timestamp << " " << runnumber << " " << orbit;
       std::string logmessage;
       if (ret) {
