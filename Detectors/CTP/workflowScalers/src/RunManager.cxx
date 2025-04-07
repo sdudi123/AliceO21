@@ -247,7 +247,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       } else {
         logmessage = "CCDB updated with SOX orbit.";
       }
-      int rlog = mInfoLogger.log(logmessage.c_str());
+      int rlog = mInfoLogger.logInfo(logmessage);
       if (rlog) {
         LOG(warn) << "Writing to infologger failed.";
       }
@@ -271,7 +271,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       } else {
         logmessage = "CCDB updated with orbitreset.";
       }
-      int rlog = mInfoLogger.log(logmessage.c_str());
+      int rlog = mInfoLogger.logInfo(logmessage);
       if (rlog) {
         LOG(warn) << "Writing to infologger failed.";
       }
