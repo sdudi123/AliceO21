@@ -78,6 +78,7 @@
 #include "DetectorsRaw/RDHUtils.h"
 #include "ITStracking/TrackingInterface.h"
 #include "GPUWorkflowInternal.h"
+#include "TPCCalibration/NeuralNetworkClusterizer.h"
 // #include "Framework/ThreadPool.h"
 
 #include <TStopwatch.h>
@@ -118,6 +119,7 @@ GPURecoWorkflowSpec::GPURecoWorkflowSpec(GPURecoWorkflowSpec::CompletionPolicyDa
   mConfig.reset(new GPUO2InterfaceConfiguration);
   mConfParam.reset(new GPUSettingsO2);
   mTFSettings.reset(new GPUSettingsTF);
+  mNNClusterizerSettings.reset(new GPUSettingsProcessingNNclusterizer);
   mTimer.reset(new TStopwatch);
   mPipeline.reset(new GPURecoWorkflowSpec_PipelineInternals);
 
@@ -132,6 +134,49 @@ void GPURecoWorkflowSpec::init(InitContext& ic)
 {
   GRPGeomHelper::instance().setRequest(mGGR);
   GPUO2InterfaceConfiguration& config = *mConfig.get();
+
+  if (mNNClusterizerSettings->nnLoadFromCCDB){
+    LOG(info) << "Loading neural networks from CCDB";
+    o2::tpc::NeuralNetworkClusterizer nnClusterizerFetcher;
+    nnClusterizerFetcher.initCcdbApi(mNNClusterizerSettings->nnCCDBURL);
+    std::map<std::string, std::string> ccdbSettings = {
+    {"nnCCDBURL", mNNClusterizerSettings->nnCCDBURL},
+    {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
+    {"inputDType", mNNClusterizerSettings->nnInferenceInputDType},
+    {"outputDType", mNNClusterizerSettings->nnInferenceOutputDType},
+    {"outputFolder", mNNClusterizerSettings->nnLocalFolder},
+    {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
+    {"nnCCDBWithMomentum", std::to_string(mNNClusterizerSettings->nnCCDBWithMomentum)},
+    {"nnCCDBBeamType", mNNClusterizerSettings->nnCCDBBeamType},
+    {"nnCCDBInteractionRate", std::to_string(mNNClusterizerSettings->nnCCDBInteractionRate)}};
+
+    std::string nnFetchFolder = mNNClusterizerSettings->nnLocalFolder;
+    std::vector<std::string> evalMode = o2::utils::Str::tokenize(mNNClusterizerSettings->nnEvalMode, ':');
+
+    if (evalMode[0] == "c1") {
+      ccdbSettings["nnCCDBLayerType"] = mNNClusterizerSettings->nnCCDBClassificationLayerType;
+      ccdbSettings["nnCCDBEvalType"] = "classification_c1";
+      ccdbSettings["outputFile"] = "net_classification_c1.onnx";
+      nnClusterizerFetcher.loadIndividualFromCCDB(ccdbSettings);
+    } else if (evalMode[0] == "c2") {
+      ccdbSettings["nnCCDBLayerType"] = mNNClusterizerSettings->nnCCDBClassificationLayerType;
+      ccdbSettings["nnCCDBEvalType"] = "classification_c2";
+      ccdbSettings["outputFile"] = "net_classification_c2.onnx";
+      nnClusterizerFetcher.loadIndividualFromCCDB(ccdbSettings);
+    }
+
+    ccdbSettings["nnCCDBLayerType"] = mNNClusterizerSettings->nnCCDBRegressionLayerType;
+    ccdbSettings["nnCCDBEvalType"] = "regression_c1";
+    ccdbSettings["outputFile"] = "net_regression_c1.onnx";
+    nnClusterizerFetcher.loadIndividualFromCCDB(ccdbSettings);
+    if (evalMode[1] == "r2") {
+      ccdbSettings["nnCCDBLayerType"] = mNNClusterizerSettings->nnCCDBRegressionLayerType;
+      ccdbSettings["nnCCDBEvalType"] = "regression_c2";
+      ccdbSettings["outputFile"] = "net_regression_c2.onnx";
+      nnClusterizerFetcher.loadIndividualFromCCDB(ccdbSettings);
+    }
+    LOG(info) << "Neural network loading done!";
+  }
 
   // Create configuration object and fill settings
   mConfig->configGRP.solenoidBzNominalGPU = 0;

@@ -16,82 +16,27 @@
 
 #include "GPUTPCNNClusterizerHost.h"
 #include "GPUTPCNNClusterizer.h"
-#include "CCDB/CcdbApi.h"
 #include "GPUSettings.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 
 using namespace o2::gpu;
 
-void GPUTPCNNClusterizerHost::loadFromCCDB(std::map<std::string, std::string> settings)
-{
-  o2::ccdb::CcdbApi ccdbApi;
-  ccdbApi.init(settings["nnCCDBURL"]);
-
-  metadata["inputDType"] = settings["inputDType"];
-  metadata["outputDType"] = settings["outputDType"];
-  metadata["nnCCDBEvalType"] = settings["nnCCDBEvalType"];         // classification_1C, classification_2C, regression_1C, regression_2C
-  metadata["nnCCDBWithMomentum"] = settings["nnCCDBWithMomentum"]; // 0, 1 -> Only for regression model
-  metadata["nnCCDBLayerType"] = settings["nnCCDBLayerType"];       // FC, CNN
-  if (settings["nnCCDBInteractionRate"] != "" && std::stoi(settings["nnCCDBInteractionRate"]) > 0) {
-    metadata["nnCCDBInteractionRate"] = settings["nnCCDBInteractionRate"];
-  }
-  if (settings["nnCCDBBeamType"] != "") {
-    metadata["nnCCDBBeamType"] = settings["nnCCDBBeamType"];
-  }
-
-  bool retrieveSuccess = ccdbApi.retrieveBlob(settings["nnCCDBPath"], ".", metadata, 1, false, settings["outputFile"]);
-  // headers = ccdbApi.retrieveHeaders(settings["nnPathCCDB"], metadata, 1); // potentially needed to init some local variables
-
-  if (retrieveSuccess) {
-    LOG(info) << "Network " << settings["nnCCDBPath"] << " retrieved from CCDB, stored at " << settings["outputFile"];
-  } else {
-    LOG(error) << "Failed to retrieve network from CCDB";
-  }
-}
-
 void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& settings)
 {
   std::string class_model_path = settings.nnClassificationPath, reg_model_path = settings.nnRegressionPath;
   std::vector<std::string> reg_model_paths;
+  std::vector<std::string> evalMode = o2::utils::Str::tokenize(settings.nnEvalMode, ':');
 
-  if (settings.nnLoadFromCCDB) {
-    std::map<std::string, std::string> ccdbSettings = {
-      {"nnCCDBURL", settings.nnCCDBURL},
-      {"nnCCDBPath", settings.nnCCDBPath},
-      {"inputDType", settings.nnInferenceInputDType},
-      {"outputDType", settings.nnInferenceOutputDType},
-      {"nnCCDBWithMomentum", std::to_string(settings.nnCCDBWithMomentum)},
-      {"nnCCDBBeamType", settings.nnCCDBBeamType},
-      {"nnCCDBInteractionRate", std::to_string(settings.nnCCDBInteractionRate)}};
-
-    std::string nnFetchFolder = "";
-    std::vector<std::string> fetchMode = o2::utils::Str::tokenize(settings.nnCCDBFetchMode, ':');
-    std::map<std::string, std::string> networkRetrieval = ccdbSettings;
-
-    if (fetchMode[0] == "c1") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "classification_c1";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c1.onnx";
-      loadFromCCDB(networkRetrieval);
-    } else if (fetchMode[0] == "c2") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBClassificationLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "classification_c2";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_classification_c2.onnx";
-      loadFromCCDB(networkRetrieval);
+  if(settings.nnLoadFromCCDB) {
+    reg_model_path = settings.nnLocalFolder + "/net_regression_c1.onnx"; // Needs to be set identical to NeuralNetworkClusterizer.cxx, otherwise the networks might be loaded from the wrong place
+    if (evalMode[0] == "c1") {
+      class_model_path = settings.nnLocalFolder + "/net_classification_c1.onnx";
+    } else if (evalMode[0] == "c2") {
+      class_model_path = settings.nnLocalFolder + "/net_classification_c2.onnx";
     }
-    class_model_path = networkRetrieval["outputFile"]; // Setting the proper path from the where the models will be initialized locally
 
-    networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
-    networkRetrieval["nnCCDBEvalType"] = "regression_c1";
-    networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c1.onnx";
-    loadFromCCDB(networkRetrieval);
-    reg_model_path = networkRetrieval["outputFile"];
-    if (fetchMode[1] == "r2") {
-      networkRetrieval["nnCCDBLayerType"] = settings.nnCCDBRegressionLayerType;
-      networkRetrieval["nnCCDBEvalType"] = "regression_c2";
-      networkRetrieval["outputFile"] = nnFetchFolder + "net_regression_c2.onnx";
-      loadFromCCDB(networkRetrieval);
-      reg_model_path += ":", networkRetrieval["outputFile"];
+    if (evalMode[1] == "r2") {
+      reg_model_path += ":" + settings.nnLocalFolder + "/net_regression_c2.onnx";
     }
   }
 

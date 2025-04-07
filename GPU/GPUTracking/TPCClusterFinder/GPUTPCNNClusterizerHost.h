@@ -48,10 +48,6 @@ class GPUTPCNNClusterizerHost
   std::vector<bool> modelsUsed = {false, false, false}; // 0: class, 1: reg_1, 2: reg_2
   int32_t deviceId = -1;
   std::vector<std::string> reg_model_paths;
-
- private:
-  std::map<std::string, std::string> metadata;
-  std::map<std::string, std::string> headers;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu
