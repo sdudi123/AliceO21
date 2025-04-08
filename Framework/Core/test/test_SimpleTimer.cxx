@@ -40,7 +40,6 @@ std::vector<DataProcessorSpec> defineDataProcessing(ConfigContext const&)
       AlgorithmSpec{
         adaptStateless([](ControlService& control, InputRecord& inputs) {
           DataRef ref = inputs.get("atimer");
-          assert(header);
           auto* header = o2::header::get<o2::header::DataHeader*>(ref.header);
           LOG(info) << "Run number: " << header->runNumber;
           // This is invoked autonomously by the timer.
