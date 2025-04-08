@@ -179,6 +179,7 @@ WorkflowSpec defineDataProcessing(ConfigContext const& cfgc)
   cfg.outputErrorQA = isEnabled(outputTypes, ioType::ErrorQA);
   cfg.outputSharedClusterMap = (cfg.outputCAClusters || cfg.caClusterer || isEnabled(inputTypes, ioType::Clusters)) && cfg.outputTracks && !isEnabled(outputTypes, ioType::NoSharedMap);
   cfg.processMC = doMC;
+  cfg.processITSMC = doMC;
   cfg.sendClustersPerSector = isEnabled(outputTypes, ioType::SendClustersPerSector);
   cfg.askDISTSTF = !cfgc.options().get<bool>("ignore-dist-stf");
   cfg.readTRDtracklets = isEnabled(inputTypes, ioType::TRDTracklets);
