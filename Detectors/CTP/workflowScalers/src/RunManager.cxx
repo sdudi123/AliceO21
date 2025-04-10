@@ -246,7 +246,8 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       } else {
         logmessage = "CCDB updated with SOX orbit.";
       }
-      LOG(important) << logmessage << " run:" << runnumber << " sox orbit:" << orbit  << " ts:" << timestamp; ;
+      LOG(important) << logmessage << " run:" << runnumber << " sox orbit:" << orbit << " ts:" << timestamp;
+      ;
     } else {
       LOG(error) << "Topic soxorbit dize !=3: " << message << " token size:" << tokens.size();
       ret = 1;
