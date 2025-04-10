@@ -247,7 +247,6 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
         logmessage = "CCDB updated with SOX orbit.";
       }
       LOG(important) << logmessage << " run:" << runnumber << " sox orbit:" << orbit << " ts:" << timestamp;
-      ;
     } else {
       LOG(error) << "Topic soxorbit dize !=3: " << message << " token size:" << tokens.size();
       ret = 1;
@@ -263,7 +262,6 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       std::string logmessage;
       if (ret) {
         logmessage = "Failed to update CCDB with orbitreset. ";
-        return 1;
       } else {
         logmessage = "CCDB updated with orbitreset. ";
       }
