@@ -240,17 +240,13 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       uint32_t runnumber = std::stoul(tokens[1]);
       uint32_t orbit = std::stoul(tokens[2]);
       ret = saveSoxOrbit(runnumber, orbit, timestamp);
-      LOG(info) << "soxorbit: " << timestamp << " " << runnumber << " " << orbit;
       std::string logmessage;
       if (ret) {
         logmessage = "Failed to update CCDB with SOX orbit.";
       } else {
         logmessage = "CCDB updated with SOX orbit.";
       }
-      int rlog = mInfoLogger.logInfo(logmessage);
-      if (rlog) {
-        LOG(warn) << "Writing to infologger failed.";
-      }
+      LOG(important) << logmessage << " run:" << runnumber << " sox orbit:" << orbit  << " ts:" << timestamp; ;
     } else {
       LOG(error) << "Topic soxorbit dize !=3: " << message << " token size:" << tokens.size();
       ret = 1;
@@ -263,18 +259,14 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     if (tokens.size() == 1) {
       long timestamp = std::stol(tokens[0]);
       ret = saveOrbitReset(timestamp);
-      LOG(info) << "orbitreset: " << timestamp;
       std::string logmessage;
       if (ret) {
-        logmessage = "Failed to update CCDB with orbitreset.";
+        logmessage = "Failed to update CCDB with orbitreset. ";
         return 1;
       } else {
-        logmessage = "CCDB updated with orbitreset.";
+        logmessage = "CCDB updated with orbitreset. ";
       }
-      int rlog = mInfoLogger.logInfo(logmessage);
-      if (rlog) {
-        LOG(warn) << "Writing to infologger failed.";
-      }
+      LOG(important) << logmessage << timestamp;
     } else {
       LOG(error) << "Topic orbit reset != 2: " << message << " token size:" << tokens.size();
       ret = 1;
