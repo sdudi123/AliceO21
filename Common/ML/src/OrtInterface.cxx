@@ -33,6 +33,7 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
   Ort::SessionOptions sessionOptions;
   Ort::AllocatorWithDefaultOptions allocator;
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
+  std::unique_ptr<Ort::IoBinding> ioBinding = nullptr;
 };
 
 // General purpose
@@ -122,7 +123,8 @@ void OrtModel::initEnvironment()
     },
     (void*)3);
   (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
-  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
+  pImplOrt->session = std::make_shared<Ort::Session>(*pImplOrt->env, modelPath.c_str(), pImplOrt->sessionOptions);
+  pImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*pImplOrt->session);
 
   setIO();
 
@@ -135,6 +137,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
 {
 #if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (deviceIndex >= 0) {
+    (pImplOrt->runOptions).AddConfigEntry("disable_synchronize_execution_providers", "1");
     std::string dev_mem_str = "";
     if (deviceType == "ROCM") {
       dev_mem_str = "Hip";
@@ -268,20 +271,22 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
   std::vector<int64_t> inputShape{input_size, (int64_t)mInputShapes[0][1]};
   Ort::Value inputTensor = Ort::Value(nullptr);
   if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
-    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size * mInputShapes[0][1], inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size * mInputShapes[0][1] * sizeof(Ort::Float16_t), inputShape.data(), inputShape.size());
   } else {
-    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size * mInputShapes[0][1], inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size * mInputShapes[0][1] * sizeof(float), inputShape.data(), inputShape.size());
   }
+  (pImplOrt->ioBinding)->BindInput(mInputNames[0].c_str(), inputTensor);
 
   std::vector<int64_t> outputShape{input_size, mOutputShapes[0][1]};
   Ort::Value outputTensor = Ort::Value(nullptr);
   if constexpr (std::is_same_v<O, OrtDataType::Float16_t>) {
-    outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(output), input_size * mOutputShapes[0][1], outputShape.data(), outputShape.size());
+    outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(output), input_size * mOutputShapes[0][1] * sizeof(Ort::Float16_t), outputShape.data(), outputShape.size());
   } else {
-    outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size * mOutputShapes[0][1], outputShape.data(), outputShape.size());
+    outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size * mOutputShapes[0][1] * sizeof(float), outputShape.data(), outputShape.size());
   }
+  (pImplOrt->ioBinding)->BindOutput(mOutputNames[0].c_str(), outputTensor);
 
-  (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), &inputTensor, 1, outputNamesChar.data(), &outputTensor, outputNamesChar.size());
+  (pImplOrt->session)->Run(pImplOrt->runOptions, *pImplOrt->ioBinding);
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, size_t, OrtDataType::Float16_t*);
@@ -397,6 +402,12 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& inputs)
 
 template std::vector<float> OrtModel::inference<float, float>(std::vector<std::vector<float>>&);
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>&);
+
+// Release session
+void OrtModel::release()
+{
+  LOG(info) << "(ORT) Size of pImplOrt: " << sizeof(*pImplOrt) << " bytes";
+}
 
 // private
 std::string OrtModel::printShape(const std::vector<int64_t>& v)

@@ -91,6 +91,8 @@ class OrtModel
   template <class I, class O>
   void inference(I**, size_t, O*);
 
+  void release();
+
  private:
   // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;

@@ -673,6 +673,7 @@ void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_option
   // UpdateCUDAProviderOptions(cuda_options, keys.data(), values.data(), keys.size());
 
   // this implicitly sets "has_user_compute_stream"
+  cuda_options.has_user_compute_stream = 1;
   UpdateCUDAProviderOptionsWithValue(cuda_options, "user_compute_stream", mInternals->Streams[stream]);
   session_options.AppendExecutionProvider_CUDA_V2(cuda_options);
 
@@ -698,10 +699,9 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   // api.GetCurrentGpuDeviceId(deviceId);
   OrtROCMProviderOptions rocm_options;
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
+  rocm_options.arena_extend_strategy = 0;
   rocm_options.user_compute_stream = mInternals->Streams[stream];
   session_options.AppendExecutionProvider_ROCM(rocm_options);
-  // OrtSessionOptionsAppendExecutionProvider_ROCM(session_options, *deviceId);
-  // api.ReleaseROCMProviderOptions(rocm_options);
 }
 
 #endif // GPUCA_HAS_ONNX
