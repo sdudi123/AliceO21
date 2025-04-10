@@ -626,7 +626,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
   if (GetProcessingSettings().nn.applyNNclusterizer) {
     int32_t deviceId = -1;
     int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
-    int32_t maxThreads = mRec->MemoryScalers()->nTPCdigits / 6000;
+    int32_t maxThreads = mRec->getNKernelHostThreads(true);
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
       if (nnApplications[lane].modelsUsed[0]) {
