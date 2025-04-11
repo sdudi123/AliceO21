@@ -387,11 +387,11 @@ void WorkflowHelpers::injectServiceDevices(WorkflowSpec& workflow, ConfigContext
   std::sort(ac.providedDYNs.begin(), ac.providedDYNs.end(), outputSpecLessThan);
 
   DataProcessorSpec indexBuilder{
-                                 "internal-dpl-aod-index-builder",
-                                 {},
-                                 {},
-                                 readers::AODReaderHelpers::indexBuilderCallback(ac.requestedIDXs),
-                                 {}};
+    "internal-dpl-aod-index-builder",
+    {},
+    {},
+    readers::AODReaderHelpers::indexBuilderCallback(ac.requestedIDXs),
+    {}};
   AnalysisSupportHelpers::addMissingOutputsToBuilder(ac.requestedIDXs, ac.requestedAODs, ac.requestedDYNs, indexBuilder);
 
   for (auto& input : ac.requestedDYNs) {
