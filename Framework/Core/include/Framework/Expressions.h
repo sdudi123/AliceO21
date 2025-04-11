@@ -41,6 +41,7 @@ class Projector;
 #include <string>
 #include <memory>
 #include <set>
+#include <stack>
 namespace gandiva
 {
 using Selection = std::shared_ptr<gandiva::SelectionVector>;
