@@ -250,7 +250,7 @@ Operations createOperations(Filter const& expression)
         [lh = LiteralNodeHelper{}](LiteralNode const& node) { return lh(node); },
         [bh = BindingNodeHelper{}](BindingNode const& node) { return bh(node); },
         [ph = PlaceholderNodeHelper{}](PlaceholderNode const& node) { return ph(node); },
-        [pr = ParameterNodeHelper{}](ParameterNode const& node){ return pr(node); },
+        [pr = ParameterNodeHelper{}](ParameterNode const& node) { return pr(node); },
         [](auto&&) { return DatumSpec{}; }},
       node->self);
   };
