@@ -630,7 +630,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
       if (nnApplications[lane].modelsUsed[0]) {
-        SetONNXGPUStream((nnApplications[lane].model_class).getSessionOptions(), lane + numLanes, &deviceId);
+        SetONNXGPUStream((nnApplications[lane].model_class).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_class).setDeviceId(deviceId);
         if (nnApplications[lane].model_class.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].model_class.setIntraOpNumThreads(maxThreads);
@@ -638,7 +638,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         (nnApplications[lane].model_class).initEnvironment();
       }
       if (nnApplications[lane].modelsUsed[1]) {
-        SetONNXGPUStream((nnApplications[lane].model_reg_1).getSessionOptions(), lane + 2*numLanes, &deviceId);
+        SetONNXGPUStream((nnApplications[lane].model_reg_1).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_reg_1).setDeviceId(deviceId);
         if (nnApplications[lane].model_reg_1.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].model_reg_1.setIntraOpNumThreads(maxThreads);
@@ -646,7 +646,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         (nnApplications[lane].model_reg_1).initEnvironment();
       }
       if (nnApplications[lane].modelsUsed[2]) {
-        SetONNXGPUStream((nnApplications[lane].model_reg_2).getSessionOptions(), lane + 3*numLanes, &deviceId);
+        SetONNXGPUStream((nnApplications[lane].model_reg_2).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].model_reg_2).setDeviceId(deviceId);
         if (nnApplications[lane].model_reg_2.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].model_reg_2.setIntraOpNumThreads(maxThreads);
@@ -1039,7 +1039,6 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             }
             LOG(info) << "[NN CF] Apply NN (fragment " << fragment.index << ", lane: " << lane << ", sector: " << iSector << "): filling data " << time_fill << "s ; networks: " << time_networks << "s ; clusterizer: " << time_clusterizer << "s ; " << clusterer.mPmemory->counters.nClusters << " clusters, " << acceptedClusters << " accepted. --> " << (int32_t)clusterer.mPmemory->counters.nClusters / (time_fill + time_clusterizer) << " clusters/s";
           }
-          TransferMemoryResourcesToHost(RecoStep::TPCClusterFinding, &clustererNN, lane);
 #else
           GPUFatal("Project not compiled with neural network clusterization. Aborting.");
 #endif

@@ -271,18 +271,18 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
   std::vector<int64_t> inputShape{input_size, (int64_t)mInputShapes[0][1]};
   Ort::Value inputTensor = Ort::Value(nullptr);
   if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
-    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size * mInputShapes[0][1] * sizeof(Ort::Float16_t), inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(input), input_size * mInputShapes[0][1], inputShape.data(), inputShape.size());
   } else {
-    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size * mInputShapes[0][1] * sizeof(float), inputShape.data(), inputShape.size());
+    inputTensor = Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input, input_size * mInputShapes[0][1], inputShape.data(), inputShape.size());
   }
   (pImplOrt->ioBinding)->BindInput(mInputNames[0].c_str(), inputTensor);
 
   std::vector<int64_t> outputShape{input_size, mOutputShapes[0][1]};
   Ort::Value outputTensor = Ort::Value(nullptr);
   if constexpr (std::is_same_v<O, OrtDataType::Float16_t>) {
-    outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(output), input_size * mOutputShapes[0][1] * sizeof(Ort::Float16_t), outputShape.data(), outputShape.size());
+    outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(pImplOrt->memoryInfo, reinterpret_cast<Ort::Float16_t*>(output), input_size * mOutputShapes[0][1], outputShape.data(), outputShape.size());
   } else {
-    outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size * mOutputShapes[0][1] * sizeof(float), outputShape.data(), outputShape.size());
+    outputTensor = Ort::Value::CreateTensor<O>(pImplOrt->memoryInfo, output, input_size * mOutputShapes[0][1], outputShape.data(), outputShape.size());
   }
   (pImplOrt->ioBinding)->BindOutput(mOutputNames[0].c_str(), outputTensor);
 
