@@ -31,13 +31,14 @@ template <TableRef R>
 constexpr auto tableRef2ConfigParamSpec()
 {
   return o2::framework::ConfigParamSpec{
-                                        std::string{"input:"} + o2::aod::label<R>(),
-                                        framework::VariantType::String,
-                                        aod::sourceSpec<R>(),
-                                        {"\"\""}};
+    std::string{"input:"} + o2::aod::label<R>(),
+    framework::VariantType::String,
+    aod::sourceSpec<R>(),
+    {"\"\""}};
 }
 
-namespace {
+namespace
+{
 template <soa::with_sources T>
 inline constexpr auto getSources()
 {
@@ -66,7 +67,7 @@ constexpr auto getInputMetadata() -> std::vector<framework::ConfigParamSpec>
 {
   return {};
 }
-}
+}  // namespace
 
 template <TableRef R>
 constexpr auto tableRef2InputSpec()
