@@ -665,7 +665,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       clustererNN.mISector = sector;
       clustererNN.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
       nnApplications[lane].initClusterizer(nn_settings, clustererNN);
-      if (doGPU){
+      if (doGPU) {
         clustererNNShadow.deviceId = deviceId;
         clustererNNShadow.mISector = sector;
         clustererNNShadow.nnClusterizerTotalClusters = processors()->tpcClusterer[lane].mNMaxClusters;
@@ -673,8 +673,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
       }
       AllocateRegisteredMemory(clustererNN.mMemoryId);
     });
-    if (doGPU){
-      WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer)*NSECTORS, mRec->NStreams() - 1, &mEvents->init);
+    if (doGPU) {
+      WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
     }
   }
 #endif

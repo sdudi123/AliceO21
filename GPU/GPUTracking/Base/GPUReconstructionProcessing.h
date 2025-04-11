@@ -22,7 +22,8 @@
 #include <functional>
 #include <atomic>
 
-namespace Ort {
+namespace Ort
+{
 struct SessionOptions;
 }
 

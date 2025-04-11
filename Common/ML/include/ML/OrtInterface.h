@@ -26,10 +26,11 @@
 // O2 includes
 #include "Framework/Logger.h"
 
-namespace Ort {
-  struct SessionOptions;
-  struct MemoryInfo;
-}
+namespace Ort
+{
+struct SessionOptions;
+struct MemoryInfo;
+} // namespace Ort
 
 namespace o2
 {
@@ -44,7 +45,8 @@ class OrtModel
   // Constructors & destructors
   OrtModel() = default;
   OrtModel(std::unordered_map<std::string, std::string> optionsMap) { init(optionsMap); }
-  void init(std::unordered_map<std::string, std::string> optionsMap) {
+  void init(std::unordered_map<std::string, std::string> optionsMap)
+  {
     initOptions(optionsMap);
     initEnvironment();
   }
@@ -71,8 +73,18 @@ class OrtModel
   void setDeviceId(int32_t id) { deviceId = id; }
   void setIO();
   void setActiveThreads(int threads) { intraOpNumThreads = threads; }
-  void setIntraOpNumThreads(int threads) { if(deviceType == "CPU") { intraOpNumThreads = threads; } }
-  void setInterOpNumThreads(int threads) { if(deviceType == "CPU") { interOpNumThreads = threads; } }
+  void setIntraOpNumThreads(int threads)
+  {
+    if (deviceType == "CPU") {
+      intraOpNumThreads = threads;
+    }
+  }
+  void setInterOpNumThreads(int threads)
+  {
+    if (deviceType == "CPU") {
+      interOpNumThreads = threads;
+    }
+  }
 
   // Conversion
   template <class I, class O>
@@ -102,8 +114,8 @@ class OrtModel
   std::vector<const char*> inputNamesChar, outputNamesChar;
   std::vector<std::string> mInputNames, mOutputNames;
   std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, inputShapesCopy, outputShapesCopy; // Input shapes
-  std::vector<int64_t> inputSizePerNode, outputSizePerNode; // Output shapes
-  int32_t mInputsTotal = 0, mOutputsTotal = 0; // Total number of inputs and outputs
+  std::vector<int64_t> inputSizePerNode, outputSizePerNode;                                         // Output shapes
+  int32_t mInputsTotal = 0, mOutputsTotal = 0;                                                      // Total number of inputs and outputs
 
   // Environment settings
   bool mInitialized = false;

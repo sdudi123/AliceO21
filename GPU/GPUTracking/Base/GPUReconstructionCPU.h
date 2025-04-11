@@ -24,8 +24,9 @@
 #include "GPUReconstructionKernelIncludes.h"
 #include "GPUReconstructionKernels.h"
 
-namespace Ort {
-  struct SessionOptions;
+namespace Ort
+{
+struct SessionOptions;
 }
 
 namespace o2::gpu

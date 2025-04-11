@@ -25,8 +25,9 @@ extern "C" __declspec(dllexport) o2::gpu::GPUReconstruction* GPUReconstruction_C
 extern "C" o2::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
 
-namespace Ort {
-  struct SessionOptions;
+namespace Ort
+{
+struct SessionOptions;
 }
 
 namespace o2::gpu

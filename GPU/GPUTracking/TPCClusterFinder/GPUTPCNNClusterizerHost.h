@@ -45,7 +45,7 @@ class GPUTPCNNClusterizerHost
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
-  std::vector<bool> modelsUsed = {false, false, false}; // 0: class, 1: reg_1, 2: reg_2
+  std::vector<bool> modelsUsed = {false, false, false};   // 0: class, 1: reg_1, 2: reg_2
   int32_t deviceId = -1;
   std::vector<std::string> reg_model_paths;
 }; // class GPUTPCNNClusterizerHost
