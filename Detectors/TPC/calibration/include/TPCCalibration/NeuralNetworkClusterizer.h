@@ -23,16 +23,15 @@ namespace o2::tpc
 
 class NeuralNetworkClusterizer
 {
-    public:
-        NeuralNetworkClusterizer() = default;
-        void initCcdbApi(std::string url);
-        void loadIndividualFromCCDB(std::map<std::string, std::string> settings);
+ public:
+  NeuralNetworkClusterizer() = default;
+  void initCcdbApi(std::string url);
+  void loadIndividualFromCCDB(std::map<std::string, std::string> settings);
 
-    private:
-        o2::ccdb::CcdbApi ccdbApi;
-        std::map<std::string, std::string> metadata;
-        std::map<std::string, std::string> headers;
-
+ private:
+  o2::ccdb::CcdbApi ccdbApi;
+  std::map<std::string, std::string> metadata;
+  std::map<std::string, std::string> headers;
 };
 
 } // namespace o2::tpc

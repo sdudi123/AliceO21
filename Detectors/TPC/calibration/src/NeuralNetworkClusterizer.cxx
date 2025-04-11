@@ -18,7 +18,8 @@
 
 using namespace o2::tpc;
 
-void NeuralNetworkClusterizer::initCcdbApi(std::string url) {
+void NeuralNetworkClusterizer::initCcdbApi(std::string url)
+{
   ccdbApi.init(url);
 }
 

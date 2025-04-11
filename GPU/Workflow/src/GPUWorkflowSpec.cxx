@@ -135,20 +135,20 @@ void GPURecoWorkflowSpec::init(InitContext& ic)
   GRPGeomHelper::instance().setRequest(mGGR);
   GPUO2InterfaceConfiguration& config = *mConfig.get();
 
-  if (mNNClusterizerSettings->nnLoadFromCCDB){
+  if (mNNClusterizerSettings->nnLoadFromCCDB) {
     LOG(info) << "Loading neural networks from CCDB";
     o2::tpc::NeuralNetworkClusterizer nnClusterizerFetcher;
     nnClusterizerFetcher.initCcdbApi(mNNClusterizerSettings->nnCCDBURL);
     std::map<std::string, std::string> ccdbSettings = {
-    {"nnCCDBURL", mNNClusterizerSettings->nnCCDBURL},
-    {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
-    {"inputDType", mNNClusterizerSettings->nnInferenceInputDType},
-    {"outputDType", mNNClusterizerSettings->nnInferenceOutputDType},
-    {"outputFolder", mNNClusterizerSettings->nnLocalFolder},
-    {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
-    {"nnCCDBWithMomentum", std::to_string(mNNClusterizerSettings->nnCCDBWithMomentum)},
-    {"nnCCDBBeamType", mNNClusterizerSettings->nnCCDBBeamType},
-    {"nnCCDBInteractionRate", std::to_string(mNNClusterizerSettings->nnCCDBInteractionRate)}};
+      {"nnCCDBURL", mNNClusterizerSettings->nnCCDBURL},
+      {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
+      {"inputDType", mNNClusterizerSettings->nnInferenceInputDType},
+      {"outputDType", mNNClusterizerSettings->nnInferenceOutputDType},
+      {"outputFolder", mNNClusterizerSettings->nnLocalFolder},
+      {"nnCCDBPath", mNNClusterizerSettings->nnCCDBPath},
+      {"nnCCDBWithMomentum", std::to_string(mNNClusterizerSettings->nnCCDBWithMomentum)},
+      {"nnCCDBBeamType", mNNClusterizerSettings->nnCCDBBeamType},
+      {"nnCCDBInteractionRate", std::to_string(mNNClusterizerSettings->nnCCDBInteractionRate)}};
 
     std::string nnFetchFolder = mNNClusterizerSettings->nnLocalFolder;
     std::vector<std::string> evalMode = o2::utils::Str::tokenize(mNNClusterizerSettings->nnEvalMode, ':');
