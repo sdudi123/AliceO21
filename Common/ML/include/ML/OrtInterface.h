@@ -98,10 +98,10 @@ class OrtModel
   std::vector<O> inference(std::vector<std::vector<I>>&);
 
   template <class I, class O>
-  void inference(I*, size_t, O*);
+  void inference(I*, int64_t, O*);
 
   template <class I, class O>
-  void inference(I**, size_t, O*);
+  void inference(I**, int64_t, O*);
 
   void release();
 

@@ -262,7 +262,7 @@ template std::vector<float> OrtModel::inference<OrtDataType::Float16_t, float>(s
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<OrtDataType::Float16_t>&);
 
 template <class I, class O>
-void OrtModel::inference(I* input, size_t input_size, O* output)
+void OrtModel::inference(I* input, int64_t input_size, O* output)
 {
   // std::vector<std::string> providers = Ort::GetAvailableProviders();
   // for (const auto& provider : providers) {
@@ -289,13 +289,13 @@ void OrtModel::inference(I* input, size_t input_size, O* output)
   (pImplOrt->session)->Run(pImplOrt->runOptions, *pImplOrt->ioBinding);
 }
 
-template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, size_t, OrtDataType::Float16_t*);
-template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, size_t, float*);
-template void OrtModel::inference<float, OrtDataType::Float16_t>(float*, size_t, OrtDataType::Float16_t*);
-template void OrtModel::inference<float, float>(float*, size_t, float*);
+template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, int64_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t*, int64_t, float*);
+template void OrtModel::inference<float, OrtDataType::Float16_t>(float*, int64_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<float, float>(float*, int64_t, float*);
 
 template <class I, class O>
-void OrtModel::inference(I** input, size_t input_size, O* output)
+void OrtModel::inference(I** input, int64_t input_size, O* output)
 {
   std::vector<Ort::Value> inputTensors(inputShapesCopy.size());
 
@@ -349,10 +349,10 @@ void OrtModel::inference(I** input, size_t input_size, O* output)
     outputNamesChar.size());
 }
 
-template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t**, size_t, OrtDataType::Float16_t*);
-template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t**, size_t, float*);
-template void OrtModel::inference<float, OrtDataType::Float16_t>(float**, size_t, OrtDataType::Float16_t*);
-template void OrtModel::inference<float, float>(float**, size_t, float*);
+template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t**, int64_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<OrtDataType::Float16_t, float>(OrtDataType::Float16_t**, int64_t, float*);
+template void OrtModel::inference<float, OrtDataType::Float16_t>(float**, int64_t, OrtDataType::Float16_t*);
+template void OrtModel::inference<float, float>(float**, int64_t, float*);
 
 template <class I, class O>
 std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& inputs)
