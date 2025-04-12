@@ -502,14 +502,12 @@ inline Node binned(std::vector<T> const& binning, std::vector<T> const& paramete
   const auto binned_copy = binned;
   const auto out_copy = out;
   auto root = ifnode(Node{binned_copy} < binning[0], Node{out_copy}, LiteralNode{-1});
-  root.right = std::make_unique<Node>(ifnode(Node{binned_copy} > binning[0] && Node{binned_copy} <= binning[1], updateParameters(pexp, bins, parameters, 0), LiteralNode{-1}));
-  auto* current = root.right.get();
-  for (auto i = 1; i < bins; ++i) {
-    current->right = std::make_unique<Node>(ifnode(Node{binned_copy} <= binning[i + 1], updateParameters(pexp, bins, parameters, i), LiteralNode{-1}));
+  auto* current = &root;
+  for (auto i = 0; i < bins; ++i) {
+    current->right = std::make_unique<Node>(ifnode(Node{binned_copy} < binning[i + 1], updateParameters(pexp, bins, parameters, i), LiteralNode{-1}));
     current = current->right.get();
   }
   current->right = std::make_unique<Node>(out);
-
   return root;
 }
 
