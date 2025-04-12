@@ -85,9 +85,9 @@ enum Pdg {
 constexpr double MassB0 = 5.27966;
 constexpr double MassB0Bar = 5.27966;
 constexpr double MassBPlus = 5.27934;
+constexpr double MassBCPlus = 6.27447;
 constexpr double MassBS = 5.36692;
 constexpr double MassBSBar = 5.36692;
-constexpr double MassBC = 6.27447;
 constexpr double MassD0 = 1.86484;
 constexpr double MassD0Bar = 1.86484;
 constexpr double MassD0StarPlus = 2.272;
