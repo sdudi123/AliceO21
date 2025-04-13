@@ -661,9 +661,9 @@ void GPUReconstructionCUDA::endGPUProfiling()
   GPUChkErr(cudaProfilerStop());
 }
 
-#if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
 void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
 {
+#if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
   cudaGetDevice(deviceId);
   OrtCUDAProviderOptionsV2* cuda_options = nullptr;
   CreateCUDAProviderOptions(&cuda_options);
@@ -679,8 +679,8 @@ void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_option
 
   // Finally, don't forget to release the provider options
   ReleaseCUDAProviderOptions(cuda_options);
+#endif // ORT_CUDA_BUILD
 }
-#endif // GPUCA_HAS_ONNX
 
 #else  // HIP
 void* GPUReconstructionHIP::getGPUPointer(void* ptr)
@@ -690,9 +690,9 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
   return retVal;
 }
 
-#if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
 void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
 {
+#if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
   // Create ROCm provider options
   cudaGetDevice(deviceId);
   // const auto& api = Ort::GetApi();
@@ -702,9 +702,8 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   rocm_options.arena_extend_strategy = 0;
   rocm_options.user_compute_stream = mInternals->Streams[stream];
   session_options.AppendExecutionProvider_ROCM(rocm_options);
+#endif // ORT_ROCM_BUILD
 }
-
-#endif // GPUCA_HAS_ONNX
 #endif // __HIPCC__
 
 namespace o2::gpu
