@@ -518,7 +518,7 @@ Node updateParameters(Node const& pexp, int bins, std::vector<T> const& paramete
   auto updateParameter = [&bins, &parameters, &bin](Node* node) {
     if (node->self.index() == 5) {
       auto* n = std::get_if<5>(&node->self);
-      n->reset(parameters[bin * bins + n->index]);
+      n->reset(parameters[n->index * bins + bin]);
     }
   };
   walk(&result, updateParameter);
