@@ -24,20 +24,30 @@ message(STATUS "Building GPUTracking with HIP support ${TMP_TARGET}")
 if(NOT DEFINED GPUCA_HIP_HIPIFY_FROM_CUDA OR "${GPUCA_HIP_HIPIFY_FROM_CUDA}")
   set(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/hipify)
   file(MAKE_DIRECTORY ${GPUCA_HIP_SOURCE_DIR})
-  set(GPUCA_HIP_FILE_LIST GPUReconstructionCUDA.cu GPUReconstructionCUDAExternalProvider.cu GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAHelpers.inc GPUReconstructionCUDAkernel.template.cu GPUReconstructionCUDADef.h GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu GPUReconstructionCUDArtc.cu)
+  set(GPUCA_HIP_FILE_LIST GPUReconstructionCUDA.cu GPUReconstructionCUDAExternalProvider.cu GPUReconstructionCUDA.h GPUReconstructionCUDAInternals.h GPUReconstructionCUDAHelpers.inc GPUReconstructionCUDAkernel.template.cu GPUReconstructionCUDADef.h GPUReconstructionCUDAGenRTC.cxx GPUReconstructionCUDAKernels.cu GPUReconstructionCUDArtc.cu GPUReconstructionCUDARTCCalls.cu)
   set(GPUCA_HIP_LOCAL_FILE_LIST GPUReconstructionHIPIncludesSystem.h)
   set(HIP_SOURCES "")
   foreach(file ${GPUCA_HIP_FILE_LIST})
     get_filename_component(ABS_CUDA_SORUCE ../cuda/${file} ABSOLUTE)
     get_filename_component(CUDA_SOURCE ${file} NAME)
+    get_filename_component(CUDA_SOURCE_EXT ${file} EXT)
     string(REPLACE ".cu" ".hip" HIP_SOURCE1 ${CUDA_SOURCE})
     string(REPLACE "CUDA" "HIP" HIP_SOURCE ${HIP_SOURCE1})
-    add_custom_command(
-      OUTPUT ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
-      COMMAND ${hip_HIPIFY_PERL_EXECUTABLE} --quiet-warnings ${ABS_CUDA_SORUCE} | sed -e 's/CUDA/HIP/g' -e 's/cuda/hip/g' > ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
-      DEPENDS ${ABS_CUDA_SORUCE}
-      COMMENT "Hippifying ${HIP_SOURCE}"
-    )
+    if(CUDA_SOURCE_EXT STREQUAL ".cu" OR CUDA_SOURCE_EXT STREQUAL ".h")
+      add_custom_command(
+        OUTPUT ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
+        COMMAND ${hip_HIPIFY_PERL_EXECUTABLE} --quiet-warnings ${ABS_CUDA_SORUCE} | sed -e 's/CUDA/HIP/g' -e 's/cuda/hip/g' > ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
+        DEPENDS ${ABS_CUDA_SORUCE}
+        COMMENT "Hippifying ${HIP_SOURCE}"
+      )
+    else()
+      add_custom_command(
+        OUTPUT ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
+        COMMAND sed -e 's/CUDA/HIP/g' -e 's/cuda/hip/g' ${ABS_CUDA_SORUCE} > ${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}
+        DEPENDS ${ABS_CUDA_SORUCE}
+        COMMENT "Generating HIP source ${HIP_SOURCE}"
+      )
+    endif()
     list(APPEND HIP_SOURCES "${GPUCA_HIP_SOURCE_DIR}/${HIP_SOURCE}")
   endforeach()
   foreach(file ${GPUCA_HIP_LOCAL_FILE_LIST})
@@ -61,7 +71,7 @@ else()
   get_filename_component(GPUCA_HIP_SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR} ABSOLUTE)
 endif()
 
-set(SRCS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.hip ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPKernels.hip)
+set(SRCS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.hip ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPKernels.hip ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPRTCCalls.hip)
 set(SRCS_CXX ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPGenRTC.cxx)
 set(HDRS ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIP.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPInternals.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPHelpers.inc ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPDef.h ${GPUCA_HIP_SOURCE_DIR}/GPUReconstructionHIPIncludesSystem.h)
 
@@ -115,8 +125,8 @@ add_custom_command(
 create_binary_resource(${GPU_RTC_BIN}.src ${GPU_RTC_BIN}.src.o)
 
 add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done
-                    COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain standard headers 1>&2 && exit 1"
-                    COMMENT "Checking HIP RTC File ${GPU_RTC_BIN}.src"
+                    COMMAND ! grep "# [0-9]* \"\\(/usr/\\|.*GCC-Toolchain\\)" ${GPU_RTC_BIN}.src > ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done || bash -c "echo ERROR: HIP RTC sources contain system headers 1>&2 && exit 1"
+                    COMMENT "Checking HIP RTC File ${GPU_RTC_BIN}.src for system headers"
                     DEPENDS ${GPU_RTC_BIN}.src VERBATIM)
 add_custom_target(${MODULE}_HIP_SRC_CHK ALL DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/${MODULE}_HIP_SRC_CHK.done)
 
