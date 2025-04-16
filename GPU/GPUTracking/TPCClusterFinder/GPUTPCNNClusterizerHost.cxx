@@ -192,15 +192,15 @@ void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInf
 {
   if (chooseMockedAlloc == 0) {
     mockedAlloc_class = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_class.get());
+    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_class.get()));
     LOG(info) << "(ORT) Mocked ORT allocator for classification network registered";
   } else if (chooseMockedAlloc == 1) {
     mockedAlloc_reg_1 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_1.get());
+    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_1.get()));
     LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 1) registered";
   } else if (chooseMockedAlloc == 2) {
     mockedAlloc_reg_2 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_2.get());
+    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_2.get()));
     LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 2) registered";
   } else {
     LOG(fatal) << "Invalid choice for mocked allocator";
