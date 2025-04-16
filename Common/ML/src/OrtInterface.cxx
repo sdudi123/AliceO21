@@ -99,9 +99,6 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
 
 void OrtModel::initEnvironment()
 {
-  if (allocateDeviceMemory) {
-    memoryOnDevice(deviceId);
-  }
   pImplOrt->env = std::make_shared<Ort::Env>(
     OrtLoggingLevel(loggingLevel),
     (envName.empty() ? "ORT" : envName.c_str()),
@@ -123,6 +120,13 @@ void OrtModel::initEnvironment()
     },
     (void*)3);
   (pImplOrt->env)->DisableTelemetryEvents(); // Disable telemetry events
+}
+
+void OrtModel::initSession()
+{
+  if (allocateDeviceMemory) {
+    memoryOnDevice(deviceId);
+  }
   pImplOrt->session = std::make_shared<Ort::Session>(*pImplOrt->env, modelPath.c_str(), pImplOrt->sessionOptions);
   pImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*pImplOrt->session);
 
@@ -138,6 +142,13 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
 #if (defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1) || (defined(ORT_MIGRAPHX_BUILD) && ORT_MIGRAPHX_BUILD == 1) || (defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1)
   if (deviceIndex >= 0) {
     (pImplOrt->runOptions).AddConfigEntry("disable_synchronize_execution_providers", "1");
+    (pImplOrt->sessionOptions).AddConfigEntry("session.use_device_allocator_for_initializers", "1"); // See kOrtSessionOptionsUseDeviceAllocatorForInitializers, https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h
+    (pImplOrt->sessionOptions).AddConfigEntry("session.use_env_allocators", "1"); // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
+
+    // Arena memory shrinkage comes at performance cost
+    /// For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
+    // (pImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
+
     std::string dev_mem_str = "";
     if (deviceType == "ROCM") {
       dev_mem_str = "Hip";
@@ -159,14 +170,19 @@ void OrtModel::resetSession()
 }
 
 // Getters
-Ort::SessionOptions& OrtModel::getSessionOptions()
+Ort::SessionOptions* OrtModel::getSessionOptions()
 {
-  return pImplOrt->sessionOptions;
+  return &pImplOrt->sessionOptions;
 }
 
-Ort::MemoryInfo& OrtModel::getMemoryInfo()
+Ort::MemoryInfo* OrtModel::getMemoryInfo()
 {
-  return pImplOrt->memoryInfo;
+  return &pImplOrt->memoryInfo;
+}
+
+Ort::Env* OrtModel::getEnv()
+{
+  return (pImplOrt->env).get();
 }
 
 template <class I, class O>
@@ -232,6 +248,11 @@ void OrtModel::setIO()
       }
     }
   }
+}
+
+void OrtModel::setEnv(Ort::Env* env)
+{
+  pImplOrt->env = std::shared_ptr<Ort::Env>(env);
 }
 
 // Inference
@@ -404,8 +425,11 @@ template std::vector<float> OrtModel::inference<float, float>(std::vector<std::v
 template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(std::vector<std::vector<OrtDataType::Float16_t>>&);
 
 // Release session
-void OrtModel::release()
+void OrtModel::release(bool profilingEnabled)
 {
+  // if (profilingEnabled) {
+  //   pImplOrt->session->EndProfiling();
+  // }
   LOG(info) << "(ORT) Size of pImplOrt: " << sizeof(*pImplOrt) << " bytes";
 }
 

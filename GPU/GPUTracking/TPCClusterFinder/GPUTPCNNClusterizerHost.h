@@ -22,6 +22,15 @@
 
 using namespace o2::ml;
 
+struct OrtAllocator;
+struct OrtMemoryInfo;
+struct MockedOrtAllocator;
+namespace Ort
+{
+struct Env;
+struct MemoryInfo;
+} // namespace Ort
+
 namespace o2::OrtDataType
 {
 struct Float16_t;
@@ -30,6 +39,7 @@ struct Float16_t;
 namespace o2::gpu
 {
 
+class GPUReconstruction;
 class GPUTPCNNClusterizer;
 struct GPUSettingsProcessingNNclusterizer;
 
@@ -41,13 +51,17 @@ class GPUTPCNNClusterizerHost
 
   void init(const GPUSettingsProcessingNNclusterizer&);
   void initClusterizer(const GPUSettingsProcessingNNclusterizer&, GPUTPCNNClusterizer&);
-  void loadFromCCDB(std::map<std::string, std::string>);
+
+  // ONNX
+  void volatileOrtAllocator(Ort::Env*, Ort::MemoryInfo*, GPUReconstruction*, int32_t = 0);
 
   std::unordered_map<std::string, std::string> OrtOptions;
   o2::ml::OrtModel model_class, model_reg_1, model_reg_2; // For splitting clusters
   std::vector<bool> modelsUsed = {false, false, false};   // 0: class, 1: reg_1, 2: reg_2
   int32_t deviceId = -1;
   std::vector<std::string> reg_model_paths;
+
+  std::shared_ptr<MockedOrtAllocator> mockedAlloc_class = nullptr, mockedAlloc_reg_1 = nullptr, mockedAlloc_reg_2 = nullptr;
 }; // class GPUTPCNNClusterizerHost
 
 } // namespace o2::gpu

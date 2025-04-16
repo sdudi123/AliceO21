@@ -30,6 +30,7 @@ namespace Ort
 {
 struct SessionOptions;
 struct MemoryInfo;
+struct Env;
 } // namespace Ort
 
 namespace o2
@@ -55,6 +56,7 @@ class OrtModel
   // General purpose
   void initOptions(std::unordered_map<std::string, std::string> optionsMap);
   void initEnvironment();
+  void initSession();
   void memoryOnDevice(int32_t = 0);
   bool isInitialized() { return mInitialized; }
   void resetSession();
@@ -64,8 +66,9 @@ class OrtModel
   std::vector<std::vector<int64_t>> getNumOutputNodes() const { return mOutputShapes; }
   std::vector<std::string> getInputNames() const { return mInputNames; }
   std::vector<std::string> getOutputNames() const { return mOutputNames; }
-  Ort::SessionOptions& getSessionOptions();
-  Ort::MemoryInfo& getMemoryInfo();
+  Ort::SessionOptions* getSessionOptions();
+  Ort::MemoryInfo* getMemoryInfo();
+  Ort::Env* getEnv();
   int32_t getIntraOpNumThreads() const { return intraOpNumThreads; }
   int32_t getInterOpNumThreads() const { return interOpNumThreads; }
 
@@ -85,6 +88,7 @@ class OrtModel
       interOpNumThreads = threads;
     }
   }
+  void setEnv(Ort::Env*);
 
   // Conversion
   template <class I, class O>
@@ -103,7 +107,7 @@ class OrtModel
   template <class I, class O>
   void inference(I**, int64_t, O*);
 
-  void release();
+  void release(bool = false);
 
  private:
   // ORT variables -> need to be hidden as pImpl

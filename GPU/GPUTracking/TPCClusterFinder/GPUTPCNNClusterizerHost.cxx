@@ -18,6 +18,11 @@
 #include "GPUTPCNNClusterizer.h"
 #include "GPUSettings.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
+#include "GPUReconstruction.h"
+
+#ifdef GPUCA_HAS_ONNX
+#include <onnxruntime_cxx_api.h>
+#endif
 
 using namespace o2::gpu;
 
@@ -51,7 +56,6 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
     {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
 
-  LOG(info) << "Model path: " << class_model_path;
   model_class.initOptions(OrtOptions);
   modelsUsed[0] = true;
 
@@ -104,5 +108,92 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
       clustererNN.nnClusterizerModelReg1NumOutputNodes = model_reg_1.getNumOutputNodes()[0][1];
       clustererNN.nnClusterizerModelReg2NumOutputNodes = model_reg_2.getNumOutputNodes()[0][1];
     }
+  }
+}
+
+// MockedOrtAllocator implementation to be able to use volatile assignment
+struct MockedOrtAllocator : OrtAllocator {
+  MockedOrtAllocator(GPUReconstruction* = nullptr, OrtMemoryInfo* = nullptr);
+  ~MockedOrtAllocator();
+
+  void* Alloc(size_t size);
+  void Free(void* p);
+  const OrtMemoryInfo* Info() const;
+  void* Reserve(size_t size);
+  size_t NumAllocations() const;
+  size_t NumReserveAllocations() const;
+
+  void LeakCheck();
+
+private:
+  MockedOrtAllocator(const MockedOrtAllocator&) = delete;
+  MockedOrtAllocator& operator=(const MockedOrtAllocator&) = delete;
+
+  std::atomic<size_t> memory_inuse{0};
+  std::atomic<size_t> num_allocations{0};
+  std::atomic<size_t> num_reserve_allocations{0};
+  OrtMemoryInfo* memory_info;
+  GPUReconstruction* rec;
+};
+
+MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info) {
+  OrtAllocator::version = ORT_API_VERSION;
+  OrtAllocator::Alloc = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Alloc(size); };
+  OrtAllocator::Free = [](OrtAllocator* this_, void* p) { static_cast<MockedOrtAllocator*>(this_)->Free(p); };
+  OrtAllocator::Info = [](const OrtAllocator* this_) { return static_cast<const MockedOrtAllocator*>(this_)->Info(); };
+  OrtAllocator::Reserve = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Reserve(size); };
+  rec = r;
+  memory_info = info;
+}
+
+MockedOrtAllocator::~MockedOrtAllocator() {
+  // Ort::GetApi().ReleaseMemoryInfo(memory_info);
+}
+
+void* MockedOrtAllocator::Alloc(size_t size) {
+  return rec->AllocateVolatileDeviceMemory(size);
+}
+
+void* MockedOrtAllocator::Reserve(size_t size) {
+  return rec->AllocateVolatileDeviceMemory(size);
+}
+
+void MockedOrtAllocator::Free(void* p) {
+  rec->ReturnVolatileDeviceMemory();
+}
+
+const OrtMemoryInfo* MockedOrtAllocator::Info() const {
+  return memory_info;
+}
+
+size_t MockedOrtAllocator::NumAllocations() const {
+  return num_allocations.load();
+}
+
+size_t MockedOrtAllocator::NumReserveAllocations() const {
+  return num_reserve_allocations.load();
+}
+
+void MockedOrtAllocator::LeakCheck() {
+  if (memory_inuse.load())
+    LOG(warning) << "memory leak!!!";
+}
+
+void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, int32_t chooseMockedAlloc)
+{
+  if(chooseMockedAlloc == 0) {
+    mockedAlloc_class = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
+    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_class.get());
+    LOG(info) << "(ORT) Mocked ORT allocator for classification network registered";
+  } else if (chooseMockedAlloc == 1) {
+    mockedAlloc_reg_1 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
+    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_1.get());
+    LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 1) registered";
+  } else if (chooseMockedAlloc == 2) {
+    mockedAlloc_reg_2 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
+    Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_2.get());
+    LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 2) registered";
+  } else {
+    LOG(fatal) << "Invalid choice for mocked allocator";
   }
 }
