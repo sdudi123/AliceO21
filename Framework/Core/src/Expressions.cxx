@@ -246,7 +246,7 @@ Operations createOperations(Filter const& expression)
 
   auto processLeaf = [](Node const* const node) {
     return std::visit(
-      [](auto const& n){return makeDatum(n);},
+      [](auto const& n) { return makeDatum(n); },
       node->self);
   };
 
@@ -261,7 +261,7 @@ Operations createOperations(Filter const& expression)
     // create operation spec, pop the node and add its children
     auto operationSpec =
       std::visit(
-        [&](auto const& n){ return makeOp(n, top.node_ptr->index); },
+        [&](auto const& n) { return makeOp(n, top.node_ptr->index); },
         top.node_ptr->self);
 
     operationSpec.result = DatumSpec{top.index, operationSpec.type};

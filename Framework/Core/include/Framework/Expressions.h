@@ -189,7 +189,6 @@ struct ParameterNode : LiteralNode {
 struct ConditionalNode {
 };
 
-
 /// concepts
 template <typename T>
 concept is_literal_like = std::same_as<T, LiteralNode> || std::same_as<T, PlaceholderNode> || std::same_as<T, ParameterNode>;
