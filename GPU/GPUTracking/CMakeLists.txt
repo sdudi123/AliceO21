@@ -129,7 +129,9 @@ set(HDRS_INSTALL
     DataTypes/GPUTriggerOutputs.h
     Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
-    Definitions/GPUDefParametersDefault.h
+    Definitions/GPUDefParametersWrapper.h
+    Definitions/GPUDefParametersConstants.h
+    Definitions/GPUDefParametersDefaults.h
     Definitions/GPUDef.h
     Definitions/GPUDefMacros.h
     Definitions/GPULogging.h
@@ -234,7 +236,7 @@ set(TEMPLATE_HEADER_LIST Base/GPUReconstructionKernelList.template.h
                          Base/GPUReconstructionKernelIncludes.template.h
                          Base/GPUReconstructionIncludesDeviceAll.template.h
                          cmake/GPUNoFastMathKernels.template.h
-                         Definitions/GPUDefParameters.template.h
+                         Definitions/GPUDefParametersRuntime.template.h
                          Definitions/GPUDefParametersLoad.template.inc)
 set(GENERATED_HEADERS_LIST "")
 
@@ -245,20 +247,23 @@ foreach(TEMPLATE_FILE ${TEMPLATE_HEADER_LIST})
   file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME} INPUT ${TEMPLATE_FILE})
   list(APPEND GENERATED_HEADERS_LIST ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME})
 endforeach()
+set(GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,PREPEND,LB_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_PARAMS>,PREPEND,PAR_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_STRING_PARAMS>,PREPEND,PAR_>,\n>")
 file(GENERATE
      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
-     CONTENT "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,\n>"
-)
+     CONTENT ${GPUDEFPARAMETERSLBLIST})
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
-  COMMAND awk "{print(\"#ifndef GPUCA_LB_\" $0 \"\\n#define GPUCA_LB_\" $0 \" 0\\n#endif\")}" ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase > ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
+  COMMAND awk "{print(\"#ifndef GPUCA_\" $0 \"\\n#define GPUCA_\" $0 \" 0\\n#endif\")}" ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase > ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
   COMMENT "Generating GPUDefParametersLoadPrepare.h"
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
   VERBATIM
   COMMAND_EXPAND_LISTS
 )
 list(APPEND GENERATED_HEADERS_LIST ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h)
 
-set(HDRS_INSTALL ${HDRS_INSTALL} ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUReconstructionKernelList.h ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParameters.h ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoad.inc ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h)
+set(HDRS_INSTALL ${HDRS_INSTALL} ${GENERATED_HEADERS_LIST})
 include(kernels.cmake)
 
 # Optional sources depending on optional dependencies

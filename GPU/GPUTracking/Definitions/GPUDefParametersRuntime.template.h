@@ -9,11 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUDefParameters.h
+/// \file GPUDefParametersRuntime.h
 /// \author David Rohr
 
-#ifndef GPUDEFPARAMETERS_H
-#define GPUDEFPARAMETERS_H
+#ifndef GPUDEFPARAMETERSRUNTIME_H
+#define GPUDEFPARAMETERSRUNTIME_H
 
 namespace o2::gpu
 {
@@ -21,7 +21,11 @@ struct GPUDefParameters {  // clang-format off
   int32_t par_LB_maxThreads[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
   int32_t par_LB_minBlocks[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
   int32_t par_LB_forceBlocks[$<LIST:LENGTH,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>>] = {};
+  $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_PARAMS>,PREPEND,int32_t par_>,APPEND, = 0>,$<SEMICOLON>
+  >;
+  $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_STRING_PARAMS>,PREPEND,char par_>,APPEND,[128] = "">,$<SEMICOLON>
+  >;
 };  // clang-format on
 }  // namespace o2::gpu
 
-#endif
+#endif  // GPUDEFPARAMETERSRUNTIME_H
