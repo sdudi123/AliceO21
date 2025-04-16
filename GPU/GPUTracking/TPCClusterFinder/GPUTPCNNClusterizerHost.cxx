@@ -125,7 +125,7 @@ struct MockedOrtAllocator : OrtAllocator {
 
   void LeakCheck();
 
-private:
+ private:
   MockedOrtAllocator(const MockedOrtAllocator&) = delete;
   MockedOrtAllocator& operator=(const MockedOrtAllocator&) = delete;
 
@@ -136,7 +136,8 @@ private:
   GPUReconstruction* rec;
 };
 
-MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info) {
+MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info)
+{
   OrtAllocator::version = ORT_API_VERSION;
   OrtAllocator::Alloc = [](OrtAllocator* this_, size_t size) { return static_cast<MockedOrtAllocator*>(this_)->Alloc(size); };
   OrtAllocator::Free = [](OrtAllocator* this_, void* p) { static_cast<MockedOrtAllocator*>(this_)->Free(p); };
@@ -146,42 +147,50 @@ MockedOrtAllocator::MockedOrtAllocator(GPUReconstruction* r, OrtMemoryInfo* info
   memory_info = info;
 }
 
-MockedOrtAllocator::~MockedOrtAllocator() {
+MockedOrtAllocator::~MockedOrtAllocator()
+{
   // Ort::GetApi().ReleaseMemoryInfo(memory_info);
 }
 
-void* MockedOrtAllocator::Alloc(size_t size) {
+void* MockedOrtAllocator::Alloc(size_t size)
+{
   return rec->AllocateVolatileDeviceMemory(size);
 }
 
-void* MockedOrtAllocator::Reserve(size_t size) {
+void* MockedOrtAllocator::Reserve(size_t size)
+{
   return rec->AllocateVolatileDeviceMemory(size);
 }
 
-void MockedOrtAllocator::Free(void* p) {
+void MockedOrtAllocator::Free(void* p)
+{
   rec->ReturnVolatileDeviceMemory();
 }
 
-const OrtMemoryInfo* MockedOrtAllocator::Info() const {
+const OrtMemoryInfo* MockedOrtAllocator::Info() const
+{
   return memory_info;
 }
 
-size_t MockedOrtAllocator::NumAllocations() const {
+size_t MockedOrtAllocator::NumAllocations() const
+{
   return num_allocations.load();
 }
 
-size_t MockedOrtAllocator::NumReserveAllocations() const {
+size_t MockedOrtAllocator::NumReserveAllocations() const
+{
   return num_reserve_allocations.load();
 }
 
-void MockedOrtAllocator::LeakCheck() {
+void MockedOrtAllocator::LeakCheck()
+{
   if (memory_inuse.load())
     LOG(warning) << "memory leak!!!";
 }
 
 void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, int32_t chooseMockedAlloc)
 {
-  if(chooseMockedAlloc == 0) {
+  if (chooseMockedAlloc == 0) {
     mockedAlloc_class = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
     Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_class.get());
     LOG(info) << "(ORT) Mocked ORT allocator for classification network registered";

@@ -699,7 +699,7 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   // api.GetCurrentGpuDeviceId(deviceId);
   OrtROCMProviderOptions rocm_options;
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
-  rocm_options.arena_extend_strategy = 0; // kNextPowerOfTwo = 0, kSameAsRequested = 1 -> https://github.com/search?q=repo%3Amicrosoft%2Fonnxruntime%20kSameAsRequested&type=code
+  rocm_options.arena_extend_strategy = 0;   // kNextPowerOfTwo = 0, kSameAsRequested = 1 -> https://github.com/search?q=repo%3Amicrosoft%2Fonnxruntime%20kSameAsRequested&type=code
   rocm_options.user_compute_stream = mInternals->Streams[stream];
   session_options.AppendExecutionProvider_ROCM(rocm_options);
 #endif // ORT_ROCM_BUILD
