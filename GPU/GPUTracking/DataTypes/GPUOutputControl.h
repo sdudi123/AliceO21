@@ -20,9 +20,7 @@
 #include <functional>
 #include <new>
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 // This defines an output region. ptrBase points to a memory buffer, which should have a proper alignment.
@@ -80,10 +78,9 @@ struct GPUTrackingOutputs {
   static constexpr size_t count() { return sizeof(GPUTrackingOutputs) / sizeof(GPUOutputControl); }
   GPUOutputControl* asArray() { return (GPUOutputControl*)this; }
   size_t getIndex(const GPUOutputControl& v) { return &v - (const GPUOutputControl*)this; }
-  static int32_t getIndex(GPUOutputControl GPUTrackingOutputs::*v) { return &(((GPUTrackingOutputs*)(0x10000))->*v) - (GPUOutputControl*)(0x10000); }
+  static int32_t getIndex(GPUOutputControl GPUTrackingOutputs::* v) { return &(((GPUTrackingOutputs*)(0x10000))->*v) - (GPUOutputControl*)(0x10000); }
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

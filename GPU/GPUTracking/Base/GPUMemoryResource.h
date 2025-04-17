@@ -18,9 +18,7 @@
 #include "GPUCommonDef.h"
 #include "GPUProcessor.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUMemoryReuse {
@@ -30,6 +28,7 @@ struct GPUMemoryReuse {
   };
   enum Group : uint16_t {
     ClustererScratch,
+    NNClusterer,
     ClustererZS,
     TrackerScratch,
     TrackerDataLinks,
@@ -103,7 +102,6 @@ class GPUMemoryResource
   int32_t mReuse;
   MemoryType mType;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

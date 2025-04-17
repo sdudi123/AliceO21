@@ -18,13 +18,10 @@
 #include "GPUCommonDef.h"
 class AliMagF;
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMPolynomialField;
-}
-} // namespace o2
+} // namespace o2::gpu
 
 /**
  * @class GPUTPCGMPolynomialFieldManager
@@ -42,11 +39,11 @@ class GPUTPCGMPolynomialFieldManager
   GPUTPCGMPolynomialFieldManager() = default;
 
   /* Get appropriate pre-calculated polynomial field for the given field value nominalFieldkG
- */
+   */
   static int32_t GetPolynomialField(float nominalFieldkG, o2::gpu::GPUTPCGMPolynomialField& field);
 
   /* Get pre-calculated polynomial field of type "type", scaled with respect to nominalFieldkG
- */
+   */
   static int32_t GetPolynomialField(StoredField_t type, float nominalFieldkG, o2::gpu::GPUTPCGMPolynomialField& field);
 };
 

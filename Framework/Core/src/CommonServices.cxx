@@ -44,6 +44,7 @@
 #include "Framework/DeviceConfig.h"
 #include "Framework/DefaultsHelpers.h"
 #include "Framework/Signpost.h"
+#include "Framework/DriverConfig.h"
 
 #include "TextDriverClient.h"
 #include "WSDriverClient.h"
@@ -579,7 +580,7 @@ auto decongestionCallbackOrdered = [](AsyncTask& task, size_t id) -> void {
     if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
       O2_SIGNPOST_EVENT_EMIT_WARN(async_queue, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
     } else {
-      O2_SIGNPOST_EVENT_EMIT_ERROR(async_queue, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+      O2_SIGNPOST_EVENT_EMIT_CRITICAL(async_queue, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
     }
     timesliceIndex.rescan();
   }
@@ -650,7 +651,7 @@ o2::framework::ServiceSpec
           if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
             O2_SIGNPOST_EVENT_EMIT_WARN(data_processor_context, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
           } else {
-            O2_SIGNPOST_EVENT_EMIT_ERROR(data_processor_context, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+            O2_SIGNPOST_EVENT_EMIT_CRITICAL(data_processor_context, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
           }
           timesliceIndex.rescan();
         }
@@ -764,11 +765,8 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
   using namespace fair::mq::shmem;
   auto& spec = registry.get<DeviceSpec const>();
 
-  auto hasMetric = [&runningWorkflow](const DataProcessingStats::MetricSpec& metric) -> bool {
-    return metric.metricId == static_cast<int>(ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE) + (runningWorkflow.shmSegmentId % 512);
-  };
   // FIXME: Ugly, but we do it only every 5 seconds...
-  if (std::find_if(stats.metricSpecs.begin(), stats.metricSpecs.end(), hasMetric) != stats.metricSpecs.end()) {
+  if (stats.hasAvailSHMMetric) {
     auto device = registry.get<RawDeviceService>().device();
     long freeMemory = -1;
     try {
@@ -803,6 +801,9 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
 
 auto flushStates(ServiceRegistryRef registry, DataProcessingStates& states) -> void
 {
+  if (!registry.get<DriverConfig const>().driverHasGUI) {
+    return;
+  }
   states.flushChangedStates([&states, registry](std::string const& spec, int64_t timestamp, std::string_view value) mutable -> void {
     auto& client = registry.get<ControlService>();
     client.push(spec, value, timestamp);
@@ -1104,8 +1105,12 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .sendInitialValue = true}};
 
       for (auto& metric : metrics) {
-        if (metric.metricId == (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + (runningWorkflow.shmSegmentId % 512) && spec.name.compare("readout-proxy") != 0) {
-          continue;
+        if (metric.metricId == (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + (runningWorkflow.shmSegmentId % 512)) {
+          if (spec.name.compare("readout-proxy") == 0) {
+            stats->hasAvailSHMMetric = true;
+          } else {
+            continue;
+          }
         }
         stats->registerMetric(metric);
       }

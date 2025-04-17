@@ -20,18 +20,13 @@
 #include "GPUTPCGMPolynomialField.h"
 #include "GPUCommonMath.h"
 
-namespace o2
-{
-namespace base
+namespace o2::base
 {
 struct MatBudget;
 class MatLayerCylSet;
-} // namespace base
-} // namespace o2
+} // namespace o2::base
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMTrackParam;
 struct GPUParam;
@@ -57,7 +52,10 @@ class GPUTPCGMPropagator
   enum UpdateRetVal {
     updateErrorFitFailed = -1,
     updateErrorClusterRejected = 2,
-    updateErrorEdgeCluster = 3
+    updateErrorClusterRejectedDistance = 2,
+    updateErrorEdgeCluster = 3,
+    updateErrorClusterRejectedInInterpolation = 4,
+    updateErrorClusterRejectedInUpdate = 5
   };
   enum RejectChi2Mode {
     rejectDirect = 1,
@@ -275,7 +273,6 @@ GPUdi() float GPUTPCGMPropagator::getGlobalY(float X, float Y) const
   return getGlobalY(mCosAlpha, mSinAlpha, X, Y);
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

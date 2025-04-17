@@ -17,9 +17,9 @@
 
 #include "GPUReconstructionCPU.h"
 
-namespace o2
-{
-namespace gpu
+#include <ctime>
+
+namespace o2::gpu
 {
 class GPUChain
 {
@@ -34,7 +34,7 @@ class GPUChain
   using krnlExec = gpu_reconstruction_kernels::krnlExec;
   using krnlEvent = gpu_reconstruction_kernels::krnlEvent;
   using deviceEvent = gpu_reconstruction_kernels::deviceEvent;
-  static constexpr krnlRunRange krnlRunRangeNone{0, -1};
+  static constexpr krnlRunRange krnlRunRangeNone{0};
   static constexpr krnlEvent krnlEventNone = krnlEvent{nullptr, nullptr, 0};
 
   virtual ~GPUChain() = default;
@@ -46,12 +46,12 @@ class GPUChain
   virtual int32_t Finalize() = 0;
   virtual int32_t RunChain() = 0;
   virtual void MemorySize(size_t& gpuMem, size_t& pageLockedHostMem) = 0;
-  virtual void PrintMemoryStatistics(){};
+  virtual void PrintMemoryStatistics() {};
   virtual int32_t CheckErrorCodes(bool cpuOnly = false, bool forceShowErrors = false, std::vector<std::array<uint32_t, 4>>* fillErrors = nullptr) { return 0; }
   virtual bool SupportsDoublePipeline() { return false; }
   virtual int32_t FinalizePipelinedProcessing() { return 0; }
 
-  constexpr static int32_t NSLICES = GPUReconstruction::NSLICES;
+  constexpr static int32_t NSECTORS = GPUReconstruction::NSECTORS;
 
   virtual void DumpSettings(const char* dir = "") {}
   virtual void ReadSettings(const char* dir = "") {}
@@ -101,7 +101,7 @@ class GPUChain
   }
   inline bool IsEventDone(deviceEvent* evList, int32_t nEvents = 1) { return mRec->IsEventDone(evList, nEvents); }
   inline void RecordMarker(deviceEvent* ev, int32_t stream) { mRec->RecordMarker(ev, stream); }
-  virtual inline std::unique_ptr<GPUReconstruction::GPUThreadContext> GetThreadContext() { return mRec->GetThreadContext(); }
+  virtual inline std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() { return mRec->GetThreadContext(); }
   inline void SynchronizeGPU() { mRec->SynchronizeGPU(); }
   inline void ReleaseEvent(deviceEvent ev, bool doGPU = true)
   {
@@ -171,7 +171,7 @@ class GPUChain
     mRec->ReadStructFromFile<T>(file, obj);
   }
   template <class S, int32_t I = 0, typename... Args>
-  inline int32_t runKernel(gpu_reconstruction_kernels::krnlSetup&& setup, Args&&... args)
+  inline void runKernel(gpu_reconstruction_kernels::krnlSetup&& setup, Args&&... args)
   {
     return mRec->runKernel<S, I, Args...>(std::forward<gpu_reconstruction_kernels::krnlSetup&&>(setup), std::forward<Args>(args)...);
   }
@@ -192,15 +192,15 @@ class GPUChain
     return mRec->getTimer<T, J>(name, num);
   }
   // Get GRID with NBLOCKS minimal such that nThreads * NBLOCS >= totalItems
-  krnlExec GetGrid(uint32_t totalItems, uint32_t nThreads, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGrid(uint32_t totalItems, uint32_t nThreads, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with NBLOCKS minimal such that ideal number of threads * NBLOCKS >= totalItems
-  krnlExec GetGrid(uint32_t totalItems, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGrid(uint32_t totalItems, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with specified number of blocks, each block with ideal number of threads
-  krnlExec GetGridBlk(uint32_t nBlocks, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
-  krnlExec GetGridBlkStep(uint32_t nBlocks, int32_t stream, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGridBlk(uint32_t nBlocks, int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
+  krnlExec GetGridBlkStep(uint32_t nBlocks, int32_t stream, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
   // Get GRID with ideal number of threads / blocks for GPU
-  krnlExec GetGridAuto(int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
-  krnlExec GetGridAutoStep(int32_t stream, GPUCA_RECO_STEP st = GPUCA_RECO_STEP::NoRecoStep);
+  krnlExec GetGridAuto(int32_t stream, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
+  krnlExec GetGridAutoStep(int32_t stream, GPUDataTypes::RecoStep st = GPUDataTypes::RecoStep::NoRecoStep);
 
   inline uint32_t BlockCount() const { return mRec->mBlockCount; }
   inline uint32_t WarpSize() const { return mRec->mWarpSize; }
@@ -282,19 +282,22 @@ template <class T, class S, typename... Args>
 int32_t GPUChain::runRecoStep(RecoStep step, S T::*func, Args... args)
 {
   if (GetRecoSteps().isSet(step)) {
-    if (GetProcessingSettings().debugLevel >= 1) {
-      mRec->getRecoStepTimer(step).Start();
+    auto* timer = GetProcessingSettings().recoTaskTiming ? &mRec->getRecoStepTimer(step) : nullptr;
+    std::clock_t c;
+    if (timer) {
+      timer->timerTotal.Start();
+      c = std::clock();
     }
     int32_t retVal = (reinterpret_cast<T*>(this)->*func)(args...);
-    if (GetProcessingSettings().debugLevel >= 1) {
-      mRec->getRecoStepTimer(step).Stop();
+    if (timer) {
+      timer->timerTotal.Stop();
+      timer->timerCPU += (double)(std::clock() - c) / CLOCKS_PER_SEC;
     }
     return retVal;
   }
-  return false;
+  return 0;
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

@@ -57,6 +57,9 @@
 #include <fairmq/Parts.h>
 #include <fairmq/Socket.h>
 #include <fairmq/ProgOptions.h>
+#if __has_include(<fairmq/shmem/Message.h>)
+#include <fairmq/shmem/Message.h>
+#endif
 #include <Configuration/ConfigurationInterface.h>
 #include <Configuration/ConfigurationFactory.h>
 #include <Monitoring/Monitoring.h>
@@ -141,20 +144,34 @@ void on_transition_requested_expired(uv_timer_t* handle)
   state.transitionHandling = TransitionHandlingState::Expired;
 }
 
+auto switchState(ServiceRegistryRef& ref, StreamingState newState) -> void
+{
+  auto& state = ref.get<DeviceState>();
+  auto& context = ref.get<DataProcessorContext>();
+  O2_SIGNPOST_ID_FROM_POINTER(dpid, device, &context);
+  O2_SIGNPOST_END(device, dpid, "state", "End of processing state %d", (int)state.streaming);
+  O2_SIGNPOST_START(device, dpid, "state", "Starting processing state %d", (int)newState);
+  state.streaming = newState;
+  ref.get<ControlService>().notifyStreamingState(state.streaming);
+};
+
 void on_data_processing_expired(uv_timer_t* handle)
 {
   auto* ref = (ServiceRegistryRef*)handle->data;
   auto& state = ref->get<DeviceState>();
+  auto& spec = ref->get<DeviceSpec const>();
   state.loopReason |= DeviceState::TIMER_EXPIRED;
 
   // Check if this is a source device
   O2_SIGNPOST_ID_FROM_POINTER(cid, device, handle);
 
-  // Source devices should never end up in this callback, since the exitTransitionTimeout should
-  // be reset to the dataProcessingTimeout and the timers cohalesced.
-  assert(hasOnlyGenerated(ref->get<DeviceSpec const>()) == false);
-  O2_SIGNPOST_EVENT_EMIT_INFO(calibration, cid, "callback", "Grace period for data processing expired. Only calibrations from this point onwards.");
-  state.allowedProcessing = DeviceState::CalibrationOnly;
+  if (hasOnlyGenerated(spec)) {
+    O2_SIGNPOST_EVENT_EMIT_INFO(calibration, cid, "callback", "Grace period for data processing expired. Switching to EndOfStreaming.");
+    switchState(*ref, StreamingState::EndOfStreaming);
+  } else {
+    O2_SIGNPOST_EVENT_EMIT_INFO(calibration, cid, "callback", "Grace period for data processing expired. Only calibrations from this point onwards.");
+    state.allowedProcessing = DeviceState::CalibrationOnly;
+  }
 }
 
 void on_communication_requested(uv_async_t* s)
@@ -1200,12 +1217,14 @@ void DataProcessingDevice::fillContext(DataProcessorContext& context, DeviceCont
       if (forwarded.matcher.lifetime != Lifetime::Condition) {
         onlyConditions = false;
       }
+#if !__has_include(<fairmq/shmem/Message.h>)
       if (strncmp(DataSpecUtils::asConcreteOrigin(forwarded.matcher).str, "AOD", 3) == 0) {
         context.canForwardEarly = false;
         overriddenEarlyForward = true;
         LOG(detail) << "Cannot forward early because of AOD input: " << DataSpecUtils::describe(forwarded.matcher);
         break;
       }
+#endif
       if (DataSpecUtils::partialMatch(forwarded.matcher, o2::header::DataDescription{"RAWDATA"}) && mProcessingPolicies.earlyForward == EarlyForwardPolicy::NORAW) {
         context.canForwardEarly = false;
         overriddenEarlyForward = true;
@@ -1236,7 +1255,7 @@ void DataProcessingDevice::PreRun()
   O2_SIGNPOST_ID_FROM_POINTER(cid, device, state.loop);
   O2_SIGNPOST_START(device, cid, "PreRun", "Entering PreRun callback.");
   state.quitRequested = false;
-  state.streaming = StreamingState::Streaming;
+  switchState(ref, StreamingState::Streaming);
   state.allowedProcessing = DeviceState::Any;
   for (auto& info : state.inputChannelInfos) {
     if (info.state != InputChannelState::Pull) {
@@ -1365,14 +1384,7 @@ void DataProcessingDevice::Run()
         // Check if we only have timers
         auto& spec = ref.get<DeviceSpec const>();
         if (hasOnlyTimers(spec)) {
-          state.streaming = StreamingState::EndOfStreaming;
-        }
-
-        // If this is a source device, dataTransitionTimeout and dataProcessingTimeout are effectively
-        // the same (because source devices are not allowed to produce any calibration).
-        // should be the same.
-        if (hasOnlyGenerated(spec) && deviceContext.dataProcessingTimeout > 0) {
-          deviceContext.exitTransitionTimeout = deviceContext.dataProcessingTimeout;
+          switchState(ref, StreamingState::EndOfStreaming);
         }
 
         // We do not do anything in particular if the data processing timeout would go past the exitTransitionTimeout
@@ -1385,7 +1397,8 @@ void DataProcessingDevice::Run()
           state.transitionHandling = TransitionHandlingState::Requested;
           ref.get<CallbackService>().call<CallbackService::Id::ExitRequested>(ServiceRegistryRef{ref});
           uv_update_time(state.loop);
-          O2_SIGNPOST_EVENT_EMIT(calibration, lid, "timer_setup", "Starting %d s timer for exitTransitionTimeout.", deviceContext.exitTransitionTimeout);
+          O2_SIGNPOST_EVENT_EMIT(calibration, lid, "timer_setup", "Starting %d s timer for exitTransitionTimeout.",
+                                 deviceContext.exitTransitionTimeout);
           uv_timer_start(deviceContext.gracePeriodTimer, on_transition_requested_expired, deviceContext.exitTransitionTimeout * 1000, 0);
           if (mProcessingPolicies.termination == TerminationPolicy::QUIT) {
             O2_SIGNPOST_EVENT_EMIT_INFO(device, lid, "run_loop", "New state requested. Waiting for %d seconds before quitting.", (int)deviceContext.exitTransitionTimeout);
@@ -1728,15 +1741,6 @@ void DataProcessingDevice::doRun(ServiceRegistryRef ref)
 {
   auto& context = ref.get<DataProcessorContext>();
   O2_SIGNPOST_ID_FROM_POINTER(dpid, device, &context);
-  auto switchState = [ref](StreamingState newState) {
-    auto& state = ref.get<DeviceState>();
-    auto& context = ref.get<DataProcessorContext>();
-    O2_SIGNPOST_ID_FROM_POINTER(dpid, device, &context);
-    O2_SIGNPOST_END(device, dpid, "state", "End of processing state %d", (int)state.streaming);
-    O2_SIGNPOST_START(device, dpid, "state", "Starting processing state %d", (int)newState);
-    state.streaming = newState;
-    ref.get<ControlService>().notifyStreamingState(state.streaming);
-  };
   auto& state = ref.get<DeviceState>();
   auto& spec = ref.get<DeviceSpec const>();
 
@@ -1772,7 +1776,7 @@ void DataProcessingDevice::doRun(ServiceRegistryRef ref)
   // dependent on the callback, not something which is controlled by the
   // framework itself.
   if (context.allDone == true && state.streaming == StreamingState::Streaming) {
-    switchState(StreamingState::EndOfStreaming);
+    switchState(ref, StreamingState::EndOfStreaming);
     state.lastActiveDataProcessor = &context;
   }
 
@@ -1818,7 +1822,7 @@ void DataProcessingDevice::doRun(ServiceRegistryRef ref)
     }
     // This is needed because the transport is deleted before the device.
     relayer.clear();
-    switchState(StreamingState::Idle);
+    switchState(ref, StreamingState::Idle);
     // In case  we should process, note the data processor responsible for it
     if (shouldProcess) {
       state.lastActiveDataProcessor = &context;
@@ -2231,7 +2235,15 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
     auto nofPartsGetter = [&currentSetOfInputs](size_t i) -> size_t {
       return currentSetOfInputs[i].getNumberOfPairs();
     };
-    return InputSpan{getter, nofPartsGetter, currentSetOfInputs.size()};
+#if __has_include(<fairmq/shmem/Message.h>)
+    auto refCountGetter = [&currentSetOfInputs](size_t idx) -> int {
+      auto& header = static_cast<const fair::mq::shmem::Message&>(*currentSetOfInputs[idx].header(0));
+      return header.GetRefCount();
+    };
+#else
+    std::function<int(size_t)> refCountGetter = nullptr;
+#endif
+    return InputSpan{getter, nofPartsGetter, refCountGetter, currentSetOfInputs.size()};
   };
 
   auto markInputsAsDone = [ref](TimesliceSlot slot) -> void {
@@ -2326,13 +2338,6 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
         size_t pi = pi + (dh->splitPayloadParts > 0 ? dh->splitPayloadParts : 1) * 2;
       }
     }
-  };
-
-  auto switchState = [ref](StreamingState newState) {
-    auto& control = ref.get<ControlService>();
-    auto& state = ref.get<DeviceState>();
-    state.streaming = newState;
-    control.notifyStreamingState(state.streaming);
   };
 
   ref.get<DataRelayer>().getReadyToProcess(completed);
@@ -2510,7 +2515,7 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
           O2_SIGNPOST_EVENT_EMIT(device, pcid, "device", "Skipping processing because we are discarding.");
         } else {
           O2_SIGNPOST_EVENT_EMIT(device, pcid, "device", "No processing callback provided. Switching to %{public}s.", "Idle");
-          state.streaming = StreamingState::Idle;
+          switchState(ref, StreamingState::Idle);
         }
         if (shouldProcess(action)) {
           auto& timingInfo = ref.get<TimingInfo>();
@@ -2598,7 +2603,7 @@ bool DataProcessingDevice::tryDispatchComputation(ServiceRegistryRef ref, std::v
     for (auto& channel : spec.outputChannels) {
       DataProcessingHelpers::sendEndOfStream(ref, channel);
     }
-    switchState(StreamingState::Idle);
+    switchState(ref, StreamingState::Idle);
   }
 
   return true;

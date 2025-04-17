@@ -1288,7 +1288,7 @@ class TPCTimeSeries : public Task
           // make cut around DCA to vertex due to gammas
           if ((std::abs(dcaITSTPCTmp[0]) < maxITSTPCDCAr_comb) && (std::abs(dcaITSTPCTmp[1]) < maxITSTPCDCAz_comb)) {
             // propagate TPC track to ITS track and store delta track parameters
-            if (track.rotate(tracksITS[idxITSTrack].getAlpha()) && propagator->propagateTo(track, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType)) {
+            if (idxITSTrack >= 0 && track.rotate(tracksITS[idxITSTrack].getAlpha()) && propagator->propagateTo(track, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType)) {
               o2::track::TrackPar trackITS(tracksITS[idxITSTrack]);
               const bool propITSOk = propagator->propagateTo(trackITS, trackITSTPCTmp.getX(), false, mMaxSnp, mFineStep, mMatType);
               if (propITSOk) {
@@ -1814,7 +1814,7 @@ class TPCTimeSeries : public Task
   }
 };
 
-o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, GTrackID::mask_t src, bool useft0)
+o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, const o2::base::Propagator::MatCorrType matType, const bool enableUnbinnedWriter, GTrackID::mask_t src)
 {
   auto dataRequest = std::make_shared<DataRequest>();
   bool useMC = false;
@@ -1823,9 +1823,7 @@ o2::framework::DataProcessorSpec getTPCTimeSeriesSpec(const bool disableWriter, 
   dataRequest->requestTracks(srcTracks, useMC);
   dataRequest->requestClusters(GTrackID::getSourcesMask("TPC"), useMC);
 
-  if (useft0) {
-    dataRequest->requestFT0RecPoints(false);
-  }
+  dataRequest->requestFT0RecPoints(false);
 
   bool tpcOnly = srcTracks == GTrackID::getSourcesMask("TPC");
   if (!tpcOnly) {

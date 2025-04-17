@@ -102,11 +102,9 @@ struct GPUTPCGMO2OutputSort_comp {
 };
 
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMO2Output, GPUTPCGMO2Output::sort>(const krnlSetupTime& _xyz)
+inline void GPUCA_M_CAT3(GPUReconstruction, GPUCA_GPUTYPE, Backend)::runKernelBackendInternal<GPUTPCGMO2Output, GPUTPCGMO2Output::sort>(const krnlSetupTime& _xyz)
 {
-  thrust::device_ptr<GPUTPCGMMerger::tmpSort> trackSort(mProcessorsShadow->tpcMerger.TrackSortO2());
-  ThrustVolatileAsyncAllocator alloc(this);
-  thrust::sort(GPUCA_THRUST_NAMESPACE::par(alloc).on(mInternals->Streams[_xyz.x.stream]), trackSort, trackSort + processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
+  GPUCommonAlgorithm::sortOnDevice(this, _xyz.x.stream, mProcessorsShadow->tpcMerger.TrackSortO2(), processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
 }
 #endif // GPUCA_SPECIALIZE_THRUST_SORTS - Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
 
@@ -116,6 +114,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
   constexpr float MinDelta = 0.1f;
   const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
   GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
+  GPUdEdxInfo* tracksdEdxAlt = merger.OutputTracksdEdxAlt();
   const int32_t nTracks = merger.NOutputTracksTPCO2();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
   constexpr uint8_t flagsReject = getFlagsReject();
@@ -148,6 +147,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
     auto& outerPar = tracks[i].OuterParam();
     if (merger.Param().par.dodEdx && merger.Param().dodEdxDownscaled) {
       oTrack.setdEdx(tracksdEdx[i]);
+      oTrack.setdEdxAlt(tracksdEdxAlt[i]);
     }
 
     auto snpOut = outerPar.P[2];
@@ -193,7 +193,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
         continue;
       }
       int32_t clusterIdGlobal = trackClusters[tracks[i].FirstClusterRef() + j].num;
-      int32_t sector = trackClusters[tracks[i].FirstClusterRef() + j].slice;
+      int32_t sector = trackClusters[tracks[i].FirstClusterRef() + j].sector;
       int32_t globalRow = trackClusters[tracks[i].FirstClusterRef() + j].row;
       int32_t clusterIdInRow = clusterIdGlobal - clusters->clusterOffset[sector][globalRow];
       clIndArr[nOutCl2] = clusterIdInRow;
@@ -214,11 +214,11 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks
     if (merger.Param().par.continuousTracking) {
       time0 = tracks[i].GetParam().GetTZOffset();
       if (cce) {
-        bool lastSide = trackClusters[tracks[i].FirstClusterRef()].slice < MAXSECTOR / 2;
+        bool lastSide = trackClusters[tracks[i].FirstClusterRef()].sector < MAXSECTOR / 2;
         float delta = 0.f;
         for (uint32_t iCl = 1; iCl < tracks[i].NClusters(); iCl++) {
           auto& cacl1 = trackClusters[tracks[i].FirstClusterRef() + iCl];
-          if (lastSide ^ (cacl1.slice < MAXSECTOR / 2)) {
+          if (lastSide ^ (cacl1.sector < MAXSECTOR / 2)) {
             auto& cl1 = clusters->clustersLinear[cacl1.num];
             auto& cl2 = clusters->clustersLinear[trackClusters[tracks[i].FirstClusterRef() + iCl - 1].num];
             delta = CAMath::Abs(cl1.getTime() - cl2.getTime()) * 0.5f;

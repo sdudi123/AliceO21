@@ -53,9 +53,6 @@
 #include "GPUTPCGMMergedTrack.h"
 #include "GPUSettings.h"
 #include <vector>
-#if not(defined(__ARM_NEON) or defined(__aarch64__)) // ARM doesn't have SSE
-#include <xmmintrin.h>
-#endif
 
 #include "GPUO2DataTypes.h"
 #include "GPUChainITS.h"
@@ -74,7 +71,7 @@ GPUChainTracking *chainTracking, *chainTrackingAsync, *chainTrackingPipeline;
 GPUChainITS *chainITS, *chainITSAsync, *chainITSPipeline;
 void unique_ptr_aligned_delete(char* v)
 {
-  operator delete(v GPUCA_OPERATOR_NEW_ALIGNMENT);
+  operator delete(v, std::align_val_t(GPUCA_BUFFER_ALIGNMENT));
 }
 std::unique_ptr<char, void (*)(char*)> outputmemory(nullptr, unique_ptr_aligned_delete), outputmemoryPipeline(nullptr, unique_ptr_aligned_delete), inputmemory(nullptr, unique_ptr_aligned_delete);
 std::unique_ptr<GPUDisplayFrontendInterface> eventDisplay;
@@ -84,23 +81,6 @@ std::atomic<uint32_t> nIteration, nIterationEnd;
 
 std::vector<GPUTrackingInOutPointers> ioPtrEvents;
 std::vector<GPUChainTracking::InOutMemory> ioMemEvents;
-
-void SetCPUAndOSSettings()
-{
-#if not(defined(__ARM_NEON) or defined(__aarch64__)) // ARM doesn't have SSE
-#ifdef FE_DFL_DISABLE_SSE_DENORMS_ENV                // Flush and load denormals to zero in any case
-  fesetenv(FE_DFL_DISABLE_SSE_DENORMS_ENV);
-#else
-#ifndef _MM_FLUSH_ZERO_ON
-#define _MM_FLUSH_ZERO_ON 0x8000
-#endif
-#ifndef _MM_DENORMALS_ZERO_ON
-#define _MM_DENORMALS_ZERO_ON 0x0040
-#endif
-  _mm_setcsr(_mm_getcsr() | (_MM_FLUSH_ZERO_ON | _MM_DENORMALS_ZERO_ON));
-#endif
-#endif // ARM
-}
 
 int32_t ReadConfiguration(int argc, char** argv)
 {
@@ -142,7 +122,11 @@ int32_t ReadConfiguration(int argc, char** argv)
       return 1;
     }
   }
+#ifdef __FAST_MATH__
+  if (configStandalone.fpe == 1) {
+#else
   if (configStandalone.fpe) {
+#endif
     feenableexcept(FE_INVALID | FE_DIVBYZERO | FE_OVERFLOW);
   }
   if (configStandalone.flushDenormals) {
@@ -158,14 +142,14 @@ int32_t ReadConfiguration(int argc, char** argv)
     printf("FIFO Scheduler setting not supported on Windows\n");
     return 1;
   }
-  if (configStandalone.fpe) {
+  if (configStandalone.fpe == 1) {
     printf("FPE not supported on Windows\n");
     return 1;
   }
 #endif
 #ifndef GPUCA_TPC_GEOMETRY_O2
 #error Why was configStandalone.rec.tpc.mergerReadFromTrackerDirectly = 0 needed?
-  configStandalone.proc.ompKernels = false;
+  configStandalone.proc.inKernelParallel = false;
   configStandalone.proc.createO2Output = 0;
   if (configStandalone.rundEdx == -1) {
     configStandalone.rundEdx = 0;
@@ -216,13 +200,17 @@ int32_t ReadConfiguration(int argc, char** argv)
     configStandalone.noprompt = 1;
   }
   if (configStandalone.proc.debugLevel >= 4) {
-    if (configStandalone.proc.ompKernels) {
-      configStandalone.proc.ompKernels = 1;
+    if (configStandalone.proc.inKernelParallel) {
+      configStandalone.proc.inKernelParallel = 1;
     } else {
-      configStandalone.proc.ompThreads = 1;
+      configStandalone.proc.nHostThreads = 1;
     }
   }
   if (configStandalone.setO2Settings) {
+    if (!(configStandalone.inputcontrolmem && configStandalone.outputcontrolmem)) {
+      printf("setO2Settings requires the usage of --inputMemory and --outputMemory as in O2\n");
+      return 1;
+    }
     if (configStandalone.runGPU) {
       configStandalone.proc.forceHostMemoryPoolSize = 1024 * 1024 * 1024;
     }
@@ -233,20 +221,20 @@ int32_t ReadConfiguration(int argc, char** argv)
 
   if (configStandalone.outputcontrolmem) {
     bool forceEmptyMemory = getenv("LD_PRELOAD") && strstr(getenv("LD_PRELOAD"), "valgrind") != nullptr;
-    outputmemory.reset((char*)operator new(configStandalone.outputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+    outputmemory.reset((char*)operator new(configStandalone.outputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
     if (forceEmptyMemory) {
       printf("Valgrind detected, emptying GPU output memory to avoid false positive undefined reads");
       memset(outputmemory.get(), 0, configStandalone.outputcontrolmem);
     }
     if (configStandalone.proc.doublePipeline) {
-      outputmemoryPipeline.reset((char*)operator new(configStandalone.outputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+      outputmemoryPipeline.reset((char*)operator new(configStandalone.outputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
       if (forceEmptyMemory) {
         memset(outputmemoryPipeline.get(), 0, configStandalone.outputcontrolmem);
       }
     }
   }
   if (configStandalone.inputcontrolmem) {
-    inputmemory.reset((char*)operator new(configStandalone.inputcontrolmem GPUCA_OPERATOR_NEW_ALIGNMENT));
+    inputmemory.reset((char*)operator new(configStandalone.inputcontrolmem, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)));
   }
 
   configStandalone.proc.showOutputStat = true;
@@ -412,7 +400,6 @@ int32_t SetupReconstruction()
   }
 
   steps.outputs.clear();
-  steps.outputs.setBits(GPUDataTypes::InOutType::TPCSectorTracks, false);
   steps.outputs.setBits(GPUDataTypes::InOutType::TPCMergedTracks, steps.steps.isSet(GPUDataTypes::RecoStep::TPCMerging));
   steps.outputs.setBits(GPUDataTypes::InOutType::TPCCompressedClusters, steps.steps.isSet(GPUDataTypes::RecoStep::TPCCompression));
   steps.outputs.setBits(GPUDataTypes::InOutType::TRDTracks, steps.steps.isSet(GPUDataTypes::RecoStep::TRDTracking));
@@ -578,7 +565,7 @@ int32_t LoadEvent(int32_t iEvent, int32_t x)
   if (!configStandalone.runTransformation) {
     chainTracking->mIOPtrs.clustersNative = nullptr;
   } else {
-    for (int32_t i = 0; i < chainTracking->NSLICES; i++) {
+    for (int32_t i = 0; i < chainTracking->NSECTORS; i++) {
       if (chainTracking->mIOPtrs.rawClusters[i]) {
         if (configStandalone.proc.debugLevel >= 2) {
           printf("Converting Legacy Raw Cluster to Native\n");
@@ -687,7 +674,7 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
       chainTrackingAsync->mIOPtrs.nMCInfosTPCCol = 0;
       chainTrackingAsync->mIOPtrs.mcLabelsTPC = nullptr;
       chainTrackingAsync->mIOPtrs.nMCLabelsTPC = 0;
-      for (int32_t i = 0; i < chainTracking->NSLICES; i++) {
+      for (int32_t i = 0; i < chainTracking->NSECTORS; i++) {
         chainTrackingAsync->mIOPtrs.clusterData[i] = nullptr;
         chainTrackingAsync->mIOPtrs.nClusterData[i] = 0;
         chainTrackingAsync->mIOPtrs.rawClusters[i] = nullptr;
@@ -732,8 +719,6 @@ int32_t RunBenchmark(GPUReconstruction* recUse, GPUChainTracking* chainTrackingU
 int32_t main(int argc, char** argv)
 {
   std::unique_ptr<GPUReconstruction> recUnique, recUniqueAsync, recUniquePipeline;
-
-  SetCPUAndOSSettings();
 
   if (ReadConfiguration(argc, argv)) {
     return 1;

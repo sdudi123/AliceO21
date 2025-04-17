@@ -22,25 +22,20 @@
 struct GPUTRDTrackDataRecord;
 class AliHLTExternalTrackParam;
 
-namespace o2
-{
-namespace tpc
+namespace o2::tpc
 {
 class TrackTPC;
-} // namespace tpc
-namespace dataformats
+} // namespace o2::tpc
+namespace o2::dataformats
 {
 class TrackTPCITS;
 class GlobalTrackID;
-} // namespace dataformats
-} // namespace o2
+} // namespace o2::dataformats
 
 //_____________________________________________________________________________
 #include "GPUTRDInterfaceO2Track.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <typename T>
@@ -112,9 +107,9 @@ class GPUTRDTrack_t : public T
   GPUd() void setHasPadrowCrossing() { mIsCrossingNeighbor |= (1U << 7); }
 
  protected:
-  float mChi2;                       // total chi2.
-  float mSignal{-1.f};               // electron Likelihood for track
-  uint32_t mRefGlobalTrackId;        // raw GlobalTrackID of the seeding track (either ITS-TPC or TPC)
+  float mChi2;                          // total chi2.
+  float mSignal{-1.f};                  // electron Likelihood for track
+  uint32_t mRefGlobalTrackId;           // raw GlobalTrackID of the seeding track (either ITS-TPC or TPC)
   int32_t mAttachedTracklets[kNLayers]; // indices of the tracklets attached to this track; -1 means no tracklet in that layer
   int16_t mCollisionId;                 // the collision ID of the tracklets attached to this track; is used to retrieve the BC information for this track after the tracking is done
   uint8_t mFlags;                       // bits 0 to 5 indicate whether track is findable in layer 0 to 5, bit 6 indicates an ambiguous track and bit 7 flags if the track is stopped in the TRD
@@ -127,7 +122,6 @@ class GPUTRDTrack_t : public T
 #endif
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACK_H

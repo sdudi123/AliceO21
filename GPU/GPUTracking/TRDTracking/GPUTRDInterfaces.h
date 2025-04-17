@@ -23,23 +23,18 @@
 #include "GPUTPCGMTrackParam.h"
 #include "GPUTRDDef.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 template <typename T>
 class trackInterface;
 template <typename T>
 class propagatorInterface;
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #include "DetectorsBase/Propagator.h"
 #include "GPUTRDInterfaceO2Track.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 GPUdi() trackInterface<o2::track::TrackParCov>::trackInterface(const GPUTPCGMMergedTrack& trk) { set(trk.OuterParam().X, trk.OuterParam().alpha, trk.OuterParam().P, trk.OuterParam().C); }
@@ -50,7 +45,7 @@ class propagatorInterface<o2::base::Propagator>
 {
  public:
   typedef o2::base::Propagator propagatorParam;
-  GPUd() propagatorInterface(const propagatorParam* prop) : mProp(prop){};
+  GPUd() propagatorInterface(const propagatorParam* prop) : mProp(prop) {};
   GPUd() propagatorInterface(const propagatorInterface<o2::base::Propagator>&) = delete;
   GPUd() propagatorInterface& operator=(const propagatorInterface<o2::base::Propagator>&) = delete;
 
@@ -87,8 +82,7 @@ class propagatorInterface<o2::base::Propagator>
   const o2::base::Propagator* mProp;
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #include "GPUTPCGMPropagator.h"
 #include "GPUParam.h"
@@ -96,9 +90,7 @@ class propagatorInterface<o2::base::Propagator>
 #include "DataFormatsTPC/TrackTPC.h"
 #include "ReconstructionDataFormats/TrackTPCITS.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <>
@@ -208,7 +200,7 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
   }
   GPUd() bool propagateToX(float x, float maxSnp, float maxStep)
   {
-    //bool ok = PropagateToXAlpha(x, GetAlpha(), true) == 0 ? true : false;
+    // bool ok = PropagateToXAlpha(x, GetAlpha(), true) == 0 ? true : false;
     int32_t retVal = PropagateToXAlpha(x, GetAlpha(), true);
     bool ok = (retVal == 0) ? true : false;
     ok = mTrack->CheckNumericalQuality();
@@ -235,7 +227,6 @@ class propagatorInterface<GPUTPCGMPropagator> : public GPUTPCGMPropagator
 
   trackInterface<GPUTPCGMTrackParam>* mTrack;
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDINTERFACES_H

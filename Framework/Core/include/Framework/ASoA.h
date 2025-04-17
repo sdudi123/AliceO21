@@ -175,6 +175,8 @@ consteval auto intersectOriginals()
 
 namespace o2::soa
 {
+struct Binding;
+
 template <typename T>
 concept not_void = requires { !std::same_as<T, void>; };
 
@@ -192,7 +194,10 @@ template <typename C>
 concept is_self_index_column = not_void<typename C::self_index_t> && std::same_as<typename C::self_index_t, std::true_type>;
 
 template <typename C>
-concept is_index_column = !is_self_index_column<C> && (requires { &C::getId; } || requires { &C::getIds; });
+concept is_index_column = !is_self_index_column<C> && requires(C c, o2::soa::Binding b) {
+  { c.setCurrentRaw(b) } -> std::same_as<bool>;
+  requires std::same_as<decltype(c.mBinding), o2::soa::Binding>;
+};
 
 template <typename C>
 using is_external_index_t = typename std::conditional_t<is_index_column<C>, std::true_type, std::false_type>;
@@ -419,6 +424,9 @@ concept has_metadata = is_metadata_trait<T> && not_void<typename T::metadata>;
 
 template <typename T>
 concept has_extension = is_metadata<T> && not_void<typename T::extension_table_t>;
+
+template <typename T>
+concept has_configurable_extension = has_extension<T> && requires(T t) { typename T::configurable_t; requires std::same_as<std::true_type, typename T::configurable_t>; };
 
 template <typename T>
 concept is_spawnable_column = std::same_as<typename T::spawnable_t, std::true_type>;
@@ -1389,76 +1397,73 @@ consteval static bool relatedBySortedIndex()
 
 namespace o2::framework
 {
-template <typename T, bool OPT = false, bool SORTED = true>
-struct PresliceBase {
-  constexpr static bool sorted = SORTED;
+
+struct PreslicePolicyBase {
+  const std::string binding;
+  StringPair bindingKey;
+
+  bool isMissing() const;
+  StringPair const& getBindingKey() const;
+};
+
+struct PreslicePolicySorted : public PreslicePolicyBase {
+  void updateSliceInfo(SliceInfoPtr&& si);
+
+  SliceInfoPtr sliceInfo;
+  std::shared_ptr<arrow::Table> getSliceFor(int value, std::shared_ptr<arrow::Table> const& input, uint64_t& offset) const;
+};
+
+struct PreslicePolicyGeneral : public PreslicePolicyBase {
+  void updateSliceInfo(SliceInfoUnsortedPtr&& si);
+
+  SliceInfoUnsortedPtr sliceInfo;
+  gsl::span<const int64_t> getSliceFor(int value) const;
+};
+
+template <typename T, typename Policy, bool OPT = false>
+struct PresliceBase : public Policy {
   constexpr static bool optional = OPT;
   using target_t = T;
+  using policy_t = Policy;
   const std::string binding;
 
   PresliceBase(expressions::BindingNode index_)
-    : binding{o2::soa::getLabelFromTypeForKey<T, OPT>(index_.name)},
-      bindingKey{binding, index_.name} {}
-
-  void updateSliceInfo(std::conditional_t<SORTED, SliceInfoPtr, SliceInfoUnsortedPtr>&& si)
+    : Policy{PreslicePolicyBase{{o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name})}, std::make_pair(o2::soa::getLabelFromTypeForKey<T, OPT>(std::string{index_.name}), std::string{index_.name})}, {}}
   {
-    sliceInfo = si;
   }
 
   std::shared_ptr<arrow::Table> getSliceFor(int value, std::shared_ptr<arrow::Table> const& input, uint64_t& offset) const
   {
     if constexpr (OPT) {
-      if (isMissing()) {
+      if (Policy::isMissing()) {
         return nullptr;
       }
     }
-    if constexpr (SORTED) {
-      auto [offset_, count] = sliceInfo.getSliceFor(value);
-      auto output = input->Slice(offset_, count);
-      offset = static_cast<int64_t>(offset_);
-      return output;
-    } else {
-      static_assert(SORTED, "Wrong method called for unsorted cache");
-    }
+    return Policy::getSliceFor(value, input, offset);
   }
 
   gsl::span<const int64_t> getSliceFor(int value) const
   {
     if constexpr (OPT) {
-      if (isMissing()) {
+      if (Policy::isMissing()) {
         return {};
       }
     }
-    if constexpr (!SORTED) {
-      return sliceInfo.getSliceFor(value);
-    } else {
-      static_assert(!SORTED, "Wrong method called for sorted cache");
-    }
+    return Policy::getSliceFor(value);
   }
-
-  bool isMissing() const
-  {
-    return binding == "[MISSING]";
-  }
-
-  StringPair const& getBindingKey() const
-  {
-    return bindingKey;
-  }
-
-  std::conditional_t<SORTED, SliceInfoPtr, SliceInfoUnsortedPtr> sliceInfo;
-
-  StringPair bindingKey;
 };
 
 template <typename T>
-using PresliceUnsorted = PresliceBase<T, false, false>;
+using PresliceUnsorted = PresliceBase<T, PreslicePolicyGeneral, false>;
 template <typename T>
-using PresliceUnsortedOptional = PresliceBase<T, true, false>;
+using PresliceUnsortedOptional = PresliceBase<T, PreslicePolicyGeneral, true>;
 template <typename T>
-using Preslice = PresliceBase<T, false, true>;
+using Preslice = PresliceBase<T, PreslicePolicySorted, false>;
 template <typename T>
-using PresliceOptional = PresliceBase<T, true, true>;
+using PresliceOptional = PresliceBase<T, PreslicePolicySorted, true>;
+
+template <typename T>
+concept is_preslice = std::derived_from<T, PreslicePolicyBase>;
 
 } // namespace o2::framework
 
@@ -1497,96 +1502,84 @@ static consteval auto extractBindings(framework::pack<Is...>)
 
 SelectionVector selectionToVector(gandiva::Selection const& sel);
 
-template <typename T, typename C, bool OPT, bool SORTED>
-auto doSliceBy(T const* table, o2::framework::PresliceBase<C, OPT, SORTED> const& container, int value)
+template <typename T, typename C, typename Policy, bool OPT>
+  requires std::same_as<Policy, framework::PreslicePolicySorted> && (o2::soa::is_binding_compatible_v<C, T>())
+auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const& container, int value)
 {
-  if constexpr (o2::soa::is_binding_compatible_v<C, T>()) {
-    if constexpr (OPT) {
-      if (container.isMissing()) {
-        missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
-      }
-    }
-    if constexpr (SORTED) {
-      uint64_t offset = 0;
-      auto out = container.getSliceFor(value, table->asArrowTable(), offset);
-      auto t = typename T::self_t({out}, offset);
-      table->copyIndexBindings(t);
-      t.bindInternalIndicesTo(table);
-      return t;
-    } else {
-      auto selection = container.getSliceFor(value);
-      if constexpr (soa::is_filtered_table<T>) {
-        auto t = soa::Filtered<typename T::base_t>({table->asArrowTable()}, selection);
-        table->copyIndexBindings(t);
-        t.bindInternalIndicesTo(table);
-        t.intersectWithSelection(table->getSelectedRows()); // intersect filters
-        return t;
-      } else {
-        auto t = soa::Filtered<T>({table->asArrowTable()}, selection);
-        table->copyIndexBindings(t);
-        t.bindInternalIndicesTo(table);
-        return t;
-      }
-    }
-  } else {
-    if constexpr (SORTED) {
-      static_assert(o2::framework::always_static_assert_v<C>, "Wrong Preslice<> entry used: incompatible type");
-    } else {
-      static_assert(o2::framework::always_static_assert_v<C>, "Wrong PresliceUnsorted<> entry used: incompatible type");
+  if constexpr (OPT) {
+    if (container.isMissing()) {
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
     }
   }
+  uint64_t offset = 0;
+  auto out = container.getSliceFor(value, table->asArrowTable(), offset);
+  auto t = typename T::self_t({out}, offset);
+  table->copyIndexBindings(t);
+  t.bindInternalIndicesTo(table);
+  return t;
 }
 
-template <typename T>
+template <soa::is_filtered_table T>
+auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
+{
+  auto t = soa::Filtered<typename T::base_t>({table->asArrowTable()}, selection);
+  table->copyIndexBindings(t);
+  t.bindInternalIndicesTo(table);
+  t.intersectWithSelection(table->getSelectedRows()); // intersect filters
+  return t;
+}
+
+template <soa::is_table T>
+  requires(!soa::is_filtered_table<T>)
+auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
+{
+  auto t = soa::Filtered<T>({table->asArrowTable()}, selection);
+  table->copyIndexBindings(t);
+  t.bindInternalIndicesTo(table);
+  return t;
+}
+
+template <typename T, typename C, typename Policy, bool OPT>
+  requires std::same_as<Policy, framework::PreslicePolicyGeneral> && (o2::soa::is_binding_compatible_v<C, T>())
+auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const& container, int value)
+{
+  if constexpr (OPT) {
+    if (container.isMissing()) {
+      missingOptionalPreslice(getLabelFromType<std::decay_t<T>>().data(), container.bindingKey.second.c_str());
+    }
+  }
+  auto selection = container.getSliceFor(value);
+  return doSliceByHelper(table, selection);
+}
+
+SelectionVector sliceSelection(gsl::span<int64_t const> const& mSelectedRows, int64_t nrows, uint64_t offset);
+
+template <soa::is_filtered_table T>
 auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
 {
   if (offset >= static_cast<uint64_t>(table->tableSize())) {
-    if constexpr (soa::is_filtered_table<T>) {
-      Filtered<typename T::base_t> fresult{{{slice}}, SelectionVector{}, 0};
-      table->copyIndexBindings(fresult);
-      return fresult;
-    } else {
-      typename T::self_t fresult{{{slice}}, SelectionVector{}, 0};
-      table->copyIndexBindings(fresult);
-      return fresult;
-    }
-  }
-  auto start = offset;
-  auto end = start + slice->num_rows();
-  auto mSelectedRows = table->getSelectedRows();
-  auto start_iterator = std::lower_bound(mSelectedRows.begin(), mSelectedRows.end(), start);
-  auto stop_iterator = std::lower_bound(start_iterator, mSelectedRows.end(), end);
-  SelectionVector slicedSelection{start_iterator, stop_iterator};
-  std::transform(slicedSelection.begin(), slicedSelection.end(), slicedSelection.begin(),
-                 [&start](int64_t idx) {
-                   return idx - static_cast<int64_t>(start);
-                 });
-  if constexpr (soa::is_filtered_table<T>) {
-    Filtered<typename T::base_t> fresult{{{slice}}, std::move(slicedSelection), start};
-    table->copyIndexBindings(fresult);
-    return fresult;
-  } else {
-    typename T::self_t fresult{{{slice}}, std::move(slicedSelection), start};
+    Filtered<typename T::base_t> fresult{{{slice}}, SelectionVector{}, 0};
     table->copyIndexBindings(fresult);
     return fresult;
   }
+  auto slicedSelection = sliceSelection(table->getSelectedRows(), slice->num_rows(), offset);
+  Filtered<typename T::base_t> fresult{{{slice}}, std::move(slicedSelection), offset};
+  table->copyIndexBindings(fresult);
+  return fresult;
 }
 
-template <typename T, typename C, bool OPT>
-auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, OPT> const& container, int value)
+template <soa::is_filtered_table T, typename C, bool OPT>
+  requires(o2::soa::is_binding_compatible_v<C, T>())
+auto doFilteredSliceBy(T const* table, o2::framework::PresliceBase<C, framework::PreslicePolicySorted, OPT> const& container, int value)
 {
-  if constexpr (o2::soa::is_binding_compatible_v<C, T>()) {
-    if constexpr (OPT) {
-      if (container.isMissing()) {
-        missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.second.c_str());
-      }
+  if constexpr (OPT) {
+    if (container.isMissing()) {
+      missingOptionalPreslice(getLabelFromType<T>().data(), container.bindingKey.second.c_str());
     }
-    uint64_t offset = 0;
-    auto slice = container.getSliceFor(value, table->asArrowTable(), offset);
-    return prepareFilteredSlice(table, slice, offset);
-  } else {
-    static_assert(o2::framework::always_static_assert_v<C>, "Wrong Preslice<> entry used: incompatible type");
   }
+  uint64_t offset = 0;
+  auto slice = container.getSliceFor(value, table->asArrowTable(), offset);
+  return prepareFilteredSlice(table, slice, offset);
 }
 
 template <typename T>
@@ -2099,8 +2092,8 @@ class Table
     return doSliceByCachedUnsorted(this, node, value, cache);
   }
 
-  template <typename T1, bool OPT, bool SORTED>
-  auto sliceBy(o2::framework::PresliceBase<T1, OPT, SORTED> const& container, int value) const
+  template <typename T1, typename Policy, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, Policy, OPT> const& container, int value) const
   {
     return doSliceBy(this, container, value);
   }
@@ -2369,7 +2362,7 @@ O2ORIGIN("EXT");
   DECLARE_SOA_BITMAP_COLUMN_FULL(_Name_, _Getter_, _Size_, "f" #_Name_)
 
 /// An 'expression' column. i.e. a column that can be calculated from other
-/// columns with gandiva based on supplied C++ expression.
+/// columns with gandiva based on static C++ expression.
 #define DECLARE_SOA_EXPRESSION_COLUMN_FULL(_Name_, _Getter_, _Type_, _Label_, _Expression_)                                                       \
   struct _Name_ : o2::soa::Column<_Type_, _Name_> {                                                                                               \
     static constexpr const char* mLabel = _Label_;                                                                                                \
@@ -2406,6 +2399,38 @@ O2ORIGIN("EXT");
 
 #define DECLARE_SOA_EXPRESSION_COLUMN(_Name_, _Getter_, _Type_, _Expression_) \
   DECLARE_SOA_EXPRESSION_COLUMN_FULL(_Name_, _Getter_, _Type_, "f" #_Name_, _Expression_);
+
+/// A configurable 'expression' column. i.e. a column that can be calculated from other
+/// columns with gandiva based on dynamically supplied C++ expression or a string definition.
+#define DECLARE_SOA_CONFIGURABLE_EXPRESSION_COLUMN(_Name_, _Getter_, _Type_, _Label_)                                                             \
+  struct _Name_ : o2::soa::Column<_Type_, _Name_> {                                                                                               \
+    static constexpr const char* mLabel = _Label_;                                                                                                \
+    static constexpr const int32_t mHash = _Label_ ""_h;                                                                                          \
+    using base = o2::soa::Column<_Type_, _Name_>;                                                                                                 \
+    using type = _Type_;                                                                                                                          \
+    using column_t = _Name_;                                                                                                                      \
+    using spawnable_t = std::true_type;                                                                                                           \
+    _Name_(arrow::ChunkedArray const* column)                                                                                                     \
+      : o2::soa::Column<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                                    \
+    {                                                                                                                                             \
+    }                                                                                                                                             \
+                                                                                                                                                  \
+    _Name_() = default;                                                                                                                           \
+    _Name_(_Name_ const& other) = default;                                                                                                        \
+    _Name_& operator=(_Name_ const& other) = default;                                                                                             \
+                                                                                                                                                  \
+    decltype(auto) _Getter_() const                                                                                                               \
+    {                                                                                                                                             \
+      return *mColumnIterator;                                                                                                                    \
+    }                                                                                                                                             \
+                                                                                                                                                  \
+    decltype(auto) get() const                                                                                                                    \
+    {                                                                                                                                             \
+      return _Getter_();                                                                                                                          \
+    }                                                                                                                                             \
+  };                                                                                                                                              \
+  [[maybe_unused]] static constexpr o2::framework::expressions::BindingNode _Getter_ { _Label_, o2::framework::TypeIdHelpers::uniqueId<_Name_>(), \
+                                                                                       o2::framework::expressions::selectArrowType<_Type_>() }
 
 /// An index column is a column of indices to elements / of another table named
 /// _Name_##s. The column name will be _Name_##Id and will always be stored in
@@ -3118,6 +3143,32 @@ consteval auto getIndexTargets()
   O2HASH(#_Name_ "Extension");                                               \
   DECLARE_SOA_EXTENDED_TABLE_FULL(_Name_, #_Name_ "Extension", _Table_, "AOD", "EX" _Description_, 0, __VA_ARGS__)
 
+#define DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE_FULL(_Name_, _Label_, _OriginalTable_, _Origin_, _Desc_, _Version_, ...)           \
+  O2HASH(_Desc_ "/" #_Version_);                                                                                                   \
+  template <typename O>                                                                                                            \
+  using _Name_##CfgExtensionFrom = soa::Table<o2::aod::Hash<_Label_ ""_h>, o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, O>;          \
+  using _Name_##CfgExtension = _Name_##CfgExtensionFrom<o2::aod::Hash<_Origin_ ""_h>>;                                             \
+  template <typename O = o2::aod::Hash<_Origin_ ""_h>>                                                                             \
+  struct _Name_##CfgExtensionMetadataFrom : TableMetadata<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, __VA_ARGS__> {                \
+    using base_table_t = _OriginalTable_;                                                                                          \
+    using extension_table_t = _Name_##CfgExtensionFrom<O>;                                                                         \
+    using placeholders_pack_t = framework::pack<__VA_ARGS__>;                                                                      \
+    using configurable_t = std::true_type;                                                                                         \
+    static constexpr auto sources = _OriginalTable_::originals;                                                                    \
+  };                                                                                                                               \
+  using _Name_##CfgExtensionMetadata = _Name_##CfgExtensionMetadataFrom<o2::aod::Hash<_Origin_ ""_h>>;                             \
+  template <>                                                                                                                      \
+  struct MetadataTrait<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>> {                                                                \
+    using metadata = _Name_##CfgExtensionMetadata;                                                                                 \
+  };                                                                                                                               \
+  template <typename O>                                                                                                            \
+  using _Name_##From = o2::soa::JoinFull<o2::aod::Hash<_Desc_ "/" #_Version_ ""_h>, _OriginalTable_, _Name_##CfgExtensionFrom<O>>; \
+  using _Name_ = _Name_##From<o2::aod::Hash<_Origin_ ""_h>>;
+
+#define DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE(_Name_, _Table_, _Description_, ...) \
+  O2HASH(#_Name_ "CfgExtension");                                                    \
+  DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE_FULL(_Name_, #_Name_ "CfgExtension", _Table_, "AOD", "EX" _Description_, 0, __VA_ARGS__)
+
 #define DECLARE_SOA_INDEX_TABLE_FULL(_Name_, _Key_, _Origin_, _Version_, _Desc_, _Exclusive_, ...)                                         \
   O2HASH(#_Name_);                                                                                                                         \
   O2HASH(_Desc_ "/" #_Version_);                                                                                                           \
@@ -3205,8 +3256,8 @@ struct JoinFull : Table<o2::aod::Hash<"JOIN"_h>, D, o2::aod::Hash<"JOIN"_h>, Ts.
     return doSliceByCachedUnsorted(this, node, value, cache);
   }
 
-  template <typename T1, bool OPT, bool SORTED>
-  auto sliceBy(o2::framework::PresliceBase<T1, OPT, SORTED> const& container, int value) const
+  template <typename T1, typename Policy, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, Policy, OPT> const& container, int value) const
   {
     return doSliceBy(this, container, value);
   }
@@ -3467,14 +3518,16 @@ class FilteredBase : public T
     return doSliceByCachedUnsorted(this, node, value, cache);
   }
 
-  template <typename T1, bool OPT, bool SORTED>
-  auto sliceBy(o2::framework::PresliceBase<T1, OPT, SORTED> const& container, int value) const
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicySorted, OPT> const& container, int value) const
   {
-    if constexpr (SORTED) {
-      return doFilteredSliceBy(this, container, value);
-    } else {
-      return doSliceBy(this, container, value);
-    }
+    return doFilteredSliceBy(this, container, value);
+  }
+
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicyGeneral, OPT> const& container, int value) const
+  {
+    return doSliceBy(this, container, value);
   }
 
   auto select(framework::expressions::Filter const& f) const
@@ -3701,14 +3754,16 @@ class Filtered : public FilteredBase<T>
     return doSliceByCachedUnsorted(this, node, value, cache);
   }
 
-  template <typename T1, bool OPT, bool SORTED>
-  auto sliceBy(o2::framework::PresliceBase<T1, OPT, SORTED> const& container, int value) const
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicySorted, OPT> const& container, int value) const
   {
-    if constexpr (SORTED) {
-      return doFilteredSliceBy(this, container, value);
-    } else {
-      return doSliceBy(this, container, value);
-    }
+    return doFilteredSliceBy(this, container, value);
+  }
+
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicyGeneral, OPT> const& container, int value) const
+  {
+    return doSliceBy(this, container, value);
   }
 
   auto select(framework::expressions::Filter const& f) const
@@ -3868,14 +3923,16 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     return doSliceByCachedUnsorted(this, node, value, cache);
   }
 
-  template <typename T1, bool OPT, bool SORTED>
-  auto sliceBy(o2::framework::PresliceBase<T1, OPT, SORTED> const& container, int value) const
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicySorted, OPT> const& container, int value) const
   {
-    if constexpr (SORTED) {
-      return doFilteredSliceBy(this, container, value);
-    } else {
-      return doSliceBy(this, container, value);
-    }
+    return doFilteredSliceBy(this, container, value);
+  }
+
+  template <typename T1, bool OPT>
+  auto sliceBy(o2::framework::PresliceBase<T1, framework::PreslicePolicyGeneral, OPT> const& container, int value) const
+  {
+    return doSliceBy(this, container, value);
   }
 
  private:

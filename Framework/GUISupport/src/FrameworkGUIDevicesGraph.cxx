@@ -694,9 +694,17 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
     ImGui::BeginGroup(); // Lock horizontal position
     ImGui::TextUnformatted(node->Name);
     switch (info.maxLogLevel) {
+      case LogLevel::Critical:
+        ImGui::SameLine();
+        ImGui::TextColored(ERROR_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_CIRCLE);
+        break;
       case LogLevel::Error:
         ImGui::SameLine();
         ImGui::TextColored(ERROR_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_CIRCLE);
+        break;
+      case LogLevel::Alarm:
+        ImGui::SameLine();
+        ImGui::TextColored(WARNING_MESSAGE_COLOR, "%s", ICON_FA_EXCLAMATION_TRIANGLE);
         break;
       case LogLevel::Warning:
         ImGui::SameLine();
@@ -705,7 +713,8 @@ void showTopologyNodeGraph(WorkspaceGUIState& state,
       default:
         break;
     }
-    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(140., 90.));
+
+    gui::displayDataRelayer(metricsInfos[node->ID], infos[node->ID], specs[node->ID], allStates[node->ID], ImVec2(200., 160.), controls[node->ID].firstWnd);
     ImGui::EndGroup();
 
     // Save the size of what we have emitted and whether any of the widgets are being used

@@ -17,9 +17,7 @@
 
 #include "GPUGeneralKernels.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUTRDTrackerKernels : public GPUKernelTemplate
@@ -28,11 +26,10 @@ class GPUTRDTrackerKernels : public GPUKernelTemplate
   enum K { defaultKernel = 0,
            gpuVersion = 0,
            o2Version = 1 };
-  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUCA_RECO_STEP::TRDTracking; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TRDTracking; }
   template <int32_t iKernel = defaultKernel, class T>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& processors, T* externalInstance = nullptr);
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACKERKERNELSCA_H

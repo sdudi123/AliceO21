@@ -20,6 +20,10 @@
 
 #include "ITStracking/TrackingInterface.h"
 
+#ifdef ENABLE_UPGRADES
+#include "ITS3Reconstruction/TrackingInterface.h"
+#endif
+
 namespace o2::gpu
 {
 
@@ -35,12 +39,23 @@ void GPURecoWorkflowSpec::initFunctionITS(o2::framework::InitContext& ic)
 {
   o2::its::VertexerTraits* vtxTraits = nullptr;
   o2::its::TrackerTraits* trkTraits = nullptr;
+#ifdef ENABLE_UPGRADES
+  if (mSpecConfig.isITS3) {
+    mITSTrackingInterface = std::make_unique<o2::its3::ITS3TrackingInterface>(mSpecConfig.processMC,
+                                                                              mSpecConfig.itsTriggerType,
+                                                                              mSpecConfig.itsOverrBeamEst);
+  } else
+#endif
+  {
+    mITSTrackingInterface = std::make_unique<o2::its::ITSTrackingInterface>(mSpecConfig.processMC,
+                                                                            mSpecConfig.itsTriggerType,
+                                                                            mSpecConfig.itsOverrBeamEst);
+  }
   mITSTrackingInterface = std::make_unique<o2::its::ITSTrackingInterface>(mSpecConfig.processMC,
                                                                           mSpecConfig.itsTriggerType,
                                                                           mSpecConfig.itsOverrBeamEst);
   mGPUReco->GetITSTraits(trkTraits, vtxTraits, mITSTimeFrame);
   mITSTrackingInterface->setTraitsFromProvider(vtxTraits, trkTraits, mITSTimeFrame);
-  mITSTrackingInterface->initialise();
 }
 
 void GPURecoWorkflowSpec::finaliseCCDBITS(o2::framework::ConcreteDataMatcher& matcher, void* obj)

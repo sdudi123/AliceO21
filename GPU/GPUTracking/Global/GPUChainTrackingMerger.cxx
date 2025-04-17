@@ -14,6 +14,7 @@
 
 #include "GPUChainTracking.h"
 #include "GPULogging.h"
+#include "GPUDefParametersRuntime.h"
 #include "GPUO2DataTypes.h"
 #include "GPUQA.h"
 #include "utils/strtag.h"
@@ -21,22 +22,22 @@
 
 using namespace o2::gpu;
 
-void GPUChainTracking::RunTPCTrackingMerger_MergeBorderTracks(int8_t withinSlice, int8_t mergeMode, GPUReconstruction::krnlDeviceType deviceType)
+void GPUChainTracking::RunTPCTrackingMerger_MergeBorderTracks(int8_t withinSector, int8_t mergeMode, GPUReconstruction::krnlDeviceType deviceType)
 {
   GPUTPCGMMerger& Merger = processors()->tpcMerger;
   bool doGPU = GetRecoStepsGPU() & RecoStep::TPCMerging;
   GPUTPCGMMerger& MergerShadow = doGPU ? processorsShadow()->tpcMerger : Merger;
   if (GetProcessingSettings().deterministicGPUReconstruction) {
-    uint32_t nBorderTracks = withinSlice == 1 ? NSLICES : (2 * NSLICES);
+    uint32_t nBorderTracks = withinSector == 1 ? NSECTORS : (2 * NSECTORS);
     runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::borderTracks>({{nBorderTracks, -WarpSize(), 0, deviceType}}, 0);
   }
-  uint32_t n = withinSlice == -1 ? NSLICES / 2 : NSLICES;
-  if (GetProcessingSettings().alternateBorderSort && (!mRec->IsGPU() || doGPU)) {
-    TransferMemoryResourceLinkToHost(RecoStep::TPCMerging, Merger.MemoryResMemory(), 0, &mEvents->init);
+  uint32_t n = withinSector == -1 ? NSECTORS / 2 : NSECTORS;
+  if (GetProcessingSettings().alternateBorderSort == -1 ? mRec->getGPUParameters(doGPU).par_ALTERNATE_BORDER_SORT : GetProcessingSettings().alternateBorderSort) {
     RecordMarker(&mEvents->single, 0);
+    TransferMemoryResourceLinkToHost(RecoStep::TPCMerging, Merger.MemoryResMemory(), 0, &mEvents->init);
     for (uint32_t i = 0; i < n; i++) {
       int32_t stream = i % mRec->NStreams();
-      runKernel<GPUTPCGMMergerMergeBorders, 0>({GetGridAuto(stream, deviceType), krnlRunRangeNone, {nullptr, stream && i < (uint32_t)mRec->NStreams() ? &mEvents->single : nullptr}}, i, withinSlice, mergeMode);
+      runKernel<GPUTPCGMMergerMergeBorders, 0>({GetGridAuto(stream, deviceType), krnlRunRangeNone, {nullptr, stream && i < (uint32_t)mRec->NStreams() ? &mEvents->single : nullptr}}, i, withinSector, mergeMode);
     }
     ReleaseEvent(mEvents->single);
     SynchronizeEventAndRelease(mEvents->init);
@@ -44,35 +45,29 @@ void GPUChainTracking::RunTPCTrackingMerger_MergeBorderTracks(int8_t withinSlice
       int32_t stream = i % mRec->NStreams();
       int32_t n1, n2;
       GPUTPCGMBorderTrack *b1, *b2;
-      int32_t jSlice;
-      Merger.MergeBorderTracksSetup(n1, n2, b1, b2, jSlice, i, withinSlice, mergeMode);
+      int32_t jSector;
+      Merger.MergeBorderTracksSetup(n1, n2, b1, b2, jSector, i, withinSector, mergeMode);
       gputpcgmmergertypes::GPUTPCGMBorderRange* range1 = MergerShadow.BorderRange(i);
-      gputpcgmmergertypes::GPUTPCGMBorderRange* range2 = MergerShadow.BorderRange(jSlice) + *processors()->tpcTrackers[jSlice].NTracks();
+      gputpcgmmergertypes::GPUTPCGMBorderRange* range2 = MergerShadow.BorderRange(jSector) + *processors()->tpcTrackers[jSector].NTracks();
       runKernel<GPUTPCGMMergerMergeBorders, 3>({{1, -WarpSize(), stream, deviceType}}, range1, n1, 0);
       runKernel<GPUTPCGMMergerMergeBorders, 3>({{1, -WarpSize(), stream, deviceType}}, range2, n2, 1);
-      deviceEvent* e = nullptr;
-      int32_t ne = 0;
-      if (i == n - 1) { // Synchronize all execution on stream 0 with the last kernel
-        ne = std::min<int32_t>(n, mRec->NStreams());
-        for (int32_t j = 1; j < ne; j++) {
-          RecordMarker(&mEvents->slice[j], j);
-        }
-        e = &mEvents->slice[1];
-        ne--;
-        stream = 0;
-      }
-      runKernel<GPUTPCGMMergerMergeBorders, 2>({GetGridAuto(stream, deviceType), krnlRunRangeNone, {nullptr, e, ne}}, i, withinSlice, mergeMode);
+      runKernel<GPUTPCGMMergerMergeBorders, 2>({GetGridAuto(stream, deviceType)}, i, withinSector, mergeMode);
     }
+    int32_t ne = std::min<int32_t>(n, mRec->NStreams()) - 1; // Stream 0 must wait for all streams, Note n > 1
+    for (int32_t j = 0; j < ne; j++) {
+      RecordMarker(&mEvents->sector[j], j + 1);
+    }
+    StreamWaitForEvents(0, &mEvents->sector[0], ne);
   } else {
     for (uint32_t i = 0; i < n; i++) {
-      runKernel<GPUTPCGMMergerMergeBorders, 0>(GetGridAuto(0, deviceType), i, withinSlice, mergeMode);
+      runKernel<GPUTPCGMMergerMergeBorders, 0>(GetGridAuto(0, deviceType), i, withinSector, mergeMode);
     }
-    runKernel<GPUTPCGMMergerMergeBorders, 1>({{2 * n, -WarpSize(), 0, deviceType}}, 0, withinSlice, mergeMode);
+    runKernel<GPUTPCGMMergerMergeBorders, 1>({{2 * n, -WarpSize(), 0, deviceType}}, 0, withinSector, mergeMode);
     for (uint32_t i = 0; i < n; i++) {
-      runKernel<GPUTPCGMMergerMergeBorders, 2>(GetGridAuto(0, deviceType), i, withinSlice, mergeMode);
+      runKernel<GPUTPCGMMergerMergeBorders, 2>(GetGridAuto(0, deviceType), i, withinSector, mergeMode);
     }
   }
-  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergeRanges, *mDebugFile, withinSlice, mergeMode);
+  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergeRanges, *mDebugFile, withinSector, mergeMode);
   mRec->ReturnVolatileDeviceMemory();
 }
 
@@ -100,12 +95,12 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
   }
   const auto& threadContext = GetThreadContext();
 
-  SynchronizeGPU(); // Need to know the full number of slice tracks
+  SynchronizeGPU(); // Need to know the full number of sector tracks
   SetupGPUProcessor(&Merger, true);
   AllocateRegisteredMemory(Merger.MemoryResOutput(), mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::tpcTracks)]);
   AllocateRegisteredMemory(Merger.MemoryResOutputState(), mSubOutputControls[GPUTrackingOutputs::getIndex(&GPUTrackingOutputs::sharedClusterMap)]);
 
-  if (Merger.CheckSlices()) {
+  if (Merger.CheckSectors()) {
     return 1;
   }
 
@@ -118,54 +113,54 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
   if (GetProcessingSettings().deterministicGPUReconstruction) {
     runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::clearIds>(GetGridAuto(0, deviceType), 1);
   }
-  for (uint32_t i = 0; i < NSLICES; i++) {
+  for (uint32_t i = 0; i < NSECTORS; i++) {
     runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, i);
     runKernel<GPUTPCGMMergerUnpackResetIds>(GetGridAuto(0, deviceType), i);
-    runKernel<GPUTPCGMMergerSliceRefit>(GetGridAuto(0, deviceType), i);
+    runKernel<GPUTPCGMMergerSectorRefit>(GetGridAuto(0, deviceType), i); // TODO: Why all in stream 0?
   }
   if (GetProcessingSettings().deterministicGPUReconstruction) {
-    runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, NSLICES);
-    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::sectorTracks>({{GPUCA_NSLICES, -WarpSize(), 0, deviceType}}, 0);
+    runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, NSECTORS);
+    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::sectorTracks>({{GPUCA_NSECTORS, -WarpSize(), 0, deviceType}}, 0);
   }
-  for (uint32_t i = 0; i < NSLICES; i++) {
-    runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, NSLICES + i);
+  for (uint32_t i = 0; i < NSECTORS; i++) {
+    runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, NSECTORS + i);
     runKernel<GPUTPCGMMergerUnpackGlobal>(GetGridAuto(0, deviceType), i);
   }
-  runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, 2 * NSLICES);
+  runKernel<GPUTPCGMMergerUnpackSaveNumber>({{1, -WarpSize(), 0, deviceType}}, 2 * NSECTORS);
   if (GetProcessingSettings().deterministicGPUReconstruction) {
-    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::sectorTracks>({{GPUCA_NSLICES, -WarpSize(), 0, deviceType}}, 1);
+    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::sectorTracks>({{GPUCA_NSECTORS, -WarpSize(), 0, deviceType}}, 1);
   }
-  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpSliceTracks, *mDebugFile);
+  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpSectorTracks, *mDebugFile);
 
   runKernel<GPUTPCGMMergerClearLinks>(GetGridAuto(0, deviceType), false);
-  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), NSLICES * sizeof(*MergerShadowAll.TmpCounter()));
+  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), NSECTORS * sizeof(*MergerShadowAll.TmpCounter()));
   runKernel<GPUTPCGMMergerMergeWithinPrepare>(GetGridAuto(0, deviceType));
   RunTPCTrackingMerger_MergeBorderTracks(1, 0, deviceType);
   RunTPCTrackingMerger_Resolve(0, 1, deviceType);
-  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergedWithinSlices, *mDebugFile);
+  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergedWithinSectors, *mDebugFile);
 
   runKernel<GPUTPCGMMergerClearLinks>(GetGridAuto(0, deviceType), false);
-  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSLICES * sizeof(*MergerShadowAll.TmpCounter()));
-  runKernel<GPUTPCGMMergerMergeSlicesPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 2, 3, 0);
+  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSECTORS * sizeof(*MergerShadowAll.TmpCounter()));
+  runKernel<GPUTPCGMMergerMergeSectorsPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 2, 3, 0);
   RunTPCTrackingMerger_MergeBorderTracks(0, 0, deviceType);
   RunTPCTrackingMerger_Resolve(0, 1, deviceType);
-  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSLICES * sizeof(*MergerShadowAll.TmpCounter()));
-  runKernel<GPUTPCGMMergerMergeSlicesPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 0, 1, 0);
+  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSECTORS * sizeof(*MergerShadowAll.TmpCounter()));
+  runKernel<GPUTPCGMMergerMergeSectorsPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 0, 1, 0);
   RunTPCTrackingMerger_MergeBorderTracks(0, 0, deviceType);
   RunTPCTrackingMerger_Resolve(0, 1, deviceType);
-  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSLICES * sizeof(*MergerShadowAll.TmpCounter()));
-  runKernel<GPUTPCGMMergerMergeSlicesPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 0, 1, 1);
+  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSECTORS * sizeof(*MergerShadowAll.TmpCounter()));
+  runKernel<GPUTPCGMMergerMergeSectorsPrepare>(GetGridBlk(std::max(2u, numBlocks), 0, deviceType), 0, 1, 1);
   RunTPCTrackingMerger_MergeBorderTracks(0, -1, deviceType);
   RunTPCTrackingMerger_Resolve(0, 1, deviceType);
-  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergedBetweenSlices, *mDebugFile);
+  DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpMergedBetweenSectors, *mDebugFile);
 
-  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSLICES * sizeof(*MergerShadowAll.TmpCounter()));
+  runKernel<GPUMemClean16>({{1, -WarpSize(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.TmpCounter(), 2 * NSECTORS * sizeof(*MergerShadowAll.TmpCounter()));
 
-  runKernel<GPUTPCGMMergerLinkGlobalTracks>(GetGridAuto(0, deviceType));
+  runKernel<GPUTPCGMMergerLinkExtrapolatedTracks>(GetGridAuto(0, deviceType));
   runKernel<GPUTPCGMMergerCollect>(GetGridAuto(0, deviceType));
   if (GetProcessingSettings().deterministicGPUReconstruction) {
-    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::globalTracks1>({{1, -WarpSize(), 0, deviceType}}, 1);
-    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::globalTracks2>({{1, -WarpSize(), 0, deviceType}}, 1);
+    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::extrapolatedTracks1>({{1, -WarpSize(), 0, deviceType}}, 1);
+    runKernel<GPUTPCGlobalDebugSortKernels, GPUTPCGlobalDebugSortKernels::extrapolatedTracks2>({{1, -WarpSize(), 0, deviceType}}, 1);
   }
   DoDebugAndDump(RecoStep::TPCMerging, 2048, doGPU, Merger, &GPUTPCGMMerger::DumpCollected, *mDebugFile);
 
@@ -182,7 +177,8 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
     waitForTransfer = 1;
   }
 
-  if (GetProcessingSettings().mergerSortTracks) {
+  const bool mergerSortTracks = GetProcessingSettings().mergerSortTracks == -1 ? mRec->getGPUParameters(doGPU).par_SORT_BEFORE_FIT : GetProcessingSettings().mergerSortTracks;
+  if (mergerSortTracks) {
     runKernel<GPUTPCGMMergerSortTracksPrepare>(GetGridAuto(0, deviceType));
     CondWaitEvent(waitForTransfer, &mEvents->single);
     runKernel<GPUTPCGMMergerSortTracks>(GetGridAuto(0, deviceType));
@@ -218,11 +214,11 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
     mOutputQueue.clear();
   }
 
-  runKernel<GPUTPCGMMergerTrackFit>(doGPU ? GetGrid(Merger.NOutputTracks(), 0) : GetGridAuto(0), GetProcessingSettings().mergerSortTracks ? 1 : 0);
+  runKernel<GPUTPCGMMergerTrackFit>(doGPU ? GetGrid(Merger.NOutputTracks(), 0) : GetGridAuto(0), mergerSortTracks ? 1 : 0);
   if (param().rec.tpc.retryRefit == 1) {
     runKernel<GPUTPCGMMergerTrackFit>(GetGridAuto(0), -1);
   }
-  if (param().rec.tpc.looperInterpolationInExtraPass) {
+  if (param().rec.tpc.looperInterpolationInExtraPass == -1 ? mRec->getGPUParameters(doGPU).par_MERGER_SPLIT_LOOP_INTERPOLATION : param().rec.tpc.looperInterpolationInExtraPass) {
     runKernel<GPUTPCGMMergerFollowLoopers>(GetGridAuto(0));
   }
 
@@ -281,9 +277,9 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
 
 #ifdef GPUCA_TPC_GEOMETRY_O2
   if (GetProcessingSettings().createO2Output) {
-    if (mTPCSliceScratchOnStack) {
-      mRec->PopNonPersistentMemory(RecoStep::TPCSliceTracking, qStr2Tag("TPCSLCD1")); // Return the slice data memory early
-      mTPCSliceScratchOnStack = false;
+    if (mTPCSectorScratchOnStack) {
+      mRec->PopNonPersistentMemory(RecoStep::TPCSectorTracking, qStr2Tag("TPCSLCD1")); // Return the sector data memory early
+      mTPCSectorScratchOnStack = false;
     }
 
     mRec->PushNonPersistentMemory(qStr2Tag("TPCMERG2"));

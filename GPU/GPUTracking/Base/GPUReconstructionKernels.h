@@ -17,27 +17,11 @@
 
 #include "GPUReconstruction.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 namespace gpu_reconstruction_kernels
 {
-struct deviceEvent {
-  constexpr deviceEvent() = default;
-  constexpr deviceEvent(std::nullptr_t p) : v(nullptr){};
-  template <class T>
-  void set(T val) { v = reinterpret_cast<void*&>(val); }
-  template <class T>
-  T& get() { return reinterpret_cast<T&>(v); }
-  template <class T>
-  T* getEventList() { return reinterpret_cast<T*>(this); }
-  bool isSet() const { return v; }
-
- private:
-  void* v = nullptr; // We use only pointers anyway, and since cl_event and cudaEvent_t and hipEvent_t are actually pointers, we can cast them to deviceEvent (void*) this way.
-};
 
 template <class T, int32_t I = 0>
 struct classArgument {
@@ -46,22 +30,19 @@ struct classArgument {
 };
 
 struct krnlExec {
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto) : nBlocks(b), nThreads(t), stream(s), device(d), step(GPUCA_RECO_STEP::NoRecoStep) {}
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUCA_RECO_STEP st) : nBlocks(b), nThreads(t), stream(s), device(GPUReconstruction::krnlDeviceType::Auto), step(st) {}
-  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d, GPUCA_RECO_STEP st) : nBlocks(b), nThreads(t), stream(s), device(d), step(st) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d = GPUReconstruction::krnlDeviceType::Auto) : nBlocks(b), nThreads(t), stream(s), device(d), step(GPUDataTypes::RecoStep::NoRecoStep) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUDataTypes::RecoStep st) : nBlocks(b), nThreads(t), stream(s), device(GPUReconstruction::krnlDeviceType::Auto), step(st) {}
+  constexpr krnlExec(uint32_t b, uint32_t t, int32_t s, GPUReconstruction::krnlDeviceType d, GPUDataTypes::RecoStep st) : nBlocks(b), nThreads(t), stream(s), device(d), step(st) {}
   uint32_t nBlocks;
   uint32_t nThreads;
   int32_t stream;
   GPUReconstruction::krnlDeviceType device;
-  GPUCA_RECO_STEP step;
+  GPUDataTypes::RecoStep step;
 };
 struct krnlRunRange {
   constexpr krnlRunRange() = default;
-  constexpr krnlRunRange(uint32_t a) : start(a), num(0) {}
-  constexpr krnlRunRange(uint32_t s, int32_t n) : start(s), num(n) {}
-
-  uint32_t start = 0;
-  int32_t num = 0;
+  constexpr krnlRunRange(uint32_t v) : index(v) {}
+  uint32_t index = 0;
 };
 struct krnlEvent {
   constexpr krnlEvent(deviceEvent* e = nullptr, deviceEvent* el = nullptr, int32_t n = 1) : ev(e), evList(el), nEvents(n) {}
@@ -79,7 +60,7 @@ struct krnlProperties {
 };
 
 struct krnlSetup {
-  krnlSetup(const krnlExec& xx, const krnlRunRange& yy = {0, -1}, const krnlEvent& zz = {nullptr, nullptr, 0}) : x(xx), y(yy), z(zz) {}
+  krnlSetup(const krnlExec& xx, const krnlRunRange& yy = {0}, const krnlEvent& zz = {nullptr, nullptr, 0}) : x(xx), y(yy), z(zz) {}
   krnlExec x;
   krnlRunRange y;
   krnlEvent z;
@@ -95,6 +76,7 @@ struct krnlSetupArgs : public gpu_reconstruction_kernels::classArgument<T, I> {
   const krnlSetupTime s;
   std::tuple<typename std::conditional<(sizeof(Args) > sizeof(void*)), const Args&, const Args>::type...> v;
 };
+
 } // namespace gpu_reconstruction_kernels
 
 template <class T>
@@ -113,20 +95,21 @@ class GPUReconstructionKernels : public T
   template <class S, int32_t I = 0, typename... Args>
   using krnlSetupArgs = gpu_reconstruction_kernels::krnlSetupArgs<S, I, Args...>;
 
-#define GPUCA_KRNL(x_class, attributes, x_arguments, x_forward, x_types)                                                                                \
-  virtual int32_t runKernelImpl(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>& args)                                       \
-  {                                                                                                                                                     \
-    return T::template runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(args);                                                                          \
-  }                                                                                                                                                     \
-  virtual gpu_reconstruction_kernels::krnlProperties getKernelPropertiesImpl(gpu_reconstruction_kernels::classArgument<GPUCA_M_KRNL_TEMPLATE(x_class)>) \
-  {                                                                                                                                                     \
-    return T::template getKernelPropertiesBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>();                                                                    \
-  }
+  virtual void runKernelImpl(const int num, const void* args)
+  {
+    switch (num) { // clang-format off
+#define GPUCA_KRNL(x_class, x_attributes, x_arguments, x_forward, x_types, x_num)                               \
+      case x_num: {                                                                                             \
+        const auto& args2 = *(const krnlSetupArgs<GPUCA_M_KRNL_TEMPLATE(x_class) GPUCA_M_STRIP(x_types)>*)args; \
+        T::template runKernelBackend<GPUCA_M_KRNL_TEMPLATE(x_class)>(args2);                                    \
+        break; \
+      }
 #include "GPUReconstructionKernelList.h"
 #undef GPUCA_KRNL
+    } // clang-format on
+  }
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

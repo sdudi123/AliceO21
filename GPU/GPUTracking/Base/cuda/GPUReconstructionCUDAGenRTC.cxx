@@ -13,28 +13,32 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_HOSTONLY
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
+
 #include "GPUReconstructionCUDA.h"
 #include "GPUParamRTC.h"
-#include "GPUDefMacros.h"
+#include "GPUDefParametersLoad.inc"
 #include <unistd.h>
 #include "Framework/SHA1.h"
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <filesystem>
 
+#include <oneapi/tbb.h>
 using namespace o2::gpu;
 
 #include "utils/qGetLdBinarySymbols.h"
 QGET_LD_BINARY_SYMBOLS(GPUReconstructionCUDArtc_src);
 QGET_LD_BINARY_SYMBOLS(GPUReconstructionCUDArtc_command);
 QGET_LD_BINARY_SYMBOLS(GPUReconstructionCUDArtc_command_arch);
+QGET_LD_BINARY_SYMBOLS(GPUReconstructionCUDArtc_command_no_fast_math);
+
+#include "GPUNoFastMathKernels.h"
 
 int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
 {
-  std::string rtcparam = std::string(mProcessingSettings.rtc.optSpecialCode ? "#define GPUCA_RTC_SPECIAL_CODE(...) __VA_ARGS__\n" : "#define GPUCA_RTC_SPECIAL_CODE(...)\n") + GPUParamRTC::generateRTCCode(param(), mProcessingSettings.rtc.optConstexpr);
+  std::string rtcparam = std::string("#define GPUCA_RTC_CODE\n") +
+                         std::string(mProcessingSettings.rtc.optSpecialCode ? "#define GPUCA_RTC_SPECIAL_CODE(...) __VA_ARGS__\n" : "#define GPUCA_RTC_SPECIAL_CODE(...)\n") +
+                         GPUParamRTC::generateRTCCode(param(), mProcessingSettings.rtc.optConstexpr);
   if (filename == "") {
     filename = "/tmp/o2cagpu_rtc_";
   }
@@ -49,28 +53,51 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
     kernelsall += kernels[i] + "\n";
   }
 
-  std::string baseCommand = (mProcessingSettings.RTCprependCommand != "" ? (mProcessingSettings.RTCprependCommand + " ") : "");
+  std::string baseCommand = (mProcessingSettings.rtctech.prependCommand != "" ? (mProcessingSettings.rtctech.prependCommand + " ") : "");
   baseCommand += (getenv("O2_GPU_RTC_OVERRIDE_CMD") ? std::string(getenv("O2_GPU_RTC_OVERRIDE_CMD")) : std::string(_binary_GPUReconstructionCUDArtc_command_start, _binary_GPUReconstructionCUDArtc_command_len));
-  baseCommand += std::string(" ") + (mProcessingSettings.RTCoverrideArchitecture != "" ? mProcessingSettings.RTCoverrideArchitecture : std::string(_binary_GPUReconstructionCUDArtc_command_arch_start, _binary_GPUReconstructionCUDArtc_command_arch_len));
+  baseCommand += std::string(" ") + (mProcessingSettings.rtctech.overrideArchitecture != "" ? mProcessingSettings.rtctech.overrideArchitecture : std::string(_binary_GPUReconstructionCUDArtc_command_arch_start, _binary_GPUReconstructionCUDArtc_command_arch_len));
 
-  char shasource[21], shaparam[21], shacmd[21], shakernels[21];
+  if (mProcessingSettings.rtctech.loadLaunchBoundsFromFile.size()) {
+    FILE* fp = fopen(mProcessingSettings.rtctech.loadLaunchBoundsFromFile.c_str(), "rb");
+    if (fp == nullptr) {
+      throw std::runtime_error("Cannot open launch bounds parameter module file");
+    }
+    fseek(fp, 0, SEEK_END);
+    size_t size = ftell(fp);
+    if (size != sizeof(*mParDevice)) {
+      throw std::runtime_error("launch bounds parameter file has incorrect size");
+    }
+    fseek(fp, 0, SEEK_SET);
+    if (fread(mParDevice, 1, size, fp) != size) {
+      throw std::runtime_error("Error reading launch bounds parameter file");
+    }
+    fclose(fp);
+  }
+  const std::string launchBounds = o2::gpu::internal::GPUDefParametersExport(*mParDevice, true) +
+                                   "#define GPUCA_WARP_SIZE " + std::to_string(mWarpSize) + "\n";
+  if (mProcessingSettings.rtctech.printLaunchBounds || mProcessingSettings.debugLevel >= 3) {
+    GPUInfo("RTC Launch Bounds:\n%s", launchBounds.c_str());
+  }
+
+  char shasource[21], shaparam[21], shacmd[21], shakernels[21], shabounds[21];
   if (mProcessingSettings.rtc.cacheOutput) {
     o2::framework::internal::SHA1(shasource, _binary_GPUReconstructionCUDArtc_src_start, _binary_GPUReconstructionCUDArtc_src_len);
     o2::framework::internal::SHA1(shaparam, rtcparam.c_str(), rtcparam.size());
     o2::framework::internal::SHA1(shacmd, baseCommand.c_str(), baseCommand.size());
     o2::framework::internal::SHA1(shakernels, kernelsall.c_str(), kernelsall.size());
+    o2::framework::internal::SHA1(shabounds, launchBounds.c_str(), launchBounds.size());
   }
 
   nCompile = mProcessingSettings.rtc.compilePerKernel ? kernels.size() : 1;
   bool cacheLoaded = false;
   int32_t fd = 0;
   if (mProcessingSettings.rtc.cacheOutput) {
-    if (mProcessingSettings.RTCcacheFolder != ".") {
-      std::filesystem::create_directories(mProcessingSettings.RTCcacheFolder);
+    if (mProcessingSettings.rtctech.cacheFolder != ".") {
+      std::filesystem::create_directories(mProcessingSettings.rtctech.cacheFolder);
     }
-    if (mProcessingSettings.rtc.cacheMutex) {
+    if (mProcessingSettings.rtctech.cacheMutex) {
       mode_t mask = S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH;
-      fd = open((mProcessingSettings.RTCcacheFolder + "/cache.lock").c_str(), O_RDWR | O_CREAT | O_CLOEXEC, mask);
+      fd = open((mProcessingSettings.rtctech.cacheFolder + "/cache.lock").c_str(), O_RDWR | O_CREAT | O_CLOEXEC, mask);
       if (fd == -1) {
         throw std::runtime_error("Error opening rtc cache mutex lock file");
       }
@@ -80,37 +107,34 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
       }
     }
 
-    FILE* fp = fopen((mProcessingSettings.RTCcacheFolder + "/rtc.cuda.cache").c_str(), "rb");
+    FILE* fp = fopen((mProcessingSettings.rtctech.cacheFolder + "/rtc.cuda.cache").c_str(), "rb");
     char sharead[20];
     if (fp) {
       size_t len;
       while (true) {
-        if (fread(sharead, 1, 20, fp) != 20) {
-          throw std::runtime_error("Cache file corrupt");
-        }
-        if (!mProcessingSettings.rtc.ignoreCacheValid && memcmp(sharead, shasource, 20)) {
-          GPUInfo("Cache file content outdated (source)");
-          break;
-        }
-        if (fread(sharead, 1, 20, fp) != 20) {
-          throw std::runtime_error("Cache file corrupt");
-        }
-        if (!mProcessingSettings.rtc.ignoreCacheValid && memcmp(sharead, shaparam, 20)) {
-          GPUInfo("Cache file content outdated (param)");
-          break;
-        }
-        if (fread(sharead, 1, 20, fp) != 20) {
-          throw std::runtime_error("Cache file corrupt");
-        }
-        if (!mProcessingSettings.rtc.ignoreCacheValid && memcmp(sharead, shacmd, 20)) {
-          GPUInfo("Cache file content outdated (commandline)");
-          break;
-        }
-        if (fread(sharead, 1, 20, fp) != 20) {
-          throw std::runtime_error("Cache file corrupt");
-        }
-        if (!mProcessingSettings.rtc.ignoreCacheValid && memcmp(sharead, shakernels, 20)) {
-          GPUInfo("Cache file content outdated (kernel definitions)");
+        auto checkSHA = [&](const char* shacmp, const char* name) {
+          if (fread(sharead, 1, 20, fp) != 20) {
+            throw std::runtime_error("Cache file corrupt");
+          }
+          if (mProcessingSettings.debugLevel >= 3) {
+            char shaprint1[41], shaprint2[41];
+            for (uint32_t i = 0; i < 20; i++) {
+              sprintf(shaprint1 + 2 * i, "%02X ", shacmp[i]);
+              sprintf(shaprint2 + 2 * i, "%02X ", sharead[i]);
+            }
+            GPUInfo("SHA for %s: expected %s, read %s", name, shaprint1, shaprint2);
+          }
+          if (!mProcessingSettings.rtctech.ignoreCacheValid && memcmp(sharead, shacmp, 20)) {
+            GPUInfo("Cache file content outdated (%s)", name);
+            return 1;
+          }
+          return 0;
+        };
+        if (checkSHA(shasource, "source") ||
+            checkSHA(shaparam, "param") ||
+            checkSHA(shacmd, "command line") ||
+            checkSHA(shakernels, "kernel definitions") ||
+            checkSHA(shabounds, "launch bounds")) {
           break;
         }
         GPUSettingsProcessingRTC cachedSettings;
@@ -118,7 +142,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
         if (fread(&cachedSettings, sizeof(cachedSettings), 1, fp) != 1) {
           throw std::runtime_error("Cache file corrupt");
         }
-        if (!mProcessingSettings.rtc.ignoreCacheValid && !(cachedSettings == mProcessingSettings.rtc)) {
+        if (!mProcessingSettings.rtctech.ignoreCacheValid && !(cachedSettings == mProcessingSettings.rtc)) {
           GPUInfo("Cache file content outdated (rtc parameters)");
           break;
         }
@@ -153,10 +177,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
     }
     HighResTimer rtcTimer;
     rtcTimer.ResetStart();
-#ifdef WITH_OPENMP
-#pragma omp parallel for schedule(dynamic, 1)
-#endif
-    for (uint32_t i = 0; i < nCompile; i++) {
+    tbb::parallel_for<uint32_t>(0, nCompile, [&](auto i) {
       if (mProcessingSettings.debugLevel >= 3) {
         printf("Compiling %s\n", (filename + "_" + std::to_string(i) + mRtcSrcExtension).c_str());
       }
@@ -169,13 +190,21 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
       kernel += mProcessingSettings.rtc.compilePerKernel ? kernels[i] : kernelsall;
       kernel += "}";
 
-      if (fwrite(rtcparam.c_str(), 1, rtcparam.size(), fp) != rtcparam.size() ||
+      bool deterministic = mProcessingSettings.rtc.deterministic || (mProcessingSettings.rtc.compilePerKernel && o2::gpu::internal::noFastMathKernels.find(GetKernelName(i)) != o2::gpu::internal::noFastMathKernels.end());
+      const std::string deterministicStr = std::string(deterministic ? "#define GPUCA_DETERMINISTIC_CODE(det, indet) det\n" : "#define GPUCA_DETERMINISTIC_CODE(det, indet) indet\n");
+
+      if (fwrite(deterministicStr.c_str(), 1, deterministicStr.size(), fp) != deterministicStr.size() ||
+          fwrite(rtcparam.c_str(), 1, rtcparam.size(), fp) != rtcparam.size() ||
+          fwrite(launchBounds.c_str(), 1, launchBounds.size(), fp) != launchBounds.size() ||
           fwrite(_binary_GPUReconstructionCUDArtc_src_start, 1, _binary_GPUReconstructionCUDArtc_src_len, fp) != _binary_GPUReconstructionCUDArtc_src_len ||
           fwrite(kernel.c_str(), 1, kernel.size(), fp) != kernel.size()) {
         throw std::runtime_error("Error writing file");
       }
       fclose(fp);
       std::string command = baseCommand;
+      if (deterministic) {
+        command += std::string(" ") + std::string(_binary_GPUReconstructionCUDArtc_command_no_fast_math_start, _binary_GPUReconstructionCUDArtc_command_no_fast_math_len);
+      }
       command += " -c " + filename + "_" + std::to_string(i) + mRtcSrcExtension + " -o " + filename + "_" + std::to_string(i) + mRtcBinExtension;
       if (mProcessingSettings.debugLevel < 0) {
         command += " &> /dev/null";
@@ -190,13 +219,13 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
           printf("Source code file: %s", filename.c_str());
         }
         throw std::runtime_error("Error during CUDA compilation");
-      }
-    }
+      } // clang-format off
+    }, tbb::simple_partitioner()); // clang-format on
     if (mProcessingSettings.debugLevel >= 0) {
       GPUInfo("RTC Compilation finished (%f seconds)", rtcTimer.GetCurrentElapsedTime());
     }
     if (mProcessingSettings.rtc.cacheOutput) {
-      FILE* fp = fopen((mProcessingSettings.RTCcacheFolder + "/rtc.cuda.cache").c_str(), "w+b");
+      FILE* fp = fopen((mProcessingSettings.rtctech.cacheFolder + "/rtc.cuda.cache").c_str(), "w+b");
       if (fp == nullptr) {
         throw std::runtime_error("Cannot open cache file for writing");
       }
@@ -206,6 +235,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
           fwrite(shaparam, 1, 20, fp) != 20 ||
           fwrite(shacmd, 1, 20, fp) != 20 ||
           fwrite(shakernels, 1, 20, fp) != 20 ||
+          fwrite(shabounds, 1, 20, fp) != 20 ||
           fwrite(&mProcessingSettings.rtc, sizeof(mProcessingSettings.rtc), 1, fp) != 1) {
         throw std::runtime_error("Error writing cache file");
       }
@@ -233,7 +263,7 @@ int32_t GPUReconstructionCUDA::genRTC(std::string& filename, uint32_t& nCompile)
       fclose(fp);
     }
   }
-  if (mProcessingSettings.rtc.cacheOutput && mProcessingSettings.rtc.cacheMutex) {
+  if (mProcessingSettings.rtc.cacheOutput && mProcessingSettings.rtctech.cacheMutex) {
     if (lockf(fd, F_ULOCK, 0)) {
       throw std::runtime_error("Error unlocking RTC cache mutex file");
     }

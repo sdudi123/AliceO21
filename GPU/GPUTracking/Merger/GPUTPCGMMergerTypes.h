@@ -18,11 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUGeneralKernels.h"
 
-namespace o2
-{
-namespace gpu
-{
-namespace gputpcgmmergertypes
+namespace o2::gpu::gputpcgmmergertypes
 {
 
 enum attachTypes { attachAttached = 0x40000000,
@@ -36,7 +32,7 @@ enum attachTypes { attachAttached = 0x40000000,
 
 struct InterpolationErrorHit {
   float posY, posZ;
-  GPUCA_MERGER_INTERPOLATION_ERROR_TYPE errorY, errorZ;
+  GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A errorY, errorZ;
 };
 
 struct InterpolationErrors {
@@ -59,8 +55,6 @@ struct GPUTPCOuterParam {
   float C[15];
 };
 
-} // namespace gputpcgmmergertypes
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu::gputpcgmmergertypes
 
 #endif

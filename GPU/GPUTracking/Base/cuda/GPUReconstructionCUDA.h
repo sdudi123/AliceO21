@@ -25,9 +25,7 @@ extern "C" __declspec(dllexport) o2::gpu::GPUReconstruction* GPUReconstruction_C
 extern "C" o2::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUReconstructionCUDAInternals;
 
@@ -35,28 +33,20 @@ class GPUReconstructionCUDABackend : public GPUReconstructionDeviceBase
 {
  public:
   ~GPUReconstructionCUDABackend() override;
-  static int32_t GPUFailedMsgAI(const int64_t error, const char* file, int32_t line);
-  void GPUFailedMsgA(const int64_t error, const char* file, int32_t line);
 
  protected:
   GPUReconstructionCUDABackend(const GPUSettingsDeviceBackend& cfg);
 
   void PrintKernelOccupancies() override;
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override;
 
   template <class T, int32_t I = 0, typename... Args>
-  int32_t runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
+  void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
   template <class T, int32_t I = 0, typename... Args>
   void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
-  template <class T, int32_t I = 0>
-  gpu_reconstruction_kernels::krnlProperties getKernelPropertiesBackend();
-  template <class T, int32_t I>
-  class backendInternal;
 
-  template <bool multi, class T, int32_t I = 0>
-  static int32_t getRTCkernelNum(int32_t k = -1);
-
-  void getRTCKernelCalls(std::vector<std::string>& kernels);
-
+  template <class T, class S>
+  friend GPUh() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begin, size_t N, const S& comp);
   GPUReconstructionCUDAInternals* mInternals;
 };
 
@@ -69,9 +59,8 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
  protected:
   int32_t InitDevice_Runtime() override;
   int32_t ExitDevice_Runtime() override;
-  void UpdateAutomaticProcessingSettings() override;
 
-  std::unique_ptr<GPUThreadContext> GetThreadContext() override;
+  std::unique_ptr<gpu_reconstruction_kernels::threadContext> GetThreadContext() override;
   void SynchronizeGPU() override;
   int32_t GPUDebug(const char* state = "UNKNOWN", int32_t stream = -1, bool force = false) override;
   void SynchronizeStream(int32_t stream) override;
@@ -99,12 +88,12 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
 
  private:
   int32_t genRTC(std::string& filename, uint32_t& nCompile);
+  void getRTCKernelCalls(std::vector<std::string>& kernels);
   void genAndLoadRTC();
-  void loadKernelModules(bool perKernel, bool perSingleMulti = true);
+  void loadKernelModules(bool perKernel);
   const char *mRtcSrcExtension = ".src", *mRtcBinExtension = ".o";
 };
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

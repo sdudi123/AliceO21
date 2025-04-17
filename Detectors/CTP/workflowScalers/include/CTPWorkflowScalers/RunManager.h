@@ -18,6 +18,7 @@
 #include "DataFormatsCTP/Configuration.h"
 #include "BookkeepingApi/BkpClientFactory.h"
 #include "BookkeepingApi/BkpClient.h"
+
 using namespace o2::bkp::api;
 namespace o2
 {
@@ -47,7 +48,7 @@ class CTPRunManager : public ctpCCDBManager
   CTPRunManager() = default;
   void init();
   int loadRun(const std::string& cfg);
-  int startRun(const std::string& cfg);
+  int setRunConfigBK(uint32_t runNumber, const std::string& cfg);
   int stopRun(uint32_t irun, long timeStamp);
   int addScalers(uint32_t irun, std::time_t time, bool start = 0);
   int processMessage(std::string& topic, const std::string& message);

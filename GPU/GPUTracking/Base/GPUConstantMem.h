@@ -34,21 +34,22 @@
 #include "GPUKernelDebugOutput.h"
 #endif
 
-namespace o2
-{
-namespace gpu
+#ifdef GPUCA_HAS_ONNX
+#include "GPUTPCNNClusterizer.h"
+#endif
+
+namespace o2::gpu
 {
 struct GPUConstantMem {
   GPUParam param;
-  GPUTPCTracker
-    tpcTrackers[GPUCA_NSLICES];
+  GPUTPCTracker tpcTrackers[GPUCA_NSECTORS];
   GPUTPCConvert tpcConverter;
   GPUTPCCompression tpcCompressor;
   GPUTPCDecompression tpcDecompressor;
   GPUTPCGMMerger tpcMerger;
   GPUTRDTrackerGPU trdTrackerGPU;
   GPUTRDTracker trdTrackerO2;
-  GPUTPCClusterFinder tpcClusterer[GPUCA_NSLICES];
+  GPUTPCClusterFinder tpcClusterer[GPUCA_NSECTORS];
   GPUITSFitter itsFitter;
   GPUTrackingRefitProcessor trackingRefit;
   GPUTrackingInOutPointers ioPtrs;
@@ -56,6 +57,9 @@ struct GPUConstantMem {
   GPUErrors errorCodes;
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
   GPUKernelDebugOutput debugOutput;
+#endif
+#ifdef GPUCA_HAS_ONNX
+  GPUTPCNNClusterizer tpcNNClusterer[GPUCA_NSECTORS];
 #endif
 
   template <int32_t I>
@@ -90,20 +94,17 @@ union GPUConstantMemCopyable {
 #if defined(GPUCA_GPUCODE)
 static constexpr size_t gGPUConstantMemBufferSize = (sizeof(GPUConstantMem) + sizeof(uint4) - 1);
 #endif
-} // namespace gpu
-} // namespace o2
-#if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
-GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer;
+} // namespace o2::gpu
+#if defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM)
+GPUconstant() o2::gpu::GPUConstantMemCopyable gGPUConstantMemBuffer; // TODO: This should go into o2::gpu namespace, but then CUDA or HIP would not find the symbol
 #endif // GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 // Must be placed here, to avoid circular header dependency
 GPUdi() GPUconstantref() const GPUConstantMem* GPUProcessor::GetConstantMem() const
 {
-#if defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM) && !defined(GPUCA_GPUCODE_HOSTONLY)
+#if defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM)
   return &GPUCA_CONSMEM;
 #else
   return mConstantMem;
@@ -120,7 +121,6 @@ GPUdi() void GPUProcessor::raiseError(uint32_t code, uint32_t param1, uint32_t p
   GetConstantMem()->errorCodes.raiseError(code, param1, param2, param3);
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

@@ -21,6 +21,7 @@
 #include "GPUDataTypes.h"
 #include "GPUConstantMem.h"
 #include "DetectorsBase/Propagator.h"
+#include "GPUTPCGeometry.h"
 
 using namespace o2::gpu;
 
@@ -32,7 +33,6 @@ using namespace o2::gpu;
 void GPUParam::SetDefaults(float solenoidBz)
 {
   memset((void*)this, 0, sizeof(*this));
-  new (&tpcGeometry) GPUTPCGeometry;
   new (&rec) GPUSettingsRec;
   occupancyMap = nullptr;
   occupancyTotal = 0;
@@ -91,22 +91,22 @@ void GPUParam::SetDefaults(float solenoidBz)
   constexpr float plusZmax = 249.778;
   constexpr float minusZmin = -249.645;
   constexpr float minusZmax = -0.0799937;
-  for (int32_t i = 0; i < GPUCA_NSLICES; i++) {
-    const bool zPlus = (i < GPUCA_NSLICES / 2);
-    SliceParam[i].ZMin = zPlus ? plusZmin : minusZmin;
-    SliceParam[i].ZMax = zPlus ? plusZmax : minusZmax;
+  for (int32_t i = 0; i < GPUCA_NSECTORS; i++) {
+    const bool zPlus = (i < GPUCA_NSECTORS / 2);
+    SectorParam[i].ZMin = zPlus ? plusZmin : minusZmin;
+    SectorParam[i].ZMax = zPlus ? plusZmax : minusZmax;
     int32_t tmp = i;
-    if (tmp >= GPUCA_NSLICES / 2) {
-      tmp -= GPUCA_NSLICES / 2;
+    if (tmp >= GPUCA_NSECTORS / 2) {
+      tmp -= GPUCA_NSECTORS / 2;
     }
-    if (tmp >= GPUCA_NSLICES / 4) {
-      tmp -= GPUCA_NSLICES / 2;
+    if (tmp >= GPUCA_NSECTORS / 4) {
+      tmp -= GPUCA_NSECTORS / 2;
     }
-    SliceParam[i].Alpha = 0.174533f + par.dAlpha * tmp;
-    SliceParam[i].CosAlpha = CAMath::Cos(SliceParam[i].Alpha);
-    SliceParam[i].SinAlpha = CAMath::Sin(SliceParam[i].Alpha);
-    SliceParam[i].AngleMin = SliceParam[i].Alpha - par.dAlpha / 2.f;
-    SliceParam[i].AngleMax = SliceParam[i].Alpha + par.dAlpha / 2.f;
+    SectorParam[i].Alpha = 0.174533f + par.dAlpha * tmp;
+    SectorParam[i].CosAlpha = CAMath::Cos(SectorParam[i].Alpha);
+    SectorParam[i].SinAlpha = CAMath::Sin(SectorParam[i].Alpha);
+    SectorParam[i].AngleMin = SectorParam[i].Alpha - par.dAlpha / 2.f;
+    SectorParam[i].AngleMax = SectorParam[i].Alpha + par.dAlpha / 2.f;
   }
 
   par.assumeConstantBz = false;
@@ -178,8 +178,8 @@ void GPUParam::UpdateRun3ClusterErrors(const float* yErrorParam, const float* zE
     for (int32_t rowType = 0; rowType < 4; rowType++) {
       constexpr int32_t regionMap[4] = {0, 4, 6, 8};
       ParamErrors[yz][rowType][0] = param[0] * param[0];
-      ParamErrors[yz][rowType][1] = param[1] * param[1] * tpcGeometry.PadHeightByRegion(regionMap[rowType]);
-      ParamErrors[yz][rowType][2] = param[2] * param[2] / tpcGeometry.TPCLength() / tpcGeometry.PadHeightByRegion(regionMap[rowType]);
+      ParamErrors[yz][rowType][1] = param[1] * param[1] * GPUTPCGeometry::PadHeightByRegion(regionMap[rowType]);
+      ParamErrors[yz][rowType][2] = param[2] * param[2] / GPUTPCGeometry::TPCLength() / GPUTPCGeometry::PadHeightByRegion(regionMap[rowType]);
       ParamErrors[yz][rowType][3] = param[3] * param[3] * rec.tpc.clusterErrorOccupancyScaler * rec.tpc.clusterErrorOccupancyScaler;
     }
   }
@@ -193,12 +193,10 @@ void GPUParamRTC::setFrom(const GPUParam& param)
 
 std::string GPUParamRTC::generateRTCCode(const GPUParam& param, bool useConstexpr)
 {
-  return "#ifndef GPUCA_GPUCODE_DEVICE\n"
-         "#include <string>\n"
+  return "#include <string>\n"
          "#include <vector>\n"
          "#include <cstdint>\n"
          "#include <cstddef>\n"
-         "#endif\n"
          "namespace o2::gpu { class GPUDisplayFrontendInterface; }\n" +
          qConfigPrintRtc(std::make_tuple(&param.rec.tpc, &param.rec.trd, &param.rec, &param.par), useConstexpr);
 }

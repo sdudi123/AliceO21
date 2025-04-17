@@ -23,11 +23,11 @@ endif()
 set(CL_SRC ${GPUDIR}/Base/opencl/GPUReconstructionOCL.cl)
 set(CL_BIN ${CMAKE_CURRENT_BINARY_DIR}/GPUReconstructionOCLCode)
 
-set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -cl-std=CLC++2021)
-if(NOT DEFINED GPUCA_NO_FAST_MATH OR NOT ${GPUCA_NO_FAST_MATH})
-  set(OCL_FLAGS ${OCL_FLAGS} -cl-denorms-are-zero -cl-mad-enable -cl-no-signed-zeros -cl-fast-relaxed-math)
+set(OCL_FLAGS -Dcl_clang_storage_class_specifiers -cl-std=CLC++2021 ${GPUCA_OCL_DENORMALS_FLAGS})
+if(NOT GPUCA_DETERMINISTIC_MODE GREATER_EQUAL ${GPUCA_DETERMINISTIC_MODE_MAP_NO_FAST_MATH})
+  set(OCL_FLAGS ${OCL_FLAGS} -cl-mad-enable -cl-no-signed-zeros -cl-fast-relaxed-math)
 else()
-set(OCL_FLAGS ${OCL_FLAGS} -cl-fp32-correctly-rounded-divide-sqrt)
+  set(OCL_FLAGS ${OCL_FLAGS} ${GPUCA_OCL_NO_FAST_MATH_FLAGS})
 endif()
 set(OCL_DEFINECL "-D$<JOIN:$<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS>,$<SEMICOLON>-D>"
             "-I$<JOIN:$<FILTER:$<TARGET_PROPERTY:O2::GPUTracking,INCLUDE_DIRECTORIES>,EXCLUDE,^/usr/include/?>,$<SEMICOLON>-I>"
@@ -36,8 +36,12 @@ set(OCL_DEFINECL "-D$<JOIN:$<TARGET_PROPERTY:O2::GPUTracking,COMPILE_DEFINITIONS
             -I${CMAKE_SOURCE_DIR}/DataFormats/Reconstruction/src
 )
 
-set(SRCS GPUReconstructionOCL.cxx)
-set(HDRS GPUReconstructionOCL.h GPUReconstructionOCLInternals.h)
+set(SRCS GPUReconstructionOCL.cxx GPUReconstructionOCLKernels.cxx)
+set(HDRS GPUReconstructionOCL.h GPUReconstructionOCLIncludesHost.h)
+
+if (NOT DEFINED GPUCA_OCL_SPIRV_VERSION)
+  set(GPUCA_OCL_SPIRV_VERSION 1.2)
+endif()
 
 if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
   # executes clang to create llvm IL code
@@ -47,7 +51,7 @@ if(OPENCL_ENABLED_SPIRV) # BUILD OpenCL intermediate code for SPIR-V target
       OUTPUT ${CL_BIN}.spirv
       COMMAND ${CMAKE_COMMAND} -E env "PATH=${TMP_LLVM_SPIRV_PATH}:\$$PATH" ${LLVM_CLANG}
               -O0
-              --target=spirv64
+              --target=spirv64v${GPUCA_OCL_SPIRV_VERSION}
               -fno-integrated-objemitter
               -ferror-limit=1000 -Wno-invalid-constexpr -Wno-unused-command-line-argument
               ${OCL_FLAGS}
@@ -72,7 +76,7 @@ if(OPENCL_ENABLED) # BUILD OpenCL source code for runtime compilation target
               ${OCL_DEFINECL}
               -cl-no-stdinc
               -nostdinc
-              -E ${CL_SRC} > ${CL_BIN}.src
+              -E -P ${CL_SRC} > ${CL_BIN}.src
       MAIN_DEPENDENCY ${CL_SRC}
       IMPLICIT_DEPENDS CXX ${CL_SRC}
       COMMAND_EXPAND_LISTS
@@ -106,4 +110,4 @@ endif()
 if(OPENCL_ENABLED_SPIRV)
   target_compile_definitions(${targetName} PRIVATE OPENCL_ENABLED_SPIRV)
 endif()
-target_compile_definitions(${targetName} PRIVATE OCL_FLAGS=$<JOIN:${OCL_FLAGS},\ >)
+target_compile_definitions(${targetName} PRIVATE GPUCA_OCL_BUILD_FLAGS=$<JOIN:${OCL_FLAGS},\ > GPUCA_OCL_SPIRV_VERSION=${GPUCA_OCL_SPIRV_VERSION})

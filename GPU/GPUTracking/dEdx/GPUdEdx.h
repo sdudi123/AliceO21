@@ -16,17 +16,15 @@
 #define GPUDEDX_H
 
 #include "GPUDef.h"
-#include "GPUTPCGeometry.h"
 #include "GPUCommonMath.h"
 #include "GPUParam.h"
 #include "GPUdEdxInfo.h"
 #include "DataFormatsTPC/Defs.h"
 #include "CalibdEdxContainer.h"
+#include "GPUTPCGeometry.h"
 #include "GPUDebugStreamer.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUdEdx
@@ -34,12 +32,12 @@ class GPUdEdx
  public:
   // The driver must call clear(), fill clusters row by row outside-in, then run computedEdx() to get the result
   GPUd() void clear();
-  GPUd() void fillCluster(float qtot, float qmax, int32_t padRow, uint8_t slice, float trackSnp, float trackTgl, const GPUParam& param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime);
-  GPUd() void fillSubThreshold(int32_t padRow, const GPUParam& param);
+  GPUd() void fillCluster(float qtot, float qmax, int32_t padRow, uint8_t sector, float trackSnp, float trackTgl, const GPUCalibObjectsConst& calib, float z, float pad, float relTime);
+  GPUd() void fillSubThreshold(int32_t padRow);
   GPUd() void computedEdx(GPUdEdxInfo& output, const GPUParam& param);
 
  private:
-  GPUd() float GetSortTruncMean(GPUCA_DEDX_STORAGE_TYPE* array, int32_t count, int32_t trunclow, int32_t trunchigh);
+  GPUd() float GetSortTruncMean(GPUCA_PAR_DEDX_STORAGE_TYPE_A* array, int32_t count, int32_t trunclow, int32_t trunchigh);
   GPUd() void checkSubThresh(int32_t roc);
 
   template <typename T, typename fake = void>
@@ -64,8 +62,8 @@ class GPUdEdx
 
   static constexpr int32_t MAX_NCL = GPUCA_ROW_COUNT; // Must fit in mNClsROC (uint8_t)!
 
-  GPUCA_DEDX_STORAGE_TYPE mChargeTot[MAX_NCL]; // No need for default, just some memory
-  GPUCA_DEDX_STORAGE_TYPE mChargeMax[MAX_NCL]; // No need for default, just some memory
+  GPUCA_PAR_DEDX_STORAGE_TYPE_A mChargeTot[MAX_NCL]; // No need for default, just some memory
+  GPUCA_PAR_DEDX_STORAGE_TYPE_A mChargeMax[MAX_NCL]; // No need for default, just some memory
   float mSubThreshMinTot = 0.f;
   float mSubThreshMinMax = 0.f;
   uint8_t mNClsROC[4] = {0};
@@ -80,8 +78,8 @@ GPUdi() void GPUdEdx::checkSubThresh(int32_t roc)
   if (roc != mLastROC) {
     if (mNSubThresh && mCount + mNSubThresh <= MAX_NCL) {
       for (int32_t i = 0; i < mNSubThresh; i++) {
-        mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE)(mSubThreshMinTot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
-        mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE)(mSubThreshMinMax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
+        mChargeTot[mCount] = (GPUCA_PAR_DEDX_STORAGE_TYPE_A)(mSubThreshMinTot * scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::round);
+        mChargeMax[mCount++] = (GPUCA_PAR_DEDX_STORAGE_TYPE_A)(mSubThreshMinMax * scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::round);
       }
       mNClsROC[mLastROC] += mNSubThresh;
       mNClsROCSubThresh[mLastROC] += mNSubThresh;
@@ -94,7 +92,7 @@ GPUdi() void GPUdEdx::checkSubThresh(int32_t roc)
   mLastROC = roc;
 }
 
-GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint8_t slice, float trackSnp, float trackTgl, const GPUParam& GPUrestrict() param, const GPUCalibObjectsConst& calib, float z, float pad, float relTime)
+GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint8_t sector, float trackSnp, float trackTgl, const GPUCalibObjectsConst& calib, float z, float pad, float relTime)
 {
   if (mCount >= MAX_NCL) {
     return;
@@ -102,8 +100,9 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
 
   // container containing all the dE/dx corrections
   auto calibContainer = calib.dEdxCalibContainer;
+  constexpr GPUTPCGeometry geo;
 
-  const int32_t roc = param.tpcGeometry.GetROC(padRow);
+  const int32_t roc = geo.GetROC(padRow);
   checkSubThresh(roc);
   float snp2 = trackSnp * trackSnp;
   if (snp2 > GPUCA_MAX_SIN_PHI_LOW) {
@@ -121,12 +120,12 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   // getting the topology correction
   const uint32_t padPos = CAMath::Float2UIntRn(pad); // position of the pad is shifted half a pad ( pad=3 -> centre position of third pad)
   const float absRelPad = CAMath::Abs(pad - padPos);
-  const int32_t region = param.tpcGeometry.GetRegion(padRow);
+  const int32_t region = geo.GetRegion(padRow);
   z = CAMath::Abs(z);
-  const float threshold = calibContainer->getZeroSupressionThreshold(slice, padRow, padPos); // TODO: Use the mean zero supresion threshold of all pads in the cluster?
+  const float threshold = calibContainer->getZeroSupressionThreshold(sector, padRow, padPos); // TODO: Use the mean zero supresion threshold of all pads in the cluster?
   const bool useFullGainMap = calibContainer->isUsageOfFullGainMap();
   float qTotIn = qtot;
-  const float fullGainMapGain = calibContainer->getGain(slice, padRow, padPos);
+  const float fullGainMapGain = calibContainer->getGain(sector, padRow, padPos);
   if (useFullGainMap) {
     qmax /= fullGainMapGain;
     qtot /= fullGainMapGain;
@@ -140,7 +139,7 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   qtot /= qTotTopologyCorr;
 
   tpc::StackID stack{
-    slice,
+    sector,
     static_cast<tpc::GEMstack>(roc)};
 
   const float qMaxResidualCorr = calibContainer->getResidualCorrection(stack, tpc::ChargeType::Max, trackTgl, trackSnp);
@@ -148,12 +147,12 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   qmax /= qMaxResidualCorr;
   qtot /= qTotResidualCorr;
 
-  const float residualGainMapGain = calibContainer->getResidualGain(slice, padRow, padPos);
+  const float residualGainMapGain = calibContainer->getResidualGain(sector, padRow, padPos);
   qmax /= residualGainMapGain;
   qtot /= residualGainMapGain;
 
-  mChargeTot[mCount] = (GPUCA_DEDX_STORAGE_TYPE)(qtot * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
-  mChargeMax[mCount++] = (GPUCA_DEDX_STORAGE_TYPE)(qmax * scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::factor + scalingFactor<GPUCA_DEDX_STORAGE_TYPE>::round);
+  mChargeTot[mCount] = (GPUCA_PAR_DEDX_STORAGE_TYPE_A)(qtot * scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::round);
+  mChargeMax[mCount++] = (GPUCA_PAR_DEDX_STORAGE_TYPE_A)(qmax * scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::factor + scalingFactor<GPUCA_PAR_DEDX_STORAGE_TYPE_A>::round);
   mNClsROC[roc]++;
   if (qtot < mSubThreshMinTot) {
     mSubThreshMinTot = qtot;
@@ -163,14 +162,14 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   }
 
   GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamdEdx)) {
-    float padlx = param.tpcGeometry.Row2X(padRow);
-    float padly = param.tpcGeometry.LinearPad2Y(slice, padRow, padPos);
+    float padlx = geo.Row2X(padRow);
+    float padly = geo.LinearPad2Y(sector, padRow, padPos);
     o2::utils::DebugStreamer::instance()->getStreamer("debug_dedx", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("tree_dedx").data()
                                                                               << "qTot=" << mChargeTot[mCount - 1]
                                                                               << "qMax=" << mChargeMax[mCount - 1]
                                                                               << "region=" << region
                                                                               << "padRow=" << padRow
-                                                                              << "sector=" << slice
+                                                                              << "sector=" << sector
                                                                               << "lx=" << padlx
                                                                               << "ly=" << padly
                                                                               << "tanTheta=" << tanTheta
@@ -191,14 +190,13 @@ GPUdnii() void GPUdEdx::fillCluster(float qtot, float qmax, int32_t padRow, uint
   })
 }
 
-GPUdi() void GPUdEdx::fillSubThreshold(int32_t padRow, const GPUParam& GPUrestrict() param)
+GPUdi() void GPUdEdx::fillSubThreshold(int32_t padRow)
 {
-  const int32_t roc = param.tpcGeometry.GetROC(padRow);
+  const int32_t roc = GPUTPCGeometry::GetROC(padRow);
   checkSubThresh(roc);
   mNSubThresh++;
 }
 
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

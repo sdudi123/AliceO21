@@ -1684,7 +1684,7 @@ int runStateMachine(DataProcessorSpecs const& workflow,
               for (auto& input : device.inputs) {
                 for (auto& param : input.metadata) {
                   if (param.type == VariantType::Bool && param.name.find("control:") != std::string::npos) {
-                    if (param.name != "control:default" && param.name != "control:spawn" && param.name != "control:build") {
+                    if (param.name != "control:default" && param.name != "control:spawn" && param.name != "control:build" && param.name != "control:define") {
                       auto confName = confNameFromParam(param.name).second;
                       param.defaultValue = reg->get<bool>(confName.c_str());
                     }
@@ -2141,6 +2141,8 @@ int runStateMachine(DataProcessorSpecs const& workflow,
                   info.logLevel = LogParsingHelpers::LogLevel::Info;
                 } else if ((*logLevelIt).compare("alarm") == 0) {
                   info.logLevel = LogParsingHelpers::LogLevel::Alarm;
+                } else if ((*logLevelIt).compare("critical") == 0) {
+                  info.logLevel = LogParsingHelpers::LogLevel::Critical;
                 } else if ((*logLevelIt).compare("fatal") == 0) {
                   info.logLevel = LogParsingHelpers::LogLevel::Fatal;
                 }
@@ -3159,6 +3161,8 @@ int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& workflow,
       fair::Logger::SetConsoleSeverity(fair::Severity::important);
     } else if (logLevel == "alarm") {
       fair::Logger::SetConsoleSeverity(fair::Severity::alarm);
+    } else if (logLevel == "critical") {
+      fair::Logger::SetConsoleSeverity(fair::Severity::critical);
     } else if (logLevel == "fatal") {
       fair::Logger::SetConsoleSeverity(fair::Severity::fatal);
     } else {

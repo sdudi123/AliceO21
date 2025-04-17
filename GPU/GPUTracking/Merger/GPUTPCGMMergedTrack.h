@@ -18,9 +18,7 @@
 #include "GPUTPCGMTrackParam.h"
 #include "GPUTPCGMMergedTrackHit.h"
 
-namespace o2
-{
-namespace gpu
+namespace o2::gpu
 {
 /**
  * @class GPUTPCGMMergedTrack
@@ -108,16 +106,17 @@ class GPUTPCGMMergedTrack
   GPUd() gputpcgmmergertypes::GPUTPCOuterParam& OuterParam() { return mOuterParam; }
 
  private:
-  GPUTPCGMTrackParam mParam;                        //* fitted track parameters
+  GPUTPCGMTrackParam mParam;                         //* fitted track parameters
   gputpcgmmergertypes::GPUTPCOuterParam mOuterParam; //* outer param
 
-  float mAlpha;                  //* alpha angle
-  float mLastX;                  //* outer X
-  float mLastY;                  //* outer Y
-  float mLastZ;                  //* outer Z
-  uint32_t mFirstClusterRef;     //* index of the first track cluster in corresponding cluster arrays
-  uint32_t mNClusters;           //* number of track clusters
-  uint32_t mNClustersFitted;     //* number of clusters used in fit
+  float mAlpha;              //* alpha angle
+  float mLastX;              //* outer X
+  float mLastY;              //* outer Y
+  float mLastZ;              //* outer Z
+  uint32_t mFirstClusterRef; //* index of the first track cluster in corresponding cluster arrays
+  // TODO: Change to 8 bit
+  uint32_t mNClusters;       //* number of track clusters
+  uint32_t mNClustersFitted; //* number of clusters used in fit
   uint8_t mFlags;
   uint8_t mLegs;
 
@@ -125,7 +124,6 @@ class GPUTPCGMMergedTrack
   ClassDefNV(GPUTPCGMMergedTrack, 0);
 #endif
 };
-} // namespace gpu
-} // namespace o2
+} // namespace o2::gpu
 
 #endif

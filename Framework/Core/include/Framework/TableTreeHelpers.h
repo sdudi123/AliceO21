@@ -11,6 +11,8 @@
 #ifndef O2_FRAMEWORK_TABLETREEHELPERS_H_
 #define O2_FRAMEWORK_TABLETREEHELPERS_H_
 
+#include <arrow/buffer.h>
+#include <arrow/io/interfaces.h>
 #include <arrow/record_batch.h>
 #include "TFile.h"
 #include "TTreeReader.h"
@@ -34,19 +36,6 @@ namespace o2::framework
 //    OR t2t.addBranch(column.get(), field.get()), ...;
 //  . t2t.process();
 //
-// .............................................................................
-// -----------------------------------------------------------------------------
-// TreeToTable allows to fill the contents of a given TTree to an arrow::Table
-//  ColumnIterator is used by TreeToTable
-//
-// To copy the contents of a tree tr to a table ta do:
-//  . TreeToTable t2t(tr);
-//  . t2t.addColumn(columnname1); t2t.addColumn(columnname2); ...
-//    OR
-//    t2t.addAllColumns();
-//  . auto ta = t2t.process();
-//
-// .............................................................................
 struct ROOTTypeInfo {
   EDataType type;
   char suffix[3];
@@ -55,29 +44,6 @@ struct ROOTTypeInfo {
 
 auto arrowTypeFromROOT(EDataType type, int size);
 auto basicROOTTypeFromArrow(arrow::Type::type id);
-
-class BranchToColumn
-{
- public:
-  BranchToColumn(TBranch* branch, bool VLA, std::string name, EDataType type, int listSize, arrow::MemoryPool* pool);
-  //  BranchToColumn(TBranch* branch, TBranch* sizeBranch, std::string name, EDataType type, arrow::MemoryPool* pool);
-  ~BranchToColumn() = default;
-  TBranch* branch();
-
-  std::pair<std::shared_ptr<arrow::ChunkedArray>, std::shared_ptr<arrow::Field>> read(TBuffer* buffer);
-
- private:
-  TBranch* mBranch = nullptr;
-  bool mVLA = false;
-  std::string mColumnName;
-  EDataType mType;
-  std::shared_ptr<arrow::DataType> mArrowType;
-  arrow::ArrayBuilder* mValueBuilder = nullptr;
-  std::unique_ptr<arrow::ArrayBuilder> mListBuilder = nullptr;
-  int mListSize = 1;
-  std::unique_ptr<arrow::ArrayBuilder> mBuilder = nullptr;
-  arrow::MemoryPool* mPool = nullptr;
-};
 
 class ColumnToBranch
 {
@@ -125,36 +91,28 @@ class TableToTree
   std::vector<std::unique_ptr<ColumnToBranch>> mColumnReaders;
 };
 
-class TreeToTable
-{
- public:
-  TreeToTable(arrow::MemoryPool* pool = arrow::default_memory_pool());
-  void setLabel(const char* label);
-  void addAllColumns(TTree* tree, std::vector<std::string>&& names = {});
-  void fill(TTree*);
-  std::shared_ptr<arrow::Table> finalize();
-
- private:
-  arrow::MemoryPool* mArrowMemoryPool;
-  std::vector<std::unique_ptr<BranchToColumn>> mBranchReaders;
-  std::string mTableLabel;
-  std::shared_ptr<arrow::Table> mTable;
-
-  void addReader(TBranch* branch, std::string const& name, bool VLA);
-};
-
 class FragmentToBatch
 {
  public:
-  FragmentToBatch(arrow::MemoryPool* pool = arrow::default_memory_pool());
+  // The function to be used to create the required stream.
+  using StreamerCreator = std::function<std::shared_ptr<arrow::io::OutputStream>(std::shared_ptr<arrow::dataset::FileFragment>, const std::shared_ptr<arrow::ResizableBuffer>& buffer)>;
+
+  FragmentToBatch(StreamerCreator, std::shared_ptr<arrow::dataset::FileFragment>, arrow::MemoryPool* pool = arrow::default_memory_pool());
   void setLabel(const char* label);
-  void fill(std::shared_ptr<arrow::dataset::FileFragment>, std::shared_ptr<arrow::Schema> dataSetSchema, std::shared_ptr<arrow::dataset::FileFormat>);
+  void fill(std::shared_ptr<arrow::Schema> dataSetSchema, std::shared_ptr<arrow::dataset::FileFormat>);
   std::shared_ptr<arrow::RecordBatch> finalize();
 
+  std::shared_ptr<arrow::io::OutputStream> streamer(std::shared_ptr<arrow::ResizableBuffer> buffer)
+  {
+    return mCreator(mFragment, buffer);
+  }
+
  private:
+  std::shared_ptr<arrow::dataset::FileFragment> mFragment;
   arrow::MemoryPool* mArrowMemoryPool = nullptr;
   std::string mTableLabel;
   std::shared_ptr<arrow::RecordBatch> mRecordBatch;
+  StreamerCreator mCreator;
 };
 
 // -----------------------------------------------------------------------------

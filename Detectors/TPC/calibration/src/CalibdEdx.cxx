@@ -549,7 +549,8 @@ void CalibdEdx::finalize(const bool useGausFits)
     fitter.SetFormula("1");
     mCalib.setDims(0);
   }
-  LOGP(info, "Fitting {}D dE/dx correction for GEM stacks with gaussian fits {}", mCalib.getDims(), useGausFits);
+  LOGP(info, "Fitting {}D dE/dx correction for GEM stacks with gaussian fits {}, minStackEntries {}, m2DThreshold {}, m1DThreshold {}, mFitSnp {}",
+       mCalib.getDims(), useGausFits, entries, m2DThreshold, m1DThreshold, mFitSnp);
 
   // if entries below minimum sector threshold, integrate all sectors
   if (mCalib.getDims() == 0 || entries >= mSectorThreshold) {
@@ -743,18 +744,18 @@ void CalibdEdx::finalizeDebugOutput() const
   }
 }
 
-void CalibdEdx::dumpToFile(const char* outFile, const char* outName) const
+void CalibdEdx::dumpToFile(const char* outFile)
 {
   TFile f(outFile, "RECREATE");
-  f.WriteObject(this, outName);
+  f.WriteObject(this, "calib");
   const auto* thn = getRootHist();
   f.WriteObject(thn, "histogram_data");
 }
 
-CalibdEdx CalibdEdx::readFromFile(const char* inFile, const char* inName)
+CalibdEdx CalibdEdx::readFromFile(const char* inFile)
 {
   TFile f(inFile, "READ");
-  auto* obj = (CalibdEdx*)f.Get(inName);
+  auto* obj = (CalibdEdx*)f.Get("calib");
   if (!obj) {
     CalibdEdx calTmp;
     return calTmp;

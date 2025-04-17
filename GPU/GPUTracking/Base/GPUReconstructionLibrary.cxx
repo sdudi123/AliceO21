@@ -22,10 +22,6 @@
 #include <unistd.h>
 #endif
 
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
-
 #include "GPUReconstruction.h"
 #include "GPUReconstructionAvailableBackends.h"
 
@@ -38,7 +34,6 @@ using namespace o2::gpu;
 GPUReconstruction* GPUReconstruction::CreateInstance(DeviceType type, bool forceType, GPUReconstruction* master)
 {
   GPUSettingsDeviceBackend cfg;
-  new (&cfg) GPUSettingsDeviceBackend;
   cfg.deviceType = type;
   cfg.forceDeviceType = forceType;
   cfg.master = master;

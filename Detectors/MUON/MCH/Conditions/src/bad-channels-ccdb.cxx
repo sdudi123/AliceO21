@@ -10,6 +10,7 @@
 // or submit itself to any jurisdiction.
 
 #include <boost/program_options.hpp>
+#include <algorithm>
 #include <ctime>
 #include <fstream>
 #include <iterator>
@@ -99,7 +100,12 @@ std::set<uint64_t> listTSWhenBadChannelsChange(const std::string ccdbUrl, const 
   std::string currentETag{};
   for (auto itTS = tsChanges.begin(); itTS != tsChanges.end();) {
     auto headers = api.retrieveHeaders(source, metadata, *itTS);
-    if (headers["ETag"] == currentETag) {
+    if (headers["ETag"].empty()) {
+      std::cout << "- Warning: missing file" << std::endl;
+      auto validUntil = (std::next(itTS) != tsChanges.end()) ? *std::next(itTS) : endTimestamp;
+      std::cout << fmt::format("  validity range: {} - {}\n", *itTS, validUntil);
+      ++itTS;
+    } else if (headers["ETag"] == currentETag) {
       itTS = tsChanges.erase(itTS);
     } else {
       if (verbose) {
@@ -128,6 +134,19 @@ BadChannelsVector queryBadChannels(const std::string ccdbUrl,
   std::map<std::string, std::string> metadata;
   auto source = ccdbPath(badChannelType);
   auto* badChannels = api.retrieveFromTFileAny<BadChannelsVector>(source, metadata, timestamp);
+  if (badChannels == nullptr) {
+    std::cout << "do you want to proceed anyway? [y/n] ";
+    std::string response{};
+    while (true) {
+      std::cin >> response;
+      if (response == "y") {
+        std::cout << "number of bad channels = 0" << std::endl;
+        return {};
+      } else if (response == "n") {
+        exit(3);
+      }
+    }
+  }
   std::cout << "number of bad channels = " << badChannels->size() << std::endl;
   if (verbose) {
     for (const auto& badChannel : *badChannels) {
@@ -209,9 +228,12 @@ void uploadBadChannels(const std::string ccdbUrl,
                        const std::string badChannelType,
                        uint64_t startTimestamp,
                        uint64_t endTimestamp,
-                       const BadChannelsVector& bv,
+                       BadChannelsVector& bv,
                        bool makeDefault)
 {
+  std::sort(bv.begin(), bv.end());
+  bv.erase(std::unique(bv.begin(), bv.end()), bv.end());
+
   std::cout << std::endl;
   o2::ccdb::CcdbApi api;
   api.init(ccdbUrl);

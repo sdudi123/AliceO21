@@ -159,7 +159,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
 
     const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
     const auto firstIR = o2::InteractionRecord(0, tinfo.firstTForbit);
-    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSLICES / 2));
+    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSECTORS / 2));
 
     unsigned int offset = 0, lasti = 0;
     const unsigned int maxTime = (mParam->continuousMaxTimeBin + 1) * o2::tpc::ClusterNative::scaleTimePacked - 1;
@@ -206,8 +206,8 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       }
     }
     offset = 0;
-    unsigned int offsets[GPUCA_NSLICES][GPUCA_ROW_COUNT];
-    for (unsigned int i = 0; i < GPUCA_NSLICES; i++) {
+    unsigned int offsets[GPUCA_NSECTORS][GPUCA_ROW_COUNT];
+    for (unsigned int i = 0; i < GPUCA_NSECTORS; i++) {
       for (unsigned int j = 0; j < GPUCA_ROW_COUNT; j++) {
         if (i * GPUCA_ROW_COUNT + j >= clusters.nSliceRows) {
           break;
@@ -218,7 +218,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
     }
 
 #ifdef WITH_OPENMP
-#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSLICES + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
+#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSECTORS + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
 #endif
     for (unsigned int ii = 0; ii < clusters.nSliceRows; ii++) {
       unsigned int i = ii / GPUCA_ROW_COUNT;
@@ -230,9 +230,9 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       int myThread = 0;
 #endif
       unsigned int count = 0;
-      const float x = mParam->tpcGeometry.Row2X(j);
+      const float x = GPUTPCGeometry::Row2X(j);
       auto checker = [i, j, firstIR, totalT, x, this, &preCl, &count, &outBuffer = tmpBuffer[myThread], &rejectHits, &clustersFiltered](const o2::tpc::ClusterNative& cl, unsigned int k) {
-        const float y = mParam->tpcGeometry.LinearPad2Y(i, j, cl.getPad());
+        const float y = GPUTPCGeometry::LinearPad2Y(i, j, cl.getPad());
         const float r = sqrtf(x * x + y * y);
         const float maxz = r * mEtaFactor + mMaxZ;
         const unsigned int deltaBC = std::max<float>(0.f, totalT - mFastTransform->convDeltaZtoDeltaTimeInTimeFrameAbs(maxz)) * constants::LHCBCPERTIMEBIN;

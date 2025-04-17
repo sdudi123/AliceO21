@@ -47,6 +47,7 @@
 #include "GPUO2Interface.h" // Needed for propper settings in GPUParam.h
 #include "GPUParam.h"
 #include "GPUParam.inc"
+#include "GPUTPCGeometry.h"
 #include "Steer/MCKinematicsReader.h"
 #include "MathUtils/fit.h"
 #include <TF1.h>
@@ -300,6 +301,11 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
       trc.getClusterReference(clRefs, trc.getNClusterReferences() - 1, clSect, clRow, clIdx);
       trExt.rowMinTPC = clRow;
       const auto& clus = tpcClusAcc.clusters[clSect][clRow][clIdx];
+      trExt.padFromEdge = uint8_t(clus.getPad());
+      int npads = o2::gpu::GPUTPCGeometry::NPads(clRow);
+      if (trExt.padFromEdge > npads / 2) {
+        trExt.padFromEdge = npads - 1 - trExt.padFromEdge;
+      }
       this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos0[0], trExt.innerTPCPos0[1], trExt.innerTPCPos0[2], trc.getTime0()); // nominal time of the track
       if (timestampTB > -1e8) {
         this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos[0], trExt.innerTPCPos[1], trExt.innerTPCPos[2], timestampTB); // time assigned from the global track track
@@ -586,9 +592,8 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           pr.nshTPCRow = shinfo.second;
         }
       }
+      (*mDBGOut) << "pairs" << "pr=" << trcPairsVec << "\n";
     }
-    (*mDBGOut) << "pairs"
-               << "pr=" << trcPairsVec << "\n";
   }
 
   int nvtot = mMaxNeighbours < 0 ? -1 : (int)pveVec.size();

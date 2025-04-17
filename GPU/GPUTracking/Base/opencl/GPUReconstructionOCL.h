@@ -37,10 +37,8 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
 
   int32_t InitDevice_Runtime() override;
   int32_t ExitDevice_Runtime() override;
-  void UpdateAutomaticProcessingSettings() override;
 
-  int32_t GPUFailedMsgAI(const int64_t error, const char* file, int32_t line);
-  void GPUFailedMsgA(const int64_t error, const char* file, int32_t line);
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override;
 
   void SynchronizeGPU() override;
   int32_t DoStuckProtection(int32_t stream, deviceEvent event) override;
@@ -55,26 +53,29 @@ class GPUReconstructionOCLBackend : public GPUReconstructionDeviceBase
   void ReleaseEvent(deviceEvent ev) override;
   void RecordMarker(deviceEvent* ev, int32_t stream) override;
 
-  virtual bool ContextForAllPlatforms() { return false; }
-
   template <class T, int32_t I = 0>
-  int32_t AddKernel(bool multi = false);
-  template <class T, int32_t I = 0>
-  uint32_t FindKernel(int32_t num);
-  template <typename K, typename... Args>
-  int32_t runKernelBackendInternal(const krnlSetupTime& _xyz, K& k, const Args&... args);
-  template <class T, int32_t I = 0>
-  gpu_reconstruction_kernels::krnlProperties getKernelPropertiesBackend();
+  int32_t AddKernel();
+  template <class T, int32_t I = 0, typename... Args>
+  void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
 
   GPUReconstructionOCLInternals* mInternals;
+  float mOclVersion;
 
   template <class T, int32_t I = 0, typename... Args>
-  int32_t runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
-  template <class S, class T, int32_t I, bool MULTI>
+  void runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
+  template <class S, class T, int32_t I>
   S& getKernelObject();
 
   int32_t GetOCLPrograms();
-  bool CheckPlatform(uint32_t i);
+
+ private:
+  static const char* convertErrorToString(int32_t errorCode);
+  template <typename T, typename... Args>
+  static inline int64_t OCLsetKernelParameters_helper(cl_kernel& kernel, int32_t i, const T& firstParameter, const Args&... restOfParameters);
+  template <typename... Args>
+  static int64_t OCLsetKernelParameters(cl_kernel& kernel, const Args&... args);
+  static int64_t clExecuteKernelA(cl_command_queue queue, cl_kernel krnl, size_t local_size, size_t global_size, cl_event* pEvent = nullptr, cl_event* wait = nullptr, cl_int nWaitEvents = 1);
+  int32_t AddKernels();
 };
 
 using GPUReconstructionOCL = GPUReconstructionKernels<GPUReconstructionOCLBackend>;
