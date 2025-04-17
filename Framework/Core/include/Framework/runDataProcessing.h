@@ -26,7 +26,9 @@
 #include "Framework/CustomWorkflowTerminationHook.h"
 #include "Framework/CommonServices.h"
 #include "Framework/WorkflowCustomizationHelpers.h"
+#include "Framework/WorkflowDefinitionContext.h"
 #include "Framework/Logger.h"
+#include "Framework/Plugins.h"
 #include "Framework/CheckTypes.h"
 #include "Framework/StructToTuple.h"
 #include "ResourcePolicy.h"
@@ -125,16 +127,7 @@ void overrideCloning(o2::framework::ConfigContext& ctx, std::vector<o2::framewor
 void overrideLabels(o2::framework::ConfigContext& ctx, std::vector<o2::framework::DataProcessorSpec>& workflow);
 
 // This comes from the framework itself. This way we avoid code duplication.
-int doMain(int argc, char** argv, o2::framework::WorkflowSpec const& specs,
-           std::vector<o2::framework::ChannelConfigurationPolicy> const& channelPolicies,
-           std::vector<o2::framework::CompletionPolicy> const& completionPolicies,
-           std::vector<o2::framework::DispatchPolicy> const& dispatchPolicies,
-           std::vector<o2::framework::ResourcePolicy> const& resourcePolicies,
-           std::vector<o2::framework::CallbacksPolicy> const& callbacksPolicies,
-           std::vector<o2::framework::SendingPolicy> const& sendingPolicies,
-           std::vector<o2::framework::ConfigParamSpec> const& workflowOptions,
-           std::vector<o2::framework::ConfigParamSpec> const& detectedOptions,
-           o2::framework::ConfigContext& configContext);
+int doMain(int argc, char** argv, o2::framework::WorkflowDefinitionContext& context, o2::framework::ConfigContext& configContext);
 
 void doDefaultWorkflowTerminationHook();
 
@@ -167,55 +160,44 @@ void callWorkflowTermination(T&, char const* idstring)
 
 void overrideAll(o2::framework::ConfigContext& ctx, std::vector<o2::framework::DataProcessorSpec>& workflow);
 
-o2::framework::ConfigContext createConfigContext(std::unique_ptr<o2::framework::ConfigParamRegistry>& workflowOptionsRegistry,
-                                                 o2::framework::ServiceRegistry& configRegistry,
-                                                 std::vector<o2::framework::ConfigParamSpec>& workflowOptions,
-                                                 std::vector<o2::framework::ConfigParamSpec>& extraOptions, int argc, char** argv);
+std::unique_ptr<o2::framework::ConfigContext> createConfigContext(std::unique_ptr<o2::framework::ConfigParamRegistry>& workflowOptionsRegistry,
+                                                                  o2::framework::ServiceRegistry& configRegistry,
+                                                                  std::vector<o2::framework::ConfigParamSpec>& workflowOptions,
+                                                                  std::vector<o2::framework::ConfigParamSpec>& extraOptions, int argc, char** argv);
 
 std::unique_ptr<o2::framework::ServiceRegistry> createRegistry();
 
-int mainNoCatch(int argc, char** argv)
+char* getIdString(int argc, char** argv);
+
+#define STRINGIZE_NX(A) #A
+#define STRINGIZE(A) STRINGIZE_NX(A)
+
+// This is to allow the old "executable" based behavior
+// Each executable will contain a plugin called InternalWorkflow
+// In case one wants to use the new DSO based approach, the
+// name of the plugin an the library name where it is located
+// will have to be specified at build time.
+#ifndef DPL_WORKFLOW_PLUGIN_NAME
+#define DPL_WORKFLOW_PLUGIN_NAME InternalCustomWorkflow
+#ifdef DPL_WORKFLOW_PLUGIN_LIBRARY
+#error Missing DPL_WORKFLOW_PLUGIN_NAME
+#endif
+#define DPL_WORKFLOW_PLUGIN_LIBRARY
+#endif
+
+consteval char const* pluginName()
 {
-  using namespace o2::framework;
-
-  std::vector<o2::framework::ConfigParamSpec> workflowOptions;
-  UserCustomizationsHelper::userDefinedCustomization(workflowOptions);
-  auto requiredWorkflowOptions = WorkflowCustomizationHelpers::requiredWorkflowOptions();
-  workflowOptions.insert(std::end(workflowOptions), std::begin(requiredWorkflowOptions), std::end(requiredWorkflowOptions));
-
-  std::vector<CompletionPolicy> completionPolicies = injectCustomizations<CompletionPolicy>();
-  std::vector<DispatchPolicy> dispatchPolicies = injectCustomizations<DispatchPolicy>();
-  std::vector<ResourcePolicy> resourcePolicies = injectCustomizations<ResourcePolicy>();
-  std::vector<CallbacksPolicy> callbacksPolicies = injectCustomizations<CallbacksPolicy>();
-  std::vector<SendingPolicy> sendingPolicies = injectCustomizations<SendingPolicy>();
-
-  std::unique_ptr<ServiceRegistry> configRegistry = createRegistry();
-  std::vector<ConfigParamSpec> extraOptions;
-  std::unique_ptr<ConfigParamRegistry> workflowOptionsRegistry{nullptr};
-  auto configContext = createConfigContext(workflowOptionsRegistry, *configRegistry, workflowOptions, extraOptions, argc, argv);
-
-  o2::framework::WorkflowSpec specs = defineDataProcessing(configContext);
-  overrideAll(configContext, specs);
-  for (auto& spec : specs) {
-    UserCustomizationsHelper::userDefinedCustomization(spec.requiredServices);
-  }
-  std::vector<ChannelConfigurationPolicy> channelPolicies;
-  UserCustomizationsHelper::userDefinedCustomization(channelPolicies);
-  auto defaultChannelPolicies = ChannelConfigurationPolicy::createDefaultPolicies(configContext);
-  channelPolicies.insert(std::end(channelPolicies), std::begin(defaultChannelPolicies), std::end(defaultChannelPolicies));
-  return doMain(argc, argv, specs,
-                channelPolicies, completionPolicies, dispatchPolicies,
-                resourcePolicies, callbacksPolicies, sendingPolicies, workflowOptions, extraOptions, configContext);
+  return STRINGIZE(DPL_WORKFLOW_PLUGIN_LIBRARY) ":" STRINGIZE(DPL_WORKFLOW_PLUGIN_NAME);
 }
 
-int callMain(int argc, char** argv, int (*)(int, char**));
-char* getIdString(int argc, char** argv);
+// Executables behave this way
+int callMain(int argc, char** argv, char const* pluginName);
 
 int main(int argc, char** argv)
 {
   using namespace o2::framework;
 
-  int result = callMain(argc, argv, mainNoCatch);
+  int result = callMain(argc, argv, pluginName());
 
   char* idstring = getIdString(argc, argv);
   o2::framework::OnWorkflowTerminationHook onWorkflowTerminationHook;
@@ -223,4 +205,52 @@ int main(int argc, char** argv)
 
   return result;
 }
+
+struct WorkflowDefinition {
+  std::function<o2::framework::WorkflowDefinitionContext(int argc, char** argv)> defineWorkflow;
+};
+
+struct DPL_WORKFLOW_PLUGIN_NAME : o2::framework::WorkflowPlugin {
+  o2::framework::WorkflowDefinition* create() override
+  {
+    return new o2::framework::WorkflowDefinition{
+      .defineWorkflow = [](int argc, char** argv) -> o2::framework::WorkflowDefinitionContext {
+        using namespace o2::framework;
+        WorkflowDefinitionContext workflowContext;
+
+        UserCustomizationsHelper::userDefinedCustomization(workflowContext.workflowOptions);
+        auto requiredWorkflowOptions = WorkflowCustomizationHelpers::requiredWorkflowOptions();
+        workflowContext.workflowOptions.insert(std::end(workflowContext.workflowOptions), std::begin(requiredWorkflowOptions), std::end(requiredWorkflowOptions));
+
+        workflowContext.completionPolicies = injectCustomizations<CompletionPolicy>();
+        workflowContext.dispatchPolicies = injectCustomizations<DispatchPolicy>();
+        workflowContext.resourcePolicies = injectCustomizations<ResourcePolicy>();
+        workflowContext.callbacksPolicies = injectCustomizations<CallbacksPolicy>();
+        workflowContext.sendingPolicies = injectCustomizations<SendingPolicy>();
+
+        workflowContext.configRegistry = createRegistry();
+        workflowContext.configContext = createConfigContext(workflowContext.workflowOptionsRegistry, *workflowContext.configRegistry, workflowContext.workflowOptions, workflowContext.extraOptions, argc, argv);
+
+        workflowContext.specs = defineDataProcessing(*workflowContext.configContext);
+        overrideAll(*workflowContext.configContext, workflowContext.specs);
+        for (auto& spec : workflowContext.specs) {
+          UserCustomizationsHelper::userDefinedCustomization(spec.requiredServices);
+        }
+        UserCustomizationsHelper::userDefinedCustomization(workflowContext.channelPolicies);
+        auto defaultChannelPolicies = ChannelConfigurationPolicy::createDefaultPolicies(*workflowContext.configContext);
+        workflowContext.channelPolicies.insert(std::end(workflowContext.channelPolicies), std::begin(defaultChannelPolicies), std::end(defaultChannelPolicies));
+        return workflowContext;
+      }};
+  }
+};
+
+// This is like the plugin macros, we simply do it explicitly to avoid macro inside macro expansion
+extern "C" {
+DPLPluginHandle* dpl_plugin_callback(DPLPluginHandle* previous)
+{
+  previous = new DPLPluginHandle{new DPL_WORKFLOW_PLUGIN_NAME{}, strdup(STRINGIZE(DPL_WORKFLOW_PLUGIN_NAME)), o2::framework::DplPluginKind::Workflow, previous};
+  return previous;
+}
+}
+
 #endif

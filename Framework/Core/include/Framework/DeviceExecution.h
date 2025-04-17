@@ -8,26 +8,25 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef FRAMEWORK_DEVICEEXECUTION_H
-#define FRAMEWORK_DEVICEEXECUTION_H
+#ifndef O2_FRAMEWORK_DEVICEEXECUTION_H_
+#define O2_FRAMEWORK_DEVICEEXECUTION_H_
 
 #include <vector>
 
-namespace o2
-{
-namespace framework
+namespace o2::framework
 {
 
 /// This  represent one  single  execution of  a Device.  It's  meant to  hold
 /// information which  can change between  one execution  of a Device  and the
 /// other, e.g. the executable name or the arguments it is started with.
 struct DeviceExecution {
+  std::string plugin;
   /// The options passed to a given device
   std::vector<char*> args;
   /// The environment to be passed to a given device
   std::vector<char*> environ;
 };
 
-} // namespace framework
-} // namespace o2
-#endif
+} // namespace o2::framework
+
+#endif // O2_FRAMEWORK_DEVICEEXECUTION_H_

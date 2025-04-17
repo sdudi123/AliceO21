@@ -26,6 +26,7 @@ O2_DECLARE_DYNAMIC_LOG(completion);
 O2_DECLARE_DYNAMIC_LOG(monitoring_service);
 O2_DECLARE_DYNAMIC_LOG(data_processor_context);
 O2_DECLARE_DYNAMIC_LOG(stream_context);
+O2_DECLARE_DYNAMIC_LOG(driver_client);
 
 namespace o2::framework
 {
@@ -49,8 +50,8 @@ struct ClientWebSocketHandler : public WebSocketHandler {
     mClient.dispatch(std::string_view(frame, s));
   }
 
-  void endFragmentation() override{};
-  void control(char const* frame, size_t s) override{};
+  void endFragmentation() override {};
+  void control(char const* frame, size_t s) override {};
 
   /// Invoked at the beginning of some incoming data. We simply
   /// reset actions which need to happen on a per chunk basis.
@@ -232,6 +233,8 @@ WSDriverClient::WSDriverClient(ServiceRegistryRef registry, char const* ip, unsi
   connection->data = context;
 
   struct sockaddr_in dest;
+  O2_SIGNPOST_ID_FROM_POINTER(wsid, driver_client, &state);
+  O2_SIGNPOST_EVENT_EMIT(driver_client, wsid, "WSDriverClient", "Connecting on port %d", port);
   uv_ip4_addr(strdup(ip), port, &dest);
   uv_tcp_connect(connection, socket, (const struct sockaddr*)&dest, on_connect);
 

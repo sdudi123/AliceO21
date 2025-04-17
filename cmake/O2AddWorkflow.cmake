@@ -35,10 +35,25 @@ function(o2_add_dpl_workflow baseTargetName)
     message(FATAL_ERROR "Got trailing arguments ${A_UNPARSED_ARGUMENTS}")
   endif()
 
-  o2_add_executable(${baseTargetName}
-    COMPONENT_NAME ${A_COMPONENT_NAME} TARGETVARNAME targetExeName
+  string(REGEX REPLACE "(^|-)([a-z])" "\\2" pluginName "${baseTargetName}")
+
+  o2_add_library(${pluginName}Plugin
     SOURCES ${A_SOURCES}
     PUBLIC_LINK_LIBRARIES O2::Framework ${A_PUBLIC_LINK_LIBRARIES})
+
+  o2_add_executable(${baseTargetName}
+    COMPONENT_NAME ${A_COMPONENT_NAME} TARGETVARNAME targetExeName
+    SOURCES ${CMAKE_SOURCE_DIR}/Framework/Core/src/runDataProcessingPlugin.cxx
+    PUBLIC_LINK_LIBRARIES O2::Framework )
+
+  o2_name_target(${pluginName}Plugin NAME pluginTargetName)
+
+  add_dependencies(${targetExeName} ${pluginTargetName})
+
+  target_compile_definitions(${targetExeName} PRIVATE DPL_WORKFLOW_PLUGIN_NAME=${pluginName}
+                                                      DPL_WORKFLOW_PLUGIN_LIBRARY=O2${pluginName}Plugin)
+  target_compile_definitions(${pluginTargetName} PRIVATE DPL_WORKFLOW_PLUGIN_NAME=${pluginName}
+                                                         DPL_WORKFLOW_PLUGIN_LIBRARY=O2${pluginName}Plugin)
 
   if(A_TARGETVARNAME)
     set(${A_TARGETVARNAME}

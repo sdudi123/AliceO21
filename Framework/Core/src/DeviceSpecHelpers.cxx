@@ -1566,6 +1566,7 @@ void DeviceSpecHelpers::prepareArguments(bool defaultQuiet, bool defaultStopped,
         realOdesc.add_options()("early-forward-policy", bpo::value<std::string>());
         realOdesc.add_options()("session", bpo::value<std::string>());
         realOdesc.add_options()("signposts", bpo::value<std::string>());
+        realOdesc.add_options()("workflow-plugin", bpo::value<std::string>());
         filterArgsFct(expansions.we_wordc, expansions.we_wordv, realOdesc);
         wordfree(&expansions);
         return;
@@ -1711,6 +1712,8 @@ void DeviceSpecHelpers::prepareArguments(bool defaultQuiet, bool defaultStopped,
     }
     O2_SIGNPOST_END(device_spec_helpers, poid, "prepareArguments", "The following options are being forwarded to %{public}s: %{public}s",
                     spec.id.c_str(), str.str().c_str());
+    // Copy the plugin over from the DataProcessingInfo
+    execution.plugin = pi->plugin;
   }
 }
 
@@ -1755,6 +1758,7 @@ boost::program_options::options_description DeviceSpecHelpers::getForwardedDevic
     ("network-interface", bpo::value<std::string>(), "network interface to which to bind tpc fmq ports without specified address")                                   //
     ("early-forward-policy", bpo::value<EarlyForwardPolicy>()->default_value(EarlyForwardPolicy::NEVER), "when to forward early the messages: never, noraw, always") //
     ("configuration,cfg", bpo::value<std::string>(), "configuration connection string")                                                                              //
+    ("workflow-plugin", bpo::value<std::string>(), "workflow configuration plugin")                                                                                  //
     ("driver-client-backend", bpo::value<std::string>(), "driver connection string")                                                                                 //
     ("monitoring-backend", bpo::value<std::string>(), "monitoring connection string")                                                                                //
     ("dpl-stats-min-online-publishing-interval", bpo::value<std::string>(), "minimum flushing interval for online metrics (in s)")                                   //
