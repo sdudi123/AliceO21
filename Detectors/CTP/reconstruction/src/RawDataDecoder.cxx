@@ -638,7 +638,7 @@ int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits,
     for (int i = 0; i < digit.CTPClassMask.size(); i++) {
       if (digit.CTPClassMask[i] & trgclassmask) {
         const CTPClass* cls = mCTPConfig.getCTPClassFromHWIndex(i);
-        if(cls == nullptr) {
+        if (cls == nullptr) {
           LOG(error) << "Class mask index not found in CTP config:" << i;
           ret = 128;
           continue;
