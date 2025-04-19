@@ -205,10 +205,12 @@ void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInf
   memInfo = (Ort::MemoryInfo*)mockedAlloc->Info();
 }
 
-const OrtMemoryInfo* GPUTPCNNClusterizerHost::getMockedMemoryInfo() {
+const OrtMemoryInfo* GPUTPCNNClusterizerHost::getMockedMemoryInfo()
+{
   return mockedAlloc->Info();
 }
 
-MockedOrtAllocator* GPUTPCNNClusterizerHost::getMockedAllocator() {
+MockedOrtAllocator* GPUTPCNNClusterizerHost::getMockedAllocator()
+{
   return mockedAlloc.get();
 }
