@@ -42,7 +42,6 @@
 #ifdef GPUCA_HAS_ONNX
 #include "GPUTPCNNClusterizerKernels.h"
 #include "GPUTPCNNClusterizerHost.h"
-// #include "ML/3rdparty/GPUORTFloat16.h"
 #endif
 
 using namespace o2::gpu;
@@ -628,6 +627,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     int32_t deviceId = -1;
     int32_t numLanes = GetProcessingSettings().nTPCClustererLanes;
     int32_t maxThreads = mRec->getNKernelHostThreads(true);
+    // bool recreateMemoryAllocator = false;
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
       nnApplications[lane].init(nn_settings);
       if (nnApplications[lane].modelsUsed[0]) {
@@ -637,7 +637,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
           nnApplications[lane].model_class.setIntraOpNumThreads(maxThreads);
         }
         (nnApplications[lane].model_class).initEnvironment();
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_class).getEnv(), (nnApplications[lane].model_class).getMemoryInfo(), mRec, 0);
+        // Registering this once seems to be enough, even with different environmnents / models. ONNX apparently uses this per device and stores the OrtAllocator internally. All models will then use the volatile allocation.
+        // But environment must be valid, so we init the model environment first and use it here afterwards.
+        // Either this is done in one environment with lane == 0 or by recreating the allocator using recreateMemoryAllocator.
+        // TODO: Volatile allocation works for reserving, but not yet for allocations when binding the input tensor
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_class).getEnv(), (nnApplications[lane].model_class).getMemoryInfo(), mRec, recreateMemoryAllocator);
+        // recreateMemoryAllocator = true;
         (nnApplications[lane].model_class).initSession();
       }
       if (nnApplications[lane].modelsUsed[1]) {
@@ -648,7 +653,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         }
         // (nnApplications[lane].model_reg_1).setEnv((nnApplications[lane].model_class).getEnv());
         (nnApplications[lane].model_reg_1).initEnvironment();
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_reg_1).getEnv(), (nnApplications[lane].model_reg_1).getMemoryInfo(), mRec, 1);
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_reg_1).getEnv(), (nnApplications[lane].model_reg_1).getMemoryInfo(), mRec, recreateMemoryAllocator);
         (nnApplications[lane].model_reg_1).initSession();
       }
       if (nnApplications[lane].modelsUsed[2]) {
@@ -657,9 +662,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
         if (nnApplications[lane].model_reg_2.getIntraOpNumThreads() > maxThreads) {
           nnApplications[lane].model_reg_2.setIntraOpNumThreads(maxThreads);
         }
-        // (nnApplications[lane].model_reg_2).setEnv((nnApplications[lane].model_class).getEnv());
         (nnApplications[lane].model_reg_2).initEnvironment();
-        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_reg_2).getEnv(), (nnApplications[lane].model_reg_2).getMemoryInfo(), mRec, 2);
+        // nnApplications[lane].volatileOrtAllocator((nnApplications[lane].model_class).getEnv(), (nnApplications[lane].model_class).getMemoryInfo(), mRec, recreateMemoryAllocator);
         (nnApplications[lane].model_reg_2).initSession();
       }
       if (nn_settings.nnClusterizerVerbosity < 3) {
@@ -685,6 +689,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     if (doGPU) {
       WriteToConstantMemory(RecoStep::TPCClusterFinding, (char*)&processors()->tpcNNClusterer - (char*)processors(), &processorsShadow()->tpcNNClusterer, sizeof(GPUTPCNNClusterizer) * NSECTORS, mRec->NStreams() - 1, &mEvents->init);
     }
+    LOG(info) << "Size of nnApplications[lane]: " << sizeof(nnApplications[0]) << " bytes";
+    LOG(info) << "Size of nnApplications: " << sizeof(GPUTPCNNClusterizerHost) * GetProcessingSettings().nTPCClustererLanes << " bytes";
   }
 #endif
 
@@ -966,8 +972,8 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
 
             auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.nnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, batchStart); // Filling the data
-            // auto stop0 = std::chrono::high_resolution_clock::now();
 
+            // auto stop0 = std::chrono::high_resolution_clock::now();
             // auto start1 = std::chrono::high_resolution_clock::now();
 
             // NN evaluations
@@ -1048,12 +1054,12 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             // time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
             // time_fill += std::chrono::duration_cast<std::chrono::nanoseconds>(stop0 - start0).count() / 1e9;
           }
-          // if (clustererNNShadow.nnClusterizerUseCfRegression) {
-          //   auto start1 = std::chrono::high_resolution_clock::now();
-          //   runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
-          //   auto stop1 = std::chrono::high_resolution_clock::now();
-          //   time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
-          // }
+          if (clustererNNShadow.nnClusterizerUseCfRegression) {
+            // auto start1 = std::chrono::high_resolution_clock::now();
+            runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::runCfClusterizer>({GetGrid(clusterer.mPmemory->counters.nClusters, lane), krnlRunRangeNone}, iSector, clustererNNShadow.nnInferenceInputDType, withMC, 0); // Running the CF regression kernel - no batching needed: batchStart = 0
+            // auto stop1 = std::chrono::high_resolution_clock::now();
+            // time_clusterizer += std::chrono::duration_cast<std::chrono::nanoseconds>(stop1 - start1).count() / 1e9;
+          }
           // if (clustererNNShadow.nnClusterizerVerbosity < 3) {
           //   int acceptedClusters = 0;
           //   for (size_t i = 0; i < clusterer.mPmemory->counters.nClusters; ++i) {

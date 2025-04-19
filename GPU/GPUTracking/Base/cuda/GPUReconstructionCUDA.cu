@@ -655,7 +655,7 @@ void GPUReconstructionCUDA::endGPUProfiling()
 
 void GPUReconstructionCUDA::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
 {
-#if defined(ORT_CUDA_BUILD) && ORT_CUDA_BUILD == 1
+#ifdef ORT_CUDA_BUILD
   cudaGetDevice(deviceId);
   OrtCUDAProviderOptionsV2* cuda_options = nullptr;
   CreateCUDAProviderOptions(&cuda_options);
@@ -684,7 +684,7 @@ void* GPUReconstructionHIP::getGPUPointer(void* ptr)
 
 void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId)
 {
-#if defined(ORT_ROCM_BUILD) && ORT_ROCM_BUILD == 1
+#ifdef ORT_ROCM_BUILD
   // Create ROCm provider options
   cudaGetDevice(deviceId);
   // const auto& api = Ort::GetApi();
@@ -692,6 +692,7 @@ void GPUReconstructionHIP::SetONNXGPUStream(Ort::SessionOptions& session_options
   OrtROCMProviderOptions rocm_options;
   rocm_options.has_user_compute_stream = 1; // Indicate that we are passing a user stream
   rocm_options.arena_extend_strategy = 0;   // kNextPowerOfTwo = 0, kSameAsRequested = 1 -> https://github.com/search?q=repo%3Amicrosoft%2Fonnxruntime%20kSameAsRequested&type=code
+  // rocm_options.gpu_mem_limit = 1073741824; // 0 means no limit
   rocm_options.user_compute_stream = mInternals->Streams[stream];
   session_options.AppendExecutionProvider_ROCM(rocm_options);
 #endif // ORT_ROCM_BUILD

@@ -144,7 +144,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     (pImplOrt->runOptions).AddConfigEntry("disable_synchronize_execution_providers", "1");
     (pImplOrt->sessionOptions).AddConfigEntry("session.use_device_allocator_for_initializers", "1"); // See kOrtSessionOptionsUseDeviceAllocatorForInitializers, https://github.com/microsoft/onnxruntime/blob/main/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h
     (pImplOrt->sessionOptions).AddConfigEntry("session.use_env_allocators", "1");                    // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
-
+    (pImplOrt->sessionOptions).AddConfigEntry("session_options.enable_cpu_mem_arena", "0");                    // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     // Arena memory shrinkage comes at performance cost
     /// For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
     // (pImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
@@ -158,7 +158,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     }
     pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
     if (loggingLevel < 2) {
-      LOG(info) << "(ORT) Memory info set to on-device memory for device type " << deviceType << " with ID " << deviceIndex;
+      LOG(info) << "(ORT) Memory info set to on-device memory for device type " << deviceType << " with ID " << deviceIndex << " and pImplOrt pointer " << pImplOrt;
     }
   }
 #endif

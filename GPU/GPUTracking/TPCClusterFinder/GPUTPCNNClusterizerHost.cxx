@@ -54,7 +54,8 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
     {"enable-optimizations", std::to_string(settings.nnInferenceEnableOrtOptimization)},
     {"enable-profiling", std::to_string(settings.nnInferenceOrtProfiling)},
     {"profiling-output-path", settings.nnInferenceOrtProfilingPath},
-    {"logging-level", std::to_string(settings.nnInferenceVerbosity)}};
+    {"logging-level", std::to_string(settings.nnInferenceVerbosity)},
+    {"onnx-environment-name", "c1"}};
 
   model_class.initOptions(OrtOptions);
   modelsUsed[0] = true;
@@ -64,13 +65,16 @@ void GPUTPCNNClusterizerHost::init(const GPUSettingsProcessingNNclusterizer& set
   if (!settings.nnClusterizerUseCfRegression) {
     if (reg_model_paths.size() == 1) {
       OrtOptions["model-path"] = reg_model_paths[0];
+      OrtOptions["onnx-environment-name"] = "r1";
       model_reg_1.initOptions(OrtOptions);
       modelsUsed[1] = true;
     } else {
       OrtOptions["model-path"] = reg_model_paths[0];
+      OrtOptions["onnx-environment-name"] = "r1";
       model_reg_1.initOptions(OrtOptions);
       modelsUsed[1] = true;
       OrtOptions["model-path"] = reg_model_paths[1];
+      OrtOptions["onnx-environment-name"] = "r2";
       model_reg_2.initOptions(OrtOptions);
       modelsUsed[2] = true;
     }
@@ -154,16 +158,19 @@ MockedOrtAllocator::~MockedOrtAllocator()
 
 void* MockedOrtAllocator::Alloc(size_t size)
 {
+  // LOG(info) << "(ORT) Allocating volatile memory of size " << size << " bytes";
   return rec->AllocateVolatileDeviceMemory(size);
 }
 
 void* MockedOrtAllocator::Reserve(size_t size)
 {
+  // LOG(info) << "(ORT) Reserving volatile memory of size " << size << " bytes";
   return rec->AllocateVolatileDeviceMemory(size);
 }
 
 void MockedOrtAllocator::Free(void* p)
 {
+  // LOG(info) << "(ORT) Freeing volatile memory " << p;
   rec->ReturnVolatileDeviceMemory();
 }
 
@@ -188,21 +195,20 @@ void MockedOrtAllocator::LeakCheck()
     LOG(warning) << "memory leak!!!";
 }
 
-void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, int32_t chooseMockedAlloc)
+void GPUTPCNNClusterizerHost::volatileOrtAllocator(Ort::Env* env, Ort::MemoryInfo* memInfo, GPUReconstruction* rec, bool recreate)
 {
-  if (chooseMockedAlloc == 0) {
-    mockedAlloc_class = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_class.get()));
-    LOG(info) << "(ORT) Mocked ORT allocator for classification network registered";
-  } else if (chooseMockedAlloc == 1) {
-    mockedAlloc_reg_1 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_1.get()));
-    LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 1) registered";
-  } else if (chooseMockedAlloc == 2) {
-    mockedAlloc_reg_2 = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)memInfo);
-    Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc_reg_2.get()));
-    LOG(info) << "(ORT) Mocked ORT allocator for regression network (class 2) registered";
-  } else {
-    LOG(fatal) << "Invalid choice for mocked allocator";
+  mockedAlloc = std::make_shared<MockedOrtAllocator>(rec, (OrtMemoryInfo*)(*memInfo));
+  if (recreate) {
+    Ort::ThrowOnError(Ort::GetApi().UnregisterAllocator((OrtEnv*)(*env), (OrtMemoryInfo*)(*memInfo)));
   }
+  Ort::ThrowOnError(Ort::GetApi().RegisterAllocator((OrtEnv*)(*env), mockedAlloc.get()));
+  memInfo = (Ort::MemoryInfo*)mockedAlloc->Info();
+}
+
+const OrtMemoryInfo* GPUTPCNNClusterizerHost::getMockedMemoryInfo() {
+  return mockedAlloc->Info();
+}
+
+MockedOrtAllocator* GPUTPCNNClusterizerHost::getMockedAllocator() {
+  return mockedAlloc.get();
 }
