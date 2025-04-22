@@ -12,7 +12,7 @@
 o2_add_library(TRKWorkflow
                SOURCES src/DigitReaderSpec.cxx
                        src/DigitWriterSpec.cxx
-                    #    src/RecoWorkflow.cxx
+                       src/RecoWorkflow.cxx
                     #    src/ClusterWriterWorkflow.cxx
                     #    src/ClustererSpec.cxx
                     #    src/ClusterWriterSpec.cxx
@@ -26,7 +26,9 @@ o2_add_library(TRKWorkflow
                                      O2::SimulationDataFormat
                                      O2::DPLUtils)
 
-# o2_add_executable(reco-workflow
-#                   SOURCES src/trk-reco-workflow.cxx
-#                   COMPONENT_NAME alice3-trk
-#                   PUBLIC_LINK_LIBRARIES O2::TRKWorkflow)
+o2_add_executable(reco-workflow
+                  SOURCES src/trk-reco-workflow.cxx
+                  COMPONENT_NAME alice3-trk
+                  PUBLIC_LINK_LIBRARIES O2::TRKWorkflow
+                                        O2::TRKSimulation
+                                        O2::ITStracking)
