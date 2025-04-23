@@ -113,7 +113,7 @@ set(HDRS_INSTALL
     Base/GPUReconstructionIO.h
     Base/GPUReconstructionIncludesITS.h
     Base/GPUReconstructionKernelMacros.h
-    Base/GPUReconstructionKernels.h
+    Base/GPUReconstructionCPUKernels.h
     DataCompression/GPUTPCClusterRejection.h
     DataCompression/GPUTPCCompressionKernels.inc
     DataCompression/TPCClusterDecompressionCore.inc
@@ -127,6 +127,7 @@ set(HDRS_INSTALL
     DataTypes/GPUTRDDef.h
     DataTypes/GPUTRDInterfaceO2Track.h
     DataTypes/GPUTriggerOutputs.h
+    DataTypes/GPUKernelClassesFwd.h
     Debug/GPUROOTDump.h
     Definitions/GPUDefConstantsAndSettings.h
     Definitions/GPUDefParametersWrapper.h
@@ -137,6 +138,7 @@ set(HDRS_INSTALL
     Definitions/GPULogging.h
     Definitions/GPUSettingsList.h
     Global/GPUChainTrackingDefs.h
+    Global/GPUChainTrackingGetters.inc
     Global/GPUErrorCodes.h
     Merger/GPUTPCGMBorderTrack.h
     Merger/GPUTPCGMMergedTrack.h
@@ -198,7 +200,7 @@ set(SRCS_NO_CINT ${SRCS_NO_CINT}
     Refit/GPUTrackingRefitKernel.cxx
     Merger/GPUTPCGMO2Output.cxx)
 
-if(NOT ALIGPU_BUILD_TYPE STREQUAL "Standalone")
+if(onnxruntime_FOUND)
   list(APPEND SRCS_NO_CINT TPCClusterFinder/GPUTPCNNClusterizerKernels.cxx TPCClusterFinder/GPUTPCNNClusterizer.cxx TPCClusterFinder/GPUTPCNNClusterizerHost.cxx)
 endif()
 
@@ -217,11 +219,11 @@ set(SRCS_NO_H ${SRCS_NO_H}
 
 set(HDRS_INSTALL ${HDRS_INSTALL}
                   ITS/GPUITSTrack.h
-                  TPCClusterFinder/Array2D.h
+                  TPCClusterFinder/CfArray2D.h
                   TPCClusterFinder/CfConsts.h
                   TPCClusterFinder/CfFragment.h
                   TPCClusterFinder/CfUtils.h
-                  TPCClusterFinder/ChargePos.h
+                  TPCClusterFinder/CfChargePos.h
                   Definitions/clusterFinderDefs.h
                   TPCClusterFinder/PackedCharge.h
                   TPCClusterFinder/GPUTPCCFChainContext.h)
@@ -247,14 +249,17 @@ foreach(TEMPLATE_FILE ${TEMPLATE_HEADER_LIST})
   file(GENERATE OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME} INPUT ${TEMPLATE_FILE})
   list(APPEND GENERATED_HEADERS_LIST ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/${OUTPUT_FILE_NAME})
 endforeach()
+set(GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,PREPEND,LB_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_PARAMS>,PREPEND,PAR_>,\n>\n")
+string(APPEND GPUDEFPARAMETERSLBLIST "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_STRING_PARAMS>,PREPEND,PAR_>,\n>")
 file(GENERATE
      OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
-     CONTENT "$<JOIN:$<LIST:TRANSFORM,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_NAMES>,REPLACE,[^A-Za-z0-9]+,_>,\n>"
-)
+     CONTENT ${GPUDEFPARAMETERSLBLIST})
 add_custom_command(
   OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
-  COMMAND awk "{print(\"#ifndef GPUCA_LB_\" $0 \"\\n#define GPUCA_LB_\" $0 \" 0\\n#endif\")}" ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase > ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
+  COMMAND awk "{print(\"#ifndef GPUCA_\" $0 \"\\n#define GPUCA_\" $0 \" 0\\n#endif\")}" ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase > ${CMAKE_CURRENT_BINARY_DIR}/include_gpu_onthefly/GPUDefParametersLoadPrepare.h
   COMMENT "Generating GPUDefParametersLoadPrepare.h"
+  DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/GPUDefParametersLoadPrepareBase
   VERBATIM
   COMMAND_EXPAND_LISTS
 )
@@ -345,7 +350,7 @@ if(ALIGPU_BUILD_TYPE STREQUAL "O2")
     ${targetName}
     PRIVATE $<TARGET_PROPERTY:O2::Framework,INTERFACE_INCLUDE_DIRECTORIES>)
 
-  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2 GPUCA_HAS_ONNX=1)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_O2_LIB GPUCA_TPC_GEOMETRY_O2)
 
   o2_target_root_dictionary(${MODULE}
                             HEADERS ${HDRS_CINT_O2} ${HDRS_CINT_O2_ADDITIONAL}
@@ -414,6 +419,11 @@ endif()
 target_link_libraries(${targetName} PRIVATE TBB::tbb)
 
 target_compile_options(${targetName} PRIVATE -Wno-instantiation-after-specialization)
+
+if (onnxruntime_FOUND)
+  target_compile_definitions(${targetName} PRIVATE GPUCA_HAS_ONNX=1)
+  target_link_libraries(${targetName} PRIVATE onnxruntime::onnxruntime)
+endif()
 
 # Add CMake recipes for GPU Tracking librararies
 if(CUDA_ENABLED OR OPENCL_ENABLED OR HIP_ENABLED)

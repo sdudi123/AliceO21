@@ -305,11 +305,11 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
       int32_t retVal;
       float threshold = 3.f + (lastUpdateX >= 0 ? (CAMath::Abs(mX - lastUpdateX) / 2) : 0.f);
       if (mNDF > 5 && (CAMath::Abs(yy - mP[0]) > threshold || CAMath::Abs(zz - mP[1]) > threshold)) {
-        retVal = GPUTPCGMPropagator::updateErrorClusterRejected;
+        retVal = GPUTPCGMPropagator::updateErrorClusterRejectedDistance;
       } else {
         int8_t rejectChi2 = attempt ? 0 : ((param.rec.tpc.mergerInterpolateErrors && CAMath::Abs(ihit - ihitMergeFirst) <= 1) ? (refit ? (GPUTPCGMPropagator::rejectInterFill + ((nWays - iWay) & 1)) : 0) : (allowModification && goodRows > 5));
 #if EXTRACT_RESIDUALS == 1
-        if (iWay == nWays - 1 && interpolation.hit[ihit].errorY > (GPUCA_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
+        if (iWay == nWays - 1 && interpolation.hit[ihit].errorY > (GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A)0) {
           const float Iz0 = interpolation.hit[ihit].posY - mP[0];
           const float Iz1 = interpolation.hit[ihit].posZ - mP[1];
           float Iw0 = mC[2] + (float)interpolation.hit[ihit].errorZ;
@@ -580,10 +580,8 @@ GPUd() float GPUTPCGMTrackParam::AttachClusters(const GPUTPCGMMerger* GPUrestric
   }
   const GPUTPCTracker& GPUrestrict() tracker = *(Merger -> GetConstantMem()->tpcTrackers + sector);
   const GPUTPCRow& GPUrestrict() row = tracker.Row(iRow);
-#ifndef GPUCA_TEXTURE_FETCH_CONSTRUCTOR
   GPUglobalref() const cahit2* hits = tracker.HitData(row);
   GPUglobalref() const calink* firsthit = tracker.FirstHitInBin(row);
-#endif //! GPUCA_TEXTURE_FETCH_CONSTRUCTOR
   if (row.NHits() == 0) {
     return -1e6f;
   }
@@ -626,17 +624,17 @@ GPUd() float GPUTPCGMTrackParam::AttachClusters(const GPUTPCGMMerger* GPUrestric
   }
   for (int32_t k = 0; k <= nz; k++) {
     const int32_t mybin = bin + k * nBinsY;
-    const uint32_t hitFst = CA_TEXTURE_FETCH(calink, gAliTexRefu, firsthit, mybin);
-    const uint32_t hitLst = CA_TEXTURE_FETCH(calink, gAliTexRefu, firsthit, mybin + ny + 1);
+    const uint32_t hitFst = firsthit[mybin];
+    const uint32_t hitLst = firsthit[mybin + ny + 1];
     for (uint32_t ih = hitFst; ih < hitLst; ih++) {
       int32_t id = idOffset + ids[ih];
       GPUAtomic(uint32_t)* const weight = weights + id;
-#if !defined(GPUCA_NO_ATOMIC_PRECHECK) && GPUCA_NO_ATOMIC_PRECHECK < 1
-      if (myWeight <= *weight) {
-        continue;
+      if constexpr (GPUCA_PAR_NO_ATOMIC_PRECHECK == 0) {
+        if (myWeight <= *weight) {
+          continue;
+        }
       }
-#endif
-      const cahit2 hh = CA_TEXTURE_FETCH(cahit2, gAliTexRefu2, hits, ih);
+      const cahit2 hh = hits[ih];
       const float y = y0 + hh.x * stepY;
       const float z = z0 + hh.y * stepZ;
       const float dy = y - uncorrectedY;
@@ -757,7 +755,8 @@ GPUdic(0, 1) int32_t GPUTPCGMTrackParam::FollowCircle(const GPUTPCGMMerger* GPUr
   if (Merger->Param().rec.tpc.disableRefitAttachment & 4) {
     return 1;
   }
-  if (Merger->Param().rec.tpc.looperInterpolationInExtraPass && phase2 == false) {
+  const bool inExtraPass = Merger->Param().rec.tpc.looperInterpolationInExtraPass == -1 ? GPUCA_PAR_MERGER_SPLIT_LOOP_INTERPOLATION : Merger->Param().rec.tpc.looperInterpolationInExtraPass;
+  if (inExtraPass && phase2 == false) {
     StoreAttachMirror(Merger, sector, iRow, iTrack, toAlpha, toY, toX, toSector, toRow, inFlyDirection, prop.GetAlpha());
     return 1;
   }
@@ -862,7 +861,8 @@ GPUdni() void GPUTPCGMTrackParam::AttachClustersMirror(const GPUTPCGMMerger* GPU
   if (Merger->Param().rec.tpc.disableRefitAttachment & 8) {
     return;
   }
-  if (Merger->Param().rec.tpc.looperInterpolationInExtraPass && phase2 == false) {
+  const bool inExtraPass = Merger->Param().rec.tpc.looperInterpolationInExtraPass == -1 ? GPUCA_PAR_MERGER_SPLIT_LOOP_INTERPOLATION : Merger->Param().rec.tpc.looperInterpolationInExtraPass;
+  if (inExtraPass && phase2 == false) {
     StoreAttachMirror(Merger, sector, iRow, iTrack, 0, toY, 0, -1, 0, 0, prop.GetAlpha());
     return;
   }

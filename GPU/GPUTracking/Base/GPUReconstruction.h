@@ -25,13 +25,13 @@
 #include <unordered_map>
 #include <unordered_set>
 
-#include "GPUTRDDef.h"
-#include "GPUParam.h"
-#include "GPUSettings.h"
-#include "GPUOutputControl.h"
+#include "GPUDataTypes.h"
 #include "GPUMemoryResource.h"
-#include "GPUConstantMem.h"
-#include "GPULogging.h"
+#include "GPUOutputControl.h"
+
+/*#include "GPUParam.h"
+#include "GPUSettings.h"
+#include "GPULogging.h"*/
 
 namespace o2::its
 {
@@ -48,6 +48,14 @@ struct GPUReconstructionPipelineContext;
 struct GPUReconstructionThreading;
 class GPUROOTDumpCore;
 class ThrustVolatileAllocator;
+struct GPUDefParameters;
+class GPUMemoryResource;
+struct GPUSettingsDeviceBackend;
+struct GPUSettingsGRP;
+struct GPUSettingsProcessing;
+struct GPUSettingsRec;
+struct GPUSettingsRecDynamic;
+struct GPUMemoryReuse;
 
 namespace gpu_reconstruction_kernels
 {
@@ -61,8 +69,6 @@ class GPUReconstruction
   class LibraryLoader; // These must be the first members to ensure correct destructor order!
   std::shared_ptr<LibraryLoader> mMyLib = nullptr;
   std::vector<GPUMemoryResource> mMemoryResources;
-  std::vector<std::unique_ptr<char[]>> mUnmanagedChunks;
-  std::vector<std::unique_ptr<char[]>> mVolatileChunks;
   std::vector<std::unique_ptr<GPUChain>> mChains;
 
  public:
@@ -158,9 +164,10 @@ class GPUReconstruction
 
   size_t AllocateRegisteredMemory(int16_t res, GPUOutputControl* control = nullptr);
   void AllocateRegisteredForeignMemory(int16_t res, GPUReconstruction* rec, GPUOutputControl* control = nullptr);
-  void* AllocateUnmanagedMemory(size_t size, int32_t type);
+  void* AllocateDirectMemory(size_t size, int32_t type);
   void* AllocateVolatileDeviceMemory(size_t size);
   void* AllocateVolatileMemory(size_t size, bool device);
+  void MakeFutureDeviceMemoryAllocationsVolatile();
   void FreeRegisteredMemory(GPUProcessor* proc, bool freeCustom = false, bool freePermanent = false);
   void FreeRegisteredMemory(int16_t res);
   void ClearAllocatedMemory(bool clearOutputs = true);
@@ -185,18 +192,20 @@ class GPUReconstruction
   bool slavesExist() { return mSlaves.size() || mMaster; }
 
   // Getters / setters for parameters
-  DeviceType GetDeviceType() const { return (DeviceType)mDeviceBackendSettings.deviceType; }
+  DeviceType GetDeviceType() const;
   bool IsGPU() const { return GetDeviceType() != DeviceType::INVALID_DEVICE && GetDeviceType() != DeviceType::CPU; }
-  const GPUParam& GetParam() const { return mHostConstantMem->param; }
+  const GPUParam& GetParam() const;
   const GPUConstantMem& GetConstantMem() const { return *mHostConstantMem; }
-  const GPUSettingsGRP& GetGRPSettings() const { return mGRPSettings; }
-  const GPUSettingsDeviceBackend& GetDeviceBackendSettings() { return mDeviceBackendSettings; }
-  const GPUSettingsProcessing& GetProcessingSettings() const { return mProcessingSettings; }
+  const GPUTrackingInOutPointers GetIOPtrs() const;
+  const GPUSettingsGRP& GetGRPSettings() const { return *mGRPSettings; }
+  const GPUSettingsDeviceBackend& GetDeviceBackendSettings() const { return *mDeviceBackendSettings; }
+  const GPUSettingsProcessing& GetProcessingSettings() const { return *mProcessingSettings; }
+  const GPUCalibObjectsConst& GetCalib() const;
   bool IsInitialized() const { return mInitialized; }
   void SetSettings(float solenoidBzNominalGPU, const GPURecoStepConfiguration* workflow = nullptr);
   void SetSettings(const GPUSettingsGRP* grp, const GPUSettingsRec* rec = nullptr, const GPUSettingsProcessing* proc = nullptr, const GPURecoStepConfiguration* workflow = nullptr);
-  void SetResetTimers(bool reset) { mProcessingSettings.resetTimers = reset; }     // May update also after Init()
-  void SetDebugLevelTmp(int32_t level) { mProcessingSettings.debugLevel = level; } // Temporarily, before calling SetSettings()
+  void SetResetTimers(bool reset);      // May update also after Init()
+  void SetDebugLevelTmp(int32_t level); // Temporarily, before calling SetSettings()
   void UpdateSettings(const GPUSettingsGRP* g, const GPUSettingsProcessing* p = nullptr, const GPUSettingsRecDynamic* d = nullptr);
   void UpdateDynamicSettings(const GPUSettingsRecDynamic* d);
   void SetOutputControl(const GPUOutputControl& v) { mOutputControl = v; }
@@ -205,6 +214,7 @@ class GPUReconstruction
   GPUOutputControl& OutputControl() { return mOutputControl; }
   uint32_t NStreams() const { return mNStreams; }
   const void* DeviceMemoryBase() const { return mDeviceMemoryBase; }
+  virtual const GPUDefParameters& getGPUParameters(bool doGPU) const = 0;
 
   RecoStepField GetRecoSteps() const { return mRecoSteps.steps; }
   RecoStepField GetRecoStepsGPU() const { return mRecoSteps.stepsGPUMask; }
@@ -239,7 +249,6 @@ class GPUReconstruction
   void FreeRegisteredMemory(GPUMemoryResource* res);
   GPUReconstruction(const GPUSettingsDeviceBackend& cfg); // Constructor
   int32_t InitPhaseBeforeDevice();
-  virtual void UpdateAutomaticProcessingSettings() {}
   virtual int32_t InitDevice() = 0;
   int32_t InitPhasePermanentMemory();
   int32_t InitPhaseAfterDevice();
@@ -271,6 +280,7 @@ class GPUReconstruction
   size_t ReadData(FILE* fp, const T** entries, S* num, std::unique_ptr<T[]>* mem, InOutPointerType type, T** nonConstPtrs = nullptr);
   template <class T>
   T* AllocateIOMemoryHelper(size_t n, const T*& ptr, std::unique_ptr<T[]>& u);
+  int16_t RegisterMemoryAllocationHelper(GPUProcessor* proc, void* (GPUProcessor::*setPtr)(void*), int32_t type, const char* name, const GPUMemoryReuse& re);
 
   // Private helper functions to dump / load flat objects
   template <class T>
@@ -291,17 +301,17 @@ class GPUReconstruction
   // Pointers to tracker classes
   GPUConstantMem* processors() { return mHostConstantMem.get(); }
   const GPUConstantMem* processors() const { return mHostConstantMem.get(); }
-  GPUParam& param() { return mHostConstantMem->param; }
+  GPUParam& param();
   std::unique_ptr<GPUConstantMem> mHostConstantMem;
   GPUConstantMem* mDeviceConstantMem = nullptr;
 
   // Settings
-  GPUSettingsGRP mGRPSettings;                          // Global Run Parameters
-  GPUSettingsDeviceBackend mDeviceBackendSettings;      // Processing Parameters (at constructor level)
-  GPUSettingsProcessing mProcessingSettings;            // Processing Parameters (at init level)
-  GPUOutputControl mOutputControl;                      // Controls the output of the individual components
-  GPUOutputControl mInputControl;                       // Prefefined input memory location for reading standalone dumps
-  std::unique_ptr<GPUMemorySizeScalers> mMemoryScalers; // Scalers how much memory will be needed
+  std::unique_ptr<GPUSettingsGRP> mGRPSettings;                     // Global Run Parameters
+  std::unique_ptr<GPUSettingsDeviceBackend> mDeviceBackendSettings; // Processing Parameters (at constructor level)
+  std::unique_ptr<GPUSettingsProcessing> mProcessingSettings;       // Processing Parameters (at init level)
+  GPUOutputControl mOutputControl;                                  // Controls the output of the individual components
+  GPUOutputControl mInputControl;                                   // Prefefined input memory location for reading standalone dumps
+  std::unique_ptr<GPUMemorySizeScalers> mMemoryScalers;             // Scalers how much memory will be needed
 
   GPURecoStepConfiguration mRecoSteps;
 
@@ -315,14 +325,15 @@ class GPUReconstruction
   void* mHostMemoryPoolBlocked = nullptr;   // Ptr to end of pool
   size_t mHostMemorySize = 0;               // Size of host memory buffer
   size_t mHostMemoryUsedMax = 0;            // Maximum host memory size used over time
-  void* mDeviceMemoryBase = nullptr;        //
-  void* mDeviceMemoryPermanent = nullptr;   //
-  void* mDeviceMemoryPool = nullptr;        //
-  void* mDeviceMemoryPoolEnd = nullptr;     //
-  void* mDeviceMemoryPoolBlocked = nullptr; //
-  size_t mDeviceMemorySize = 0;             //
+  void* mDeviceMemoryBase = nullptr;        // Same for device ...
+  void* mDeviceMemoryPermanent = nullptr;   // ...
+  void* mDeviceMemoryPool = nullptr;        // ...
+  void* mDeviceMemoryPoolEnd = nullptr;     // ...
+  void* mDeviceMemoryPoolBlocked = nullptr; // ...
+  size_t mDeviceMemorySize = 0;             // ...
+  size_t mDeviceMemoryUsedMax = 0;          // ...
   void* mVolatileMemoryStart = nullptr;     // Ptr to beginning of temporary volatile memory allocation, nullptr if uninitialized
-  size_t mDeviceMemoryUsedMax = 0;          //
+  bool mDeviceMemoryAsVolatile = false;     // Make device memory allocations volatile
 
   std::unordered_set<const void*> mRegisteredMemoryPtrs; // List of pointers registered for GPU
 
@@ -360,9 +371,15 @@ class GPUReconstruction
     GPUProcessor* proc = nullptr;
     std::vector<uint16_t> res;
   };
+  struct alignedDeleter {
+    void operator()(void* ptr) { ::operator delete(ptr, std::align_val_t(GPUCA_BUFFER_ALIGNMENT)); };
+  };
   std::unordered_map<GPUMemoryReuse::ID, MemoryReuseMeta> mMemoryReuse1to1;
-  std::vector<std::tuple<void*, void*, size_t, uint64_t>> mNonPersistentMemoryStack;
+  std::vector<std::tuple<void*, void*, size_t, size_t, uint64_t>> mNonPersistentMemoryStack; // hostPoolAddress, devicePoolAddress, individualAllocationCount, directIndividualAllocationCound, tag
   std::vector<GPUMemoryResource*> mNonPersistentIndividualAllocations;
+  std::vector<std::unique_ptr<char[], alignedDeleter>> mNonPersistentIndividualDirectAllocations;
+  std::vector<std::unique_ptr<char[], alignedDeleter>> mDirectMemoryChunks;
+  std::vector<std::unique_ptr<char[], alignedDeleter>> mVolatileChunks;
 
   std::unique_ptr<GPUReconstructionPipelineContext> mPipelineContext;
 
@@ -391,35 +408,6 @@ class GPUReconstruction
   static GPUReconstruction* GPUReconstruction_Create_CPU(const GPUSettingsDeviceBackend& cfg);
 };
 
-template <class T>
-inline T* GPUReconstruction::AllocateIOMemoryHelper(size_t n, const T*& ptr, std::unique_ptr<T[]>& u)
-{
-  if (n == 0) {
-    u.reset(nullptr);
-    return nullptr;
-  }
-  T* retVal;
-  if (mInputControl.useExternal()) {
-    u.reset(nullptr);
-    mInputControl.checkCurrent();
-    GPUProcessor::computePointerWithAlignment(mInputControl.ptrCurrent, retVal, n);
-    if ((size_t)((char*)mInputControl.ptrCurrent - (char*)mInputControl.ptrBase) > mInputControl.size) {
-      throw std::bad_alloc();
-    }
-  } else {
-    u.reset(new T[n]);
-    retVal = u.get();
-    if (mProcessingSettings.registerStandaloneInputMemory) {
-      if (registerMemoryForGPU(u.get(), n * sizeof(T))) {
-        GPUError("Error registering memory for GPU: %p - %ld bytes\n", (void*)u.get(), (int64_t)(n * sizeof(T)));
-        throw std::bad_alloc();
-      }
-    }
-  }
-  ptr = retVal;
-  return retVal;
-}
-
 template <class T, typename... Args>
 inline T* GPUReconstruction::AddChain(Args... args)
 {
@@ -430,31 +418,7 @@ inline T* GPUReconstruction::AddChain(Args... args)
 template <class T>
 inline int16_t GPUReconstruction::RegisterMemoryAllocation(T* proc, void* (T::*setPtr)(void*), int32_t type, const char* name, const GPUMemoryReuse& re)
 {
-  if (!(type & (GPUMemoryResource::MEMORY_HOST | GPUMemoryResource::MEMORY_GPU))) {
-    if ((type & GPUMemoryResource::MEMORY_SCRATCH) && !mProcessingSettings.keepDisplayMemory) { // keepAllMemory --> keepDisplayMemory
-      type |= (proc->mGPUProcessorType == GPUProcessor::PROCESSOR_TYPE_CPU ? GPUMemoryResource::MEMORY_HOST : GPUMemoryResource::MEMORY_GPU);
-    } else {
-      type |= GPUMemoryResource::MEMORY_HOST | GPUMemoryResource::MEMORY_GPU;
-    }
-  }
-  if (proc->mGPUProcessorType == GPUProcessor::PROCESSOR_TYPE_CPU) {
-    type &= ~GPUMemoryResource::MEMORY_GPU;
-  }
-  mMemoryResources.emplace_back(proc, static_cast<void* (GPUProcessor::*)(void*)>(setPtr), (GPUMemoryResource::MemoryType)type, name);
-  if (mMemoryResources.size() >= 32768) {
-    throw std::bad_alloc();
-  }
-  uint16_t retVal = mMemoryResources.size() - 1;
-  if (re.type != GPUMemoryReuse::NONE && !mProcessingSettings.disableMemoryReuse) {
-    const auto& it = mMemoryReuse1to1.find(re.id);
-    if (it == mMemoryReuse1to1.end()) {
-      mMemoryReuse1to1[re.id] = {proc, retVal};
-    } else {
-      mMemoryResources[retVal].mReuse = it->second.res[0];
-      it->second.res.emplace_back(retVal);
-    }
-  }
-  return retVal;
+  return RegisterMemoryAllocationHelper(proc, static_cast<void* (GPUProcessor::*)(void*)>(setPtr), type, name, re);
 }
 
 template <class T>
@@ -470,7 +434,7 @@ inline void GPUReconstruction::SetupGPUProcessor(T* proc, bool allocate)
 {
   static_assert(sizeof(T) > sizeof(GPUProcessor), "Need to setup derived class");
   if (allocate) {
-    proc->SetMaxData(mHostConstantMem->ioPtrs);
+    proc->SetMaxData(GetIOPtrs());
   }
   if (proc->mGPUProcessorType != GPUProcessor::PROCESSOR_TYPE_DEVICE && proc->mLinkedProcessor) {
     std::memcpy((void*)proc->mLinkedProcessor, (const void*)proc, sizeof(*proc));

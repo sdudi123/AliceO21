@@ -19,6 +19,17 @@
 #include "GPUTPCClusterData.h"
 #include "GPUTrackingInputProvider.h"
 #include "GPUTPCClusterOccupancyMap.h"
+#include "GPUDefParametersRuntime.h"
+#include "GPUTPCExtrapolationTracking.h"
+#include "GPUTPCCreateOccupancyMap.h"
+#include "GPUTPCCreateTrackingData.h"
+#include "GPUTPCNeighboursFinder.h"
+#include "GPUTPCNeighboursCleaner.h"
+#include "GPUTPCStartHitsFinder.h"
+#include "GPUTPCStartHitsSorter.h"
+#include "GPUTPCTrackletConstructor.h"
+#include "GPUTPCTrackletSelector.h"
+#include "GPUTPCSectorDebugSortKernels.h"
 #include "utils/strtag.h"
 #include <fstream>
 
@@ -102,17 +113,6 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
   int32_t streamInitAndOccMap = mRec->NStreams() - 1;
 
   if (doGPU) {
-    for (uint32_t iSector = 0; iSector < NSECTORS; iSector++) {
-      processorsShadow()->tpcTrackers[iSector].GPUParametersConst()->gpumem = (char*)mRec->DeviceMemoryBase();
-      // Initialize Startup Constants
-      processors()->tpcTrackers[iSector].GPUParameters()->nextStartHit = (((getKernelProperties<GPUTPCTrackletConstructor>().minBlocks * BlockCount()) + NSECTORS - 1 - iSector) / NSECTORS) * getKernelProperties<GPUTPCTrackletConstructor>().nThreads;
-      processorsShadow()->tpcTrackers[iSector].SetGPUTextureBase(mRec->DeviceMemoryBase());
-    }
-
-    if (PrepareTextures()) {
-      return (2);
-    }
-
     // Copy Tracker Object to GPU Memory
     if (GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Copying Tracker objects to GPU");
@@ -200,11 +200,9 @@ int32_t GPUChainTracking::RunTPCTrackingSectors_internal()
     DoDebugAndDump(RecoStep::TPCSectorTracking, 4, trk, &GPUTPCTracker::DumpLinks, *mDebugFile, 1);
 
     runKernel<GPUTPCStartHitsFinder>({GetGridBlk(GPUCA_ROW_COUNT - 6, useStream), {iSector}});
-#ifdef GPUCA_SORT_STARTHITS_GPU
-    if (doGPU) {
+    if (mRec->getGPUParameters(doGPU).par_SORT_STARTHITS) {
       runKernel<GPUTPCStartHitsSorter>({GetGridAuto(useStream), {iSector}});
     }
-#endif
     if (GetProcessingSettings().deterministicGPUReconstruction) {
       runKernel<GPUTPCSectorDebugSortKernels, GPUTPCSectorDebugSortKernels::startHits>({GetGrid(1, 1, useStream), {iSector}});
     }
