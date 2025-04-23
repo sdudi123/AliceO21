@@ -86,6 +86,7 @@ set(headers
     include/Generators/GeneratorService.h
     include/Generators/BoxGenerator.h
     include/Generators/FlowMapper.h
+    include/Generators/NuclCoalescencePythia8.h
     )
 
 if(pythia_FOUND)
