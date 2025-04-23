@@ -119,7 +119,7 @@ class OrtModel
   std::vector<const char*> mInputNamesChar, mOutputNamesChar;
   std::vector<std::string> mInputNames, mOutputNames;
   std::vector<std::vector<int64_t>> mInputShapes, mOutputShapes, mInputShapesCopy, mOutputShapesCopy; // Input shapes
-  std::vector<int64_t> mInputSizePerNode, mOutputSizePerNode;                                           // Output shapes
+  std::vector<int64_t> mInputSizePerNode, mOutputSizePerNode;                                         // Output shapes
   int32_t mInputsTotal = 0, mOutputsTotal = 0;                                                        // Total number of inputs and outputs
 
   // Environment settings
