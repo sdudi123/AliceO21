@@ -49,27 +49,27 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
   }
 
   if (!optionsMap["model-path"].empty()) {
-    modelPath = optionsMap["model-path"];
-    deviceType = (optionsMap.contains("device-type") ? optionsMap["device-type"] : "CPU");
-    deviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : -1);
-    allocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
-    intraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
-    interOpNumThreads = (optionsMap.contains("inter-op-num-threads") ? std::stoi(optionsMap["inter-op-num-threads"]) : 0);
-    loggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
-    enableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
-    enableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
-    envName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
+    mModelPath = optionsMap["model-path"];
+    mDeviceType = (optionsMap.contains("device-type") ? optionsMap["device-type"] : "CPU");
+    mDeviceId = (optionsMap.contains("device-id") ? std::stoi(optionsMap["device-id"]) : -1);
+    mAllocateDeviceMemory = (optionsMap.contains("allocate-device-memory") ? std::stoi(optionsMap["allocate-device-memory"]) : 0);
+    mIntraOpNumThreads = (optionsMap.contains("intra-op-num-threads") ? std::stoi(optionsMap["intra-op-num-threads"]) : 0);
+    mInterOpNumThreads = (optionsMap.contains("inter-op-num-threads") ? std::stoi(optionsMap["inter-op-num-threads"]) : 0);
+    mLoggingLevel = (optionsMap.contains("logging-level") ? std::stoi(optionsMap["logging-level"]) : 0);
+    mEnableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
+    mEnableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
+    mEnvName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
 
-    if (deviceType == "CPU") {
-      (pImplOrt->sessionOptions).SetIntraOpNumThreads(intraOpNumThreads);
-      (pImplOrt->sessionOptions).SetInterOpNumThreads(interOpNumThreads);
-      if (intraOpNumThreads > 1 || interOpNumThreads > 1) {
+    if (mDeviceType == "CPU") {
+      (pImplOrt->sessionOptions).SetIntraOpNumThreads(mIntraOpNumThreads);
+      (pImplOrt->sessionOptions).SetInterOpNumThreads(mInterOpNumThreads);
+      if (mIntraOpNumThreads > 1 || mInterOpNumThreads > 1) {
         (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_PARALLEL);
-      } else if (intraOpNumThreads == 1) {
+      } else if (mIntraOpNumThreads == 1) {
         (pImplOrt->sessionOptions).SetExecutionMode(ExecutionMode::ORT_SEQUENTIAL);
       }
-      if (loggingLevel < 2) {
-        LOG(info) << "(ORT) CPU execution provider set with " << intraOpNumThreads << " (intraOpNumThreads) and " << interOpNumThreads << " (interOpNumThreads) threads";
+      if (mLoggingLevel < 2) {
+        LOG(info) << "(ORT) CPU execution provider set with " << mIntraOpNumThreads << " (mIntraOpNumThreads) and " << mInterOpNumThreads << " (mInterOpNumThreads) threads";
       }
     }
 
@@ -79,7 +79,7 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
     (pImplOrt->sessionOptions).DisableMemPattern();
     (pImplOrt->sessionOptions).DisableCpuMemArena();
 
-    if (enableProfiling) {
+    if (mEnableProfiling) {
       if (optionsMap.contains("profiling-output-path")) {
         (pImplOrt->sessionOptions).EnableProfiling((optionsMap["profiling-output-path"] + "/ORT_LOG_").c_str());
       } else {
@@ -90,8 +90,8 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
       (pImplOrt->sessionOptions).DisableProfiling();
     }
 
-    (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(enableOptimizations));
-    (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(loggingLevel));
+    (pImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(mEnableOptimizations));
+    (pImplOrt->sessionOptions).SetLogSeverityLevel(OrtLoggingLevel(mLoggingLevel));
 
     mInitialized = true;
   } else {
@@ -102,8 +102,8 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
 void OrtModel::initEnvironment()
 {
   pImplOrt->env = std::make_shared<Ort::Env>(
-    OrtLoggingLevel(loggingLevel),
-    (envName.empty() ? "ORT" : envName.c_str()),
+    OrtLoggingLevel(mLoggingLevel),
+    (mEnvName.empty() ? "ORT" : mEnvName.c_str()),
     // Integrate ORT logging into Fairlogger
     [](void* param, OrtLoggingLevel severity, const char* category, const char* logid, const char* code_location, const char* message) {
       if (severity == ORT_LOGGING_LEVEL_VERBOSE) {
@@ -126,15 +126,15 @@ void OrtModel::initEnvironment()
 
 void OrtModel::initSession()
 {
-  if (allocateDeviceMemory) {
-    memoryOnDevice(deviceId);
+  if (mAllocateDeviceMemory) {
+    memoryOnDevice(mDeviceId);
   }
-  pImplOrt->session = std::make_shared<Ort::Session>(*pImplOrt->env, modelPath.c_str(), pImplOrt->sessionOptions);
+  pImplOrt->session = std::make_shared<Ort::Session>(*pImplOrt->env, mModelPath.c_str(), pImplOrt->sessionOptions);
   pImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*pImplOrt->session);
 
   setIO();
 
-  if (loggingLevel < 2) {
+  if (mLoggingLevel < 2) {
     LOG(info) << "(ORT) Model loaded successfully! (inputs: " << printShape(mInputShapes, mInputNames) << ", outputs: " << printShape(mOutputShapes, mInputNames) << ")";
   }
 }
@@ -151,22 +151,22 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     // (pImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
 
     std::string dev_mem_str = "";
-    if (deviceType == "ROCM") {
+    if (mDeviceType == "ROCM") {
       dev_mem_str = "Hip";
     }
-    if (deviceType == "CUDA") {
+    if (mDeviceType == "CUDA") {
       dev_mem_str = "Cuda";
     }
     pImplOrt->memoryInfo = Ort::MemoryInfo(dev_mem_str.c_str(), OrtAllocatorType::OrtDeviceAllocator, deviceIndex, OrtMemType::OrtMemTypeDefault);
-    if (loggingLevel < 2) {
-      LOG(info) << "(ORT) Memory info set to on-device memory for device type " << deviceType << " with ID " << deviceIndex << " and pImplOrt pointer " << pImplOrt;
+    if (mLoggingLevel < 2) {
+      LOG(info) << "(ORT) Memory info set to on-device memory for device type " << mDeviceType << " with ID " << deviceIndex << " and pImplOrt pointer " << pImplOrt;
     }
   }
 }
 
 void OrtModel::resetSession()
 {
-  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), modelPath.c_str(), pImplOrt->sessionOptions);
+  pImplOrt->session = std::make_shared<Ort::Session>(*(pImplOrt->env), mModelPath.c_str(), pImplOrt->sessionOptions);
 }
 
 // Getters
@@ -215,24 +215,24 @@ void OrtModel::setIO()
     mOutputShapes.emplace_back((pImplOrt->session)->GetOutputTypeInfo(i).GetTensorTypeAndShapeInfo().GetShape());
   }
 
-  inputNamesChar.resize(mInputNames.size(), nullptr);
-  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(inputNamesChar),
+  mInputNamesChar.resize(mInputNames.size(), nullptr);
+  std::transform(std::begin(mInputNames), std::end(mInputNames), std::begin(mInputNamesChar),
                  [&](const std::string& str) { return str.c_str(); });
-  outputNamesChar.resize(mOutputNames.size(), nullptr);
-  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(outputNamesChar),
+  mOutputNamesChar.resize(mOutputNames.size(), nullptr);
+  std::transform(std::begin(mOutputNames), std::end(mOutputNames), std::begin(mOutputNamesChar),
                  [&](const std::string& str) { return str.c_str(); });
 
-  inputShapesCopy = mInputShapes;
-  outputShapesCopy = mOutputShapes;
-  inputSizePerNode.resize(mInputShapes.size(), 1);
-  outputSizePerNode.resize(mOutputShapes.size(), 1);
+  mInputShapesCopy = mInputShapes;
+  mOutputShapesCopy = mOutputShapes;
+  mInputSizePerNode.resize(mInputShapes.size(), 1);
+  mOutputSizePerNode.resize(mOutputShapes.size(), 1);
   mInputsTotal = 1;
   for (size_t i = 0; i < mInputShapes.size(); ++i) {
     if (mInputShapes[i].size() > 0) {
       for (size_t j = 1; j < mInputShapes[i].size(); ++j) {
         if (mInputShapes[i][j] > 0) {
           mInputsTotal *= mInputShapes[i][j];
-          inputSizePerNode[i] *= mInputShapes[i][j];
+          mInputSizePerNode[i] *= mInputShapes[i][j];
         }
       }
     }
@@ -243,7 +243,7 @@ void OrtModel::setIO()
       for (size_t j = 1; j < mOutputShapes[i].size(); ++j) {
         if (mOutputShapes[i][j] > 0) {
           mOutputsTotal *= mOutputShapes[i][j];
-          outputSizePerNode[i] *= mOutputShapes[i][j];
+          mOutputSizePerNode[i] *= mOutputShapes[i][j];
         }
       }
     }
@@ -271,7 +271,7 @@ std::vector<O> OrtModel::inference(std::vector<I>& input)
     inputTensor.emplace_back(Ort::Value::CreateTensor<I>(pImplOrt->memoryInfo, input.data(), input.size(), inputShape.data(), inputShape.size()));
   }
   // input.clear();
-  auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, inputNamesChar.data(), inputTensor.data(), inputTensor.size(), outputNamesChar.data(), outputNamesChar.size());
+  auto outputTensors = (pImplOrt->session)->Run(pImplOrt->runOptions, mInputNamesChar.data(), inputTensor.data(), inputTensor.size(), mOutputNamesChar.data(), mOutputNamesChar.size());
   O* outputValues = outputTensors[0].template GetTensorMutableData<O>();
   std::vector<O> outputValuesVec{outputValues, outputValues + inputShape[0] * mOutputShapes[0][1]};
   outputTensors.clear();
@@ -318,27 +318,27 @@ template void OrtModel::inference<float, float>(float*, int64_t, float*);
 template <class I, class O>
 void OrtModel::inference(I** input, int64_t input_size, O* output)
 {
-  std::vector<Ort::Value> inputTensors(inputShapesCopy.size());
+  std::vector<Ort::Value> inputTensors(mInputShapesCopy.size());
 
-  for (size_t i = 0; i < inputShapesCopy.size(); ++i) {
+  for (size_t i = 0; i < mInputShapesCopy.size(); ++i) {
 
-    inputShapesCopy[i][0] = input_size;  // batch-size
-    outputShapesCopy[i][0] = input_size; // batch-size
+    mInputShapesCopy[i][0] = input_size;  // batch-size
+    mOutputShapesCopy[i][0] = input_size; // batch-size
 
     if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
       inputTensors[i] = Ort::Value::CreateTensor<Ort::Float16_t>(
         pImplOrt->memoryInfo,
         reinterpret_cast<Ort::Float16_t*>(input[i]),
-        inputSizePerNode[i] * input_size,
-        inputShapesCopy[i].data(),
-        inputShapesCopy[i].size());
+        mInputSizePerNode[i] * input_size,
+        mInputShapesCopy[i].data(),
+        mInputShapesCopy[i].size());
     } else {
       inputTensors[i] = Ort::Value::CreateTensor<I>(
         pImplOrt->memoryInfo,
         input[i],
-        inputSizePerNode[i] * input_size,
-        inputShapesCopy[i].data(),
-        inputShapesCopy[i].size());
+        mInputSizePerNode[i] * input_size,
+        mInputShapesCopy[i].data(),
+        mInputShapesCopy[i].size());
     }
   }
 
@@ -347,27 +347,27 @@ void OrtModel::inference(I** input, int64_t input_size, O* output)
     outputTensor = Ort::Value::CreateTensor<Ort::Float16_t>(
       pImplOrt->memoryInfo,
       reinterpret_cast<Ort::Float16_t*>(output),
-      outputSizePerNode[0] * input_size, // assumes that there is only one output node
-      outputShapesCopy[0].data(),
-      outputShapesCopy[0].size());
+      mOutputSizePerNode[0] * input_size, // assumes that there is only one output node
+      mOutputShapesCopy[0].data(),
+      mOutputShapesCopy[0].size());
   } else {
     outputTensor = Ort::Value::CreateTensor<O>(
       pImplOrt->memoryInfo,
       output,
-      outputSizePerNode[0] * input_size, // assumes that there is only one output node
-      outputShapesCopy[0].data(),
-      outputShapesCopy[0].size());
+      mOutputSizePerNode[0] * input_size, // assumes that there is only one output node
+      mOutputShapesCopy[0].data(),
+      mOutputShapesCopy[0].size());
   }
 
   // === Run inference ===
   pImplOrt->session->Run(
     pImplOrt->runOptions,
-    inputNamesChar.data(),
+    mInputNamesChar.data(),
     inputTensors.data(),
-    inputNamesChar.size(),
-    outputNamesChar.data(),
+    mInputNamesChar.size(),
+    mOutputNamesChar.data(),
     &outputTensor,
-    outputNamesChar.size());
+    mOutputNamesChar.size());
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t**, int64_t, OrtDataType::Float16_t*);
@@ -382,37 +382,37 @@ std::vector<O> OrtModel::inference(std::vector<std::vector<I>>& inputs)
 
   for (size_t i = 0; i < inputs.size(); ++i) {
 
-    inputShapesCopy[i][0] = inputs[i].size() / inputSizePerNode[i]; // batch-size
+    mInputShapesCopy[i][0] = inputs[i].size() / mInputSizePerNode[i]; // batch-size
 
     if constexpr (std::is_same_v<I, OrtDataType::Float16_t>) {
       input_tensors.emplace_back(
         Ort::Value::CreateTensor<Ort::Float16_t>(
           pImplOrt->memoryInfo,
           reinterpret_cast<Ort::Float16_t*>(inputs[i].data()),
-          inputSizePerNode[i] * inputShapesCopy[i][0],
-          inputShapesCopy[i].data(),
-          inputShapesCopy[i].size()));
+          mInputSizePerNode[i] * mInputShapesCopy[i][0],
+          mInputShapesCopy[i].data(),
+          mInputShapesCopy[i].size()));
     } else {
       input_tensors.emplace_back(
         Ort::Value::CreateTensor<I>(
           pImplOrt->memoryInfo,
           inputs[i].data(),
-          inputSizePerNode[i] * inputShapesCopy[i][0],
-          inputShapesCopy[i].data(),
-          inputShapesCopy[i].size()));
+          mInputSizePerNode[i] * mInputShapesCopy[i][0],
+          mInputShapesCopy[i].data(),
+          mInputShapesCopy[i].size()));
     }
   }
 
-  int32_t totalOutputSize = mOutputsTotal * inputShapesCopy[0][0];
+  int32_t totalOutputSize = mOutputsTotal * mInputShapesCopy[0][0];
 
   // === Run inference ===
   auto output_tensors = pImplOrt->session->Run(
     pImplOrt->runOptions,
-    inputNamesChar.data(),
+    mInputNamesChar.data(),
     input_tensors.data(),
     input_tensors.size(),
-    outputNamesChar.data(),
-    outputNamesChar.size());
+    mOutputNamesChar.data(),
+    mOutputNamesChar.size());
 
   // === Extract output values ===
   O* output_data = output_tensors[0].template GetTensorMutableData<O>();
