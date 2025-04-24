@@ -40,7 +40,7 @@ enum NucleiBits {
 std::vector<unsigned int> pdgList = {10010010, 1000010030, 1000020030, 1010010030, 1000020040};
 std::vector<float> massList = {1.875612, 2.80892113298, 2.808391, 2.991134, 3.727379};
 
-bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, double coalescenceRadius, int iD1, int iD2, int iD3 = -1, int iD4 = -1)
+bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, bool trivialCoal, double coalescenceRadius, bool nuclFromDecay, int iD1, int iD2, int iD3 = -1, int iD4 = -1)
 {
   std::vector<int> nucleonIDs = std::vector<int>{iD1, iD2};
   // add A=3 and A=4 nuclei if enabled
@@ -50,10 +50,10 @@ bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, dou
   if (iD4 > 0) {
     nucleonIDs.push_back(iD4);
   }
-  // coalescence afterburner
   Pythia8::Vec4 p;
   for (auto nID : nucleonIDs) {
     if (event[nID].status() < 0) {
+      // nucleon already used in coalescence
       return false;
     }
     p += event[nID].p();
@@ -62,7 +62,8 @@ bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, dou
   for (auto nID : nucleonIDs) {
     auto pN = event[nID].p();
     pN.bstback(p);
-    if (pN.pAbs() > coalescenceRadius) {
+    // trivial coal does not check the distance of the nucleons
+    if (pN.pAbs() > coalescenceRadius && !trivialCoal) {
       isCoalescence = false;
       break;
     }
@@ -71,22 +72,49 @@ bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, dou
     return false;
   }
   p.e(std::hypot(p.pAbs(), mass));
-  /// In order to avoid the transport of the mother particles, but to still keep them in the stack, we set the status to negative and we mark the nucleus status as 94 (decay product)
-  event.append((charge * 2 - 1) * pdgCode, 94, 0, 0, 0, 0, 0, 0, p.px(), p.py(), p.pz(), p.e(), mass);
-  for (auto nID : nucleonIDs) {
-    event[nID].statusNeg();
-    event[nID].daughter1(event.size() - 1);
+
+  if (!nuclFromDecay) {
+    /// keep the original nucleons with negative status, store the mother with status 94
+    event.append((charge * 2 - 1) * pdgCode, 94, 0, 0, 0, 0, 0, 0, p.px(), p.py(), p.pz(), p.e(), mass);
+    for (auto nID : nucleonIDs) {
+      event[nID].statusNeg();
+      event[nID].daughter1(event.size() - 1);
+    }
+  } else {
+    // first nucleon will be replaced by the nucleus, the others will be removed
+    bool swap = true;
+    int nRemoved = 0;
+    for (auto iPart{0}; iPart < event.size(); ++iPart) {
+      for (auto nID : nucleonIDs) {
+        if (iPart == nID && swap) {
+          // replace the nucleon with the nucleus
+          LOG(debug) << "Replacing nucleon with index " << iPart << " and pdg code " << event[iPart].id() << " with nucleus with pdg code " << (charge * 2 - 1) * pdgCode;
+          event[iPart].id((charge * 2 - 1) * pdgCode);
+          event[iPart].status(94);
+          event[iPart].px(p.px());
+          event[iPart].py(p.py());
+          event[iPart].pz(p.pz());
+          event[iPart].e(std::hypot(p.pAbs(), mass));
+          event[iPart].m(mass);
+          swap = false;
+        } else if (iPart == nID - nRemoved && !swap) {
+          LOG(debug) << "Removing nucleon with index " << iPart << " and pdg code " << event[iPart].id();
+          event.remove(iPart, iPart, true);
+          nRemoved++;
+        }
+      }
+    }
   }
-  fmt::printf(">> Adding a %i with p = %f, %f, %f, E = %f\n", (charge * 2 - 1) * pdgCode, p.px(), p.py(), p.pz(), p.e());
+  LOG(debug) "Adding a " << (charge * 2 - 1) * pdgCode << " with p = " << p.px() << ", " << p.py() << ", " << p.pz() << ", E = " << p.e();
   return true;
 }
 
-bool CoalAfterburner(Pythia8::Event& event, std::vector<unsigned int> inputPdgList = {}, double coalMomentum = 0.4, int firstDauID = -1, int lastDauId = -1)
+bool CoalAfterburner(Pythia8::Event& event, std::vector<unsigned int> inputPdgList = {}, bool trivialCoal = false, double coalMomentum = 0.4, int firstDauID = -1, int lastDauId = -1)
 {
   const double coalescenceRadius{0.5 * 1.122462 * coalMomentum};
   // if coalescence from a heavy hadron, loop only between firstDauID and lastDauID
-  int loopStart = firstDauID > 0 ? firstDauID : 0;
-  int loopEnd = lastDauId > 0 ? lastDauId : event.size() - 1;
+  int loopStart = firstDauID > -1 ? firstDauID : 0;
+  int loopEnd = lastDauId > -1 ? lastDauId : event.size() - 1;
   // fill the nuclear mask
   uint8_t nuclearMask = 0;
   for (auto nuclPdg : inputPdgList) {
@@ -121,32 +149,34 @@ bool CoalAfterburner(Pythia8::Event& event, std::vector<unsigned int> inputPdgLi
     }
   }
   // run coalescence
+  bool nuclFromDecay = firstDauID > -1;
   bool coalHappened = false;
+
   for (int iC{0}; iC < 2; ++iC) {
     for (int iP{0}; iP < protons[iC].size(); ++iP) {
       for (int iN{0}; iN < neutrons[iC].size(); ++iN) {
         if (nuclearMask & (1 << kDeuteron)) {
-          coalHappened |= coalPythia8(event, iC, pdgList[kDeuteron], massList[kDeuteron], coalescenceRadius, protons[iC][iP], neutrons[iC][iN]);
+          coalHappened |= coalPythia8(event, iC, pdgList[kDeuteron], massList[kDeuteron], trivialCoal, coalescenceRadius, nuclFromDecay, protons[iC][iP], neutrons[iC][iN]);
         }
         if (nuclearMask & (1 << kTriton)) {
           for (int iN2{iN + 1}; iN2 < neutrons[iC].size(); ++iN2) {
-            coalHappened |= coalPythia8(event, iC, pdgList[kTriton], massList[kTriton], coalescenceRadius, protons[iC][iP], neutrons[iC][iN], neutrons[iC][iN2]);
+            coalHappened |= coalPythia8(event, iC, pdgList[kTriton], massList[kTriton], trivialCoal, coalescenceRadius, nuclFromDecay, protons[iC][iP], neutrons[iC][iN], neutrons[iC][iN2]);
           }
         }
         if (nuclearMask & (1 << kHe3)) {
           for (int iP2{iP + 1}; iP2 < protons[iC].size(); ++iP2) {
-            coalHappened |= coalPythia8(event, iC, pdgList[kHe3], massList[kHe3], coalescenceRadius, protons[iC][iP], protons[iC][iP2], neutrons[iC][iN]);
+            coalHappened |= coalPythia8(event, iC, pdgList[kHe3], massList[kHe3], trivialCoal, coalescenceRadius, nuclFromDecay, protons[iC][iP], protons[iC][iP2], neutrons[iC][iN]);
           }
         }
         if (nuclearMask & (1 << kHyperTriton)) {
           for (int iL{0}; iL < lambdas[iC].size(); ++iL) {
-            coalHappened |= coalPythia8(event, iC, pdgList[kHyperTriton], massList[kHyperTriton], coalescenceRadius, protons[iC][iP], neutrons[iC][iN], lambdas[iC][iL]);
+            coalHappened |= coalPythia8(event, iC, pdgList[kHyperTriton], massList[kHyperTriton], trivialCoal, coalescenceRadius, nuclFromDecay, protons[iC][iP], neutrons[iC][iN], lambdas[iC][iL]);
           }
         }
         if (nuclearMask & (1 << kHe4)) {
           for (int iP2{iP + 1}; iP2 < protons[iC].size(); ++iP2) {
             for (int iN2{iN + 1}; iN2 < neutrons[iC].size(); ++iN2) {
-              coalHappened |= coalPythia8(event, iC, pdgList[kHe4], massList[kHe4], coalescenceRadius, protons[iC][iP], protons[iC][iP2], neutrons[iC][iN], neutrons[iC][iN2]);
+              coalHappened |= coalPythia8(event, iC, pdgList[kHe4], massList[kHe4], trivialCoal, coalescenceRadius, nuclFromDecay, protons[iC][iP], protons[iC][iP2], neutrons[iC][iN], neutrons[iC][iN2]);
             }
           }
         }
