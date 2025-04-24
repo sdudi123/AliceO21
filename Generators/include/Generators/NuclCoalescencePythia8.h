@@ -106,7 +106,7 @@ bool coalPythia8(Pythia8::Event& event, int charge, int pdgCode, float mass, boo
     }
   }
   LOG(debug)
-    "Adding a " << (charge * 2 - 1) * pdgCode << " with p = " << p.px() << ", " << p.py() << ", " << p.pz() << ", E = " << p.e();
+  "Adding a " << (charge * 2 - 1) * pdgCode << " with p = " << p.px() << ", " << p.py() << ", " << p.pz() << ", E = " << p.e();
   return true;
 }
 
