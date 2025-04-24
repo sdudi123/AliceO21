@@ -8,3 +8,26 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+
+#ifndef O2_TRK_RECOWORKFLOW_H
+#define O2_TRK_RECOWORKFLOW_H
+
+#include "Framework/WorkflowSpec.h"
+#include "GPUDataTypes.h"
+
+namespace o2::trk
+{
+namespace reco_workflow
+{
+
+o2::framework::WorkflowSpec getWorkflow(bool useMC,
+                                        bool upstreamDigits = false,
+                                        bool upstreamClusters = false,
+                                        bool disableRootOutput = false,
+                                        bool useGPUWF = false,
+                                        o2::gpu::GPUDataTypes::DeviceType dType = o2::gpu::GPUDataTypes::DeviceType::CPU);
+}
+
+} // namespace o2::trk
+
+#endif
