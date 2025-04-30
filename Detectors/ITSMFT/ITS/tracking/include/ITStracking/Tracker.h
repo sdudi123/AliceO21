@@ -57,7 +57,9 @@ class Tracker
 
   void adoptTimeFrame(TimeFrame& tf);
 
-  void clustersToTracks(LogFunc = [](std::string s) { std::cout << s << std::endl; }, LogFunc = [](std::string s) { std::cerr << s << std::endl; });
+  void clustersToTracks(
+    LogFunc = [](const std::string& s) { std::cout << s << '\n'; },
+    LogFunc = [](const std::string& s) { std::cerr << s << '\n'; });
 
   void setParameters(const std::vector<TrackingParameters>&);
   std::vector<TrackingParameters>& getParameters() { return mTrkParams; }

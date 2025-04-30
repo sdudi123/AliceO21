@@ -211,9 +211,9 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   loadROF(trackROFspan, compClusters, pattIt, labels);
   pattIt = patterns.begin();
   std::vector<int> savedROF;
-  auto logger = [&](std::string s) { LOG(info) << s; };
-  auto fatalLogger = [&](std::string s) { LOG(fatal) << s; };
-  auto errorLogger = [&](std::string s) { LOG(error) << s; };
+  auto logger = [&](const std::string& s) { LOG(info) << s; };
+  auto fatalLogger = [&](const std::string& s) { LOG(fatal) << s; };
+  auto errorLogger = [&](const std::string& s) { LOG(error) << s; };
 
   FastMultEst multEst; // mult estimator
   std::vector<uint8_t> processingMask, processUPCMask;
