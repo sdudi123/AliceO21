@@ -173,6 +173,7 @@ class CTPConfiguration
   uint64_t getDecrtiptorInputsMask(const std::string& name) const;
   std::map<o2::detectors::DetID::ID, std::vector<CTPInput>> getDet2InputMap();
   uint64_t getTriggerClassMask() const;
+  uint64_t getTriggerClassMaskOnlywInputs() const;
   std::vector<int> getTriggerClassList() const;
   uint32_t getRunNumber() { return mRunNumber; };
   std::vector<std::string> getDetectorList() const;
@@ -203,6 +204,17 @@ class CTPConfiguration
 
 std::ostream& operator<<(std::ostream& in, const CTPConfiguration& conf);
 
+struct CtpCfg
+{
+  CtpCfg() = default;
+  std::string filename = "/home/alice/trigger/DBCTP/ctp.cfg";
+  CtpCfg readAndSave();
+  uint32_t TFOrbits = 0;
+  int ccdb = -1;          // -1 means def constructor was called
+  uint32_t orbitShift = 0;
+  uint32_t irInputs_1_24 = 0;
+  uint32_t irInputs_25_48 = 0;
+};
 } // namespace ctp
 } // namespace o2
 #endif //_CTP_CONFIGURATION_H_

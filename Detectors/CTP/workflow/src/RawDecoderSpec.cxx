@@ -69,8 +69,8 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
     o0 = TFOrbits[i];
   }
   std::cout << std::endl;
-  std::cout << "Number of missing TF:" << nmiss << std::endl;
-  std::cout << "# of IR errors:" << mDecoder.getErrorIR() << " TCR errors:" << mDecoder.getErrorTCR() << std::endl;
+  LOG(info) << "Number of missing TF:" << nmiss << std::endl;
+  LOG(info) << "# of IR errors:" << mDecoder.getErrorIR() << " TCR errors:" << mDecoder.getErrorTCR() << std::endl;
 }
 void RawDecoderSpec::run(framework::ProcessingContext& ctx)
 {

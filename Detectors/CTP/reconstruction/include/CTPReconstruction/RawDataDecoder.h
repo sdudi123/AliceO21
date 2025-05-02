@@ -56,7 +56,8 @@ class RawDataDecoder
   static int shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit, std::bitset<48>& inpmask, int64_t shift, int level, std::map<o2::InteractionRecord, CTPDigit>& digmap);
   static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask = 0xffffffffffffffff);
   int checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask = 0xffffffffffffffff);
-
+  std::map<int,int> getClassErrors() {return mClassErrors; }
+  std::map<uint64_t,int> getInpError() { return mInpErrors; }
  private:
   static constexpr uint32_t TF_TRIGGERTYPE_MASK = 0x800;
   static constexpr uint32_t HB_TRIGGERTYPE_MASK = 0x2;
@@ -83,8 +84,10 @@ class RawDataDecoder
   // error verbosness
   int mErrorIR = 0;
   int mErrorTCR = 0;
-  int mErrorMax = 3;
+  int mErrorMax = 5;
   bool mStickyError = false;
+  std::map<int,int> mClassErrors;
+  std::map<uint64_t,int> mInpErrors;
   CTPConfiguration mCTPConfig;
 };
 } // namespace ctp

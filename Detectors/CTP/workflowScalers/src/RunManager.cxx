@@ -122,7 +122,7 @@ int CTPRunManager::loadRun(const std::string& cfg)
   //
   mRunsLoaded[runnumber] = activerun;
   saveRunConfigToCCDB(&activerun->cfg, timeStamp);
-
+  saveCtpCfg(runnumber, timeStamp);
   return 0;
 }
 int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
@@ -221,6 +221,9 @@ int CTPRunManager::addScalers(uint32_t irun, std::time_t time, bool start)
 int CTPRunManager::processMessage(std::string& topic, const std::string& message)
 {
   LOG(info) << "Processing message with topic:" << topic;
+  std::string ahoj = "ahoj kniznica";
+  mInfoLogger.logInfo(ahoj);
+  LOG(important) << " ahoj important";
   std::string firstcounters;
   if (topic.find("clear") != std::string::npos) {
     mRunsLoaded.clear();

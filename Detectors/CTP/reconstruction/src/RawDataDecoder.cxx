@@ -295,7 +295,7 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
   if (mDoDigits & mDecodeInps) {
     uint64_t trgclassmask = 0xffffffffffffffff;
     if (mCTPConfig.getRunNumber() != 0) {
-      trgclassmask = mCTPConfig.getTriggerClassMask();
+      trgclassmask = mCTPConfig.getTriggerClassMaskOnlywInputs();
     }
     // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
     ret = shiftInputs(digitsMap, digits, mTFOrbit, trgclassmask);
@@ -530,12 +530,6 @@ int RawDataDecoder::shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit
 int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask)
 {
   // int nClasswoInp = 0; // counting classes without input which should never happen
-  int nLM = 0;
-  int nL0 = 0;
-  int nL1 = 0;
-  int nTwI = 0;
-  int nTwoI = 0;
-  int nTwoIlost = 0;
   std::map<o2::InteractionRecord, CTPDigit> digitsMapShifted;
   auto L0shift = o2::ctp::TriggerOffsetsParam::Instance().LM_L0;
   auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1;
@@ -593,60 +587,35 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
     }
   }
   for (auto const& dig : digitsMapShifted) {
-    auto d = dig.second;
-    if ((d.CTPInputMask & LMMASKInputs).count()) {
-      nLM++;
-    }
-    if ((d.CTPInputMask & L0MASKInputs).count()) {
-      nL0++;
-    }
-    if ((d.CTPInputMask & L1MASKInputs).count()) {
-      nL1++;
-    }
-    if ((d.CTPClassMask).to_ulong() & trgclassmask) {
-      if (d.CTPInputMask.count()) {
-        nTwI++;
-      } else {
-        if (d.intRecord.bc == (o2::constants::lhc::LHCMaxBunches - L1shift)) { // input can be lost because latency class-l1input = 1
-          nTwoIlost++;
-        } else {
-          // LOG(error) << d.intRecord << " " << d.CTPClassMask << " " << d.CTPInputMask;
-          // std::cout << "ERROR:" << std::hex << d.CTPClassMask << " " << d.CTPInputMask << std::dec << std::endl;
-          nTwoI++;
-        }
-      }
-    }
     digits.push_back(dig.second);
   }
-  int ret = 0;
-  if (nTwoI) { // Trigger class wo Input
-    LOG(error) << "LM:" << nLM << " L0:" << nL0 << " L1:" << nL1 << " TwI:" << nTwI << " Trigger classes wo input:" << nTwoI;
-    ret = 64;
-  }
-  if (nTwoIlost) {
-    LOG(warn) << " Trigger classes wo input from diff latency 1:" << nTwoIlost;
-  }
-  return ret;
+  return 0;
 }
 //
 int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask)
 {
   int ret = 0;
   int lost = 0;
+  static int nerror = 0;
   for (auto const& digit : digits) {
     // if class mask => inps
     for (int i = 0; i < digit.CTPClassMask.size(); i++) {
       if (digit.CTPClassMask[i] & trgclassmask) {
         const CTPClass* cls = mCTPConfig.getCTPClassFromHWIndex(i);
         if (cls == nullptr) {
-          LOG(error) << "Class mask index not found in CTP config:" << i;
+          if(nerror < mErrorMax)
+            LOG(error) << "Class mask index not found in CTP config:" << i;
           ret = 128;
           continue;
         }
         uint64_t clsinpmask = cls->descriptor->getInputsMask();
         uint64_t diginpmask = digit.CTPInputMask.to_ullong();
         if (!((clsinpmask & diginpmask) == clsinpmask)) {
-          LOG(error) << "CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+          if(nerror < mErrorMax)
+            LOG(error) << "CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+          auto result = mClassErrors.insert({cls->getIndex(),1});
+          if(!result.second)
+            mClassErrors[cls->getIndex()]++;
           ret = 128;
         }
       }
@@ -662,7 +631,11 @@ int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits,
           int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
           offset = o2::constants::lhc::LHCMaxBunches - offset;
           if (digit.intRecord.bc < offset) {
-            LOG(error) << "CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
+            if(nerror < mErrorMax)
+              LOG(error) << "CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
+            auto result = mInpErrors.insert({diginpmask,1});
+            if(!result.second)
+              mInpErrors[diginpmask]++;
             ret = 256;
           } else {
             lost++;

@@ -905,6 +905,17 @@ uint64_t CTPConfiguration::getTriggerClassMask() const
   }
   return clsmask;
 }
+uint64_t CTPConfiguration::getTriggerClassMaskOnlywInputs() const
+{
+  uint64_t clsmask = 0;
+  for (auto const& cls : mCTPClasses) {
+    if( cls.name.find("TRUE") != std::string::npos) {  // ignoring internal ctp generators
+      continue;
+    }
+    clsmask |= cls.classMask;
+  }
+  return clsmask;
+}
 // Hardware positions of classes
 std::vector<int> CTPConfiguration::getTriggerClassList() const
 {
@@ -1151,6 +1162,44 @@ int CTPInputsConfiguration::getInputIndexFromName(std::string& name)
   }
   LOG(warn) << "Input with name:" << name << " not in default input config";
   return 0xff;
+}
+
+CtpCfg CtpCfg::readAndSave()
+{
+  std::ifstream ctpcfg(filename);
+  if (ctpcfg.is_open()) {
+    std::string line;
+    while (std::getline(ctpcfg, line)) {
+      o2::utils::Str::trim(line);
+      if (line.size() == 0) {
+        continue;
+      }
+      if (line[0] == '#') {
+        continue;
+      }
+      std::vector<std::string> tokens = o2::utils::Str::tokenize(line, ' ');
+      size_t ntokens = tokens.size();
+      if(ntokens < 2) {
+        LOG(warn) << "Not enough tokens";
+        return *this;
+      }
+      if(tokens[0].find("TForbits") != std::string::npos) {
+        TFOrbits = std::atol(tokens[1].c_str());
+      } else if(tokens[0].find("ccdb") != std::string::npos) {
+        ccdb = std::atoi(tokens[1].c_str());
+      } else if(tokens[0].find("orbitshift") != std::string::npos) {
+        orbitShift = std::atol(tokens[1].c_str());
+      } else if(tokens[0].find("ir_inputs") != std::string::npos){
+        irInputs_1_24 = std::stoul(tokens[1].c_str(), nullptr, 16);
+        irInputs_25_48 = std::stoul(tokens[2].c_str(), nullptr, 16);
+      } else {
+        LOG(warn) << " Token not found:" << tokens[0];
+      }
+    }
+  } else {
+    LOG(warn) << "Can not open file:" << filename;
+  }
+  return *this;
 }
 
 std::ostream& o2::ctp::operator<<(std::ostream& in, const o2::ctp::CTPConfiguration& conf)

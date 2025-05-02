@@ -18,6 +18,7 @@
 #include "DataFormatsCTP/Configuration.h"
 #include "BookkeepingApi/BkpClientFactory.h"
 #include "BookkeepingApi/BkpClient.h"
+#include <InfoLogger/InfoLogger.hxx>
 
 using namespace o2::bkp::api;
 namespace o2
@@ -72,6 +73,7 @@ class CTPRunManager : public ctpCCDBManager
   int mEOX = 0; // redundancy check
   int mNew = 1; // 1 - no CCDB: used for QC
   int mQCWritePeriod = 3; // Time in 10secs between two writes to QCCD
+  AliceO2::InfoLogger::InfoLogger mInfoLogger;
   ClassDefNV(CTPRunManager, 7);
 };
 } // namespace ctp
