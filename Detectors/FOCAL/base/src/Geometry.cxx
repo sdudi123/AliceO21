@@ -350,6 +350,16 @@ void Geometry::setParameters(std::string geometryfile)
         mGlobal_FOCAL_Z0 = std::stof(tokens[1]);
         LOG(debug) << "Z-Location of the FoCAL is set to : " << mGlobal_FOCAL_Z0;
       }
+      
+      if (command.find("DetectorOpen_Right") != std::string::npos) {
+        mGlobal_DetectorOpening_Right = std::stof(tokens[1]);
+        LOG(debug) << "Detector opening on the right : " << mGlobal_DetectorOpening_Right;
+      }
+
+      if (command.find("DetectorOpen_Left") != std::string::npos) {
+        mGlobal_DetectorOpening_Left = std::stof(tokens[1]);
+        LOG(debug) << "Detector opening on the left : " << mGlobal_DetectorOpening_Left;
+      }
 
       if (command.find("HCAL_TOWER_SIZE") != std::string::npos) {
         mGlobal_HCAL_Tower_Size = std::stof(tokens[1]);
