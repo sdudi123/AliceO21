@@ -173,7 +173,8 @@ class CTPConfiguration
   uint64_t getDecrtiptorInputsMask(const std::string& name) const;
   std::map<o2::detectors::DetID::ID, std::vector<CTPInput>> getDet2InputMap();
   uint64_t getTriggerClassMask() const;
-  uint64_t getTriggerClassMaskOnlywInputs() const;
+  uint64_t getTriggerClassMaskWInputs() const;
+  uint64_t getTriggerClassMaskWInputsNoTrgDets() const;
   std::vector<int> getTriggerClassList() const;
   uint32_t getRunNumber() { return mRunNumber; };
   std::vector<std::string> getDetectorList() const;

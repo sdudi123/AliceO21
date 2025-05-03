@@ -71,6 +71,15 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
   std::cout << std::endl;
   LOG(info) << "Number of missing TF:" << nmiss << std::endl;
   LOG(info) << "# of IR errors:" << mDecoder.getErrorIR() << " TCR errors:" << mDecoder.getErrorTCR() << std::endl;
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> clsA = mDecoder.getClassCountersA();
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> clsB = mDecoder.getClassCountersB();
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> clsEA = mDecoder.getClassErrorsA();
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> clsEB = mDecoder.getClassErrorsB();
+
+  for(int i = 0; i < o2::ctp::CTP_NCLASSES; i ++){
+    bool print = clsA[i] > 0 || clsB[i] > 0 || clsEA[i] > 0 || clsEB[i] > 0;
+    LOG(important) << "CLASS:" << i << " A:" << clsA[i] << " B:" << clsB[i] << " EA:" << clsEA[i] << " EB:" << clsEB[i];
+   }
 }
 void RawDecoderSpec::run(framework::ProcessingContext& ctx)
 {

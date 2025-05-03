@@ -13,8 +13,7 @@ o2_add_library(CTPWorkflowScalers
                SOURCES src/RunManager.cxx
                PUBLIC_LINK_LIBRARIES O2::Framework
                                      O2::DataFormatsCTP
-                                    AliceO2::BookkeepingApi
-                                    AliceO2::InfoLogger)
+                                    AliceO2::BookkeepingApi)
 o2_target_root_dictionary(CTPWorkflowScalers HEADERS
   include/CTPWorkflowScalers/ctpCCDBManager.h)
 o2_add_executable(

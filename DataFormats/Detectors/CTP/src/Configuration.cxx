@@ -905,7 +905,7 @@ uint64_t CTPConfiguration::getTriggerClassMask() const
   }
   return clsmask;
 }
-uint64_t CTPConfiguration::getTriggerClassMaskOnlywInputs() const
+uint64_t CTPConfiguration::getTriggerClassMaskWInputs() const
 {
   uint64_t clsmask = 0;
   for (auto const& cls : mCTPClasses) {
@@ -913,6 +913,19 @@ uint64_t CTPConfiguration::getTriggerClassMaskOnlywInputs() const
       continue;
     }
     clsmask |= cls.classMask;
+  }
+  return clsmask;
+}
+uint64_t CTPConfiguration::getTriggerClassMaskWInputsNoTrgDets() const
+{
+  uint64_t clsmask = 0;
+  for (auto const& cls : mCTPClasses) {
+    bool exclude = cls.name.find("TRUE") != std::string::npos; // ignoring internal ctp generators
+    exclude += cls.name.find("EMC") != std::string::npos; 
+    exclude += cls.name.find("TRD") != std::string::npos; 
+    exclude += cls.name.find("HMP") != std::string::npos; 
+    if(!exclude)
+      clsmask |= cls.classMask;
   }
   return clsmask;
 }
