@@ -185,7 +185,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
   o2::ccdb::CcdbApi api;
   map<string, string> metadata; // can be empty
   metadata["runNumber"] = std::to_string(runNumber);
-  api.init(mCCDBHost.c_str());  // or http://localhost:8080 for a local installation
+  api.init(mCCDBHost.c_str()); // or http://localhost:8080 for a local installation
   // store abitrary user object in strongly typed manner
   int ret = api.storeAsTFileAny(&ctpcfg, mCCDBPathCtpCfg, metadata, tmin, tmax);
   if (ret == 0) {

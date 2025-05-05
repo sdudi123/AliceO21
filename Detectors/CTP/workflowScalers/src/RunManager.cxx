@@ -123,7 +123,7 @@ int CTPRunManager::loadRun(const std::string& cfg)
   //
   mRunsLoaded[runnumber] = activerun;
   saveRunConfigToCCDB(&activerun->cfg, timeStamp);
-  if(mCtpCfgDir != "none")
+  if (mCtpCfgDir != "none")
     saveCtpCfg(runnumber, timeStamp);
   return 0;
 }
