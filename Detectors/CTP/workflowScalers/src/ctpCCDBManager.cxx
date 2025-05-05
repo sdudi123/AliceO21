@@ -174,7 +174,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
     return 0;
   }
   CtpCfg ctpcfg;
-  ctpcfg.readAndSave();
+  ctpcfg.readAndSave(mCtpCfgDir);
   using namespace std::chrono_literals;
   std::chrono::seconds days3 = 259200s;
   std::chrono::seconds min10 = 600s;
@@ -187,7 +187,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
   metadata["runNumber"] = std::to_string(runNumber);
   api.init(mCCDBHost.c_str());  // or http://localhost:8080 for a local installation
   // store abitrary user object in strongly typed manner
-  int ret = 0; //api.storeAsTFileAny(&vect, mCCDBPathCtpCfg, metadata, tmin, tmax);
+  int ret = api.storeAsTFileAny(&ctpcfg, mCCDBPathCtpCfg, metadata, tmin, tmax);
   if (ret == 0) {
     LOG(info) << "CtpCfg  saved in ccdb:" << mCCDBHost << " tmin:" << tmin << " tmax:" << tmax;
   } else {

@@ -89,10 +89,10 @@ class RawDataDecoder
   int mErrorTCR = 0;
   int mErrorMax = 5;
   bool mStickyError = false;
-  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassErrorsA;
-  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassErrorsB;   // from inputs
-  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassCountersA;
-  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassCountersB;  // from inputs
+  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassErrorsA{};
+  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassErrorsB{};   // from inputs
+  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassCountersA{};
+  std::array<uint64_t,o2::ctp::CTP_NCLASSES> mClassCountersB{};  // from inputs
   int mLostDueToShift = 0;
   CTPConfiguration mCTPConfig;
 };

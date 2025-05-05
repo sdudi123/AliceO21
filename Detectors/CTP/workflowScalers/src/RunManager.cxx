@@ -87,6 +87,7 @@ void CTPRunManager::init()
   LOG(info) << "QCDB writing every:" << mQCWritePeriod << " 10 secs";
   LOG(info) << "CCDB host:" << mCCDBHost;
   LOG(info) << "CTP vNew cfg:" << mNew;
+  LOG(info) << "ctp.cfg dir:" << mCtpCfgDir;
   LOG(info) << "CTPRunManager initialised.";
 }
 int CTPRunManager::loadRun(const std::string& cfg)
@@ -106,7 +107,7 @@ int CTPRunManager::loadRun(const std::string& cfg)
       timeStamp = (tt * 1000.);
       LOG(info) << "Timestamp file:" << timeStamp;
       cfgmod = cfg.substr(pos, cfg.size());
-      LOG(info) << "ctpcfg: using ctp time";
+      LOG(info) << "ctpconfig: using ctp time";
     }
   }
   CTPActiveRun* activerun = new CTPActiveRun;
@@ -122,7 +123,8 @@ int CTPRunManager::loadRun(const std::string& cfg)
   //
   mRunsLoaded[runnumber] = activerun;
   saveRunConfigToCCDB(&activerun->cfg, timeStamp);
-  saveCtpCfg(runnumber, timeStamp);
+  if(mCtpCfgDir != "none")
+    saveCtpCfg(runnumber, timeStamp);
   return 0;
 }
 int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)

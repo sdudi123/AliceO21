@@ -208,13 +208,14 @@ std::ostream& operator<<(std::ostream& in, const CTPConfiguration& conf);
 struct CtpCfg
 {
   CtpCfg() = default;
-  std::string filename = "/home/alice/trigger/DBCTP/ctp.cfg";
-  CtpCfg readAndSave();
+  std::string filename = "ctp.cfg";
+  CtpCfg readAndSave(std::string& path);
   uint32_t TFOrbits = 0;
   int ccdb = -1;          // -1 means def constructor was called
   uint32_t orbitShift = 0;
   uint32_t irInputs_1_24 = 0;
   uint32_t irInputs_25_48 = 0;
+  ClassDefNV(CtpCfg, 1)
 };
 } // namespace ctp
 } // namespace o2

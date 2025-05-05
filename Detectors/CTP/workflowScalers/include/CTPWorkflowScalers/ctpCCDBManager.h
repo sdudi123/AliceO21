@@ -35,6 +35,7 @@ class ctpCCDBManager
   CTPRunScalers getScalersFromCCDB(long timestamp, std::string, bool& ok);
   static void setCCDBHost(std::string host) { mCCDBHost = host; };
   static void setQCDBHost(std::string host) { mQCDBHost = host; };
+  void setCtpCfgDir(std::string& ctpcfgdir) { mCtpCfgDir = ctpcfgdir; };
 
  protected:
   /// Database constants
@@ -48,6 +49,8 @@ class ctpCCDBManager
   const std::string mCCDBPathSoxOrbit = "CTP/Calib/FirstRunOrbit";
   const std::string mCCDBPathOrbitReset = "CTP/Calib/OrbitReset";
   const std::string mCCDBPathCtpCfg = "CTP/Config/CtpCfg";
+  std::string mCtpCfgDir;
+
   ClassDefNV(ctpCCDBManager, 2);
 };
 } // namespace ctp

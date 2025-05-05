@@ -1177,9 +1177,9 @@ int CTPInputsConfiguration::getInputIndexFromName(std::string& name)
   return 0xff;
 }
 
-CtpCfg CtpCfg::readAndSave()
+CtpCfg CtpCfg::readAndSave(std::string& path)
 {
-  std::ifstream ctpcfg(filename);
+  std::ifstream ctpcfg(path+filename);
   if (ctpcfg.is_open()) {
     std::string line;
     while (std::getline(ctpcfg, line)) {

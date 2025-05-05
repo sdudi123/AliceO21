@@ -298,10 +298,12 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
     if (mCTPConfig.getRunNumber() != 0) {
       trgclassmask = mCTPConfig.getTriggerClassMaskWInputs();
       trgclassmaskNOTRGDet = mCTPConfig.getTriggerClassMaskWInputsNoTrgDets();
+      //mCTPConfig.printStream(std::cout);
     }
-    // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
+    //std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
     ret = shiftInputs(digitsMap, digits, mTFOrbit);
-    if (mCheckConsistency) {
+    //if (mCheckConsistency) {
+    if(1) {
       ret = checkReadoutConsistentncy(digits, trgclassmask, trgclassmaskNOTRGDet);
     }
   }
@@ -596,25 +598,33 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
 //
 int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask, uint64_t trgclassmaskNoTrgDet)
 {
+  LOG(debug) << "Checking readout";
   int ret = 0;
   static int nerror = 0;
   for (auto const& digit : digits) {
     // if class mask => inps
     for (int i = 0; i < digit.CTPClassMask.size(); i++) {
-      if (digit.CTPClassMask[i] & trgclassmask) {
+      bool trgcls = trgclassmask & (1ull << i);
+      if (digit.CTPClassMask[i] & trgcls) {
         const CTPClass* cls = mCTPConfig.getCTPClassFromHWIndex(i);
         if (cls == nullptr) {
-          if(nerror < mErrorMax)
+          if(nerror < mErrorMax) {
             LOG(error) << "Class mask index not found in CTP config:" << i;
+            nerror++;
+          }
           ret = 128;
           continue;
         }
         mClassCountersA[i]++;
+        if( cls->descriptor == nullptr)
+          continue;
         uint64_t clsinpmask = cls->descriptor->getInputsMask();
         uint64_t diginpmask = digit.CTPInputMask.to_ullong();
         if (!((clsinpmask & diginpmask) == clsinpmask)) {
-          if(nerror < mErrorMax)
-            LOG(error) << "CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+          if(nerror < mErrorMax) {
+            LOG(error) << "Cls=>Inps: CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+            nerror++;
+          }
           mClassErrorsA[i]++;
           ret = 128;
         }
@@ -622,21 +632,29 @@ int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits,
     }
     // if inps => class mask
     for (auto const& cls : mCTPConfig.getCTPClasses()) {
+      //cls.printStream(std::cout);
+      if(cls.descriptor == nullptr)
+        continue;
       uint64_t clsinpmask = cls.descriptor->getInputsMask();  // class definition
       uint64_t diginpmask = digit.CTPInputMask.to_ullong();
       uint64_t digclsmask = digit.CTPClassMask.to_ullong();
       if ((clsinpmask & diginpmask) == clsinpmask) {
-        if ((cls.classMask & digclsmask) == 0) {
-          int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
-          int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
-          offset = o2::constants::lhc::LHCMaxBunches - offset;
-          if (digit.intRecord.bc < offset) {
-            if((nerror < mErrorMax) && (cls.classMask & ~trgclassmaskNoTrgDet))
-              LOG(error) << "CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
-            mClassErrorsB[cls.getIndex()]++;
-            ret = 256;
-          } else {
-            mLostDueToShift++;
+        if(cls.classMask & trgclassmask) {
+          mClassCountersB[cls.getIndex()]++;
+          if ((cls.classMask & digclsmask) == 0) {
+            int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
+            int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
+            offset = o2::constants::lhc::LHCMaxBunches - offset;
+            if (digit.intRecord.bc < offset) {
+              if((nerror < mErrorMax) && (cls.classMask & ~trgclassmaskNoTrgDet)){
+                LOG(info) << "Inp=>Cls: CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
+                nerror++;
+              }
+              mClassErrorsB[cls.getIndex()]++;
+              ret = 256;
+            } else {
+              mLostDueToShift++;
+            }
           }
         }
       }
