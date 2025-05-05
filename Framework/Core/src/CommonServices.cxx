@@ -852,7 +852,10 @@ auto flushMetrics(ServiceRegistryRef registry, DataProcessingStats& stats) -> vo
     }
     monitoring.send(std::move(metric));
   });
-  relayer.sendContextState();
+  // Do not even calculate GUI related quantities if the GUI is disabled.
+  if (registry.get<DriverConfig const>().driverHasGUI) {
+    relayer.sendContextState();
+  }
   monitoring.flushBuffer();
   O2_SIGNPOST_END(monitoring_service, sid, "flush", "done flushing metrics");
 };
