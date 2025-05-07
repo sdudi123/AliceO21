@@ -176,7 +176,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
   CtpCfg ctpcfg;
   int ret;
   ctpcfg.readAndSave(mCtpCfgDir, ret);
-  if(ret == 0) {
+  if (ret == 0) {
     using namespace std::chrono_literals;
     std::chrono::seconds days3 = 259200s;
     std::chrono::seconds min10 = 600s;
@@ -195,7 +195,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
     } else {
       LOG(error) << "CtpCfg Problem writing to database ret:" << ret;
     }
-  } 
+  }
   return ret;
 }
 CTPConfiguration ctpCCDBManager::getConfigFromCCDB(long timestamp, std::string run, bool& ok)

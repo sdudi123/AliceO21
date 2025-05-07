@@ -275,7 +275,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     }
     return ret;
   }
-  if(topic.find("rocnts") != std::string::npos) {
+  if (topic.find("rocnts") != std::string::npos) {
     return 0;
   }
   static int nerror = 0;
