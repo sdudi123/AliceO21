@@ -345,6 +345,7 @@ void on_socket_polled(uv_poll_t* poller, int status, int events)
     case UV_READABLE: {
       O2_SIGNPOST_EVENT_EMIT(device, sid, "socket_state", "Data pending on socket for channel %{public}s", context->name);
       context->state->loopReason |= DeviceState::DATA_INCOMING;
+      context->channelInfo->readPolled = true;
     } break;
     case UV_WRITABLE: {
       O2_SIGNPOST_END(device, sid, "socket_state", "Socket connected for channel %{public}s", context->name);
@@ -1670,6 +1671,10 @@ void DataProcessingDevice::doPrepare(ServiceRegistryRef ref)
     if (info.channelType != ChannelAccountingType::DPL) {
       O2_SIGNPOST_END(device, cid, "channels", "Channel %s which is in state %d is not a DPL channel and has %zu parts still pending.",
                       channelSpec.name.c_str(), (int)info.state, info.parts.Size());
+      continue;
+    }
+    if (info.readPolled == false) {
+      O2_SIGNPOST_END(device, cid, "channels", "Channel %s which is in state %d did not request reading.", channelSpec.name.c_str(), (int)info.state);
       continue;
     }
     auto& socket = info.channel->GetSocket();
