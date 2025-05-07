@@ -1177,9 +1177,11 @@ int CTPInputsConfiguration::getInputIndexFromName(std::string& name)
   return 0xff;
 }
 
-CtpCfg CtpCfg::readAndSave(std::string& path)
+CtpCfg CtpCfg::readAndSave(std::string& path, int& ret)
 {
-  std::ifstream ctpcfg(path + filename);
+  ret = 0;
+  std::string file = path + filename;
+  std::ifstream ctpcfg(file);
   if (ctpcfg.is_open()) {
     std::string line;
     while (std::getline(ctpcfg, line)) {
@@ -1194,7 +1196,7 @@ CtpCfg CtpCfg::readAndSave(std::string& path)
       size_t ntokens = tokens.size();
       if (ntokens < 2) {
         LOG(warn) << "Not enough tokens";
-        return *this;
+        continue;
       }
       if (tokens[0].find("TForbits") != std::string::npos) {
         TFOrbits = std::atol(tokens[1].c_str());
@@ -1209,8 +1211,10 @@ CtpCfg CtpCfg::readAndSave(std::string& path)
         LOG(warn) << " Token not found:" << tokens[0];
       }
     }
+    LOG(warn) << "Open file success:" << file;
   } else {
-    LOG(warn) << "Can not open file:" << filename;
+    LOG(warn) << "Can not open file:" << file;
+    ret = 1;
   }
   return *this;
 }

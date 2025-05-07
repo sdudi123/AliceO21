@@ -123,8 +123,9 @@ int CTPRunManager::loadRun(const std::string& cfg)
   //
   mRunsLoaded[runnumber] = activerun;
   saveRunConfigToCCDB(&activerun->cfg, timeStamp);
-  if (mCtpCfgDir != "none")
+  if (mCtpCfgDir != "none") {
     saveCtpCfg(runnumber, timeStamp);
+  }
   return 0;
 }
 int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
@@ -273,6 +274,9 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
       ret = 1;
     }
     return ret;
+  }
+  if(topic.find("rocnts") != std::string::npos) {
+    return 0;
   }
   static int nerror = 0;
   if (topic.find("sox") != std::string::npos) {

@@ -208,7 +208,7 @@ std::ostream& operator<<(std::ostream& in, const CTPConfiguration& conf);
 struct CtpCfg {
   CtpCfg() = default;
   std::string filename = "ctp.cfg";
-  CtpCfg readAndSave(std::string& path);
+  CtpCfg readAndSave(std::string& path, int& ret);
   uint32_t TFOrbits = 0;
   int ccdb = -1; // -1 means def constructor was called
   uint32_t orbitShift = 0;
