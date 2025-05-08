@@ -174,8 +174,7 @@ int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
     return 0;
   }
   CtpCfg ctpcfg;
-  int ret;
-  ctpcfg.readAndSave(mCtpCfgDir, ret);
+  int ret = ctpcfg.readAndSave(mCtpCfgDir);
   if (ret == 0) {
     using namespace std::chrono_literals;
     std::chrono::seconds days3 = 259200s;

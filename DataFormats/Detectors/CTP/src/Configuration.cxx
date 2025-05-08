@@ -1177,9 +1177,8 @@ int CTPInputsConfiguration::getInputIndexFromName(std::string& name)
   return 0xff;
 }
 
-CtpCfg CtpCfg::readAndSave(std::string& path, int& ret)
+int CtpCfg::readAndSave(std::string& path)
 {
-  ret = 0;
   std::string file = path + filename;
   std::ifstream ctpcfg(file);
   if (ctpcfg.is_open()) {
@@ -1214,9 +1213,9 @@ CtpCfg CtpCfg::readAndSave(std::string& path, int& ret)
     LOG(warn) << "Open file success:" << file;
   } else {
     LOG(warn) << "Can not open file:" << file;
-    ret = 1;
+    return 1;
   }
-  return *this;
+  return 0;
 }
 
 std::ostream& o2::ctp::operator<<(std::ostream& in, const o2::ctp::CTPConfiguration& conf)
