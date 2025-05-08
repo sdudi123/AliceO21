@@ -929,7 +929,7 @@ auto spawner(std::shared_ptr<arrow::Table> const& fullTable, const char* name, s
 template <typename... C>
 auto spawner(framework::pack<C...> columns, std::vector<std::shared_ptr<arrow::Table>>&& tables, const char* name, std::shared_ptr<gandiva::Projector>& projector)
 {
-  std::array<const char*, 1> labels {"original"};
+  std::array<const char*, 1> labels{"original"};
   auto fullTable = soa::ArrowHelpers::joinTables(std::move(tables), std::span<const char* const>{labels});
   if (fullTable->num_rows() == 0) {
     return makeEmptyTable(name, framework::pack<C...>{});

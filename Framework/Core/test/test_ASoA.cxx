@@ -318,7 +318,6 @@ TEST_CASE("TestJoinedTables")
   } catch (RuntimeErrorRef ref) {
     REQUIRE(std::string{error_from_ref(ref).what} == "Tables TEST and TEST have different sizes (8 vs 3) and cannot be joined!");
   }
-
 }
 
 TEST_CASE("TestConcatTables")
