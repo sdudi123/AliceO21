@@ -1204,8 +1204,8 @@ int CtpCfg::readAndSave(std::string& path)
       } else if (tokens[0].find("orbitshift") != std::string::npos) {
         orbitShift = std::atol(tokens[1].c_str());
       } else if (tokens[0].find("ir_inputs") != std::string::npos) {
-        irInputs_1_24 = std::stoul(tokens[1].c_str(), nullptr, 16);
-        irInputs_25_48 = std::stoul(tokens[2].c_str(), nullptr, 16);
+        irInputs_1_24 = std::stoul(tokens[2].c_str(), nullptr, 16);
+        irInputs_25_48 = std::stoul(tokens[1].c_str(), nullptr, 16);
       } else {
         LOG(warn) << " Token not found:" << tokens[0];
       }
