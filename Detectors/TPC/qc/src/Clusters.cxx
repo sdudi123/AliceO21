@@ -157,12 +157,10 @@ void Clusters::reset()
 //______________________________________________________________________________
 o2::tpc::CalPad Clusters::getOccupancy(int nHBFPerTF)
 {
-  o2::tpc::CalPad Occupancy = mNClusters;
-  Occupancy /= float(mProcessedTFs * (o2::constants::lhc::LHCMaxBunches * nHBFPerTF) / float(o2::tpc::ParameterElectronics::TIMEBININBC));
-  return Occupancy;
-  ;
+  o2::tpc::CalPad occupancy = mNClusters;
+  occupancy /= float(mProcessedTFs * (o2::constants::lhc::LHCMaxBunches * nHBFPerTF) / float(o2::tpc::ParameterElectronics::TIMEBININBC));
+  return occupancy;
 }
-
 //______________________________________________________________________________
 void Clusters::merge(Clusters& clusters)
 {
