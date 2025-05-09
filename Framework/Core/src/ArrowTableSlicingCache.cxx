@@ -110,7 +110,7 @@ arrow::Status ArrowTableSlicingCache::updateCacheEntry(int pos, std::shared_ptr<
     counts[pos].reset();
     return arrow::Status::OK();
   }
-  auto& [b,k,e] = bindingsKeys[pos];
+  auto& [b, k, e] = bindingsKeys[pos];
   if (!e) {
     throw runtime_error_f("Disabled cache %s/%s update requested", b.c_str(), k.c_str());
   }
@@ -197,7 +197,7 @@ SliceInfoPtr ArrowTableSlicingCache::getCacheFor(Entry const& bindingKey) const
   if (!s) {
     throw runtime_error_f("%s/%s is found in unsorted cache", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
-  if(!bindingsKeys[p].enabled) {
+  if (!bindingsKeys[p].enabled) {
     throw runtime_error_f("Disabled cache %s/%s is requested", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
 
@@ -210,7 +210,7 @@ SliceInfoUnsortedPtr ArrowTableSlicingCache::getCacheUnsortedFor(const Entry& bi
   if (s) {
     throw runtime_error_f("%s/%s is found in sorted cache", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
-  if(!bindingsKeys[p].enabled) {
+  if (!bindingsKeys[p].enabled) {
     throw runtime_error_f("Disabled unsorted cache %s/%s is requested", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
 

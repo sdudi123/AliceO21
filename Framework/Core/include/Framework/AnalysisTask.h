@@ -166,7 +166,7 @@ struct AnalysisDataProcessorBuilder {
   }
   /// 1. enumeration (must be the only argument)
   template <typename R, typename C, is_enumeration A>
-  static void inputsFromArgs(R (C::*)(A), const char* /*name*/, bool /*value*/, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>&)//, Cache&, Cache&)
+  static void inputsFromArgs(R (C::*)(A), const char* /*name*/, bool /*value*/, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>&) //, Cache&, Cache&)
   {
     std::vector<ConfigParamSpec> inputMetadata;
     // FIXME: for the moment we do not support begin, end and step.
@@ -175,7 +175,7 @@ struct AnalysisDataProcessorBuilder {
 
   /// 2. 1st argument is an iterator
   template <typename R, typename C, soa::is_iterator A, soa::is_table... Args>
-  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos)//, Cache& bk, Cache& bku)
+  static void inputsFromArgs(R (C::*)(A, Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos) //, Cache& bk, Cache& bku)
     requires(std::is_lvalue_reference_v<A> && (std::is_lvalue_reference_v<Args> && ...))
   {
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(A, Args...)>();
@@ -184,7 +184,7 @@ struct AnalysisDataProcessorBuilder {
 
   /// 3. generic case
   template <typename R, typename C, soa::is_table... Args>
-  static void inputsFromArgs(R (C::*)(Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos)//, Cache&, Cache&)
+  static void inputsFromArgs(R (C::*)(Args...), const char* name, bool value, std::vector<InputSpec>& inputs, std::vector<ExpressionInfo>& eInfos) //, Cache&, Cache&)
     requires(std::is_lvalue_reference_v<Args> && ...)
   {
     constexpr auto hash = o2::framework::TypeIdHelpers::uniqueId<R (C::*)(Args...)>();
@@ -526,10 +526,10 @@ DataProcessorSpec adaptAnalysisTask(ConfigContext const& ctx, Args&&... args)
     AnalysisDataProcessorBuilder::inputsFromArgs(&T::process, "default", true, inputs, expressionInfos);
   }
   homogeneous_apply_refs(
-      [name = name_str, &expressionInfos, &inputs](auto& x) mutable {
-        // this pushes (argumentIndex, processHash, schemaPtr, nullptr) into expressionInfos for arguments that are Filtered/filtered_iterators
-        return AnalysisDataProcessorBuilder::requestInputsFromArgs(x, name, inputs, expressionInfos);
-      },
+    [name = name_str, &expressionInfos, &inputs](auto& x) mutable {
+      // this pushes (argumentIndex, processHash, schemaPtr, nullptr) into expressionInfos for arguments that are Filtered/filtered_iterators
+      return AnalysisDataProcessorBuilder::requestInputsFromArgs(x, name, inputs, expressionInfos);
+    },
     *task.get());
 
   // request base tables for spawnable extended tables and indices to be built
