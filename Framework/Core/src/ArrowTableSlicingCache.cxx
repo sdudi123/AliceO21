@@ -210,7 +210,7 @@ SliceInfoUnsortedPtr ArrowTableSlicingCache::getCacheUnsortedFor(const Entry& bi
   if (s) {
     throw runtime_error_f("%s/%s is found in sorted cache", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
-  if(!bindingsKeysUnsorted[p].enabled) {
+  if (!bindingsKeysUnsorted[p].enabled) {
     throw runtime_error_f("Disabled unsorted cache %s/%s is requested", bindingKey.binding.c_str(), bindingKey.key.c_str());
   }
 
