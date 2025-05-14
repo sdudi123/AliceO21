@@ -41,7 +41,7 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
 // General purpose
 void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsMap)
 {
-  mPImplOrt = new OrtVariables();
+  mPImplOrt = std::make_shared<OrtVariables>();
 
   // Load from options map
   if (!optionsMap.contains("model-path")) {
@@ -147,8 +147,8 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
     (mPImplOrt->sessionOptions).AddConfigEntry("session.use_env_allocators", "1");                    // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     (mPImplOrt->sessionOptions).AddConfigEntry("session_options.enable_cpu_mem_arena", "0");          // This should enable to use the volatile memory allocation defined in O2/GPU/GPUTracking/TPCClusterFinder/GPUTPCNNClusterizerHost.cxx; not working yet: ONNX still assigns new memory at init time
     // Arena memory shrinkage comes at performance cost
-    /// For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
-    // (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
+    // For now prefer to use single allocation, enabled by O2/GPU/GPUTracking/Base/cuda/GPUReconstructionCUDA.cu -> SetONNXGPUStream -> rocm_options.arena_extend_strategy = 0;
+    (mPImplOrt->runOptions).AddConfigEntry("memory.enable_memory_arena_shrinkage", ("gpu:" + std::to_string(deviceIndex)).c_str()); // See kOrtRunOptionsConfigEnableMemoryArenaShrinkage, https://github.com/microsoft/onnxruntime/blob/90c263f471bbce724e77d8e62831d3a9fa838b2f/include/onnxruntime/core/session/onnxruntime_run_options_config_keys.h#L27
 
     std::string dev_mem_str = "";
     if (mDeviceType == "ROCM") {
@@ -308,6 +308,14 @@ void OrtModel::inference(I* input, int64_t input_size, O* output)
   (mPImplOrt->ioBinding)->BindOutput(mOutputNames[0].c_str(), outputTensor);
 
   (mPImplOrt->session)->Run(mPImplOrt->runOptions, *mPImplOrt->ioBinding);
+  // mPImplOrt->session->Run(
+  //   mPImplOrt->runOptions,
+  //   mInputNamesChar.data(),
+  //   &inputTensor,
+  //   mInputNamesChar.size(),
+  //   mOutputNamesChar.data(),
+  //   &outputTensor,
+  //   mOutputNamesChar.size());
 }
 
 template void OrtModel::inference<OrtDataType::Float16_t, OrtDataType::Float16_t>(OrtDataType::Float16_t*, int64_t, OrtDataType::Float16_t*);
@@ -427,10 +435,7 @@ template std::vector<OrtDataType::Float16_t> OrtModel::inference<OrtDataType::Fl
 // Release session
 void OrtModel::release(bool profilingEnabled)
 {
-  // if (profilingEnabled) {
-  //   mPImplOrt->session->EndProfiling();
-  // }
-  LOG(info) << "(ORT) Size of mPImplOrt: " << sizeof(*mPImplOrt) << " bytes";
+  mPImplOrt.reset();
 }
 
 // private

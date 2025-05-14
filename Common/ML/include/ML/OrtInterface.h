@@ -113,7 +113,7 @@ class OrtModel
  private:
   // ORT variables -> need to be hidden as pImpl
   struct OrtVariables;
-  OrtVariables* mPImplOrt;
+  std::shared_ptr<OrtVariables> mPImplOrt = nullptr;
 
   // Input & Output specifications of the loaded network
   std::vector<const char*> mInputNamesChar, mOutputNamesChar;
