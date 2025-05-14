@@ -299,7 +299,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 
     uint32_t rowIndex = 0;
     if (clusterOut != nullptr) {
-      rowIndex = GPUTPCNNClusterizerKernels::sortIntoBuckets(
+      rowIndex = GPUTPCCFClusterizer::sortIntoBuckets(
         clusterer,
         myCluster,
         peak.row(),
@@ -320,19 +320,6 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
     }
     return;
   }
-}
-
-GPUd() uint32_t GPUTPCNNClusterizerKernels::sortIntoBuckets(GPUTPCClusterFinder& clusterer, const tpc::ClusterNative& cluster, uint32_t row, uint32_t maxElemsPerBucket, uint32_t* elemsInBucket, tpc::ClusterNative* buckets, uint32_t full_glo_idx)
-{
-  uint32_t index = CAMath::AtomicAdd(&elemsInBucket[row], 1u);
-  if (index < maxElemsPerBucket) {
-    buckets[maxElemsPerBucket * row + index] = cluster;
-  } else {
-    printf("ERROR AR THREADIDX: full_glo_idx %d with row %d. Cluster features: %f %f %f %f %f %f \n", full_glo_idx, row, cluster.getPad(), cluster.getTime(), cluster.getQtot(), cluster.getQmax(), cluster.getSigmaPad(), cluster.getSigmaTime());
-    clusterer.raiseError(GPUErrors::ERROR_CF_ROW_CLUSTER_OVERFLOW, clusterer.mISector * 1000 + row, index, maxElemsPerBucket);
-    CAMath::AtomicExch(&elemsInBucket[row], maxElemsPerBucket);
-  }
-  return index;
 }
 
 template <>
