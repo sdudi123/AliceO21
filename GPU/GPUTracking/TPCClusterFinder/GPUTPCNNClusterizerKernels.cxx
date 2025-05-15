@@ -305,8 +305,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
         peak.row(),
         clusterer.mNMaxClusterPerRow,
         clusterer.mPclusterInRow,
-        clusterOut,
-        full_glo_idx);
+        clusterOut);
       if (clusterer.mPclusterPosInRow != nullptr) {
         clusterer.mPclusterPosInRow[full_glo_idx] = rowIndex;
       }
