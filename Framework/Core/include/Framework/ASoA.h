@@ -1236,9 +1236,9 @@ struct TableIterator : IP, C... {
   {
     DC::boundIterators = std::make_tuple([this]<typename Bi>() {
       if constexpr (can_bind<self_t, Bi>) {
-        return &(static_cast<B*>(this)->mColumnIterator);
+        return &(static_cast<Bi*>(this)->mColumnIterator);
       } else {
-        return static_cast<std::decay_t<decltype(B::mColumnIterator)>*>(nullptr);
+        return static_cast<std::decay_t<decltype(Bi::mColumnIterator)>*>(nullptr);
       }
     }.template operator()<B>()...);
   }
