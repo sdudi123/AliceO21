@@ -1211,13 +1211,13 @@ struct TableIterator : IP, C... {
   void bind()
   {
     using namespace o2::soa;
-    ([this]<soa::is_column CL>() {
-      if constexpr (soa::is_persistent_column<CL>) {
-        CL::mColumnIterator.mCurrentPos = &this->mRowIndex;
-      } else if constexpr (soa::is_dynamic_column<CL>) {
-        bindDynamicColumn<CL>(typename CL::bindings_t{});
+    ([this]() {
+      if constexpr (soa::is_persistent_column<C>) {
+        C::mColumnIterator.mCurrentPos = &this->mRowIndex;
+      } else if constexpr (soa::is_dynamic_column<C>) {
+        bindDynamicColumn<C>(typename C::bindings_t{});
       }
-    }.template operator()<C>(),
+    }(),
      ...);
 
     if constexpr (has_index<C...>) {
