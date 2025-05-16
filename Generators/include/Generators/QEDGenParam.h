@@ -24,7 +24,6 @@ namespace o2
 namespace eventgen
 {
 struct QEDGenParam : public o2::conf::ConfigurableParamHelper<QEDGenParam> {
-
   float yMin = -6.f;       ///< min Y
   float yMax = 6.f;        ///< max Y
   float ptMin = 0.4e-3;    ///< min pT
