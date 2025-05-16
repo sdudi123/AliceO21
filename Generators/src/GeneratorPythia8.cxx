@@ -663,7 +663,7 @@ Bool_t
     auto st = o2::mcgenstatus::MCGenStatusEncoding(particle.statusHepMC(), //
                                                    particle.status())      //
                 .fullEncoding;
-    mParticles.push_back(TParticle(pdg,            // Particle type
+    mParticles.push_back(TParticle(pdg,                      // Particle type
                                    st,                       // status
                                    particle.mother1() - 1,   // first mother
                                    particle.mother2() - 1,   // second mother
