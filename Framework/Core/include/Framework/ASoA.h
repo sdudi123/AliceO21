@@ -1147,9 +1147,9 @@ struct TableIterator : IP, C... {
     return CL::getCurrentRaw();
   }
 
-  auto getIndexBindings() -> std::vector<o2::soa::Binding> const
+  std::vector<o2::soa::Binding> getIndexBindings() const
   {
-    return {[]<soa::is_column CL>(){
+    return {[this]<soa::is_column CL>(){
       if constexpr (soa::is_index_column<CL> && !soa::is_self_index_column<CL>) {
         return o2::soa::Binding{CL::getCurrentRaw()};
       } else {
@@ -1162,7 +1162,7 @@ struct TableIterator : IP, C... {
   void bindExternalIndices(TA*... current)
   {
     ([this]<typename... Cs, typename TT>(framework::pack<Cs...>, TT* t) {
-      ([]<soa::is_column CL, typename TI>(TI* c){
+      ([this]<soa::is_column CL, typename TI>(TI* c){
         if constexpr (soa::is_index_column<CL> && !soa::is_self_index_column<CL>) {
           CL::setCurrent(c);
         }
@@ -1173,8 +1173,8 @@ struct TableIterator : IP, C... {
 
   void bindExternalIndicesRaw(std::vector<o2::soa::Binding>&& bindings)
   {
-    [&bindings]<size_t... Is>(std::index_sequence<Is...>){
-      ([&bindings](){
+    [&bindings, this]<size_t... Is>(std::index_sequence<Is...>){
+      ([&bindings, this](){
         using column = typename framework::pack_element_t<Is, framework::pack<C...>>;
         if constexpr (soa::is_index_column<column> && !soa::is_self_index_column<column>) {
           column::setCurrentRaw(bindings[Is]);
@@ -1188,7 +1188,7 @@ struct TableIterator : IP, C... {
   {
     o2::soa::Binding b;
     b.bind(table);
-    ([]<soa::is_column CL>(o2::soa::Binding const& bb){
+    ([this]<soa::is_column CL>(o2::soa::Binding const& bb){
       if constexpr(soa::is_self_index_column<CL>) {
         CL::setCurrentRaw(bb);
       }
