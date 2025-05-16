@@ -34,29 +34,14 @@ auto interleaveTuples(std::tuple<T1s...>& t1, std::tuple<T2s...>& t2)
   return interleaveTuplesImpl(t1, t2, std::index_sequence_for<T1s...>());
 }
 
-template <soa::is_index_column T, soa::is_table G>
-  requires(!soa::is_self_index_column<T> && o2::soa::is_binding_compatible_v<std::decay_t<G>, typename std::decay_t<T>::binding_t>())
-consteval auto isIndexTo()
-{
-  return std::true_type{};
-}
-
-template <soa::is_index_column T, soa::is_table G>
-  requires(!soa::is_self_index_column<T> && !o2::soa::is_binding_compatible_v<std::decay_t<G>, typename std::decay_t<T>::binding_t>())
-consteval auto isIndexTo()
-{
-  return std::false_type{};
-}
-
-template <soa::is_column T, soa::is_table G>
-  requires(!soa::is_index_column<T>)
-consteval auto isIndexTo()
-{
-  return std::false_type{};
-}
-
 template <typename T, typename G>
-using is_index_to_g_t = decltype(isIndexTo<T, G>());
+using is_index_to_g_t = decltype([](){
+  if constexpr (soa::is_index_column<T> && !soa::is_self_index_column<T>) {
+    return std::conditional_t<o2::soa::is_binding_compatible_v<std::decay_t<G>, typename std::decay_t<T>::binding_t>, std::true_type, std::false_type>{};
+  } else {
+    return std::false_type{};
+  }
+}());
 
 template <typename G, typename A>
 expressions::BindingNode getMatchingIndexNode()
