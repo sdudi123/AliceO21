@@ -654,10 +654,16 @@ Bool_t
     // first particle is system
     auto particle = event[iparticle];
     auto pdg = particle.id();
+    // Select nuclei (A PDG id code for nuclei is on the form 100ZZZAAAI)
+    if (std::abs(pdg) > 1000000000) {
+      // Ignore isospin
+      pdg /= 10;
+      pdg *= 10;
+    }
     auto st = o2::mcgenstatus::MCGenStatusEncoding(particle.statusHepMC(), //
                                                    particle.status())      //
                 .fullEncoding;
-    mParticles.push_back(TParticle(particle.id(),            // Particle type
+    mParticles.push_back(TParticle(pdg,            // Particle type
                                    st,                       // status
                                    particle.mother1() - 1,   // first mother
                                    particle.mother2() - 1,   // second mother
@@ -776,7 +782,11 @@ void GeneratorPythia8::updateHeader(o2::dataformats::MCEventHeader* eventHeader)
                               hiinfo->nAbsProj() + hiinfo->nDiffProj());
     eventHeader->putInfo<int>(Key::nPartTarget,
                               hiinfo->nAbsTarg() + hiinfo->nDiffTarg());
+#if PYTHIA_VERSION_INTEGER >= 8313
+    eventHeader->putInfo<int>(Key::nCollHard, hiinfo->nCollND());
+#else
     eventHeader->putInfo<int>(Key::nCollHard, hiinfo->nCollNDTot());
+#endif
   }
 }
 
