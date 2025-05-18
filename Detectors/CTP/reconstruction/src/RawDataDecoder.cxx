@@ -296,7 +296,7 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
     uint64_t trgclassmask = 0xffffffffffffffff;
     uint64_t trgclassmaskNOTRGDet = 0xffffffffffffffff;
     if (mCTPConfig.getRunNumber() != 0) {
-      trgclassmask = mCTPConfig.getTriggerClassMaskWInputs();  // classes triggered by internal ctp generators not here 
+      trgclassmask = mCTPConfig.getTriggerClassMaskWInputs(); // classes triggered by internal ctp generators not here
       trgclassmaskNOTRGDet = mCTPConfig.getTriggerClassMaskWInputsNoTrgDets();
       // mCTPConfig.printStream(std::cout);
     }
@@ -524,8 +524,9 @@ int RawDataDecoder::shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit
       digmap[ir] = digit;
     }
   } else {
-    //LOG(info) << "LOST:" << irin << " shift:" << shift;
-    return 1;;
+    // LOG(info) << "LOST:" << irin << " shift:" << shift;
+    return 1;
+    ;
   }
   return 0;
 }

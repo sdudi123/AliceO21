@@ -77,7 +77,7 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
   if (mErrorIR || mErrorTCR) {
     LOG(error) << "# of IR errors:" << mErrorIR << " TCR errors:" << mErrorTCR << std::endl;
   }
-  if(mCheckConsistency) {
+  if (mCheckConsistency) {
     LOG(info) << "Lost due to the shift Consistency Checker:" << mDecoder.getLostDueToShiftCls();
     auto ctpcfg = mDecoder.getCTPConfig();
     for (int i = 0; i < o2::ctp::CTP_NCLASSES; i++) {
@@ -85,7 +85,7 @@ void RawDecoderSpec::endOfStream(framework::EndOfStreamContext& ec)
       if (mClsEA[i]) {
         LOG(error) << " Class without inputs:";
       }
-      LOG(important) << "CLASS:"<<  name << ":" << i << " Cls=>Inp:" << mClsA[i] << " Inp=>Cls:" << mClsB[i] << "  ErrorsCls=>Inps:" << mClsEA[i] << "  MissingInps=>Cls:" << mClsEB[i];
+      LOG(important) << "CLASS:" << name << ":" << i << " Cls=>Inp:" << mClsA[i] << " Inp=>Cls:" << mClsB[i] << "  ErrorsCls=>Inps:" << mClsEA[i] << "  MissingInps=>Cls:" << mClsEB[i];
     }
   }
 }
@@ -172,7 +172,7 @@ void RawDecoderSpec::run(framework::ProcessingContext& ctx)
     auto clsEB = mDecoder.getClassErrorsB();
     auto cntCA = mDecoder.getClassCountersA();
     auto cntCB = mDecoder.getClassCountersB();
-    for(int i = 0; i < o2::ctp::CTP_NCLASSES; i++){
+    for (int i = 0; i < o2::ctp::CTP_NCLASSES; i++) {
       mClsEA[i] += clsEA[i];
       mClsEB[i] += clsEB[i];
       mClsA[i] += cntCA[i];
