@@ -27,11 +27,20 @@ namespace o2
 namespace ml
 {
 
+OrtModel::OrtModel() = default;
+OrtModel::OrtModel(std::unordered_map<std::string, std::string> optionsMap) { init(optionsMap); }
+OrtModel::~OrtModel() = default;
+void OrtModel::init(std::unordered_map<std::string, std::string> optionsMap)
+{
+  initOptions(optionsMap);
+  initEnvironment();
+}
+
 struct OrtModel::OrtVariables { // The actual implementation is hidden in the .cxx file
   // ORT runtime objects
   Ort::RunOptions runOptions;
-  std::shared_ptr<Ort::Env> env = nullptr;
-  std::shared_ptr<Ort::Session> session = nullptr; ///< ONNX session
+  std::unique_ptr<Ort::Env> env = nullptr;
+  std::unique_ptr<Ort::Session> session = nullptr; ///< ONNX session
   Ort::SessionOptions sessionOptions;
   Ort::AllocatorWithDefaultOptions allocator;
   Ort::MemoryInfo memoryInfo = Ort::MemoryInfo("Cpu", OrtAllocatorType::OrtDeviceAllocator, 0, OrtMemType::OrtMemTypeDefault);
@@ -41,7 +50,7 @@ struct OrtModel::OrtVariables { // The actual implementation is hidden in the .c
 // General purpose
 void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsMap)
 {
-  mPImplOrt = std::make_shared<OrtVariables>();
+  mPImplOrt = std::make_unique<OrtVariables>();
 
   // Load from options map
   if (!optionsMap.contains("model-path")) {
@@ -101,7 +110,7 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
 
 void OrtModel::initEnvironment()
 {
-  mPImplOrt->env = std::make_shared<Ort::Env>(
+  mPImplOrt->env = std::make_unique<Ort::Env>(
     OrtLoggingLevel(mLoggingLevel),
     (mEnvName.empty() ? "ORT" : mEnvName.c_str()),
     // Integrate ORT logging into Fairlogger
@@ -129,7 +138,7 @@ void OrtModel::initSession()
   if (mAllocateDeviceMemory) {
     memoryOnDevice(mDeviceId);
   }
-  mPImplOrt->session = std::make_shared<Ort::Session>(*mPImplOrt->env, mModelPath.c_str(), mPImplOrt->sessionOptions);
+  mPImplOrt->session = std::make_unique<Ort::Session>(*mPImplOrt->env, mModelPath.c_str(), mPImplOrt->sessionOptions);
   mPImplOrt->ioBinding = std::make_unique<Ort::IoBinding>(*mPImplOrt->session);
 
   setIO();
@@ -152,7 +161,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
 
     std::string dev_mem_str = "";
     if (mDeviceType == "ROCM") {
-      dev_mem_str = "Hip";
+      dev_mem_str = "HipPinned";
     }
     if (mDeviceType == "CUDA") {
       dev_mem_str = "Cuda";
@@ -166,7 +175,7 @@ void OrtModel::memoryOnDevice(int32_t deviceIndex)
 
 void OrtModel::resetSession()
 {
-  mPImplOrt->session = std::make_shared<Ort::Session>(*(mPImplOrt->env), mModelPath.c_str(), mPImplOrt->sessionOptions);
+  mPImplOrt->session = std::make_unique<Ort::Session>(*(mPImplOrt->env), mModelPath.c_str(), mPImplOrt->sessionOptions);
 }
 
 // Getters
@@ -252,7 +261,7 @@ void OrtModel::setIO()
 
 void OrtModel::setEnv(Ort::Env* env)
 {
-  mPImplOrt->env = std::shared_ptr<Ort::Env>(env);
+  mPImplOrt->env.reset(env);
 }
 
 // Inference
