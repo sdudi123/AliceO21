@@ -782,7 +782,7 @@ int CTPConfiguration::getInputIndex(const std::string& name) const
 }
 std::string CTPConfiguration::getClassNameFromIndex(int index)
 {
-  if (index < mCTPClasses.size()) {
+  if (index < (int)mCTPClasses.size()) {
     return mCTPClasses[index].name;
   } else {
     std::string name = "Cls" + std::to_string(index);
