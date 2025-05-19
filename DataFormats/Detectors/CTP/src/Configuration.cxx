@@ -933,8 +933,9 @@ uint64_t CTPConfiguration::getTriggerClassMaskWInputsNoTrgDets() const
     exclude += cls.name.find("EMC") != std::string::npos;
     exclude += cls.name.find("TRD") != std::string::npos;
     exclude += cls.name.find("HMP") != std::string::npos;
-    if (!exclude)
+    if (!exclude) {
       clsmask |= cls.classMask;
+    }
   }
   return clsmask;
 }
