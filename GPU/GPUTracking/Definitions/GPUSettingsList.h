@@ -228,6 +228,7 @@ AddOption(runTest, int32_t, 0, "", 0, "Do not run the actual benchmark, but just
 AddOption(cacheMutex, bool, true, "", 0, "Use a file lock to serialize access to the cache folder")
 AddOption(ignoreCacheValid, bool, false, "", 0, "If set, allows to use RTC cached code files even if they are not valid for the current source code / parameters")
 AddOption(printLaunchBounds, bool, false, "", 0, "Print launch bounds used for RTC code as debugging option")
+AddOption(allowOptimizedSlaveReconstruction, bool, false, "", 0, "Allow RTC with slave GPUReconstruction instances with optConstexpr and optSpecialcode")
 AddOption(cacheFolder, std::string, "./rtccache/", "", 0, "Folder in which the cache file is stored")
 AddOption(prependCommand, std::string, "", "", 0, "Prepend RTC compilation commands by this string")
 AddOption(overrideArchitecture, std::string, "", "", 0, "Override arhcitecture part of RTC compilation command line") // Part of cmdLine, so checked against the cache
@@ -295,7 +296,8 @@ AddOption(trdNCandidates, int32_t, 3, "", 0, "Number of branching track candidat
 AddOption(trdTrackModelO2, bool, false, "", 0, "Use O2 track model instead of GPU track model for TRD tracking")
 AddOption(debugLevel, int32_t, -1, "debug", 'd', "Set debug level (-2 = silent, -1 = autoselect (-2 for O2, 0 for standalone))")
 AddOption(allocDebugLevel, int32_t, 0, "allocDebug", 0, "Some debug output for memory allocations (without messing with normal debug level)")
-AddOption(debugMask, int32_t, 262143, "", 0, "Mask for debug output dumps to file")
+AddOption(debugMask, uint32_t, (1 << 18) - 1, "debugMask", 0, "Mask for debug output dumps to file")
+AddOption(debugLogSuffix, std::string, "", "debugSuffix", 0, "Suffix for debug log files with --debug 6")
 AddOption(serializeGPU, int8_t, 0, "", 0, "Synchronize after each kernel call (bit 1) and DMA transfer (bit 2) and identify failures")
 AddOption(recoTaskTiming, bool, 0, "", 0, "Perform summary timing after whole reconstruction tasks")
 AddOption(deterministicGPUReconstruction, int32_t, -1, "", 0, "Make CPU and GPU debug output comparable (sort / skip concurrent parts), -1 = automatic if debugLevel >= 6", def(1))
