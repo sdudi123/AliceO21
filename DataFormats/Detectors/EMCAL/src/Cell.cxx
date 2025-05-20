@@ -9,11 +9,19 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#include "DataFormatsEMCAL/Constants.h"
-#include "DataFormatsEMCAL/Cell.h"
-#include <iostream>
+/// \file Cell.cxx
+/// \class Cell
+/// \brief EMCAL compressed cell information
+/// \author Anders Knospe, University of Houston
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+/// \since March 6, 2019
+/// \ingroup EMCALDataFormat
+
+#include <ostream>
 #include <bitset>
 #include <cmath>
+#include "DataFormatsEMCAL/Constants.h"
+#include "DataFormatsEMCAL/Cell.h"
 
 using namespace o2::emcal;
 
@@ -43,7 +51,7 @@ const float
   ENERGY_RESOLUTION_HG = HGLGTRANSITION / ENERGY_BITS,
   ENERGY_RESOLUTION_TRU = ENERGY_TRUNCATION / ENERGY_BITS,
   ENERGY_RESOLUTION_LEDMON = ENERGY_TRUNCATION / ENERGY_BITS;
-}
+} // namespace v1
 
 namespace v2
 {
@@ -58,7 +66,7 @@ const float
   ENERGY_RESOLUTION_TRU = ENERGY_TRUNCATION / ENERGY_BITS,
   ENERGY_RESOLUTION_LEDMON = ENERGY_TRUNCATION / ENERGY_BITS;
 
-}
+} // namespace v2
 } // namespace EnergyEncoding
 
 namespace DecodingV0
@@ -72,7 +80,7 @@ struct __attribute__((packed)) CellDataPacked {
 };
 } // namespace DecodingV0
 
-Cell::Cell(short tower, float energy, float timestamp, ChannelType_t ctype) : mTowerID(tower), mEnergy(energy), mTimestamp(timestamp), mChannelType(ctype)
+Cell::Cell(int16_t tower, float energy, float timestamp, ChannelType_t ctype) : mTowerID(tower), mEnergy(energy), mTimestamp(timestamp), mChannelType(ctype)
 {
 }
 
@@ -169,7 +177,7 @@ ChannelType_t Cell::getCellTypeFromPackedBitfieldV0(const char* bitfield)
   return static_cast<ChannelType_t>(reinterpret_cast<const DecodingV0::CellDataPacked*>(bitfield)->mCellStatus);
 }
 
-short Cell::getTowerFromPackedBitfieldV0(const char* bitfield)
+int16_t Cell::getTowerFromPackedBitfieldV0(const char* bitfield)
 {
   return reinterpret_cast<const DecodingV0::CellDataPacked*>(bitfield)->mTowerID;
 }

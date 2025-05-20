@@ -9,7 +9,15 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file EventHandler.cxx
+/// \class EventHandler
+/// \brief Handler for EMCAL event data
+/// \ingroup EMCALbase
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+/// \since March 1st, 2020
+
 #include "DataFormatsEMCAL/EventHandler.h"
+#include <vector>
 #include <optional>
 
 using namespace o2::emcal;

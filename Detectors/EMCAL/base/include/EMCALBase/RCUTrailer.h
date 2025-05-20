@@ -8,25 +8,12 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_RCUTRAILER_H
-#define ALICEO2_EMCAL_RCUTRAILER_H
 
-#include <exception>
-#include <iosfwd>
-#include <string>
-#include <cstdint>
-#include <gsl/span>
-#include <Rtypes.h>
-
-namespace o2
-{
-
-namespace emcal
-{
-
+/// \file RCUTrailer.h
 /// \class RCUTrailer
 /// \brief Information stored in the RCU trailer
 /// \ingroup EMCALbase
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
 ///
 /// The RCU trailer can be found at the end of
 /// the payload and contains general information
@@ -71,6 +58,22 @@ namespace emcal
 ///   | 24        | ALTRO buffers (0 - 4 buffers, 1 - 8 buffers)  |
 ///   | 25 - 31   | Zeroed (used for trailer word markers)        |
 ///
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_RCUTRAILER_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_RCUTRAILER_H_
+
+#include <Rtypes.h>
+#include <gsl/span>
+#include <exception>
+#include <iosfwd>
+#include <string>
+#include <cstdint>
+#include <vector>
+
+namespace o2
+{
+namespace emcal
+{
 class RCUTrailer
 {
  public:
@@ -405,11 +408,12 @@ class RCUTrailer
         uint32_t mNumPresamples : 2;            ///< Number of presamples
         uint32_t mNumPostsamples : 4;           ///< Number of postsamples
         uint32_t mSecondBaselineCorrection : 1; ///< Second baseline correction
-        uint32_t mGlitchFilter : 2;             ///< Glitch filter
-        uint32_t mNumPostsamplesNoZS : 3;       ///< Number of postsamples without zero suppression
-        uint32_t mNumPresamplesNoZS : 2;        ///< Number of presamples without zero suppression
-        uint32_t mZeroSuppression : 1;          ///< Zero suppression
-        uint32_t mZero1_1 : 12;                 ///< Zeroed bits
+
+        uint32_t mGlitchFilter : 2;       ///< Glitch filter
+        uint32_t mNumPostsamplesNoZS : 3; ///< Number of postsamples without zero suppression
+        uint32_t mNumPresamplesNoZS : 2;  ///< Number of presamples without zero suppression
+        uint32_t mZeroSuppression : 1;    ///< Zero suppression
+        uint32_t mZero1_1 : 12;           ///< Zeroed bits
       };
     };
 
@@ -465,4 +469,4 @@ std::ostream& operator<<(std::ostream& stream, const RCUTrailer& trailer);
 
 } // namespace o2
 
-#endif
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_RCUTRAILER_H_

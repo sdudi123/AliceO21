@@ -9,6 +9,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file   CTF.cxx
+/// \author ruben.shahoyan@cern.ch
+/// \brief  Definitions for EMC CTF data
+
 #include <stdexcept>
 #include <cstring>
 #include "DataFormatsEMCAL/CTF.h"

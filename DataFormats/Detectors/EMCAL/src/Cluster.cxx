@@ -8,15 +8,23 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+
+/// \file Cluster.h
+/// \class Cluster
+/// \brief EMCAL Cluster
+/// \ingroup EMCALDataFormat
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+///
+
 #include <cfloat>
 #include <cmath>
-#include <iostream>
+#include <ostream>
 #include "DataFormatsEMCAL/Cluster.h"
 
 using namespace o2::emcal;
 
-Cluster::Cluster(Float_t time, int firstcell, int ncells) : o2::dataformats::TimeStamp<Float16_t>(time),
-                                                            mCellIndices(firstcell, ncells)
+Cluster::Cluster(float time, int firstcell, int ncells) : o2::dataformats::TimeStamp<Float16_t>(time),
+                                                          mCellIndices(firstcell, ncells)
 {
 }
 

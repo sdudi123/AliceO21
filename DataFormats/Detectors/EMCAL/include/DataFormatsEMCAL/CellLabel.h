@@ -9,8 +9,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_CELLLABEL_H_
-#define ALICEO2_EMCAL_CELLLABEL_H_
+/// \file CellLabel.h
+/// \class CellLabel
+/// \brief cell class for MC particle IDs and their respective amplitude fraction
+/// \ingroup EMCALDataFormat
+/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
+/// \since December 13, 2023
+///
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELLLABEL_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELLLABEL_H_
 
 #include <fairlogger/Logger.h>
 #include <gsl/span>
@@ -22,14 +30,6 @@ namespace o2
 
 namespace emcal
 {
-
-/// \class CellLabel
-/// \brief cell class for MC particle IDs and their respective amplitude fraction
-/// \ingroup EMCALDataFormat
-/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
-/// \since December 13, 2023
-///
-
 class CellLabel
 {
  public:
@@ -46,15 +46,15 @@ class CellLabel
 
   /// \brief Getter of label size
   /// \param index index which label to get
-  size_t GetLabelSize(void) const { return mLabels.size(); }
+  size_t getLabelSize(void) const { return mLabels.size(); }
 
   /// \brief Getter for label
   /// \param index index which label to get
-  int32_t GetLabel(size_t index) const { return mLabels[index]; }
+  int32_t getLabel(size_t index) const { return mLabels[index]; }
 
   /// \brief Getter for amplitude fraction
   /// \param index index which amplitude fraction to get
-  float GetAmplitudeFraction(size_t index) const { return mAmplitudeFraction[index]; }
+  float getAmplitudeFraction(size_t index) const { return mAmplitudeFraction[index]; }
 
  protected:
   gsl::span<const int32_t> mLabels;          ///< List of MC particles that generated the cluster, ordered in deposited energy.
@@ -63,4 +63,4 @@ class CellLabel
 
 } // namespace emcal
 } // namespace o2
-#endif // ALICEO2_EMCAL_CELLLABEL_H_
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELLLABEL_H_

@@ -8,8 +8,13 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_COMPRESSEDTRIGGERDATA_H
-#define ALICEO2_EMCAL_COMPRESSEDTRIGGERDATA_H
+
+/// \file CompressedTriggerData.h
+/// \brief compressed trigger data structs
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_COMPRESSEDTRIGGERDATA_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_COMPRESSEDTRIGGERDATA_H_
 
 #include <cstdint>
 #include <iosfwd>
@@ -65,4 +70,4 @@ std::ostream& operator<<(std::ostream& stream, const CompressedL0TimeSum& timesu
 
 } // namespace o2::emcal
 
-#endif // ALICEO2_EMCAL_COMPRESSEDTRIGGERDATA_H
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_COMPRESSEDTRIGGERDATA_H_

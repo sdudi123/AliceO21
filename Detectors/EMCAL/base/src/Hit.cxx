@@ -9,6 +9,10 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file Hit.cxx
+/// \brief Source file for EMCal cell hit class
+/// \author Markus Fasel, markus.fasel@cern.ch
+
 #include "EMCALBase/Hit.h"
 
 ClassImp(o2::emcal::Hit);
@@ -22,7 +26,7 @@ void Hit::PrintStream(std::ostream& stream) const
          << ", initial (parent) energy " << mInitialEnergy;
 }
 
-Bool_t Hit::operator<(const Hit& rhs) const
+bool Hit::operator<(const Hit& rhs) const
 {
   if (GetTrackID() != rhs.GetTrackID()) {
     return GetTrackID() < rhs.GetTrackID();
@@ -30,7 +34,7 @@ Bool_t Hit::operator<(const Hit& rhs) const
   return GetDetectorID() < rhs.GetDetectorID();
 }
 
-Bool_t Hit::operator==(const Hit& rhs) const
+bool Hit::operator==(const Hit& rhs) const
 {
   return (GetDetectorID() == rhs.GetDetectorID()) && (GetTrackID() == rhs.GetTrackID());
 }

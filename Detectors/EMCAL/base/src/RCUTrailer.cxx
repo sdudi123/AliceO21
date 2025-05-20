@@ -8,13 +8,21 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+
+/// \file RCUTrailer.cxx
+/// \class RCUTrailer
+/// \brief Information stored in the RCU trailer
+/// \ingroup EMCALbase
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#include <fmt/format.h>
+#include <fairlogger/Logger.h>
 #include <cfloat>
 #include <cmath>
-#include <iostream>
-#include <fmt/format.h>
+#include <string>
+#include <vector>
 #include "CommonConstants/LHCConstants.h"
 #include "EMCALBase/RCUTrailer.h"
-#include <fairlogger/Logger.h>
 
 using namespace o2::emcal;
 
@@ -68,7 +76,7 @@ void RCUTrailer::constructFromRawPayload(const gsl::span<const uint32_t> payload
   }
   mFirmwareVersion = (word >> 16) & 0xFF;
 
-  mRCUId = (int)((word >> 7) & 0x1FF);
+  mRCUId = static_cast<int>((word >> 7) & 0x1FF);
   int trailerSize = (word & 0x7F);
 
   if (trailerSize < 2) {
@@ -86,7 +94,7 @@ void RCUTrailer::constructFromRawPayload(const gsl::span<const uint32_t> payload
     foundTrailerWords++;
     int parCode = (word >> 26) & 0xF;
     int parData = word & 0x3FFFFFF;
-    // std::cout << "Found trailer word 0x" << std::hex << word << "(Par code: " << std::dec << parCode << ", Par data: 0x" << std::hex << parData << std::dec << ")" << std::endl;
+    // LOG(info) << "Found trailer word 0x" << std::hex << word << "(Par code: " << std::dec << parCode << ", Par data: 0x" << std::hex << parData << std::dec << ")" << std::endl;
     switch (parCode) {
       case 1:
         // ERR_REG1
@@ -152,7 +160,7 @@ double RCUTrailer::getTimeSampleNS() const
       tSample = 8.;
       break;
     default:
-      throw Error(Error::ErrorType_t::SAMPLINGFREQ_INVALID, fmt::format("Invalid sampling frequency value {:d} !", int(fq)).data());
+      throw Error(Error::ErrorType_t::SAMPLINGFREQ_INVALID, fmt::format("Invalid sampling frequency value {:d} !", static_cast<int>(fq)).data());
   }
 
   return tSample * o2::constants::lhc::LHCBunchSpacingNS;
@@ -173,7 +181,7 @@ void RCUTrailer::setTimeSamplePhaseNS(uint64_t triggertime, uint64_t timesample)
       break;
     default:
       throw Error(Error::ErrorType_t::SAMPLINGFREQ_INVALID, fmt::format(fmt::runtime("invalid time sample: {:f}"), timesample).data());
-  };
+  }
   mAltroConfig.mSampleTime = sample;
   // calculate L1 phase
   mAltroConfig.mL1Phase = (triggertime % timesample) / 25;

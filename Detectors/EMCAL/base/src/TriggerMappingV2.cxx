@@ -9,6 +9,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file TriggerMappingV2.cxx
+/// \class TriggerMappingV2
+/// \brief Trigger mapping starting from Run2
+/// \ingroup EMCALbase
+/// \author H. YOKOYAMA Tsukuba University
+/// \author R. GUERNANE LPSC Grenoble CNRS/IN2P3
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#include <tuple>
+
 #include "EMCALBase/Geometry.h"
 #include "EMCALBase/TriggerMappingV2.h"
 #include "EMCALBase/TriggerMappingErrors.h"
@@ -106,10 +116,10 @@ void TriggerMappingV2::init_TRU_offset()
           mTRUFastOROffsetX[currentTRU + 1] = 0;
           mTRUFastOROffsetY[currentTRU + 1] = mTRUFastOROffsetY[currentTRU] + nModule_inTRU_phi;
           break;
-      };
+      }
       currentTRU++;
     } // TRU loop
-  }   // SM loop
+  } // SM loop
 }
 
 /// Initialize mapping offsets of SM (add more description)
@@ -215,8 +225,8 @@ TriggerMappingV2::IndexFastOR TriggerMappingV2::getAbsFastORIndexFromPositionInS
     throw FastORPositionExceptionSupermodule(supermoduleID, etaColumn, phiRow);
   }
 
-  // Int_t iEtatmp = (GetSMIsCside(iSM) && GetSMType(iSM) == kDCAL_Standard)?(iEta + 8):iEta ;
-  // Int_t x = fSMFastOROffsetX[iSM] + iEtatmp ;
+  // int iEtatmp = (GetSMIsCside(iSM) && GetSMType(iSM) == kDCAL_Standard)?(iEta + 8):iEta ;
+  // int x = fSMFastOROffsetX[iSM] + iEtatmp ;
 
   IndexColumnEta x = mSMFastOROffsetX[supermoduleID] + etaColumn;
   IndexRowPhi y = mSMFastOROffsetY[supermoduleID] + phiRow;
@@ -344,7 +354,7 @@ TriggerMappingV2::IndexTRU TriggerMappingV2::convertTRUIndexSTUtoTRU(IndexTRU tr
   if (detector == DetType_t::DET_EMCAL) {
     return truIndexSTU;
   } else {
-    return 32 + ((int)(truIndexSTU / 4) * 6) + ((truIndexSTU % 4 < 2) ? (truIndexSTU % 4) : (truIndexSTU % 4 + 2));
+    return 32 + (static_cast<int>(truIndexSTU / 4) * 6) + ((truIndexSTU % 4 < 2) ? (truIndexSTU % 4) : (truIndexSTU % 4 + 2));
   }
 }
 
@@ -388,7 +398,7 @@ TriggerMappingV2::IndexTRU TriggerMappingV2::getTRUIndexFromOnlineHardareAddree(
 
   // Standard EMCal/DCal SMs
 
-  unsigned short branch = (hardwareAddress >> 11) & 0x1; // 0/1
+  uint16_t branch = (hardwareAddress >> 11) & 0x1; // 0/1
 
   IndexTRU truIndex = (((ddlID % 2) << 1) | branch) - 1; // 0..2
 
@@ -427,7 +437,7 @@ std::array<unsigned int, 4> TriggerMappingV2::getFastORIndexFromL0Index(IndexTRU
       break;
     case 4: // Standard L0 patch
       for (int index = 0; index < 4; index++) {
-        IndexFastOR fastorInTRU = mNFastORInTRUPhi[truIndex] * int(l0index / (mNFastORInTRUPhi[truIndex] - 1)) + (l0index % (mNFastORInTRUPhi[truIndex] - 1)) + motif[index];
+        IndexFastOR fastorInTRU = mNFastORInTRUPhi[truIndex] * static_cast<int>(l0index / (mNFastORInTRUPhi[truIndex] - 1)) + (l0index % (mNFastORInTRUPhi[truIndex] - 1)) + motif[index];
         fastorIndex[index] = getAbsFastORIndexFromIndexInTRU(truIndex, fastorInTRU);
       }
       break;
@@ -460,9 +470,9 @@ TriggerMappingV2::FastORInformation TriggerMappingV2::getInfoFromAbsFastORIndex(
   IndexColumnEta etaColumnGlobal = fastOrAbsID % FASTORSETA;
   IndexRowPhi rowPhiGlobal = fastOrAbsID / FASTORSETA;
 
-  Int_t idtmp = (rowPhiGlobal < mNModuleInEMCALPhi[2]) ? fastOrAbsID : (fastOrAbsID + FASTORSTRU * 4);
+  int idtmp = (rowPhiGlobal < mNModuleInEMCALPhi[2]) ? fastOrAbsID : (fastOrAbsID + FASTORSTRU * 4);
 
-  IndexSupermodule supermoduleID = 2 * (int)(idtmp / (2 * FASTORSETASM * FASTORSPHISM)) + (int)(mTRUIsCside[truIndex]);
+  IndexSupermodule supermoduleID = 2 * static_cast<int>(idtmp / (2 * FASTORSETASM * FASTORSPHISM)) + static_cast<int>(mTRUIsCside[truIndex]);
   if (supermoduleID >= SUPERMODULES) {
     throw SupermoduleIndexException(supermoduleID, SUPERMODULES);
   }
@@ -481,9 +491,9 @@ TriggerMappingV2::FastORInformation TriggerMappingV2::getInfoFromAbsFastORIndex(
 
 TriggerMappingV2::IndexFastOR TriggerMappingV2::rotateAbsFastOrIndexEtaToPhi(IndexFastOR fastorIndexInEta) const
 {
-  Int_t det_phi = int(fastorIndexInEta / FASTORSETA);
-  Int_t nModule_inSM_phi = FASTORSPHISM; // number of modules in current supermodule
-  Int_t fastOrIndexInPhi = 0;
+  int det_phi = static_cast<int>(fastorIndexInEta / FASTORSETA);
+  int nModule_inSM_phi = FASTORSPHISM; // number of modules in current supermodule
+  int fastOrIndexInPhi = 0;
   // Calculate FastOR offset relative to previous SM type
   for (int i = 1; i < 5; i++) {
     if (det_phi < mNModuleInEMCALPhi[i]) {
@@ -496,23 +506,23 @@ TriggerMappingV2::IndexFastOR TriggerMappingV2::rotateAbsFastOrIndexEtaToPhi(Ind
   }
   // fastOrIndexInPhi := Number of FastORs of the previous range with same SM type
 
-  Int_t fastorInSMType = fastorIndexInEta - fastOrIndexInPhi;
-  Int_t sectorInSMType = (int)(fastorInSMType / (FASTORSETA * nModule_inSM_phi));
-  Int_t fastOrInSector = (int)(fastorInSMType % (FASTORSETA * nModule_inSM_phi));
+  int fastorInSMType = fastorIndexInEta - fastOrIndexInPhi;
+  int sectorInSMType = static_cast<int>(fastorInSMType / (FASTORSETA * nModule_inSM_phi));
+  int fastOrInSector = static_cast<int>(fastorInSMType % (FASTORSETA * nModule_inSM_phi));
 
   fastOrIndexInPhi += sectorInSMType * (FASTORSETA * nModule_inSM_phi); // Add back number of FastORs in previous tracking sectors of the same type
   // rotate arrangement from eta to phi
-  fastOrIndexInPhi += (int)(fastOrInSector % FASTORSETA) * nModule_inSM_phi; // Add full colums in sector
-  fastOrIndexInPhi += (int)(fastOrInSector / FASTORSETA);                    // Add FastORs in the last column
+  fastOrIndexInPhi += static_cast<int>(fastOrInSector % FASTORSETA) * nModule_inSM_phi; // Add full colums in sector
+  fastOrIndexInPhi += static_cast<int>(fastOrInSector / FASTORSETA);                    // Add FastORs in the last column
 
   return fastOrIndexInPhi;
 }
 
 TriggerMappingV2::IndexFastOR TriggerMappingV2::rotateAbsFastOrIndexPhiToEta(IndexFastOR fastOrIndexInPhi) const
 {
-  Int_t det_phi = int(fastOrIndexInPhi / FASTORSETA);
-  Int_t fastorIndexInEta = 0;
-  Int_t nModule_inSM_phi = FASTORSPHISM;
+  int det_phi = static_cast<int>(fastOrIndexInPhi / FASTORSETA);
+  int fastorIndexInEta = 0;
+  int nModule_inSM_phi = FASTORSPHISM;
   // Calculate FastOR offset relative to previous SM type
   for (int i = 1; i < 5; i++) {
     if (det_phi < mNModuleInEMCALPhi[i]) {
@@ -525,12 +535,12 @@ TriggerMappingV2::IndexFastOR TriggerMappingV2::rotateAbsFastOrIndexPhiToEta(Ind
   }
   // fastorIndexInEta := Number of FastORs of the previous range with same SM type
 
-  Int_t fastorInSMType = fastOrIndexInPhi - fastorIndexInEta;
-  Int_t sectorInSMType = (int)(fastorInSMType / (FASTORSETA * nModule_inSM_phi));
-  Int_t fastOrInSector = (int)(fastorInSMType % (FASTORSETA * nModule_inSM_phi));
+  int fastorInSMType = fastOrIndexInPhi - fastorIndexInEta;
+  int sectorInSMType = static_cast<int>(fastorInSMType / (FASTORSETA * nModule_inSM_phi));
+  int fastOrInSector = static_cast<int>(fastorInSMType % (FASTORSETA * nModule_inSM_phi));
 
-  Int_t columnInSector = fastOrInSector / nModule_inSM_phi;
-  Int_t rowInSector = fastOrInSector % nModule_inSM_phi;
+  int columnInSector = fastOrInSector / nModule_inSM_phi;
+  int rowInSector = fastOrInSector % nModule_inSM_phi;
 
   fastorIndexInEta += sectorInSMType * (FASTORSETA * nModule_inSM_phi); // Add back number of FastORs in previous tracking sectors of the same type
   // rotate arrangement from phi to eta

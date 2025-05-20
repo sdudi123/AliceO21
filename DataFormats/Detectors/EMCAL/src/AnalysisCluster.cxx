@@ -10,36 +10,42 @@
 // or submit itself to any jurisdiction.
 
 /// \file AnalysisCluster.cxx
+/// \class AnalysisCluster
+/// \brief Cluster class for kinematic cluster parameters
+/// \ingroup EMCALDataFormat
+/// ported from AliVCluster in AliRoot
+/// \author Hadi Hassan <hadi.hassan@cern.ch>, Oak Ridge National Laboratory
+/// \since March 05, 2020
 
 #include <fairlogger/Logger.h>
 #include <gsl/span>
 #include <array>
-#include <TLorentzVector.h>
 #include "DataFormatsEMCAL/AnalysisCluster.h"
+#include "Math/Vector4D.h"
 
 using namespace o2::emcal;
 
 //_______________________________________________________________________
 void AnalysisCluster::clear()
 {
-  //if(mTracksMatched) delete mTracksMatched;
-  //mTracksMatched = 0;
+  // if(mTracksMatched) delete mTracksMatched;
+  // mTracksMatched = 0;
   mCellsAmpFraction.clear();
   mCellsIndices.clear();
 }
 
 //_______________________________________________________________________
-TLorentzVector AnalysisCluster::getMomentum(std::array<const float, 3> vertex) const
+ROOT::Math::PxPyPzEVector AnalysisCluster::getMomentum(std::array<const float, 3> vertex) const
 {
 
-  TLorentzVector p;
+  ROOT::Math::PxPyPzEVector p;
 
   float pos[3] = {mGlobalPos.X(), mGlobalPos.Y(), mGlobalPos.Z()};
   pos[0] -= vertex[0];
   pos[1] -= vertex[1];
   pos[2] -= vertex[2];
 
-  float r = TMath::Sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
+  float r = std::sqrt(pos[0] * pos[0] + pos[1] * pos[1] + pos[2] * pos[2]);
 
   if (r > 0) {
     p.SetPxPyPzE(mEnergy * pos[0] / r, mEnergy * pos[1] / r, mEnergy * pos[2] / r, mEnergy);

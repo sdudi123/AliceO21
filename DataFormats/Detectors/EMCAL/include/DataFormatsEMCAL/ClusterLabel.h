@@ -9,8 +9,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_CLUSTERLABEL_H_
-#define ALICEO2_EMCAL_CLUSTERLABEL_H_
+/// \file ClusterLabel.h
+/// \class ClusterLabel
+/// \brief cluster class for MC particle IDs and their respective energy fraction
+/// \ingroup EMCALDataFormat
+/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
+/// \since December 13, 2023
+///
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTERLABEL_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTERLABEL_H_
 
 #include <fairlogger/Logger.h>
 #include <gsl/span>
@@ -19,31 +27,22 @@
 
 namespace o2
 {
-
 namespace emcal
 {
-
-/// \class ClusterLabel
-/// \brief cluster class for MC particle IDs and their respective energy fraction
-/// \ingroup EMCALDataFormat
-/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
-/// \since December 13, 2023
-///
-
 class ClusterLabel
 {
  public:
-  /// \struct labelWithE
+  /// \struct LabelWithE
   /// \brief Wrapper structure to make cluster label sortable in energy fraction
-  struct labelWithE {
+  struct LabelWithE {
 
     /// \brief Constructor
-    labelWithE() : label(0), energyFraction(0.) {}
+    LabelWithE() : label(0), energyFraction(0.) {}
 
     /// \brief Constructor
     /// \param l MC label
     /// \param e Energy fraction
-    labelWithE(int l, float e) : label(l), energyFraction(e) {}
+    LabelWithE(int l, float e) : label(l), energyFraction(e) {}
 
     /// \brief Comparison lower operator comparing cells based on energy
     ///
@@ -51,7 +50,7 @@ class ClusterLabel
     ///
     /// \param rhs Label to compare to
     /// \return True if this cell is has a lower energy, false otherwise
-    bool operator>=(labelWithE const& rhs) const
+    bool operator>=(LabelWithE const& rhs) const
     {
       return energyFraction >= rhs.energyFraction;
     }
@@ -87,9 +86,9 @@ class ClusterLabel
   void orderLabels();
 
  protected:
-  std::vector<labelWithE> mClusterLabels; ///< List of MC particles that generated the cluster, paired with energy fraction
+  std::vector<LabelWithE> mClusterLabels; ///< List of MC particles that generated the cluster, paired with energy fraction
 };
 
 } // namespace emcal
 } // namespace o2
-#endif // ALICEO2_EMCAL_CLUSTERLABEL_H_
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTERLABEL_H_

@@ -8,19 +8,8 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_NONLINEARITYHANDLER__H
-#define ALICEO2_EMCAL_NONLINEARITYHANDLER__H
 
-#include <exception>
-#include <iosfwd>
-#include <unordered_map>
-#include <string>
-#include <Rtypes.h>
-#include "DataFormatsEMCAL/AnalysisCluster.h"
-
-namespace o2::emcal
-{
-
+/// \file NonlinearityHandler.h
 /// \class NonlinearityHandler
 /// \brief Nonlinearity functions for energy correction
 /// \ingroup EMCALbase
@@ -39,6 +28,19 @@ namespace o2::emcal
 /// without a cluster nonlinearity parameterisation.
 ///
 /// based on nonlinearity implementation in AliEMCALRecoUtils
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_NONLINEARITYHANDLER_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_NONLINEARITYHANDLER_H_
+
+#include <exception>
+#include <iosfwd>
+#include <unordered_map>
+#include <string>
+#include <Rtypes.h>
+#include "DataFormatsEMCAL/AnalysisCluster.h"
+
+namespace o2::emcal
+{
 class NonlinearityHandler
 {
  public:
@@ -102,7 +104,7 @@ class NonlinearityHandler
   /// Initializing all parameters and settings of the nonlinearity function.
   /// Nonlinearity correction at cluster level can be obtained using
   /// objects constructed by this.
-  NonlinearityHandler(NonlinType_t nonlintype);
+  explicit NonlinearityHandler(NonlinType_t nonlintype);
 
   /// \brief Destructor
   ~NonlinearityHandler() = default;
@@ -193,7 +195,7 @@ class NonlinearityFactory
    public:
     /// \brief Constructor
     /// \param Name of the nonlinearity function raising the exception
-    FunctionNotFoundExcpetion(const std::string_view name) : mName(name), mMessage()
+    explicit FunctionNotFoundExcpetion(const std::string_view name) : mName(name), mMessage()
     {
       mMessage = "Nonlinearity funciton " + mName + " not found";
     }
@@ -293,4 +295,4 @@ std::ostream& operator<<(std::ostream& in, const NonlinearityHandler& handler);
 
 } // namespace o2::emcal
 
-#endif // ALICEO2_EMCAL_NONLINEARITYHANDLER__H
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_NONLINEARITYHANDLER_H_

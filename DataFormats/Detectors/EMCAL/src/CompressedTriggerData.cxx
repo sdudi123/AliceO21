@@ -9,7 +9,11 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#include <iostream>
+/// \file CompressedTriggerData.cxx
+/// \brief compressed trigger data structs
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#include <ostream>
 #include "DataFormatsEMCAL/CompressedTriggerData.h"
 
 std::ostream& o2::emcal::operator<<(std::ostream& stream, const o2::emcal::CompressedTRU& tru)

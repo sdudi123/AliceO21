@@ -10,6 +10,14 @@
 // or submit itself to any jurisdiction.
 
 /// \file ClusterLabel.cxx
+/// \class ClusterLabel
+/// \brief cluster class for MC particle IDs and their respective energy fraction
+/// \ingroup EMCALDataFormat
+/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
+/// \since December 13, 2023
+
+#include <vector>
+#include <algorithm>
 
 #include "DataFormatsEMCAL/ClusterLabel.h"
 
@@ -25,7 +33,7 @@ void ClusterLabel::clear()
 void ClusterLabel::addValue(int label, float energyFraction)
 {
   auto it = std::find_if(mClusterLabels.begin(), mClusterLabels.end(),
-                         [label](const labelWithE& lWE) { return lWE.label == label; });
+                         [label](const LabelWithE& lWE) { return lWE.label == label; });
 
   if (it != mClusterLabels.end()) {
     // label already exists, accumulate energy fraction
@@ -49,7 +57,7 @@ std::vector<int32_t> ClusterLabel::getLabels()
 {
   std::vector<int32_t> vLabels;
   vLabels.reserve(mClusterLabels.size());
-  for (auto& clusterlabel : mClusterLabels) {
+  for (const auto& clusterlabel : mClusterLabels) {
     vLabels.push_back(clusterlabel.label);
   }
   return vLabels;
@@ -60,7 +68,7 @@ std::vector<float> ClusterLabel::getEnergyFractions()
 {
   std::vector<float> vEnergyFractions;
   vEnergyFractions.reserve(mClusterLabels.size());
-  for (auto& clusterlabel : mClusterLabels) {
+  for (const auto& clusterlabel : mClusterLabels) {
     vEnergyFractions.push_back(clusterlabel.energyFraction);
   }
   return vEnergyFractions;
@@ -71,5 +79,5 @@ void ClusterLabel::orderLabels()
 {
   // Sort the pairs based on values in descending order
   std::sort(mClusterLabels.begin(), mClusterLabels.end(),
-            [](const labelWithE& a, const labelWithE& b) { return a.energyFraction > b.energyFraction; });
+            [](const LabelWithE& a, const LabelWithE& b) { return a.energyFraction > b.energyFraction; });
 }

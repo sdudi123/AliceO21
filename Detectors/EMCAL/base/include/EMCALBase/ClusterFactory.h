@@ -8,15 +8,27 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_CLUSTERFACTORY_H_
-#define ALICEO2_EMCAL_CLUSTERFACTORY_H_
+
+/// \file ClusterFactory.h
+/// \brief Header file for EMCal cluster factory class that creates clusters from cells
+/// \author Markus Fasel, markus.fasel@cern.ch
+/// \author Hadi Hassan, hadi.hassan@cern.ch
+/// \author M. Hemmer, marvin.hemmer@cern.ch
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_CLUSTERFACTORY_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_CLUSTERFACTORY_H_
+#include <gsl/span>
+
 #include <array>
 #include <vector>
 #include <optional>
 #include <utility>
-#include <gsl/span>
+#include <string>
+#include <tuple>
+
 #include "Rtypes.h"
 #include "fmt/format.h"
+
 #include "DataFormatsEMCAL/Cluster.h"
 #include "DataFormatsEMCAL/Digit.h"
 #include "DataFormatsEMCAL/Cell.h"
@@ -175,13 +187,14 @@ class ClusterFactory
     /// \return Pointer to the current event
     AnalysisCluster* operator*() { return &mCurrentCluster; }
 
-    /// \brief Get reference to the current cluster
-    /// \return Reference to the current event of the iterator
-    AnalysisCluster& operator&() { return mCurrentCluster; }
+    // Unary operator& is dangerous. We should not use it!
+    // /// \brief Get reference to the current cluster
+    // /// \return Reference to the current event of the iterator
+    // AnalysisCluster& operator&() { return mCurrentCluster; }
 
     /// \brief Get the index of the current event
     /// \return Index of the current event
-    int current_index() const { return mClusterID; }
+    int currentIndex() const { return mClusterID; }
 
    private:
     const ClusterFactory& mClusterFactory; ///< Event factory connected to the iterator
@@ -223,11 +236,11 @@ class ClusterFactory
 
   /// \brief Get backward start iterator
   /// \return Start iterator
-  ClusterIterator rbegin() const { return ClusterIterator(*this, getNumberOfClusters() - 1, false); };
+  ClusterIterator rbegin() const { return ClusterIterator(*this, getNumberOfClusters() - 1, false); }
 
   /// \brief Get backward end iteration marker
   /// \return Iteration end marker
-  ClusterIterator rend() const { return ClusterIterator(*this, -1, false); };
+  ClusterIterator rend() const { return ClusterIterator(*this, -1, false); }
 
   /// \brief Reset containers
   void reset();
@@ -236,8 +249,8 @@ class ClusterFactory
   /// evaluates cluster parameters: position, shower shape, primaries ...
   AnalysisCluster buildCluster(int index, o2::emcal::ClusterLabel* clusterLabel = nullptr) const;
 
-  void SetECALogWeight(Float_t w) { mLogWeight = w; }
-  float GetECALogWeight() const { return mLogWeight; }
+  void setECALogWeight(float w) { mLogWeight = w; }
+  float getECALogWeight() const { return mLogWeight; }
 
   void doEvalLocal2tracking(bool justCluster)
   {
@@ -256,14 +269,14 @@ class ClusterFactory
 
   ///
   /// evaluates local position of clusters in SM
-  void evalLocalPositionFit(Double_t deff, Double_t w0, Double_t phiSlope, gsl::span<const int> inputsIndices, AnalysisCluster& cluster) const;
+  void evalLocalPositionFit(double deff, double w0, double phiSlope, gsl::span<const int> inputsIndices, AnalysisCluster& cluster) const;
 
   ///
   /// Applied for simulation data with threshold 3 adc
   /// Calculate efective distance (deff) and weigh parameter (w0)
   /// for coordinate calculation; 0.5 GeV < esum <100 GeV.
   /// Look to:  http://rhic.physics.wayne.edu/~pavlinov/ALICE/SHISHKEBAB/RES/CALIB/GEOMCORR/deffandW0VaEgamma_2.gif
-  static void getDeffW0(const Double_t esum, Double_t& deff, Double_t& w0);
+  static void getDeffW0(const double esum, double& deff, double& w0);
 
   ///
   /// Finds the maximum energy in the cluster
@@ -280,19 +293,19 @@ class ClusterFactory
   /// \param exoticTime: time of the cell with largest energy fraction in cluster
   /// \param fCross: exoticity parameter (1-E_cross/E_cell^max) will be caluclated for this check
   /// \return bool true if cell is found exotic
-  bool isExoticCell(short towerId, float ecell, float const exoticTime, float& fCross) const;
+  bool isExoticCell(int16_t towerId, float ecell, float const exoticTime, float& fCross) const;
 
   /// \brief Calculate the energy in the cross around the energy of a given cell.
   /// \param absID: controlled cell absolute ID number
   /// \param energy: cluster or cell max energy, used for weight calculation
   /// \param exoticTime time of the cell with largest energy fraction in cluster
   /// \return the energy in the cross around the energy of a given cell
-  float getECross(short absID, float energy, float const exoticTime) const;
+  float getECross(int16_t absID, float energy, float const exoticTime) const;
 
   /// \param eCell: cluster cell energy
   /// \param eCluster: cluster or cell max energy
   /// \return weight of cell for shower shape calculation
-  float GetCellWeight(float eCell, float eCluster) const;
+  float getCellWeight(float eCell, float eCluster) const;
 
   ///
   /// Calculates the multiplicity of digits/cells with energy larger than level*energy
@@ -314,7 +327,7 @@ class ClusterFactory
   ///
   /// \param  e: energy in GeV)
   /// \param  key: = 0(gamma, default); !=  0(electron)
-  Double_t tMaxInCm(const Double_t e = 0.0, const int key = 0) const;
+  double tMaxInCm(const double e = 0.0, const int key = 0) const;
 
   bool getLookUpInit() const { return mLookUpInit; }
 
@@ -352,7 +365,7 @@ class ClusterFactory
   void setLookUpTable(void)
   {
     mLoolUpTowerToIndex.fill(-1);
-    for (auto iCellIndex : mCellsIndices) {
+    for (const auto& iCellIndex : mCellsIndices) {
       mLoolUpTowerToIndex[mInputsContainer[iCellIndex].getTower()] = iCellIndex;
     }
     mLookUpInit = true;
@@ -436,7 +449,7 @@ class ClusterFactory
   gsl::span<const o2::emcal::Cluster> mClustersContainer;    ///< Container for all the clusters in the event
   gsl::span<const InputType> mInputsContainer;               ///< Container for all the cells/digits in the event
   gsl::span<const int> mCellsIndices;                        ///< Container for cells indices in the event
-  std::array<short, 17664> mLoolUpTowerToIndex;              ///< Lookup table to match tower id with cell index, needed for exotic check
+  std::array<int16_t, 17664> mLoolUpTowerToIndex;            ///< Lookup table to match tower id with cell index, needed for exotic check
   gsl::span<const o2::emcal::CellLabel> mCellLabelContainer; ///< Container for all the cell labels in the event
 
   ClassDefNV(ClusterFactory, 2);
@@ -444,4 +457,4 @@ class ClusterFactory
 
 } // namespace emcal
 } // namespace o2
-#endif // ALICEO2_EMCAL_CLUSTERFACTORY_H_
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_CLUSTERFACTORY_H_

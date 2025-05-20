@@ -10,6 +10,11 @@
 // or submit itself to any jurisdiction.
 
 /// \file CellLabel.cxx
+/// \class CellLabel
+/// \brief cell class for MC particle IDs and their respective amplitude fraction
+/// \ingroup EMCALDataFormat
+/// \author Marvin Hemmer <marvin.hemmer@cern.ch>, Goethe university Frankfurt
+/// \since December 13, 2023
 
 #include "DataFormatsEMCAL/CellLabel.h"
 

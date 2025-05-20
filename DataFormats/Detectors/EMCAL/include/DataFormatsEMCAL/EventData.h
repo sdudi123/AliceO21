@@ -8,22 +8,8 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_EVENTDATA_H_
-#define ALICEO2_EMCAL_EVENTDATA_H_
-#include <cstdint>
-#include <gsl/span>
-#include <vector>
-#include "CommonDataFormat/InteractionRecord.h"
-#include "DataFormatsEMCAL/Cell.h"
-#include "DataFormatsEMCAL/Cluster.h"
-#include "DataFormatsEMCAL/MCLabel.h"
 
-namespace o2
-{
-
-namespace emcal
-{
-
+/// \file EventData.h
 /// \struct EventData
 /// \brief EMCAL event information (per trigger)
 /// \ingroup EMCALDataFormat
@@ -34,6 +20,21 @@ namespace emcal
 /// same collision (hardware trigger). Collision information is provided via the
 /// interaction record. Attention: Lists (ranges) might be empty in case the
 /// objects are not filled when creating the event structure.
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTDATA_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTDATA_H_
+#include <gsl/span>
+#include <cstdint>
+#include <vector>
+#include "CommonDataFormat/InteractionRecord.h"
+#include "DataFormatsEMCAL/Cell.h"
+#include "DataFormatsEMCAL/Cluster.h"
+#include "DataFormatsEMCAL/MCLabel.h"
+
+namespace o2
+{
+namespace emcal
+{
 template <class InputType>
 struct EventData {
   InteractionRecord mInteractionRecord;                           ///< Interaction record for the trigger corresponding to this event
@@ -61,4 +62,4 @@ struct EventData {
 
 } // namespace o2
 
-#endif // ALICEO2_EMCAL_EVENTDATA_H_
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTDATA_H_

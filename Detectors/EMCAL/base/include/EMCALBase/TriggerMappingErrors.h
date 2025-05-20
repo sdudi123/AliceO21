@@ -9,27 +9,28 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_TRIGGERMAPPINGERRORS_H
-#define ALICEO2_EMCAL_TRIGGERMAPPINGERRORS_H
+/// \file TriggerMappingErrors.h
+/// \class TRUIndexException
+/// \brief Error handling of faulty TRU indices
+/// \ingroup EMCALbase
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGERRORS_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGERRORS_H_
 
 #include <exception>
 #include <string>
 
 namespace o2
 {
-
 namespace emcal
 {
-
-/// \class TRUIndexException
-/// \brief Error handling of faulty TRU indices
-/// \ingroup EMCALbase
 class TRUIndexException : public std::exception
 {
  public:
   /// \brief Constructor
   /// \param truindex Index of the TRU
-  TRUIndexException(unsigned int truindex) : std::exception(), mTRUIndex(truindex), mErrorMessage()
+  explicit TRUIndexException(unsigned int truindex) : std::exception(), mTRUIndex(truindex), mErrorMessage()
   {
     mErrorMessage = "Invalid TRU Index: " + std::to_string(truindex);
   }
@@ -61,7 +62,7 @@ class FastORIndexException : public std::exception
  public:
   /// \brief Constructor
   /// \param fastorindex Index of the FastOR
-  FastORIndexException(unsigned int fastorindex) : std::exception(), mFastORIndex(fastorindex), mErrorMessage()
+  explicit FastORIndexException(unsigned int fastorindex) : std::exception(), mFastORIndex(fastorindex), mErrorMessage()
   {
     mErrorMessage = "Invalid FastOR Index: " + std::to_string(fastorindex);
   }
@@ -227,7 +228,7 @@ class PHOSRegionException : public std::exception
  public:
   /// \brief Constructor
   /// \param phosregion Index of the PHOS region
-  PHOSRegionException(unsigned int phosregion) : std::exception(), mErrorMessage(), mPHOSRegion(phosregion)
+  explicit PHOSRegionException(unsigned int phosregion) : std::exception(), mErrorMessage(), mPHOSRegion(phosregion)
   {
     mErrorMessage = "Invalid PHOS region: " + std::to_string(phosregion);
   }
@@ -279,7 +280,7 @@ class L0sizeInvalidException : public std::exception
  public:
   /// \brief Constructor
   /// \param l0size Size of the L0 patch
-  L0sizeInvalidException(unsigned int l0size) : std::exception(), mErrorMessage(), mL0size(l0size)
+  explicit L0sizeInvalidException(unsigned int l0size) : std::exception(), mErrorMessage(), mL0size(l0size)
   {
     mErrorMessage = "L0 patch size invalid: " + std::to_string(l0size);
   }
@@ -307,4 +308,4 @@ class L0sizeInvalidException : public std::exception
 
 } // namespace o2
 
-#endif //  ALICEO2_EMCAL_TRIGGERMAPPINGERRORS_H
+#endif //  DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGERRORS_H_

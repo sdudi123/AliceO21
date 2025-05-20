@@ -9,30 +9,30 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_ANALYSISCLUSTER_H_
-#define ALICEO2_EMCAL_ANALYSISCLUSTER_H_
-
-#include <fairlogger/Logger.h>
-#include <gsl/span>
-#include <array>
-#include "Rtypes.h"
-#include "MathUtils/Cartesian.h"
-#include "TLorentzVector.h"
-
-namespace o2
-{
-
-namespace emcal
-{
-
+/// \file AnalysisCluster.h
 /// \class AnalysisCluster
 /// \brief Cluster class for kinematic cluster parameters
 /// \ingroup EMCALDataFormat
 /// ported from AliVCluster in AliRoot
 /// \author Hadi Hassan <hadi.hassan@cern.ch>, Oak Ridge National Laboratory
 /// \since March 05, 2020
-///
 
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_ANALYSISCLUSTER_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_ANALYSISCLUSTER_H_
+
+#include <fairlogger/Logger.h>
+#include <gsl/span>
+#include <array>
+#include <string>
+#include <vector>
+#include "Rtypes.h"
+#include "MathUtils/Cartesian.h"
+#include "Math/Vector4D.h"
+
+namespace o2
+{
+namespace emcal
+{
 class AnalysisCluster
 {
 
@@ -45,9 +45,9 @@ class AnalysisCluster
    public:
     /// \brief Constructor, setting cell wrong cell index raising the exception
     /// \param cellIndex Cell index raising the exception
-    CellOutOfRangeException(Int_t cellIndex) : std::exception(),
-                                               mCellIndex(cellIndex),
-                                               mMessage("Cell index " + std::to_string(mCellIndex) + " out of range.")
+    CellOutOfRangeException(int cellIndex) : std::exception(),
+                                             mCellIndex(cellIndex),
+                                             mMessage("Cell index " + std::to_string(mCellIndex) + " out of range.")
     {
     }
 
@@ -56,14 +56,14 @@ class AnalysisCluster
 
     /// \brief Access to cell ID raising the exception
     /// \return Cell ID
-    Int_t getCellIndex() const noexcept { return mCellIndex; }
+    int getCellIndex() const noexcept { return mCellIndex; }
 
     /// \brief Access to error message of the exception
     /// \return Error message
     const char* what() const noexcept final { return mMessage.data(); }
 
    private:
-    Int_t mCellIndex;     ///< Cell index raising the exception
+    int mCellIndex;       ///< Cell index raising the exception
     std::string mMessage; ///< error Message
   };
 
@@ -128,12 +128,12 @@ class AnalysisCluster
 
   ///
   ///  Set the array of cell indices.
-  void setCellsIndices(const std::vector<unsigned short>& array)
+  void setCellsIndices(const std::vector<uint16_t>& array)
   {
     mCellsIndices = array;
   }
 
-  const std::vector<unsigned short>& getCellsIndices() const { return mCellsIndices; }
+  const std::vector<uint16_t>& getCellsIndices() const { return mCellsIndices; }
 
   ///
   ///  Set the array of cell amplitude fractions.
@@ -186,10 +186,10 @@ class AnalysisCluster
   void setFCross(float fCross) { mFCross = fCross; }
 
   ///
-  /// Returns TLorentzVector with momentum of the cluster. Only valid for clusters
+  /// Returns ROOT::Math::PxPyPzEVector with momentum of the cluster. Only valid for clusters
   /// identified as photons or pi0 (overlapped gamma) produced on the vertex
   /// Vertex can be recovered with esd pointer doing:
-  TLorentzVector getMomentum(std::array<const float, 3> vertexPosition) const;
+  ROOT::Math::PxPyPzEVector getMomentum(std::array<const float, 3> vertexPosition) const;
 
  protected:
   /// TODO to replace later by o2::MCLabel when implementing the MC handling
@@ -198,7 +198,7 @@ class AnalysisCluster
   int mNCells = 0; ///< Number of cells in cluster.
 
   /// Array of cell indices contributing to this cluster.
-  std::vector<unsigned short> mCellsIndices; //[mNCells]
+  std::vector<uint16_t> mCellsIndices; //[mNCells]
 
   /// Array with cell amplitudes fraction. Only usable for unfolded clusters, where cell can be shared.
   /// here we store what fraction of the cell energy is assigned to a given cluster.
@@ -235,4 +235,4 @@ class AnalysisCluster
 
 } // namespace emcal
 } // namespace o2
-#endif // ANALYSISCLUSTER_H
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_ANALYSISCLUSTER_H_

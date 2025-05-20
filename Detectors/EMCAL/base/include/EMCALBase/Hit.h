@@ -9,8 +9,14 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_HIT_H
-#define ALICEO2_EMCAL_HIT_H
+/// \file Hit.h
+/// \brief Header file for EMCal cell hit class
+/// \author Markus Fasel, markus.fasel@cern.ch
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_HIT_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_HIT_H_
+
+#include <memory>
 
 #include "SimulationDataFormat/BaseHits.h"
 #include "CommonUtils/ShmAllocator.h"
@@ -43,8 +49,8 @@ class Hit : public o2::BasicXYZEHit<float>
   /// \param mom Momentum vector for the particle at the point
   /// \param tof Time of the hit
   /// \param eLoss Energy loss
-  Hit(Int_t primary, Int_t trackID, Int_t detID, Double_t initialEnergy, const math_utils::Point3D<float>& pos,
-      const math_utils::Vector3D<float>& mom, Double_t tof, Double_t eLoss)
+  Hit(int primary, int trackID, int detID, double initialEnergy, const math_utils::Point3D<float>& pos,
+      const math_utils::Vector3D<float>& mom, double tof, double eLoss)
     : o2::BasicXYZEHit<float>(pos.X(), pos.Y(), pos.Z(), tof, eLoss, trackID, detID),
       mPvector(mom),
       mPrimary(primary),
@@ -54,11 +60,11 @@ class Hit : public o2::BasicXYZEHit<float>
 
   /// \brief Check whether the points are from the same parent and in the same detector volume
   /// \return True if points are the same (origin and detector), false otherwise
-  Bool_t operator==(const Hit& rhs) const;
+  bool operator==(const Hit& rhs) const;
 
   /// \brief Sorting points according to parent particle and detector volume
   /// \return True if this point is smaller, false otherwise
-  Bool_t operator<(const Hit& rhs) const;
+  bool operator<(const Hit& rhs) const;
 
   /// \brief Adds energy loss from the other point to this point
   /// \param rhs EMCAL point to add to this point
@@ -70,19 +76,19 @@ class Hit : public o2::BasicXYZEHit<float>
 
   /// \brief Get the initial energy of the primary particle entering EMCAL
   /// \return Energy of the primary particle entering EMCAL
-  Double_t GetInitialEnergy() const { return mInitialEnergy; }
+  double GetInitialEnergy() const { return mInitialEnergy; }
 
   /// \brief Get Primary particles at the origin of the hit
   /// \return Primary particles at the origin of the hit
-  Int_t GetPrimary() const { return mPrimary; }
+  int GetPrimary() const { return mPrimary; }
 
   /// \brief Set initial energy of the primary particle entering EMCAL
   /// \param energy Energy of the primary particle entering EMCAL
-  void SetInitialEnergy(Double_t energy) { mInitialEnergy = energy; }
+  void SetInitialEnergy(double energy) { mInitialEnergy = energy; }
 
   /// \brief Set primary particles at the origin of the hit
   /// \param primary Primary particles at the origin of the hit
-  void SetPrimary(Int_t primary) { mPrimary = primary; }
+  void SetPrimary(int primary) { mPrimary = primary; }
 
   /// \brief Writing point information to an output stream;
   /// \param stream target output stream
@@ -90,10 +96,10 @@ class Hit : public o2::BasicXYZEHit<float>
 
  private:
   math_utils::Vector3D<float> mPvector; ///< Momentum Vector
-  Int_t mPrimary;                       ///< Primary particles at the origin of the hit
+  int mPrimary;                         ///< Primary particles at the origin of the hit
   Double32_t mInitialEnergy;            ///< Energy of the parent particle that entered the EMCAL
 
-  ClassDefNV(Hit, 1);
+  ClassDefNV(Hit, 2);
 };
 
 /// \brief Creates a new point base on this point but adding the energy loss of the right hand side
@@ -118,6 +124,6 @@ class allocator<o2::emcal::Hit> : public o2::utils::ShmAllocator<o2::emcal::Hit>
 {
 };
 } // namespace std
-#endif
+#endif // USESHM
 
-#endif /* Point_h */
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_HIT_H_

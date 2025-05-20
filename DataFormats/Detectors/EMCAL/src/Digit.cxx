@@ -9,17 +9,21 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file   Digit.cxx
+/// \author anders.knospe@cern.ch
+/// \brief  Definition of EMCal Digit class
+
 #include "DataFormatsEMCAL/Digit.h"
-#include <iostream>
+#include <ostream>
 
 using namespace o2::emcal;
 
-Digit::Digit(Short_t tower, Double_t amplitudeGeV, Double_t time)
+Digit::Digit(int16_t tower, double amplitudeGeV, double time)
   : DigitBase(time), mTower(tower), mAmplitudeGeV(amplitudeGeV)
 {
 }
 
-Digit::Digit(Short_t tower, uint16_t noiseLG, uint16_t noiseHG, Double_t time)
+Digit::Digit(int16_t tower, uint16_t noiseLG, uint16_t noiseHG, double time)
   : DigitBase(time), mNoiseLG(noiseLG), mNoiseHG(noiseHG), mTower(tower)
 {
 }
@@ -34,7 +38,7 @@ Digit& Digit::operator+=(const Digit& other)
   return *this;
 }
 
-void Digit::setAmplitudeADC(Short_t amplitude, ChannelType_t ctype)
+void Digit::setAmplitudeADC(int16_t amplitude, ChannelType_t ctype)
 {
 
   // truncate energy in case dynamic range is saturated
@@ -60,10 +64,10 @@ void Digit::setAmplitudeADC(Short_t amplitude, ChannelType_t ctype)
       // can only be LEDMon which is not simulated
       mAmplitudeGeV = 0.;
       break;
-  };
+  }
 }
 
-Int_t Digit::getAmplitudeADC(ChannelType_t ctype) const
+int Digit::getAmplitudeADC(ChannelType_t ctype) const
 {
 
   switch (ctype) {
@@ -95,10 +99,10 @@ Int_t Digit::getAmplitudeADC(ChannelType_t ctype) const
     default:
       // can only be LEDMon which is not simulated
       return 0;
-  };
+  }
 }
 
-Double_t Digit::getAmplitude() const
+double Digit::getAmplitude() const
 {
   double noise = 0;
 
@@ -119,7 +123,7 @@ Double_t Digit::getAmplitude() const
     default:
       // can only be LEDMon which is not simulated
       return 0;
-  };
+  }
 }
 
 ChannelType_t Digit::getType() const

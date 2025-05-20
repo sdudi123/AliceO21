@@ -8,8 +8,18 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef __O2_EMCAL_MAPPER_H__
-#define __O2_EMCAL_MAPPER_H__
+
+/// \file Mapper.h
+/// \brief ALTRO mapping for calorimeters
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+/// \class Mapper
+/// \ingroup EMCALbase
+/// \since Aug 19, 2019
+///
+/// Based on AliAltroMapping by C. Cheshkov and AliCaloAltroMapping by G. Balbastre
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_MAPPER_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_MAPPER_H_
 
 #include <array>
 #include <cstdint>
@@ -28,17 +38,8 @@
 
 namespace o2
 {
-
 namespace emcal
 {
-
-/// \class Mapper
-/// \brief ALTRO mapping for calorimeters
-/// \ingroup EMCALbase
-/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
-/// \since Aug 19, 2019
-///
-/// Based on AliAltroMapping by C. Cheshkov and AliCaloAltroMapping by G. Balbastre
 class Mapper
 {
  public:
@@ -70,6 +71,7 @@ class Mapper
       boost::hash_combine(seed, s.mColumn);
       boost::hash_combine(seed, o2::emcal::channelTypeToInt(s.mChannelType));
       return seed;
+
       /*
       size_t h1 = std::hash<int>()(s.mRow);
       size_t h2 = std::hash<int>()(s.mColumn);
@@ -86,9 +88,9 @@ class Mapper
    public:
     /// \brief Constructor initializing the exception
     /// \param address Hardware address raising the exception
-    AddressNotFoundException(int address) : exception(),
-                                            mAddress(address),
-                                            mMessage()
+    explicit AddressNotFoundException(int address) : exception(),
+                                                     mAddress(address),
+                                                     mMessage()
     {
       std::stringstream msgbuilder;
       msgbuilder << "Hardware address " << address << "(0x" << std::hex << address << std::dec << ") not found";
@@ -154,9 +156,9 @@ class Mapper
    public:
     /// \brief Constructor initializing the exception
     /// \param id Channel ID rausing the exception
-    ChannelNotFoundException(ChannelID id) : std::exception(),
-                                             mChannelID(id),
-                                             mMessage()
+    explicit ChannelNotFoundException(ChannelID id) : std::exception(),
+                                                      mChannelID(id),
+                                                      mMessage()
     {
       std::stringstream msgbuilder;
       msgbuilder << "Channel with " << mChannelID << " not found.";
@@ -189,8 +191,8 @@ class Mapper
    public:
     /// \brief Constructor initializing exception
     /// \param errormessage Error message from input stream
-    FileFormatException(const std::string_view errormessage) : std::exception(),
-                                                               mMessage(std::string("Failure reading input file: ") + errormessage.data())
+    explicit FileFormatException(const std::string_view errormessage) : std::exception(),
+                                                                        mMessage(std::string("Failure reading input file: ") + errormessage.data())
     {
     }
 
@@ -232,7 +234,7 @@ class Mapper
   /// \throw FileFormatException in case entries in the mapping file are not in the expected format
   /// \throw AddressRangeException in case addresses outside the valid range are found
   /// \throw ChannelTypeException in case hardware address with unkknown channel types are found
-  Mapper(const std::string_view inputfile);
+  explicit Mapper(const std::string_view inputfile);
 
   /// \brief Destructor
   ~Mapper() = default;
@@ -320,7 +322,7 @@ class MappingHandler
   class DDLInvalid final : public std::exception
   {
    public:
-    DDLInvalid(int ddlID) : mDDL(ddlID) { mMessage = fmt::format("DDL {0} not existing for EMCAL", mDDL); };
+    DDLInvalid(int ddlID) : mDDL(ddlID) { mMessage = fmt::format("DDL {0} not existing for EMCAL", mDDL); }
 
     /// \brief Destructor
     ~DDLInvalid() noexcept final = default;
@@ -372,4 +374,4 @@ std::ostream& operator<<(std::ostream& stream, const Mapper::ChannelID& channel)
 
 } // namespace o2
 
-#endif //__O2_EMCAL_MAPPER_H__
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_MAPPER_H_

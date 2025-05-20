@@ -12,6 +12,7 @@
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
 #include <array>
+#include <map>
 #include <boost/test/unit_test.hpp>
 #include "EMCALBase/RCUTrailer.h"
 

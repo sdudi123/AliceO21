@@ -9,8 +9,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file TriggerRecord.cxx
+/// \class TriggerRecord
+/// \brief Header for data corresponding to the same hardware trigger
+/// \ingroup EMCALDataFormat
+/// \author Markus Fasel <markus.fasel@cern.ch>
+/// \since Nov 17, 2019
+/// adapted from DataFormatsITSMFT/ROFRecord
+
 #include <bitset>
-#include <iostream>
+#include <ostream>
 #include "DataFormatsEMCAL/TriggerRecord.h"
 #include "CommonConstants/Triggers.h"
 #include "DataFormatsEMCAL/Constants.h"

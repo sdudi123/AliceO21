@@ -9,23 +9,33 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file ShishKebabTrd1Module.cxx
+/// \class ShishKebabTrd1Module
+/// \brief Main class for TRD1 geometry of Shish-Kebab case.
+/// \ingroup EMCALbase
+/// \author Alexei Pavlinov (WSU).
+
 #include <cassert>
+#include <string>
+#include <cstdio>
 
 #include "RStringView.h"
 
 #include "EMCALBase/Geometry.h"
 #include "EMCALBase/ShishKebabTrd1Module.h"
+#include "CommonConstants/MathConstants.h"
 
 using namespace o2::emcal;
+using namespace o2::constants::math;
 
-Double_t ShishKebabTrd1Module::sa = 0.;
-Double_t ShishKebabTrd1Module::sa2 = 0.;
-Double_t ShishKebabTrd1Module::sb = 0.;
-Double_t ShishKebabTrd1Module::sr = 0.;
-Double_t ShishKebabTrd1Module::sangle = 0.;   // around one degree
-Double_t ShishKebabTrd1Module::stanBetta = 0; //
+double ShishKebabTrd1Module::sa = 0.;
+double ShishKebabTrd1Module::sa2 = 0.;
+double ShishKebabTrd1Module::sb = 0.;
+double ShishKebabTrd1Module::sr = 0.;
+double ShishKebabTrd1Module::sangle = 0.;   // around one degree
+double ShishKebabTrd1Module::stanBetta = 0; //
 
-ShishKebabTrd1Module::ShishKebabTrd1Module(Double_t theta, Geometry* g)
+ShishKebabTrd1Module::ShishKebabTrd1Module(double theta, Geometry* g)
   : mGeometry(g),
     mOK(),
     mTheta(theta),
@@ -39,7 +49,7 @@ ShishKebabTrd1Module::ShishKebabTrd1Module(Double_t theta, Geometry* g)
     mORT()
 {
   std::string_view sname = g->GetName();
-  Int_t key = 0;
+  int key = 0;
   if (sname.find("v1") != std::string::npos || sname.find("V1") != std::string::npos) {
     key = 1; // EMCAL_COMPLETEV1 vs EMCAL_COMPLETEv1 (or other)
   }
@@ -88,35 +98,35 @@ ShishKebabTrd1Module::ShishKebabTrd1Module(const ShishKebabTrd1Module& mod)
     mORB(mod.mORB),
     mORT(mod.mORT)
 {
-  for (Int_t i = 0; i < 3; i++) {
+  for (int i = 0; i < 3; i++) {
     mOK3X3[i] = mod.mOK3X3[i];
   }
 }
 
-void ShishKebabTrd1Module::Init(Double_t A, Double_t B)
+void ShishKebabTrd1Module::Init(double A, double B)
 {
   // Define parameter module from parameters A,B from previous.
-  Double_t yl = (sb / 2) * TMath::Sin(mTheta) + (sa / 2) * TMath::Cos(mTheta) + sr, y = yl;
-  Double_t xl = (yl - B) / A; // y=A*x+B
+  double yl = (sb / 2) * std::sin(mTheta) + (sa / 2) * std::cos(mTheta) + sr, y = yl;
+  double xl = (yl - B) / A; // y=A*x+B
 
-  //  Double_t xp1 = (fga/2. + fgb/2.*fgtanBetta)/(TMath::Sin(fTheta) + fgtanBetta*TMath::Cos(fTheta));
+  //  double xp1 = (fga/2. + fgb/2.*fgtanBetta)/(std::sin(fTheta) + fgtanBetta*std::cos(fTheta));
   //  printf(" xp1 %9.3f \n ", xp1);
   // xp1 == xp => both methods give the same results - 3-feb-05
-  Double_t alpha = TMath::Pi() / 2. + sangle / 2;
-  Double_t xt =
-    (sa + sa2) * TMath::Tan(mTheta) * TMath::Tan(alpha) / (4. * (1. - TMath::Tan(mTheta) * TMath::Tan(alpha)));
-  Double_t yt = xt / TMath::Tan(mTheta), xp = TMath::Sqrt(xt * xt + yt * yt);
-  Double_t x = xl + xp;
+  double alpha = PIHalf + sangle / 2;
+  double xt =
+    (sa + sa2) * std::tan(mTheta) * std::tan(alpha) / (4. * (1. - std::tan(mTheta) * std::tan(alpha)));
+  double yt = xt / std::tan(mTheta), xp = std::sqrt(xt * xt + yt * yt);
+  double x = xl + xp;
   mOK.Set(x, y);
   //  printf(" yl %9.3f | xl %9.3f | xp %9.3f \n", yl, xl, xp);
 
   // have to define A and B;
-  Double_t yCprev = sr + sa * TMath::Cos(mTheta);
-  Double_t xCprev = (yCprev - B) / A;
-  Double_t xA = xCprev + sa * TMath::Sin(mTheta), yA = sr;
+  double yCprev = sr + sa * std::cos(mTheta);
+  double xCprev = (yCprev - B) / A;
+  double xA = xCprev + sa * std::sin(mTheta), yA = sr;
 
   mThetaA = mTheta - sangle / 2.;
-  mA = TMath::Tan(mThetaA); // !!
+  mA = std::tan(mThetaA); // !!
   mB = yA - mA * xA;
 
   DefineAllStuff();
@@ -127,14 +137,14 @@ void ShishKebabTrd1Module::DefineAllStuff()
   // Define some parameters
   // DefineName(mTheta);
   // Centers of cells - 2X2 case
-  Double_t kk1 = (sa + sa2) / (2. * 4.); // kk1=kk2
+  double kk1 = (sa + sa2) / (2. * 4.); // kk1=kk2
 
-  Double_t xk1 = mOK.X() - kk1 * TMath::Sin(mTheta);
-  Double_t yk1 = mOK.Y() + kk1 * TMath::Cos(mTheta) - sr;
+  double xk1 = mOK.X() - kk1 * std::sin(mTheta);
+  double yk1 = mOK.Y() + kk1 * std::cos(mTheta) - sr;
   mOK1.Set(xk1, yk1);
 
-  Double_t xk2 = mOK.X() + kk1 * TMath::Sin(mTheta);
-  Double_t yk2 = mOK.Y() - kk1 * TMath::Cos(mTheta) - sr;
+  double xk2 = mOK.X() + kk1 * std::sin(mTheta);
+  double yk2 = mOK.Y() - kk1 * std::cos(mTheta) - sr;
   mOK2.Set(xk2, yk2);
 
   // Centers of cells - 3X3 case; Nov 9,2006
@@ -142,60 +152,60 @@ void ShishKebabTrd1Module::DefineAllStuff()
 
   kk1 = ((sa + sa2) / 4. + sa / 6.) / 2.;
 
-  xk1 = mOK.X() - kk1 * TMath::Sin(mTheta);
-  yk1 = mOK.Y() + kk1 * TMath::Cos(mTheta) - sr;
+  xk1 = mOK.X() - kk1 * std::sin(mTheta);
+  yk1 = mOK.Y() + kk1 * std::cos(mTheta) - sr;
   mOK3X3[0].Set(xk1, yk1);
 
-  xk2 = mOK.X() + kk1 * TMath::Sin(mTheta);
-  yk2 = mOK.Y() - kk1 * TMath::Cos(mTheta) - sr;
+  xk2 = mOK.X() + kk1 * std::sin(mTheta);
+  yk2 = mOK.Y() - kk1 * std::cos(mTheta) - sr;
   mOK3X3[2].Set(xk2, yk2);
 
   // May 15, 2006; position of module(cells) center face
-  mOB.Set(mOK.X() - sb / 2. * TMath::Cos(mTheta), mOK.Y() - sb / 2. * TMath::Sin(mTheta) - sr);
-  mOB1.Set(mOB.X() - sa / 4. * TMath::Sin(mTheta), mOB.Y() + sa / 4. * TMath::Cos(mTheta));
-  mOB2.Set(mOB.X() + sa / 4. * TMath::Sin(mTheta), mOB.Y() - sa / 4. * TMath::Cos(mTheta));
+  mOB.Set(mOK.X() - sb / 2. * std::cos(mTheta), mOK.Y() - sb / 2. * std::sin(mTheta) - sr);
+  mOB1.Set(mOB.X() - sa / 4. * std::sin(mTheta), mOB.Y() + sa / 4. * std::cos(mTheta));
+  mOB2.Set(mOB.X() + sa / 4. * std::sin(mTheta), mOB.Y() - sa / 4. * std::cos(mTheta));
   // Jul 30, 2007 - for taking into account a position of shower maximum
   mThetaOB1 = mTheta - sangle / 4.; // ??
   mThetaOB2 = mTheta + sangle / 4.;
 
   // Position of right/top point of module
   // Gives the posibility to estimate SM size in z direction
-  Double_t xBottom = (sr - mB) / mA;
-  Double_t yBottom = sr;
+  double xBottom = (sr - mB) / mA;
+  double yBottom = sr;
   mORB.Set(xBottom, yBottom);
 
-  Double_t l = sb / TMath::Cos(sangle / 2.); // length of lateral module side
-  Double_t xTop = xBottom + l * TMath::Cos(TMath::ATan(mA));
-  Double_t yTop = mA * xTop + mB;
+  double l = sb / std::cos(sangle / 2.); // length of lateral module side
+  double xTop = xBottom + l * std::cos(std::atan(mA));
+  double yTop = mA * xTop + mB;
   mORT.Set(xTop, yTop);
 }
 
-void ShishKebabTrd1Module::DefineFirstModule(const Int_t key)
+void ShishKebabTrd1Module::DefineFirstModule(const int key)
 {
   // Define first module
   if (key == 0) {
     // theta in radians ; first object theta=pi/2.
-    mTheta = TMath::PiOver2();
+    mTheta = PIHalf;
     mOK.Set(sa2 / 2., sr + sb / 2.); // position the center of module vs o
 
     // parameters of right line : y = A*z + B in system where zero point is IP.
     mThetaA = mTheta - sangle / 2.;
-    mA = TMath::Tan(mThetaA);
-    Double_t xA = sa / 2. + sa2 / 2.;
-    Double_t yA = sr;
+    mA = std::tan(mThetaA);
+    double xA = sa / 2. + sa2 / 2.;
+    double yA = sr;
     mB = yA - mA * xA;
   } else if (key == 1) {
     // theta in radians ; first object theta = 90-0.75 = 89.25 degree
-    mTheta = 89.25 * TMath::DegToRad();
-    Double_t al1 = sangle / 2.;
-    Double_t x = 0.5 * (sa * TMath::Cos(al1) + sb * TMath::Sin(al1));
-    Double_t y = 0.5 * (sb + sa * TMath::Sin(al1)) * TMath::Cos(al1);
+    mTheta = 89.25 * Deg2Rad;
+    double al1 = sangle / 2.;
+    double x = 0.5 * (sa * std::cos(al1) + sb * std::sin(al1));
+    double y = 0.5 * (sb + sa * std::sin(al1)) * std::cos(al1);
     mOK.Set(x, sr + y);
     // parameters of right line : y = A*z + B in system where zero point is IP.
     mThetaA = mTheta - sangle / 2.;
-    mA = TMath::Tan(mThetaA);
-    Double_t xA = sa * TMath::Cos(al1);
-    Double_t yA = sr;
+    mA = std::tan(mThetaA);
+    double xA = sa * std::cos(al1);
+    double yA = sr;
     mB = yA - mA * xA;
   } else {
     LOG(error) << "key=" << key << " : wrong case \n";
@@ -205,7 +215,7 @@ void ShishKebabTrd1Module::DefineFirstModule(const Int_t key)
   DefineAllStuff();
 }
 
-Bool_t ShishKebabTrd1Module::SetParameters()
+bool ShishKebabTrd1Module::SetParameters()
 {
   if (!mGeometry) {
     LOG(warning) << "GetParameters(): << No geometry\n";
@@ -215,15 +225,15 @@ Bool_t ShishKebabTrd1Module::SetParameters()
   TString sn(mGeometry->GetName()); // 2-Feb-05
   sn.ToUpper();
 
-  sa = (Double_t)mGeometry->GetEtaModuleSize();
-  sb = (Double_t)mGeometry->GetLongModuleSize();
-  sangle = Double_t(mGeometry->GetTrd1Angle()) * TMath::DegToRad();
-  stanBetta = TMath::Tan(sangle / 2.);
-  sr = (Double_t)mGeometry->GetIPDistance();
+  sa = static_cast<double>(mGeometry->GetEtaModuleSize());
+  sb = static_cast<double>(mGeometry->GetLongModuleSize());
+  sangle = static_cast<double>(mGeometry->GetTrd1Angle()) * Deg2Rad;
+  stanBetta = std::tan(sangle / 2.);
+  sr = static_cast<double>(mGeometry->GetIPDistance());
 
   sr += mGeometry->GetSteelFrontThickness();
 
-  sa2 = Double_t(mGeometry->Get2Trd1Dx2());
+  sa2 = static_cast<double>(mGeometry->Get2Trd1Dx2());
   // PH  PrintShish(0);
   return kTRUE;
 }
@@ -236,26 +246,26 @@ void ShishKebabTrd1Module::PrintShish(int pri) const
 {
   if (pri >= 0) {
     if (pri >= 1) {
-      printf("PrintShish() \n a %7.3f:%7.3f | b %7.2f | r %7.2f \n TRD1 angle %7.6f(%5.2f) | tanBetta %7.6f", sa, sa2,
-             sb, sr, sangle, sangle * TMath::RadToDeg(), stanBetta);
-      printf(" fTheta %f : %5.2f : cos(theta) %f\n", mTheta, GetThetaInDegree(), TMath::Cos(mTheta));
-      printf(" OK : theta %f :  phi = %f(%5.2f) \n", mTheta, mOK.Phi(), mOK.Phi() * TMath::RadToDeg());
+      LOGF(info, "PrintShish() \n a %7.3f:%7.3f | b %7.2f | r %7.2f \n TRD1 angle %7.6f(%5.2f) | tanBetta %7.6f", sa, sa2,
+           sb, sr, sangle, sangle * Rad2Deg, stanBetta);
+      LOGF(info, " fTheta %f : %5.2f : cos(theta) %f", mTheta, GetThetaInDegree(), std::cos(mTheta));
+      LOGF(info, " OK : theta %f :  phi = %f(%5.2f)", mTheta, mOK.Phi(), mOK.Phi() * Rad2Deg);
     }
 
-    printf(" y %9.3f x %9.3f xrb %9.3f (right bottom on r=%9.3f ) \n", mOK.X(), mOK.Y(), mORB.X(), mORB.Y());
+    LOGF(info, " y %9.3f x %9.3f xrb %9.3f (right bottom on r=%9.3f )", mOK.X(), mOK.Y(), mORB.X(), mORB.Y());
 
     if (pri >= 2) {
-      printf(" A %f B %f | fThetaA %7.6f(%5.2f)\n", mA, mB, mThetaA, mThetaA * TMath::RadToDeg());
-      printf(" fOK  : X %9.4f: Y %9.4f : eta  %5.3f\n", mOK.X(), mOK.Y(), GetEtaOfCenterOfModule());
-      printf(" fOK1 : X %9.4f: Y %9.4f :   (local, ieta=2)\n", mOK1.X(), mOK1.Y());
-      printf(" fOK2 : X %9.4f: Y %9.4f :   (local, ieta=1)\n\n", mOK2.X(), mOK2.Y());
-      printf(" fOB  : X %9.4f: Y %9.4f \n", mOB.X(), mOB.Y());
-      printf(" fOB1 : X %9.4f: Y %9.4f (local, ieta=2)\n", mOB1.X(), mOB1.Y());
-      printf(" fOB2 : X %9.4f: Y %9.4f (local, ieta=1)\n", mOB2.X(), mOB2.Y());
+      LOGF(info, " A %f B %f | fThetaA %7.6f(%5.2f)", mA, mB, mThetaA, mThetaA * Rad2Deg);
+      LOGF(info, " fOK  : X %9.4f: Y %9.4f : eta  %5.3f", mOK.X(), mOK.Y(), GetEtaOfCenterOfModule());
+      LOGF(info, " fOK1 : X %9.4f: Y %9.4f :   (local, ieta=2)", mOK1.X(), mOK1.Y());
+      LOGF(info, " fOK2 : X %9.4f: Y %9.4f :   (local, ieta=1)\n", mOK2.X(), mOK2.Y());
+      LOGF(info, " fOB  : X %9.4f: Y %9.4f", mOB.X(), mOB.Y());
+      LOGF(info, " fOB1 : X %9.4f: Y %9.4f (local, ieta=2)", mOB1.X(), mOB1.Y());
+      LOGF(info, " fOB2 : X %9.4f: Y %9.4f (local, ieta=1)", mOB2.X(), mOB2.Y());
       // 3X3
-      printf(" 3X3 \n");
+      LOGF(info, " 3X3");
       for (int ieta = 0; ieta < 3; ieta++) {
-        printf(" fOK3X3[%i] : X %9.4f: Y %9.4f (local) \n", ieta, mOK3X3[ieta].X(), mOK3X3[ieta].Y());
+        LOGF(info, " fOK3X3[%i] : X %9.4f: Y %9.4f (local)", ieta, mOK3X3[ieta].X(), mOK3X3[ieta].Y());
       }
       //      fOK.Dump();
       GetMaxEtaOfModule();
@@ -263,14 +273,14 @@ void ShishKebabTrd1Module::PrintShish(int pri) const
   }
 }
 
-Double_t ShishKebabTrd1Module::GetThetaInDegree() const { return mTheta * TMath::RadToDeg(); }
+double ShishKebabTrd1Module::GetThetaInDegree() const { return mTheta * Rad2Deg; }
 
-Double_t ShishKebabTrd1Module::GetEtaOfCenterOfModule() const { return -TMath::Log(TMath::Tan(mOK.Phi() / 2.)); }
+double ShishKebabTrd1Module::GetEtaOfCenterOfModule() const { return -std::log(std::tan(mOK.Phi() / 2.)); }
 
-void ShishKebabTrd1Module::GetPositionAtCenterCellLine(Int_t ieta, Double_t dist, TVector2& v) const
+void ShishKebabTrd1Module::GetPositionAtCenterCellLine(int ieta, double dist, TVector2& v) const
 {
   // Jul 30, 2007
-  Double_t theta = 0., x = 0., y = 0.;
+  double theta = 0., x = 0., y = 0.;
   if (ieta == 0) {
     v = mOB2;
     theta = mTheta;
@@ -281,30 +291,30 @@ void ShishKebabTrd1Module::GetPositionAtCenterCellLine(Int_t ieta, Double_t dist
     assert(0);
   }
 
-  x = v.X() + TMath::Cos(theta) * dist;
-  y = v.Y() + TMath::Sin(theta) * dist;
+  x = v.X() + std::cos(theta) * dist;
+  y = v.Y() + std::sin(theta) * dist;
   //  printf(" GetPositionAtCenterCellLine() %s : dist %f : ieta %i : x %f %f v.X() | y %f %f v.Y() : cos %f sin %f \n",
-  // GetName(), dist, ieta, v.X(),x, y,v.Y(),TMath::Cos(theta),TMath::Sin(theta));
+  // GetName(), dist, ieta, v.X(),x, y,v.Y(),std::cos(theta),std::sin(theta));
   v.Set(x, y);
 }
 
-Double_t ShishKebabTrd1Module::GetMaxEtaOfModule() const
+double ShishKebabTrd1Module::GetMaxEtaOfModule() const
 {
   // Right bottom point of module
-  Double_t thetaBottom = TMath::ATan2(mORB.Y(), mORB.X());
-  Double_t etaBottom = ThetaToEta(thetaBottom);
+  double thetaBottom = std::atan2(mORB.Y(), mORB.X());
+  double etaBottom = ThetaToEta(thetaBottom);
 
   // Right top point of module
-  Double_t thetaTop = TMath::ATan2(mORT.Y(), mORT.X());
-  Double_t etaTop = ThetaToEta(thetaTop);
+  double thetaTop = std::atan2(mORT.Y(), mORT.X());
+  double etaTop = ThetaToEta(thetaTop);
 
   LOG(debug) << " Right bottom point of module : eta " << std::setw(5) << std::setprecision(4) << etaBottom
              << " : theta " << std::setw(6) << std::setprecision(4) << thetaBottom << " (" << std::setw(6)
-             << std::setprecision(2) << thetaBottom * TMath::RadToDeg() << " ) : x(zglob) " << std::setw(7)
+             << std::setprecision(2) << thetaBottom * Rad2Deg << " ) : x(zglob) " << std::setw(7)
              << std::setprecision(2) << mORB.X() << " y(phi) " << std::setw(5) << std::setprecision(2) << mORB.Y();
   LOG(debug) << " Right    top point of module : eta " << std::setw(5) << std::setprecision(4) << etaTop << ": theta "
              << std::setw(6) << std::setprecision(4) << thetaTop << " (" << std::setw(6) << std::setprecision(2)
-             << thetaTop * TMath::RadToDeg() << ") : x(zglob) " << std::setw(7) << std::setprecision(2) << mORT.X()
+             << thetaTop * Rad2Deg << ") : x(zglob) " << std::setw(7) << std::setprecision(2) << mORT.X()
              << "  y(phi) " << std::setw(5) << std::setprecision(2) << mORT.Y();
   return etaBottom > etaTop ? etaBottom : etaTop;
 }

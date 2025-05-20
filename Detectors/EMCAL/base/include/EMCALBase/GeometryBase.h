@@ -9,8 +9,12 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_GEOMETRYBASE_H
-#define ALICEO2_EMCAL_GEOMETRYBASE_H
+/// \file GeometryBase.h
+/// \brief Header file for EMCal geometry class for error handling and enums
+/// \author Markus Fasel, markus.fasel@cern.ch
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_GEOMETRYBASE_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_GEOMETRYBASE_H_
 
 #include <string>
 
@@ -31,7 +35,7 @@ enum AcceptanceType_t { EMCAL_ACCEPTANCE = 1,
                         DCAL_ACCEPTANCE = 2,
                         NON_ACCEPTANCE = 0 };
 
-const std::string DEFAULT_GEOMETRY = "EMCAL_COMPLETE12SMV1_DCAL_8SM";
+const char DEFAULT_GEOMETRY[] = "EMCAL_COMPLETE12SMV1_DCAL_8SM";
 
 /// \class GeometryNotInitializedException
 /// \brief Error handling access to non-initialized geometry
@@ -244,4 +248,4 @@ class RowColException final : public std::exception
 } // namespace emcal
 } // namespace o2
 
-#endif
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_GEOMETRYBASE_H_

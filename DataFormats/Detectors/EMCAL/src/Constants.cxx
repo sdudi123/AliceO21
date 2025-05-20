@@ -8,7 +8,13 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#include <iostream>
+
+/// \file Constants.cxx
+/// \brief EMCal related constants, mainly streamer functionality
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#include <ostream>
+#include <string>
 #include "DataFormatsEMCAL/Constants.h"
 
 std::ostream& o2::emcal::operator<<(std::ostream& stream, o2::emcal::ChannelType_t chantype)
@@ -33,7 +39,7 @@ std::string o2::emcal::channelTypeToString(o2::emcal::ChannelType_t chantype)
     case o2::emcal::ChannelType_t::LEDMON:
       typestring = "LEDmon";
       break;
-  };
+  }
   return typestring;
 }
 
@@ -48,8 +54,8 @@ int o2::emcal::channelTypeToInt(o2::emcal::ChannelType_t chantype)
       return 2;
     case o2::emcal::ChannelType_t::LEDMON:
       return 3;
-  };
-  throw o2::emcal::InvalidChanneltypeException(int(chantype));
+  }
+  throw o2::emcal::InvalidChanneltypeException(static_cast<int>(chantype));
 }
 
 o2::emcal::ChannelType_t o2::emcal::intToChannelType(int chantype)
@@ -63,6 +69,6 @@ o2::emcal::ChannelType_t o2::emcal::intToChannelType(int chantype)
       return o2::emcal::ChannelType_t::TRU;
     case 3:
       return o2::emcal::ChannelType_t::LEDMON;
-  };
+  }
   throw o2::emcal::InvalidChanneltypeException(chantype);
 }

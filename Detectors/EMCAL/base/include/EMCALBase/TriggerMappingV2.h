@@ -8,8 +8,17 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_TRIGGERMAPPINGV2_H_
-#define ALICEO2_EMCAL_TRIGGERMAPPINGV2_H_
+
+/// \file TriggerMappingV2.h
+/// \class TriggerMappingV2
+/// \brief Trigger mapping starting from Run2
+/// \ingroup EMCALbase
+/// \author H. YOKOYAMA Tsukuba University
+/// \author R. GUERNANE LPSC Grenoble CNRS/IN2P3
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#ifndef DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGV2_H_
+#define DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGV2_H_
 
 #include <array>
 #include <bitset>
@@ -20,15 +29,7 @@ namespace o2
 {
 namespace emcal
 {
-
 class Geometry;
-
-/// \class TriggerMappingV2
-/// \brief Trigger mapping starting from Run2
-/// \ingroup EMCALbase
-/// \author H. YOKOYAMA Tsukuba University
-/// \author R. GUERNANE LPSC Grenoble CNRS/IN2P3
-/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
 class TriggerMappingV2
 {
  public:
@@ -74,7 +75,7 @@ class TriggerMappingV2
   TriggerMappingV2();
 
   /// \brief Default constructor.
-  TriggerMappingV2(Geometry* geo);
+  explicit TriggerMappingV2(Geometry* geo);
 
   /// \brief Destructor
   ~TriggerMappingV2() = default;
@@ -308,7 +309,7 @@ class TriggerMappingV2
 
   /// \brief Get the online index from the TRU index
   /// \return Online index (= TRU index)
-  IndexOnline getOnlineIndexFromTRUIndex(IndexTRU truIndex) const { return truIndex; };
+  IndexOnline getOnlineIndexFromTRUIndex(IndexTRU truIndex) const { return truIndex; }
 
   /// \brief Get the TRU Index from the hardware address of the ALTRO channel (TRU rawdata)
   /// \param hardwareAddress hardware address
@@ -373,7 +374,7 @@ class TriggerMappingV2
   std::array<unsigned int, SUPERMODULES> mNFastORInSMPhi;  // SM size
   std::array<unsigned int, SUPERMODULES> mNFastORInSMEta;  //
 
-  std::array<unsigned int, 5> mNModuleInEMCALPhi; //#FastOR/EMCAL in Phi
+  std::array<unsigned int, 5> mNModuleInEMCALPhi; // #FastOR/EMCAL in Phi
 
   //********************************************
   // Initialization of FastOR index offset of each SM/TRU
@@ -460,4 +461,4 @@ class TriggerMappingV2
 } // namespace emcal
 } // namespace o2
 
-#endif // ALIEMCALTRIGGERMAPPINGV2_H
+#endif // DETECTORS_EMCAL_BASE_INCLUDE_EMCALBASE_TRIGGERMAPPINGV2_H_

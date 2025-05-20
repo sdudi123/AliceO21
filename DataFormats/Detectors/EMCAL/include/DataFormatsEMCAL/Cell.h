@@ -9,19 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_CELL_H_
-#define ALICEO2_EMCAL_CELL_H_
-
-#include <bitset>
-#include <cfloat>
-#include <climits>
-#include "DataFormatsEMCAL/Constants.h"
-
-namespace o2
-{
-namespace emcal
-{
-
+/// \file Cell.h
 /// \class Cell
 /// \brief EMCAL compressed cell information
 /// \author Anders Knospe, University of Houston
@@ -55,6 +43,19 @@ namespace emcal
 /// | Cell type     | 2              | -            | 0=LG, 1=HG, 2=LEMon, 4=TRU  |
 ///
 /// The remaining bits are 0
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELL_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELL_H_
+
+#include <bitset>
+#include <cfloat>
+#include <climits>
+#include "DataFormatsEMCAL/Constants.h"
+
+namespace o2
+{
+namespace emcal
+{
 class Cell
 {
  public:
@@ -71,7 +72,7 @@ class Cell
   /// \param energy Energy
   /// \param timestamp Cell time
   /// \param ctype Channel type
-  Cell(short tower, float energy, float timestamp, ChannelType_t ctype = ChannelType_t::LOW_GAIN);
+  Cell(int16_t tower, float energy, float timestamp, ChannelType_t ctype = ChannelType_t::LOW_GAIN);
 
   /// \brief Constructor, from encoded bit representation
   /// \param tower Tower bitsets
@@ -86,11 +87,11 @@ class Cell
 
   /// \brief Set the tower ID
   /// \param tower Tower ID
-  void setTower(short tower) { mTowerID = tower; }
+  void setTower(int16_t tower) { mTowerID = tower; }
 
   /// \brief Get the tower ID
   /// \return Tower ID
-  short getTower() const { return mTowerID; }
+  int16_t getTower() const { return mTowerID; }
 
   /// \brief Set the time stamp
   /// \param timestamp Time in ns
@@ -134,28 +135,28 @@ class Cell
 
   /// \brief Check whether the cell is a low gain cell
   /// \return True if the cell type is low gain, false otherwise
-  Bool_t getLowGain() const { return isChannelType(ChannelType_t::LOW_GAIN); }
+  bool getLowGain() const { return isChannelType(ChannelType_t::LOW_GAIN); }
 
   /// \brief Mark cell as high gain cell
   void setHighGain() { setType(ChannelType_t::HIGH_GAIN); }
 
   /// \brief Check whether the cell is a high gain cell
   /// \return True if the cell type is high gain, false otherwise
-  Bool_t getHighGain() const { return isChannelType(ChannelType_t::HIGH_GAIN); };
+  bool getHighGain() const { return isChannelType(ChannelType_t::HIGH_GAIN); }
 
   /// \brief Mark cell as LED monitor cell
   void setLEDMon() { setType(ChannelType_t::LEDMON); }
 
   /// \brief Check whether the cell is a LED monitor cell
   /// \return True if the cell type is LED monitor, false otherwise
-  Bool_t getLEDMon() const { return isChannelType(ChannelType_t::LEDMON); }
+  bool getLEDMon() const { return isChannelType(ChannelType_t::LEDMON); }
 
   /// \brief Mark cell as TRU cell
   void setTRU() { setType(ChannelType_t::TRU); }
 
   /// \brief Check whether the cell is a TRU cell
   /// \return True if the cell type is TRU, false otherwise
-  Bool_t getTRU() const { return isChannelType(ChannelType_t::TRU); }
+  bool getTRU() const { return isChannelType(ChannelType_t::TRU); }
 
   /// \brief Apply compression as done during writing to / reading from CTF
   /// \param version Encoder version
@@ -214,7 +215,7 @@ class Cell
   static float getEnergyFromPackedBitfieldV0(const char* bitfield);
   static float getTimeFromPackedBitfieldV0(const char* bitfield);
   static ChannelType_t getCellTypeFromPackedBitfieldV0(const char* bitfield);
-  static short getTowerFromPackedBitfieldV0(const char* bitfield);
+  static int16_t getTowerFromPackedBitfieldV0(const char* bitfield);
 
   static uint16_t encodeTime(float timestamp);
   static uint16_t encodeEnergyV0(float energy);
@@ -248,7 +249,7 @@ class Cell
 
   float mEnergy = FLT_MIN;                               ///< Energy
   float mTimestamp = FLT_MIN;                            ///< Timestamp
-  short mTowerID = SHRT_MAX;                             ///< Tower ID
+  int16_t mTowerID = SHRT_MAX;                           ///< Tower ID
   ChannelType_t mChannelType = ChannelType_t::HIGH_GAIN; ///< Cell type
 
   ClassDefNV(Cell, 3);
@@ -262,4 +263,4 @@ std::ostream& operator<<(std::ostream& stream, const Cell& cell);
 } // namespace emcal
 } // namespace o2
 
-#endif
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CELL_H_

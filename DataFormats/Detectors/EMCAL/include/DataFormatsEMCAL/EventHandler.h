@@ -8,29 +8,8 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_EVENTHANDLER_H_
-#define ALICEO2_EMCAL_EVENTHANDLER_H_
 
-#include <cstdint>
-#include <exception>
-#include <iterator>
-#include <gsl/span>
-#include <vector>
-#include "Rtypes.h"
-#include "fmt/format.h"
-#include "DataFormatsEMCAL/Cell.h"
-#include "DataFormatsEMCAL/Cluster.h"
-#include "DataFormatsEMCAL/Digit.h"
-#include "DataFormatsEMCAL/EventData.h"
-#include "DataFormatsEMCAL/MCLabel.h"
-#include "DataFormatsEMCAL/TriggerRecord.h"
-#include "SimulationDataFormat/MCTruthContainer.h"
-
-namespace o2
-{
-namespace emcal
-{
-
+/// \file EventHandler.h
 /// \class EventHandler
 /// \brief Handler for EMCAL event data
 /// \ingroup EMCALbase
@@ -82,6 +61,30 @@ namespace emcal
 ///
 /// #Supported cell input types
 /// The event handler can support o2::emcal::Digit or o2::emcal::Cell as input type for cells.
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTHANDLER_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTHANDLER_H_
+
+#include <gsl/span>
+#include <iterator>
+#include <cstdint>
+#include <exception>
+#include <vector>
+#include <string>
+#include "Rtypes.h"
+#include "fmt/format.h"
+#include "DataFormatsEMCAL/Cell.h"
+#include "DataFormatsEMCAL/Cluster.h"
+#include "DataFormatsEMCAL/Digit.h"
+#include "DataFormatsEMCAL/EventData.h"
+#include "DataFormatsEMCAL/MCLabel.h"
+#include "DataFormatsEMCAL/TriggerRecord.h"
+#include "SimulationDataFormat/MCTruthContainer.h"
+
+namespace o2
+{
+namespace emcal
+{
 template <class CellInputType>
 class EventHandler
 {
@@ -270,9 +273,9 @@ class EventHandler
     /// \return Pointer to the current event
     EventData<CellInputType>* operator*() { return &mCurrentEvent; }
 
-    /// \brief Get reference to the current event
-    /// \return Reference to the current event of the iterator
-    EventData<CellInputType>& operator&() { return mCurrentEvent; }
+    // /// \brief Get reference to the current event
+    // /// \return Reference to the current event of the iterator
+    // EventData<CellInputType>& operator&() { return mCurrentEvent; }
 
     /// \brief Get the index of the current event
     /// \return Index of the current event
@@ -321,11 +324,11 @@ class EventHandler
 
   /// \brief Get backward start iterator
   /// \return Start iterator
-  EventIterator rbegin() const { return EventIterator(*this, getNumberOfEvents() - 1, false); };
+  EventIterator rbegin() const { return EventIterator(*this, getNumberOfEvents() - 1, false); }
 
   /// \brief Get backward end iteration marker
   /// \return Iteration end marker
-  EventIterator rend() const { return EventIterator(*this, -1, false); };
+  EventIterator rend() const { return EventIterator(*this, -1, false); }
 
   /// \brief Get the number of events handled by the event handler
   /// \return Number of events
@@ -461,4 +464,4 @@ class EventHandler
 } // namespace emcal
 } // namespace o2
 
-#endif // ALICEO2_EMCAL_EVENTHANDLER_H__
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_EVENTHANDLER_H_

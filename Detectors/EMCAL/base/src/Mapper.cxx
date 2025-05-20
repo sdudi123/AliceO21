@@ -9,9 +9,19 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+/// \file Mapper.cxx
+/// \brief ALTRO mapping for calorimeters
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+/// \class Mapper
+/// \ingroup EMCALbase
+/// \since Aug 19, 2019
+///
+/// Based on AliAltroMapping by C. Cheshkov and AliCaloAltroMapping by G. Balbastre
+
 #include <fstream>
-#include <iostream>
 #include <sstream>
+#include <string>
+#include <FairLogger.h>
 #include <TSystem.h>
 #include "EMCALBase/Mapper.h"
 
@@ -101,8 +111,8 @@ unsigned int Mapper::getHardwareAddress(uint8_t row, uint8_t col, ChannelType_t 
 MappingHandler::MappingHandler()
 {
   const std::array<char, 2> SIDES = {{'A', 'C'}};
-  const unsigned int NDDL = 2;
-  for (unsigned int iside = 0; iside < 2; iside++) {
+  const unsigned int NDDL = 2, NSIDES = 2;
+  for (unsigned int iside = 0; iside < NSIDES; iside++) {
     for (unsigned int iddl = 0; iddl < NDDL; iddl++) {
       mMappings[iside * NDDL + iddl].setMapping(Form("%s/share/Detectors/EMC/files/RCU%d%c.data", gSystem->Getenv("O2_ROOT"), iddl, SIDES[iside]));
     }
@@ -111,7 +121,8 @@ MappingHandler::MappingHandler()
 
 Mapper& MappingHandler::getMappingForDDL(unsigned int ddl)
 {
-  if (ddl >= 40) {
+  const int maxDDL = 40;
+  if (ddl >= maxDDL) {
     throw MappingHandler::DDLInvalid(ddl);
   }
   const unsigned int NDDLSM = 2, NSIDES = 2;
@@ -119,7 +130,7 @@ Mapper& MappingHandler::getMappingForDDL(unsigned int ddl)
                sideID = (ddl / NDDLSM) % NSIDES;
   unsigned int mappingIndex = sideID * NDDLSM + ddlInSM;
   if (mappingIndex < 0 || mappingIndex >= mMappings.size()) {
-    std::cout << "Access to invalid mapping position for ddl " << ddl << std::endl;
+    LOG(info) << "Access to invalid mapping position for ddl " << ddl;
     throw MappingHandler::DDLInvalid(ddl);
   }
   return mMappings[mappingIndex];
@@ -127,7 +138,8 @@ Mapper& MappingHandler::getMappingForDDL(unsigned int ddl)
 
 int MappingHandler::getFEEForChannelInDDL(unsigned int ddl, unsigned int channelFEC, unsigned int branch)
 {
-  if (ddl >= 40) {
+  const int maxDDL = 40;
+  if (ddl >= maxDDL) {
     throw MappingHandler::DDLInvalid(ddl);
   }
   int ddlInSupermodule = ddl % 2;

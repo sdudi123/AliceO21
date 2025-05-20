@@ -8,8 +8,16 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_CLUSTER_H_
-#define ALICEO2_EMCAL_CLUSTER_H_
+
+/// \file Cluster.h
+/// \class Cluster
+/// \brief EMCAL Cluster
+/// \ingroup EMCALDataFormat
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+///
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTER_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTER_H_
 
 #include <array>
 #include <iosfwd>
@@ -20,25 +28,19 @@
 
 namespace o2
 {
-
 namespace emcal
 {
-
-/// \class Cluster
-/// \brief EMCAL Cluster
-/// \ingroup EMCALDataFormat
-///
 class Cluster : public o2::dataformats::TimeStamp<Float16_t>
 {
   using CellIndexRange = o2::dataformats::RangeRefComp<8>;
 
  public:
   Cluster() = default;
-  Cluster(Float_t time, int firstcell, int ncells);
+  Cluster(float time, int firstcell, int ncells);
   ~Cluster() noexcept = default;
 
-  Int_t getNCells() const { return mCellIndices.getEntries(); }
-  Int_t getCellIndexFirst() const { return mCellIndices.getFirstEntry(); }
+  int getNCells() const { return mCellIndices.getEntries(); }
+  int getCellIndexFirst() const { return mCellIndices.getFirstEntry(); }
   CellIndexRange getCellIndexRange() const { return mCellIndices; }
 
   void setCellIndices(int firstcell, int ncells)
@@ -62,4 +64,4 @@ std::ostream& operator<<(std::ostream& stream, const o2::emcal::Cluster& cluster
 
 } // namespace o2
 
-#endif
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CLUSTER_H_

@@ -11,11 +11,16 @@
 #define BOOST_TEST_MODULE Test EMCAL Base
 #define BOOST_TEST_MAIN
 #define BOOST_TEST_DYN_LINK
-#include <boost/test/unit_test.hpp>
+
 #include <fmt/format.h>
-#include "EMCALBase/Geometry.h"
+
 #include <iostream>
 #include <fstream>
+#include <tuple>
+
+#include <boost/test/unit_test.hpp>
+
+#include "EMCALBase/Geometry.h"
 
 std::tuple<int, int, int, int> GetRefCellIndex(int CellId);
 

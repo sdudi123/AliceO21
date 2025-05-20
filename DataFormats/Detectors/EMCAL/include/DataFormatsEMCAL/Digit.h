@@ -9,8 +9,12 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_DIGIT_H_
-#define ALICEO2_EMCAL_DIGIT_H_
+/// \file   Digit.h
+/// \author anders.knospe@cern.ch
+/// \brief  Definition of EMCal Digit class
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_DIGIT_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_DIGIT_H_
 
 #include <iosfwd>
 #include <cmath>
@@ -35,8 +39,8 @@ class Digit : public DigitBase
  public:
   Digit() = default;
 
-  Digit(Short_t tower, Double_t amplitudeGeV, Double_t time);
-  Digit(Short_t tower, uint16_t noiseLG, uint16_t noiseHG, double time);
+  Digit(int16_t tower, double amplitudeGeV, double time);
+  Digit(int16_t tower, uint16_t noiseLG, uint16_t noiseHG, double time);
   ~Digit() = default; // override
 
   bool operator<(const Digit& other) const { return getTimeStamp() < other.getTimeStamp(); }
@@ -55,33 +59,33 @@ class Digit : public DigitBase
     return lhs;
   }
 
-  void setTower(Short_t tower) { mTower = tower; }
-  Short_t getTower() const { return mTower; }
+  void setTower(int16_t tower) { mTower = tower; }
+  int16_t getTower() const { return mTower; }
 
-  void setAmplitude(Double_t amplitude) { mAmplitudeGeV = amplitude; }
-  Double_t getAmplitude() const;
+  void setAmplitude(double amplitude) { mAmplitudeGeV = amplitude; }
+  double getAmplitude() const;
 
-  void setEnergy(Double_t energy) { mAmplitudeGeV = energy; }
-  Double_t getEnergy() const { return mAmplitudeGeV; }
+  void setEnergy(double energy) { mAmplitudeGeV = energy; }
+  double getEnergy() const { return mAmplitudeGeV; }
 
-  void setAmplitudeADC(Short_t amplitude, ChannelType_t ctype = ChannelType_t::HIGH_GAIN);
-  Int_t getAmplitudeADC(ChannelType_t ctype) const;
-  Int_t getAmplitudeADC() const { return getAmplitudeADC(getType()); };
+  void setAmplitudeADC(int16_t amplitude, ChannelType_t ctype = ChannelType_t::HIGH_GAIN);
+  int getAmplitudeADC(ChannelType_t ctype) const;
+  int getAmplitudeADC() const { return getAmplitudeADC(getType()); }
 
   void setType(ChannelType_t ctype) {}
   ChannelType_t getType() const;
 
   void setHighGain() {}
-  Bool_t getHighGain() const { return (getType() == ChannelType_t::HIGH_GAIN); };
+  bool getHighGain() const { return (getType() == ChannelType_t::HIGH_GAIN); }
 
   void setLowGain() {}
-  Bool_t getLowGain() const { return (getType() == ChannelType_t::LOW_GAIN); };
+  bool getLowGain() const { return (getType() == ChannelType_t::LOW_GAIN); }
 
   void setTRU() { mIsTRU = true; }
-  Bool_t getTRU() const { return mIsTRU; }
+  bool getTRU() const { return mIsTRU; }
 
   void setLEDMon() {}
-  Bool_t getLEDMon() const { return false; }
+  bool getLEDMon() const { return false; }
 
   void PrintStream(std::ostream& stream) const;
 
@@ -98,7 +102,7 @@ class Digit : public DigitBase
   friend class boost::serialization::access;
 
   double mAmplitudeGeV = 0.; ///< Amplitude (GeV)
-  Short_t mTower = -1;       ///< Tower index (absolute cell ID)
+  int16_t mTower = -1;       ///< Tower index (absolute cell ID)
   bool mIsTRU = false;       ///< TRU flag
   uint16_t mNoiseLG = 0;     ///< Noise of the low gain digits
   uint16_t mNoiseHG = 0;     ///< Noise of the high gain digits or TRU digits (can never be at the same time)
@@ -109,4 +113,4 @@ class Digit : public DigitBase
 std::ostream& operator<<(std::ostream& stream, const Digit& dig);
 } // namespace emcal
 } // namespace o2
-#endif
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_DIGIT_H_

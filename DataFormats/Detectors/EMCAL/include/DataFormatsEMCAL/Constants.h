@@ -8,13 +8,19 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
-#ifndef ALICEO2_EMCAL_CONSTANTS_H_
-#define ALICEO2_EMCAL_CONSTANTS_H_
+
+/// \file Constants.h
+/// \brief EMCal related constants
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CONSTANTS_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CONSTANTS_H_
 
 #include <Rtypes.h>
 #include <iosfwd>
 #include <exception>
 #include <cstdint>
+#include <string>
 
 namespace o2
 {
@@ -94,11 +100,11 @@ constexpr int OVERFLOWCUT = 950;               ///< sample overflow
 constexpr int LG_SUPPRESSION_CUT = 880;        ///< LG bunch suppression ADC value
 constexpr int ORDER = 2;                       ///< Order of shaping stages of the signal conditioning unit
 constexpr double TAU = 2.35;                   ///< Approximate shaping time
-constexpr Double_t EMCAL_TIMESAMPLE = 100.;    ///< Width of a timebin in nanoseconds
-constexpr Double_t EMCAL_ADCENERGY = 0.0162;   ///< Energy of one ADC count in GeV/c^2
-constexpr Int_t EMCAL_HGLGFACTOR = 16;         ///< Conversion from High to Low Gain
-constexpr Int_t EMCAL_HGLGTRANSITION = 1024;   ///< Transition from High to Low Gain
-constexpr Int_t EMCAL_MAXTIMEBINS = 15;        ///< Maximum number of time bins for time response
+constexpr double EMCAL_TIMESAMPLE = 100.;      ///< Width of a timebin in nanoseconds
+constexpr double EMCAL_ADCENERGY = 0.0162;     ///< Energy of one ADC count in GeV/c^2
+constexpr int EMCAL_HGLGFACTOR = 16;           ///< Conversion from High to Low Gain
+constexpr int EMCAL_HGLGTRANSITION = 1024;     ///< Transition from High to Low Gain
+constexpr int EMCAL_MAXTIMEBINS = 15;          ///< Maximum number of time bins for time response
 constexpr int MAX_RANGE_ADC = 0x3FF;           ///< Dynamic range of the ADCs (10 bit ADC)
 constexpr double EMCAL_TRU_ADCENERGY = 0.0786; ///< resolution of the TRU digitizer, @TODO check exact value
 } // namespace constants
@@ -146,4 +152,4 @@ constexpr int NchannelsOverPhi_long = 4;  ///< number of FastORs over Phi for 1/
 
 } // namespace emcal
 } // namespace o2
-#endif
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_CONSTANTS_H_

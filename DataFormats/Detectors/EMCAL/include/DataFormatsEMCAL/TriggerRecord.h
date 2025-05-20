@@ -9,8 +9,16 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-#ifndef ALICEO2_EMCAL_TRIGGERRECORD_H
-#define ALICEO2_EMCAL_TRIGGERRECORD_H
+/// \file TriggerRecord.h
+/// \class TriggerRecord
+/// \brief Header for data corresponding to the same hardware trigger
+/// \ingroup EMCALDataFormat
+/// \author Markus Fasel <markus.fasel@cern.ch>
+/// \since Nov 17, 2019
+/// adapted from DataFormatsITSMFT/ROFRecord
+
+#ifndef DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_TRIGGERRECORD_H_
+#define DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_TRIGGERRECORD_H_
 
 #include <cstdint>
 #include <iosfwd>
@@ -20,16 +28,8 @@
 
 namespace o2
 {
-
 namespace emcal
 {
-
-/// \class TriggerRecord
-/// \brief Header for data corresponding to the same hardware trigger
-/// \ingroup EMCALDataFormat
-/// \author Markus Fasel <markus.fasel@cern.ch>
-/// \since Nov 17, 2019
-/// adapted from DataFormatsITSMFT/ROFRecord
 class TriggerRecord
 {
   using BCData = o2::InteractionRecord;
@@ -78,4 +78,4 @@ std::ostream& operator<<(std::ostream& stream, const TriggerRecord& trg);
 
 } // namespace o2
 
-#endif
+#endif // DATAFORMATS_DETECTORS_EMCAL_INCLUDE_DATAFORMATSEMCAL_TRIGGERRECORD_H_

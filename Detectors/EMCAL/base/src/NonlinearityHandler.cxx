@@ -8,11 +8,32 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+
+/// \file NonlinearityHandler.cxx
+/// \class NonlinearityHandler
+/// \brief Nonlinearity functions for energy correction
+/// \ingroup EMCALbase
+/// \author Markus Fasel <markus.fasel@cern.ch>, Oak Ridge National Laboratory
+/// \since Feb 27, 2023
+///
+/// Calculating a corrected cluster energy based on the raw cluster energy.
+/// Several parameterisations are provided. The function is selected during
+/// construction of the object. The corrected cluster energy is obtained via
+/// the function getCorrectedClusterEnergy.
+///
+/// The correction for the shaper sturation must be applied at cell energy level.
+/// Only one parameterisation for the shaper nonlinearity exists, for which the
+/// parameterisation does not depend on the type of the cluster nonlinearity. The
+/// function evaluateShaperCorrectionCellEnergy is static and can therefore be applied
+/// without a cluster nonlinearity parameterisation.
+///
+/// based on nonlinearity implementation in AliEMCALRecoUtils
+
 #include <algorithm>
-#include <iostream>
 #include <cmath>
-#include <TMath.h> // for TMath::Pi() - to be removed once we switch to c++20
+#include <string>
 #include "EMCALBase/NonlinearityHandler.h"
+#include "CommonConstants/MathConstants.h"
 
 using namespace o2::emcal;
 
@@ -182,13 +203,13 @@ double NonlinearityHandler::evaluateTestbeamCorrected(double energy) const
 double NonlinearityHandler::evaluatePi0MC(double energy) const
 {
   return energy * (mNonlinearityParam[0] * std::exp(-mNonlinearityParam[1] / energy)) +
-         ((mNonlinearityParam[2] / (mNonlinearityParam[3] * 2. * TMath::Pi()) *
+         ((mNonlinearityParam[2] / (mNonlinearityParam[3] * o2::constants::math::TwoPI) *
            std::exp(-(energy - mNonlinearityParam[4]) * (energy - mNonlinearityParam[4]) / (2. * mNonlinearityParam[3] * mNonlinearityParam[3]))));
 }
 
 double NonlinearityHandler::evaluatePi0MCv2(double energy) const
 {
-  return energy * mNonlinearityParam[0] / TMath::Power(energy + mNonlinearityParam[1], mNonlinearityParam[2]) + 1;
+  return energy * mNonlinearityParam[0] / std::pow(energy + mNonlinearityParam[1], mNonlinearityParam[2]) + 1;
 }
 
 double NonlinearityHandler::evaluateShaperCorrectionCellEnergy(double energy, double ecalibHG)
@@ -215,7 +236,7 @@ void NonlinearityHandler::printStream(std::ostream& stream) const
   stream << "Nonlinearity function: " << getNonlinName(mNonlinearyFunction)
          << "(Parameters:";
   bool first = true;
-  for (auto& param : mNonlinearityParam) {
+  for (const auto& param : mNonlinearityParam) {
     if (first) {
       first = false;
     } else {
@@ -347,7 +368,7 @@ void NonlinearityFactory::initNonlinNames()
                                                    NLType::DATA_TESTBEAM_SHAPER_WOSCALE
 
   }};
-  for (auto nonlin : nonlintypes) {
+  for (const auto& nonlin : nonlintypes) {
     mNonlinNames[NonlinearityHandler::getNonlinName(nonlin)] = nonlin;
   }
 }
