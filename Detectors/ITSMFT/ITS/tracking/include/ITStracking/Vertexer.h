@@ -46,6 +46,8 @@ using Vertex = o2::dataformats::Vertex<o2::dataformats::TimeStamp<int>>;
 
 class Vertexer
 {
+  using LogFunc = std::function<void(const std::string& s)>;
+
  public:
   Vertexer(VertexerTraits* traits);
   virtual ~Vertexer() = default;
@@ -60,43 +62,31 @@ class Vertexer
   std::vector<Vertex> exportVertices();
   VertexerTraits* getTraits() const { return mTraits; };
 
-  float clustersToVertices(std::function<void(std::string s)> = [](std::string s) { std::cout << s << std::endl; });
-  float clustersToVerticesHybrid(std::function<void(std::string s)> = [](std::string s) { std::cout << s << std::endl; });
+  float clustersToVertices(LogFunc = [](const std::string& s) { std::cout << s << '\n'; });
   void filterMCTracklets();
 
   template <typename... T>
   void findTracklets(T&&... args);
-  template <typename... T>
-  void findTrackletsHybrid(T&&... args);
-
   void findTrivialMCTracklets();
   template <typename... T>
   void validateTracklets(T&&... args);
   template <typename... T>
-  void validateTrackletsHybrid(T&&... args);
-  template <typename... T>
   void findVertices(T&&... args);
-  template <typename... T>
-  void findVerticesHybrid(T&&... args);
   void findHistVertices();
 
   template <typename... T>
   void initialiseVertexer(T&&... args);
   template <typename... T>
   void initialiseTimeFrame(T&&... args);
-  template <typename... T>
-  void initialiseVertexerHybrid(T&&... args);
-  template <typename... T>
-  void initialiseTimeFrameHybrid(T&&... args);
 
   // Utils
   void dumpTraits();
   template <typename... T>
-  float evaluateTask(void (Vertexer::*)(T...), const char*, std::function<void(std::string s)> logger, T&&... args);
-  void printEpilog(std::function<void(std::string s)> logger,
-                   bool isHybrid,
-                   const unsigned int trackletN01, const unsigned int trackletN12, const unsigned selectedN, const unsigned int vertexN,
-                   const float initT, const float trackletT, const float selecT, const float vertexT);
+  float evaluateTask(void (Vertexer::*)(T...), const char*, LogFunc logger, T&&... args);
+  void printEpilog(LogFunc& logger,
+                   const unsigned int trackletN01, const unsigned int trackletN12,
+                   const unsigned selectedN, const unsigned int vertexN, const float initT,
+                   const float trackletT, const float selecT, const float vertexT);
 
  private:
   std::uint32_t mTimeFrameCounter = 0;
@@ -147,31 +137,7 @@ inline void Vertexer::findVertices(T&&... args)
 }
 
 template <typename... T>
-void Vertexer::initialiseVertexerHybrid(T&&... args)
-{
-  mTraits->initialiseHybrid(std::forward<T>(args)...);
-}
-
-template <typename... T>
-void Vertexer::findTrackletsHybrid(T&&... args)
-{
-  mTraits->computeTrackletsHybrid(std::forward<T>(args)...);
-}
-
-template <typename... T>
-inline void Vertexer::validateTrackletsHybrid(T&&... args)
-{
-  mTraits->computeTrackletMatchingHybrid(std::forward<T>(args)...);
-}
-
-template <typename... T>
-inline void Vertexer::findVerticesHybrid(T&&... args)
-{
-  mTraits->computeVerticesHybrid(std::forward<T>(args)...);
-}
-
-template <typename... T>
-float Vertexer::evaluateTask(void (Vertexer::*task)(T...), const char* taskName, std::function<void(std::string s)> logger,
+float Vertexer::evaluateTask(void (Vertexer::*task)(T...), const char* taskName, LogFunc logger,
                              T&&... args)
 {
   float diff{0.f};

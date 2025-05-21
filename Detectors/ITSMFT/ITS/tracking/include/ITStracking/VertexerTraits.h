@@ -51,7 +51,7 @@ class VertexerTraits
   VertexerTraits() = default;
   virtual ~VertexerTraits() = default;
 
-  GPUhd() static constexpr int4 getEmptyBinsRect()
+  GPUhdi() static consteval int4 getEmptyBinsRect()
   {
     return int4{0, 0, 0, 0};
   }
@@ -68,12 +68,6 @@ class VertexerTraits
   virtual void computeVertices(const int iteration = 0);
   virtual void adoptTimeFrame(TimeFrame* tf);
   virtual void updateVertexingParameters(const std::vector<VertexingParameters>& vrtPar, const TimeFrameGPUParameters& gpuTfPar);
-  // Hybrid
-  virtual void initialiseHybrid(const TrackingParameters& trackingParams, const int iteration = 0) { initialise(trackingParams, iteration); };
-  virtual void computeTrackletsHybrid(const int iteration = 0) { computeTracklets(iteration); };
-  virtual void computeTrackletMatchingHybrid(const int iteration = 0) { computeTrackletMatching(iteration); };
-  virtual void computeVerticesHybrid(const int iteration = 0) { computeVertices(iteration); };
-  virtual void adoptTimeFrameHybrid(TimeFrame* tf) { adoptTimeFrame(tf); };
 
   void computeVerticesInRof(int,
                             gsl::span<const o2::its::Line>&,
@@ -93,12 +87,12 @@ class VertexerTraits
   // utils
   std::vector<VertexingParameters>& getVertexingParameters() { return mVrtParams; }
   std::vector<VertexingParameters> getVertexingParameters() const { return mVrtParams; }
-  void setIsGPU(const unsigned char isgpu) { mIsGPU = isgpu; };
   void setVertexingParameters(std::vector<VertexingParameters>& vertParams) { mVrtParams = vertParams; }
-  unsigned char getIsGPU() const { return mIsGPU; };
   void dumpVertexerTraits();
   void setNThreads(int n);
   int getNThreads() const { return mNThreads; }
+  virtual bool isGPU() const noexcept { return false; }
+  virtual const char* getName() const noexcept { return "CPU"; }
 
   template <typename T = o2::MCCompLabel>
   static std::pair<T, float> computeMain(const std::vector<T>& elements)
@@ -116,7 +110,6 @@ class VertexerTraits
   }
 
  protected:
-  unsigned char mIsGPU;
   int mNThreads = 1;
 
   std::vector<VertexingParameters> mVrtParams;
@@ -129,7 +122,6 @@ class VertexerTraits
 inline void VertexerTraits::initialise(const TrackingParameters& trackingParams, const int iteration)
 {
   mTimeFrame->initialise(0, trackingParams, 3, (bool)(!iteration)); // iteration for initialisation must be 0 for correctly resetting the frame, we need to pass the non-reset flag for vertices as well, tho.
-  setIsGPU(false);
 }
 
 GPUhdi() const int2 VertexerTraits::getPhiBins(float phi, float dPhi)

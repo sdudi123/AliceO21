@@ -139,7 +139,6 @@ void ITSTrackingInterface::initialise()
   mVertexer->setParameters(vertParams);
 }
 
-template <bool isGPU>
 void ITSTrackingInterface::run(framework::ProcessingContext& pc)
 {
   auto compClusters = pc.inputs().get<gsl::span<o2::itsmft::CompClusterExt>>("compClusters");
@@ -224,11 +223,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   if (mRunVertexer) {
     vertROFvec.reserve(trackROFvec.size());
     // Run seeding vertexer
-    if constexpr (isGPU) {
-      vertexerElapsedTime = mVertexer->clustersToVerticesHybrid(logger);
-    } else {
-      vertexerElapsedTime = mVertexer->clustersToVertices(logger);
-    }
+    vertexerElapsedTime = mVertexer->clustersToVertices(logger);
   } else { // cosmics
     mTimeFrame->resetRofPV();
   }
@@ -453,8 +448,5 @@ void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
 {
   mTimeFrame->loadROFrameData(trackROFspan, clusters, pattIt, mDict, mcLabels);
 }
-
-template void ITSTrackingInterface::run<true>(framework::ProcessingContext& pc);
-template void ITSTrackingInterface::run<false>(framework::ProcessingContext& pc);
 } // namespace its
 } // namespace o2

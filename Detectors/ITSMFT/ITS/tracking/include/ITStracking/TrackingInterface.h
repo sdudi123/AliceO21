@@ -52,7 +52,6 @@ class ITSTrackingInterface
   }
   // Task callbacks
   void initialise();
-  template <bool isGPU = false>
   void run(framework::ProcessingContext& pc);
   void printSummary() const;
 
