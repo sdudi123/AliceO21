@@ -31,7 +31,7 @@ int32_t GPURecoWorkflowSpec::runITSTracking(o2::framework::ProcessingContext& pc
 {
   mITSTimeFrame->setDevicePropagator(mGPUReco->GetDeviceO2Propagator());
   LOGP(debug, "GPUChainITS is giving me device propagator: {}", (void*)mGPUReco->GetDeviceO2Propagator());
-  mITSTrackingInterface->run<true>(pc);
+  mITSTrackingInterface->run(pc);
   return 0;
 }
 
