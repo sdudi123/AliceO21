@@ -41,15 +41,15 @@ class VertexerTraitsGPU final : public VertexerTraits
 {
  public:
   void initialise(const TrackingParameters&, const int iteration = 0) final;
-  void adoptTimeFrame(TimeFrame*) final;
+  void adoptTimeFrame(TimeFrame<7>*) noexcept final;
   void computeTracklets(const int iteration = 0) final;
   void computeTrackletMatching(const int iteration = 0) final;
   void computeVertices(const int iteration = 0) final;
   void updateVertexingParameters(const std::vector<VertexingParameters>&, const TimeFrameGPUParameters&) final;
   void computeVerticesHist();
 
-  virtual bool isGPU() final { return true; }
-  virtual const char* getName() final { return "GPU"; }
+  bool isGPU() const noexcept final { return true; }
+  const char* getName() const noexcept final { return "GPU"; }
 
  protected:
   IndexTableUtils* mDeviceIndexTableUtils;
@@ -57,10 +57,10 @@ class VertexerTraitsGPU final : public VertexerTraits
   TimeFrameGPUParameters mTfGPUParams;
 };
 
-inline void VertexerTraitsGPU::adoptTimeFrame(TimeFrame* tf)
+inline void VertexerTraitsGPU::adoptTimeFrame(TimeFrame<7>* tf) noexcept
 {
   mTimeFrameGPU = static_cast<gpu::TimeFrameGPU<7>*>(tf);
-  mTimeFrame = static_cast<TimeFrame*>(tf);
+  mTimeFrame = static_cast<TimeFrame<7>*>(tf);
 }
 
 } // namespace its

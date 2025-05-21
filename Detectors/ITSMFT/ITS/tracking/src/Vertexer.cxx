@@ -93,7 +93,7 @@ void Vertexer::getGlobalConfiguration()
   mVertParams[0].PhiBins = vc.PhiBins;
 }
 
-void Vertexer::adoptTimeFrame(TimeFrame& tf)
+void Vertexer::adoptTimeFrame(TimeFrame7& tf)
 {
   mTimeFrame = &tf;
   mTraits->adoptTimeFrame(&tf);

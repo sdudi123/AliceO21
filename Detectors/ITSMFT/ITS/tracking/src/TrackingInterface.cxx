@@ -431,8 +431,8 @@ void ITSTrackingInterface::printSummary() const
 }
 
 void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
-                                                 TrackerTraits* trackerTraits,
-                                                 TimeFrame* frame)
+                                                 TrackerTraits7* trackerTraits,
+                                                 TimeFrame7* frame)
 {
   mVertexer = std::make_unique<Vertexer>(vertexerTraits);
   mTracker = std::make_unique<Tracker>(trackerTraits);

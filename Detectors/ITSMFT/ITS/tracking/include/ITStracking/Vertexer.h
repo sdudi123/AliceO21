@@ -35,17 +35,15 @@
 
 #include "GPUCommonLogger.h"
 
-class TTree;
+namespace o2::its
+{
 
-namespace o2
-{
-namespace its
-{
-using TimeFrame = o2::its::TimeFrame;
 using Vertex = o2::dataformats::Vertex<o2::dataformats::TimeStamp<int>>;
 
 class Vertexer
 {
+  static constexpr int NLayers{7};
+  using TimeFrame7 = TimeFrame<NLayers>;
   using LogFunc = std::function<void(const std::string& s)>;
 
  public:
@@ -54,9 +52,9 @@ class Vertexer
   Vertexer(const Vertexer&) = delete;
   Vertexer& operator=(const Vertexer&) = delete;
 
-  void adoptTimeFrame(TimeFrame& tf);
-  std::vector<VertexingParameters>& getVertParameters() const;
-  void setParameters(std::vector<VertexingParameters>& vertParams);
+  void adoptTimeFrame(TimeFrame7& tf);
+  auto& getVertParameters() const { return mTraits->getVertexingParameters(); }
+  void setParameters(const std::vector<VertexingParameters>& vertParams) { mVertParams = vertParams; }
   void getGlobalConfiguration();
 
   std::vector<Vertex> exportVertices();
@@ -80,7 +78,7 @@ class Vertexer
   void initialiseTimeFrame(T&&... args);
 
   // Utils
-  void dumpTraits();
+  void dumpTraits() { mTraits->dumpVertexerTraits(); }
   template <typename... T>
   float evaluateTask(void (Vertexer::*)(T...), const char*, LogFunc logger, T&&... args);
   void printEpilog(LogFunc& logger,
@@ -92,7 +90,7 @@ class Vertexer
   std::uint32_t mTimeFrameCounter = 0;
 
   VertexerTraits* mTraits = nullptr; /// Observer pointer, not owned by this class
-  TimeFrame* mTimeFrame = nullptr;   /// Observer pointer, not owned by this class
+  TimeFrame7* mTimeFrame = nullptr;  /// Observer pointer, not owned by this class
 
   std::vector<VertexingParameters> mVertParams;
 };
@@ -107,21 +105,6 @@ template <typename... T>
 void Vertexer::findTracklets(T&&... args)
 {
   mTraits->computeTracklets(std::forward<T>(args)...);
-}
-
-inline std::vector<VertexingParameters>& Vertexer::getVertParameters() const
-{
-  return mTraits->getVertexingParameters();
-}
-
-inline void Vertexer::setParameters(std::vector<VertexingParameters>& vertParams)
-{
-  mVertParams = vertParams;
-}
-
-inline void Vertexer::dumpTraits()
-{
-  mTraits->dumpVertexerTraits();
 }
 
 template <typename... T>
@@ -164,6 +147,5 @@ float Vertexer::evaluateTask(void (Vertexer::*task)(T...), const char* taskName,
   return diff;
 }
 
-} // namespace its
-} // namespace o2
+} // namespace o2::its
 #endif
