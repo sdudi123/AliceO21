@@ -35,8 +35,10 @@
 
 namespace o2::its
 {
+template <int>
 class TrackerTraits;
 class VertexerTraits;
+template <int>
 class TimeFrame;
 } // namespace o2::its
 
@@ -188,7 +190,7 @@ class GPUReconstruction
   GPUMemorySizeScalers* MemoryScalers() { return mMemoryScalers.get(); }
 
   // Helpers to fetch processors from other shared libraries
-  virtual void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame);
+  virtual void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits<7>>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame<7>>* timeFrame);
   bool slavesExist() { return mSlaves.size() || mMaster; }
   int slaveId() { return mSlaveId; }
 
