@@ -174,7 +174,7 @@ struct DiscoverMetadataInAOD : o2::framework::ConfigDiscoveryPlugin {
           std::getline(file, filename);
           file.close();
         }
-        if (filename.rfind("alien://", 0) == 0) {
+        if (filename.rfind("alien://", 0) == 0 && !gGrid) {
           TGrid::Connect("alien://");
         }
         LOGP(info, "Loading metadata from file {} in PID {}", filename, getpid());
@@ -227,7 +227,7 @@ struct DiscoverMetadataInAOD : o2::framework::ConfigDiscoveryPlugin {
             }
           }
 
-          if (parentFilename.starts_with("alien://")) {
+          if (parentFilename.starts_with("alien://") && !gGrid) {
             TGrid::Connect("alien://");
           }
 
