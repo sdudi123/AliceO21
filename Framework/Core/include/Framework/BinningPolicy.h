@@ -12,15 +12,15 @@
 #ifndef FRAMEWORK_BINNINGPOLICY_H
 #define FRAMEWORK_BINNINGPOLICY_H
 
+#include "Framework/ASoA.h"
 #include "Framework/HistogramSpec.h" // only for VARIABLE_WIDTH
 #include "Framework/Pack.h"
-#include "Framework/ASoA.h"
 #include <arrow/table.h>
-#include <cstddef>
 #include <array>
+#include <cstddef>
 #include <cstdint>
-#include <vector>
 #include <tuple>
+#include <vector>
 
 namespace o2::framework
 {
