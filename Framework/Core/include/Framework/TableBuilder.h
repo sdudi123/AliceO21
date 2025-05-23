@@ -753,11 +753,12 @@ auto makeEmptyTable()
   return b.finalize();
 }
 
-template <typename... Cs>
-auto makeEmptyTable(const char* name, framework::pack<Cs...> p)
+
+template <PackLike P>
+auto makeEmptyTable(const char* name)
 {
   TableBuilder b;
-  [[maybe_unused]] auto writer = b.cursor(p);
+  [[maybe_unused]] auto writer = b.cursor(P{});
   b.setLabel(name);
   return b.finalize();
 }
@@ -772,7 +773,7 @@ auto spawner(std::shared_ptr<arrow::Table> const& fullTable, const char* name, o
 {
   using placeholders_pack_t = typename o2::aod::MetadataTrait<D>::metadata::placeholders_pack_t;
   if (fullTable->num_rows() == 0) {
-    return makeEmptyTable(name, placeholders_pack_t{});
+    return makeEmptyTable<placeholders_pack_t>(name);
   }
   return spawnerHelper(fullTable, schema, framework::pack_size(placeholders_pack_t{}), projectors, name, projector);
 }
@@ -791,7 +792,7 @@ auto spawner(std::shared_ptr<arrow::Table> const& fullTable, const char* name, e
 {
   using expression_pack_t = typename o2::aod::MetadataTrait<D>::metadata::expression_pack_t;
   if (fullTable->num_rows() == 0) {
-    return makeEmptyTable(name, expression_pack_t{});
+    return makeEmptyTable<expression_pack_t>(name);
   }
   return spawnerHelper(fullTable, schema, framework::pack_size(expression_pack_t{}), projectors, name, projector);
 }
@@ -805,12 +806,12 @@ auto spawner(std::vector<std::shared_ptr<arrow::Table>>&& tables, const char* na
 }
 
 template <typename... C>
-auto spawner(framework::pack<C...>, std::vector<std::shared_ptr<arrow::Table>>&& tables, const char* name, expressions::Projector* projectors, std::shared_ptr<gandiva::Projector>& projector, std::shared_ptr<arrow::Schema> const& schema)
+auto spawner(framework::pack<C...> columns, std::vector<std::shared_ptr<arrow::Table>>&& tables, const char* name, expressions::Projector* projectors, std::shared_ptr<gandiva::Projector>& projector, std::shared_ptr<arrow::Schema> const& schema)
 {
   std::array<const char*, 1> labels{"original"};
   auto fullTable = soa::ArrowHelpers::joinTables(std::move(tables), std::span<const char* const>{labels});
   if (fullTable->num_rows() == 0) {
-    return makeEmptyTable(name, framework::pack<C...>{});
+    return makeEmptyTable<decltype(columns)>(name);
   }
   return spawnerHelper(fullTable, schema, sizeof...(C), projectors, name, projector);
 }
