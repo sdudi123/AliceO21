@@ -193,6 +193,7 @@ int32_t GPUReconstruction::Init()
     }
     mSlaves[i]->ClearAllocatedMemory();
   }
+  debugInit();
   return 0;
 }
 
@@ -303,7 +304,7 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings->rtc.optConstexpr = false;
   }
 
-  mMemoryScalers->factor = GetProcessingSettings().memoryScalingFactor;
+  mMemoryScalers->scalingFactor = GetProcessingSettings().memoryScalingFactor;
   mMemoryScalers->conservative = GetProcessingSettings().conservativeMemoryEstimate;
   mMemoryScalers->returnMaxVal = GetProcessingSettings().forceMaxMemScalers != 0;
   if (GetProcessingSettings().forceMaxMemScalers > 1) {
@@ -469,6 +470,7 @@ int32_t GPUReconstruction::Exit()
   if (mInitialized) {
     ExitDevice();
   }
+  debugExit();
   mInitialized = false;
   return 0;
 }
