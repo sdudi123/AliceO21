@@ -143,10 +143,10 @@ constexpr double MassDeuteron = 1.87561294257;
 constexpr double MassTriton = 2.80892113298;
 constexpr double MassHelium3 = 2.80839160743;
 constexpr double MassAlpha = 3.7273794066;
-constexpr double MassHyperTriton = 2.991134;
-constexpr double MassHyperHydrogen4 = 3.922434;
-constexpr double MassHyperHelium4 = 3.921728;
-constexpr double MassHyperHelium5 = 4.839961;
+constexpr double MassHyperTriton = 2.99131;
+constexpr double MassHyperHydrogen4 = 3.9226;
+constexpr double MassHyperHelium4 = 3.9217;
+constexpr double MassHyperHelium5 = 4.841;
 constexpr double MassHyperHelium4Sigma = 3.995;
 
 /// \brief Declarations of masses for particles in ROOT PDG_t
