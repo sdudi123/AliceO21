@@ -18,11 +18,7 @@
 #include "GPUTPCDef.h"
 #include "GPUGeneralKernels.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
-{
-namespace gputpcgmmergertypes
+namespace o2::gpu::gputpcgmmergertypes
 {
 
 enum attachTypes { attachAttached = 0x40000000,
@@ -36,20 +32,20 @@ enum attachTypes { attachAttached = 0x40000000,
 
 struct InterpolationErrorHit {
   float posY, posZ;
-  GPUCA_MERGER_INTERPOLATION_ERROR_TYPE errorY, errorZ;
+  GPUCA_PAR_MERGER_INTERPOLATION_ERROR_TYPE_A errorY, errorZ;
 };
 
 struct InterpolationErrors {
   InterpolationErrorHit hit[GPUCA_MERGER_MAX_TRACK_CLUSTERS];
 };
 
-struct GPUResolveSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<short, GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)> {
-  int iTrack1[GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)];
-  int iTrack2[GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)];
+struct GPUResolveSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<int16_t, GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)> {
+  int32_t iTrack1[GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)];
+  int32_t iTrack2[GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCGMMergerResolve_step3)];
 };
 
 struct GPUTPCGMBorderRange {
-  int fId;
+  int32_t fId;
   float fMin, fMax;
 };
 
@@ -59,8 +55,6 @@ struct GPUTPCOuterParam {
   float C[15];
 };
 
-} // namespace gputpcgmmergertypes
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu::gputpcgmmergertypes
 
 #endif

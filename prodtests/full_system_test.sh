@@ -59,6 +59,7 @@ FIRSTSAMPLEDORBIT=${FIRSTSAMPLEDORBIT:-0}
 OBLIGATORYSOR=${OBLIGATORYSOR:-false}
 FST_TPC_ZSVERSION=${FST_TPC_ZSVERSION:-4}
 TPC_SLOW_REALISITC_FULL_SIM=${TPC_SLOW_REALISITC_FULL_SIM:-0}
+FST_BFIELD="${FST_BFIELD:-}ccdb"
 if [[ $BEAMTYPE == "PbPb" ]]; then
   FST_GENERATOR=${FST_GENERATOR:-pythia8hi}
   FST_COLRATE=${FST_COLRATE:-50000}
@@ -69,7 +70,7 @@ else
   RUNNUMBER=303000 # a default un-anchored pp run number
 fi
 FST_MC_ENGINE=${FST_MC_ENGINE:-TGeant4}
-FST_EMBEDDING_CONFIG=${FST_EMBEDDING_CONFIG:-GeneratorPythia8.config=pythia8.cfg}
+FST_EMBEDDING_CONFIG=${FST_EMBEDDING_CONFIG:-GeneratorPythia8.config=$O2_ROOT/prodtests/full-system-test/pythia8.cfg}
 DO_EMBEDDING=${DO_EMBEDDING:-0}
 if [[ $DO_EMBEDDING == 0 ]]; then
   SIM_SOURCES="o2sim"
@@ -141,7 +142,7 @@ if [[ $DO_EMBEDDING == 1 ]]; then
   taskwrapper embed.log o2-sim ${FST_BFIELD+--field=}${FST_BFIELD} -j $NJOBS --run ${RUNNUMBER} -n $NEvents -g pythia8pp -e ${FST_MC_ENGINE} -o sig --configKeyValues ${FST_EMBEDDING_CONFIG} --embedIntoFile o2sim_Kine.root
 fi
 taskwrapper digi.log o2-sim-digitizer-workflow -n $NEvents ${DIGIQED} ${NOMCLABELS} --sims ${SIM_SOURCES} --tpc-lanes $((NJOBS < 36 ? NJOBS : 36)) --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} ${DIGITOPT} --configKeyValues "\"${DIGITOPTKEY}\"" --interactionRate $FST_COLRATE --early-forward-policy always
-[[ $SPLITTRDDIGI == "1" ]] && taskwrapper digiTRD.log o2-sim-digitizer-workflow -n $NEvents ${NOMCLABELS} --onlyDet TRD --trd-digit-downscaling ${DIGITDOWNSCALINGTRD} --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} --incontext collisioncontext.root --configKeyValues "\"${DIGITOPTKEYTRD}\"" --early-forward-policy always
+[[ $SPLITTRDDIGI == "1" ]] && taskwrapper digiTRD.log o2-sim-digitizer-workflow -n $NEvents ${NOMCLABELS} --sims ${SIM_SOURCES} --onlyDet TRD --trd-digit-downscaling ${DIGITDOWNSCALINGTRD} --shm-segment-size $SHMSIZE ${GLOBALDPLOPT} --incontext collisioncontext.root --configKeyValues "\"${DIGITOPTKEYTRD}\"" --early-forward-policy always
 touch digiTRD.log_done
 
 if [[ "0$GENERATE_ITSMFT_DICTIONARIES" == "01" ]]; then
@@ -227,6 +228,7 @@ if [[ ${RANS_OPT:-} =~ (--ans-version +)(compat) ]] ; then
   # for decoding we use either just produced or externally provided common local file
   export ARGS_EXTRA_PROCESS_o2_ctf_reader_workflow+="--ctf-dict $CTFDICTFILE"
 fi
+export CONFIG_EXTRA_PROCESS_o2_gpu_reco_workflow+="GPU_global.overrideNHbfPerTF=$NHBPERTF;"
 
 for STAGE in $STAGES; do
   logfile=reco_${STAGE}.log
@@ -240,12 +242,17 @@ for STAGE in $STAGES; do
     export HOSTMEMSIZE=1000000000
     export SYNCMODE=1
     export CTFINPUT=0
+    # enabling SECVTX
+    export WORKFLOW_EXTRA_PROCESSING_STEPS+="MATCH_SECVTX"
   elif [[ "$STAGE" = "ASYNC" ]]; then
     export CREATECTFDICT=0
     export GPUTYPE=CPU
     export SYNCMODE=0
     export HOSTMEMSIZE=$TPCTRACKERSCRATCHMEMORY
     export CTFINPUT=1
+    # the following line is needed in case the SECTVX was enabled in the SYNC; in this case, it'd have the options:
+    # export ARGS_EXTRA_PROCESS_o2_secondary_vertexing_workflow='--disable-cascade-finder --disable-3body-finder --disable-strangeness-tracker'
+    unset ARGS_EXTRA_PROCESS_o2_secondary_vertexing_workflow
     export WORKFLOW_PARAMETERS="${WORKFLOW_PARAMETERS},AOD"
   else
     export CREATECTFDICT=$SYNCMODEDOCTFDICT
@@ -254,6 +261,8 @@ for STAGE in $STAGES; do
     export HOSTMEMSIZE=$TPCTRACKERSCRATCHMEMORY
     export CTFINPUT=0
     export WORKFLOW_PARAMETERS="${WORKFLOW_PARAMETERS},CALIB,CTF,EVENT_DISPLAY,${FST_SYNC_EXTRA_WORKFLOW_PARAMETERS}"
+    # enabling SECVTX
+    export WORKFLOW_EXTRA_PROCESSING_STEPS+="MATCH_SECVTX"
     # temporarily enable ZDC reconstruction for calibration validations
     export WORKFLOW_EXTRA_PROCESSING_STEPS+=",ZDC_RECO"
     unset JOBUTILS_JOB_SKIPCREATEDONE

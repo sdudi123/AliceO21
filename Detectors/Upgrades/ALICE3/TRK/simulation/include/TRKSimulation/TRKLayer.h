@@ -39,9 +39,15 @@ class TRKLayer
   auto getNumber() const { return mLayerNumber; }
   auto getName() const { return mLayerName; }
 
+  TGeoVolume* createSensor(std::string type, double width = -1);
+  TGeoVolume* createChip(std::string type, double width = -1);
+  TGeoVolume* createStave(std::string type, double width = -1);
   void createLayer(TGeoVolume* motherVolume);
 
  private:
+  // TGeo objects outside logical volumes can cause errors. Only used in case of kStaggered and kTurboStaves layouts
+  static constexpr float mLogicalVolumeThickness = 1;
+
   int mLayerNumber;
   std::string mLayerName;
   float mInnerRadius;

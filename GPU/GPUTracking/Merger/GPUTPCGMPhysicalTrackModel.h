@@ -27,14 +27,12 @@
  *
  */
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUTPCGMPhysicalTrackModel
 {
  public:
-  GPUdDefault() GPUTPCGMPhysicalTrackModel() CON_DEFAULT;
+  GPUdDefault() GPUTPCGMPhysicalTrackModel() = default;
   GPUd() GPUTPCGMPhysicalTrackModel(const GPUTPCGMTrackParam& t);
 
   GPUd() void Set(const GPUTPCGMTrackParam& t);
@@ -122,12 +120,12 @@ class GPUTPCGMPhysicalTrackModel
   GPUd() float GetP() const { return mP; }
   GPUd() float GetPt() const { return mPt; }
 
-  GPUd() int PropagateToXBzLightNoUpdate(float x, float Bz, float& dLp);
-  GPUd() int PropagateToXBzLight(float x, float Bz, float& dLp);
+  GPUd() int32_t PropagateToXBzLightNoUpdate(float x, float Bz, float& dLp);
+  GPUd() int32_t PropagateToXBzLight(float x, float Bz, float& dLp);
 
-  GPUd() int PropagateToXBxByBz(float x, float Bx, float By, float Bz, float& dLp);
+  GPUd() int32_t PropagateToXBxByBz(float x, float Bx, float By, float Bz, float& dLp);
 
-  GPUd() int PropagateToLpBz(float Lp, float Bz);
+  GPUd() int32_t PropagateToLpBz(float Lp, float Bz);
 
   GPUd() bool SetDirectionAlongX();
 
@@ -272,7 +270,6 @@ GPUdi() void GPUTPCGMPhysicalTrackModel::Rotate(float alpha)
   RotateLight(alpha);
   UpdateValues();
 }
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

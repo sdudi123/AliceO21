@@ -13,12 +13,10 @@
 /// \author David Rohr
 
 #define GPUCA_GPUCODE_COMPILEKERNELS
-#include "GPUReconstructionCUDAIncludes.h"
-#include "GPUReconstructionCUDADef.h"
+#include "GPUReconstructionCUDAIncludesSystem.h"
 #define GPUCA_KRNL_REG(args) __launch_bounds__(GPUCA_M_MAX2_3(GPUCA_M_STRIP(args)))
-#define GPUCA_KRNL(...) GPUCA_KRNL_WRAP(GPUCA_KRNL_LOAD_, __VA_ARGS__)
-#define GPUCA_KRNL_LOAD_single(...) GPUCA_KRNLGPU_SINGLE(__VA_ARGS__);
-#define GPUCA_KRNL_LOAD_multi(...) GPUCA_KRNLGPU_MULTI(__VA_ARGS__);
+#define GPUCA_KRNL(...) GPUCA_KRNLGPU(__VA_ARGS__);
+#include "GPUReconstructionCUDADef.h"
 #include "GPUReconstructionKernelMacros.h"
 
 // clang-format off

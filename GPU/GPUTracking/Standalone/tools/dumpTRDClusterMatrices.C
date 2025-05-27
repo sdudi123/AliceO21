@@ -1,3 +1,14 @@
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
 #include "AliCDBManager.h"
 #include "AliGeomManager.h"
 #include "AliTRDgeometry.h"
@@ -22,9 +33,9 @@
       printf("Cannot read file\n");
       return false;
     }
-    for (int iDet = 0; iDet < constants::NCHAMBER; ++iDet) {
+    for (int32_t iDet = 0; iDet < constants::NCHAMBER; ++iDet) {
       float m[12];
-      for (int j=0; j<12; ++j) {
+      for (int32_t j=0; j<12; ++j) {
         fIn.read((char*) &m[j], sizeof(float));
       }
       mMatrixCache[iDet] = o2::gpu::Transform3D(m);
@@ -56,9 +67,9 @@ void dumpTRDClusterMatrices()
     return;
   }
 
-  int nMatrices = 0;
+  int32_t nMatrices = 0;
 
-  for (int i = 0; i < 540; ++i) {
+  for (int32_t i = 0; i < 540; ++i) {
     // dump all available matrices to a file
     auto matrix = geo->GetClusterMatrix(i);
     if (!matrix) {
@@ -73,7 +84,7 @@ void dumpTRDClusterMatrices()
 
     float m[12] = {static_cast<float>(rot[0]), static_cast<float>(rot[1]), static_cast<float>(rot[2]), static_cast<float>(tr[0]), static_cast<float>(rot[3]), static_cast<float>(rot[4]), static_cast<float>(rot[5]), static_cast<float>(tr[1]), static_cast<float>(rot[6]), static_cast<float>(rot[7]), static_cast<float>(rot[8]), static_cast<float>(tr[2])};
 
-    for (int j = 0; j < 12; ++j) {
+    for (int32_t j = 0; j < 12; ++j) {
       fOut.write((char*)&m[j], sizeof(float));
     }
   }

@@ -108,8 +108,8 @@ void sendOnChannel(fair::mq::Device& device, fair::mq::Parts& messages, std::str
   }
 
   // FIXME: we need a better logic for avoiding message spam
-  if (timeout > 1 && timeout <= maxTimeout) {
-    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout << " ms";
+  if (timeout > 100 && timeout <= maxTimeout) {
+    LOG(warning) << "dispatching on channel " << channel << " was delayed by " << timeout / 1000.f << " s";
   }
   // TODO: feeling this is a bit awkward, but the interface of fair::mq::Parts does not provide a
   // method to clear the content.
@@ -240,10 +240,13 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
 {
   // Check for missing data.
   static std::vector<bool> present;
+  static std::vector<bool> ignored;
   static std::vector<size_t> dataSizes;
   static std::vector<bool> showSize;
   present.clear();
   present.resize(routes.size(), false);
+  ignored.clear();
+  ignored.resize(routes.size(), false);
   dataSizes.clear();
   dataSizes.resize(routes.size(), 0);
   showSize.clear();
@@ -260,7 +263,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
   for (size_t pi = 0; pi < present.size(); ++pi) {
     auto& spec = routes[pi].matcher;
     if (DataSpecUtils::asConcreteDataTypeMatcher(spec).description == header::DataDescription("DISTSUBTIMEFRAME")) {
-      present[pi] = true;
+      ignored[pi] = true;
       continue;
     }
     if (routes[pi].timeslice == 0) {
@@ -269,6 +272,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
   }
 
   size_t foundDataSpecs = 0;
+  bool skipAsAllFound = false;
   for (int msgidx = 0; msgidx < parts.Size(); msgidx += 2) {
     bool allFound = true;
     int addToSize = -1;
@@ -300,24 +304,24 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
       dph = o2::header::get<DataProcessingHeader*>(parts.At(msgidx)->GetData());
       for (size_t pi = 0; pi < present.size(); ++pi) {
         if (routes[pi].timeslice != (dph->startTime % routes[pi].maxTimeslices)) {
-          present[pi] = true;
+          ignored[pi] = true;
         }
       }
     }
     for (size_t pi = 0; pi < present.size(); ++pi) {
-      if (present[pi] && !doPrintSizes) {
+      if ((present[pi] || ignored[pi]) && !doPrintSizes) {
         continue;
       }
       // Consider uninvolved pipelines as present.
       if (routes[pi].timeslice != (dph->startTime % routes[pi].maxTimeslices)) {
-        present[pi] = true;
+        ignored[pi] = true;
         continue;
       }
       allFound = false;
       auto& spec = routes[pi].matcher;
       OutputSpec query{dh->dataOrigin, dh->dataDescription, dh->subSpecification};
       if (DataSpecUtils::match(spec, query)) {
-        if (!present[pi]) {
+        if (!present[pi] && !ignored[pi]) {
           ++foundDataSpecs;
           present[pi] = true;
           showSize[pi] = true;
@@ -336,15 +340,26 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
     // Skip the rest of the block of messages. We subtract 2 because above we increment by 2.
     msgidx = msgidxLast - 2;
     if (allFound && !doPrintSizes) {
-      return;
+      skipAsAllFound = true;
+      break;
     }
   }
 
+  bool emptyTf = true;
   for (size_t pi = 0; pi < present.size(); ++pi) {
-    if (!present[pi]) {
+    if (present[pi] && !ignored[pi]) {
+      emptyTf = false;
+    }
+    if (!present[pi] && !ignored[pi]) {
       showSize[pi] = true;
       unmatchedDescriptions.push_back(pi);
     }
+  }
+  int timeframeCompleteness = emptyTf ? 0 : (unmatchedDescriptions.size() ? -1 : 1);
+  (void)timeframeCompleteness; // To be sent as message
+
+  if (skipAsAllFound && !doPrintSizes) {
+    return;
   }
 
   if (firstDH && doPrintSizes) {
@@ -382,6 +397,11 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
     }
     std::string missing = "";
     bool showAlarm = false;
+    uint32_t runNumber = 0;
+    try {
+      runNumber = strtoul(device.fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+    } catch (...) {
+    }
     for (auto mi : unmatchedDescriptions) {
       auto& spec = routes[mi].matcher;
       missing += " " + DataSpecUtils::describe(spec);
@@ -397,6 +417,7 @@ void injectMissingData(fair::mq::Device& device, fair::mq::Parts& parts, std::ve
       dh.dataDescription = concrete.description;
       dh.subSpecification = *subSpec;
       dh.payloadSize = 0;
+      dh.runNumber = runNumber;
       dh.splitPayloadParts = 0;
       dh.splitPayloadIndex = 0;
       dh.payloadSerializationMethod = header::gSerializationMethodNone;
@@ -478,12 +499,19 @@ InjectorFunction dplModelAdaptor(std::vector<OutputSpec> const& filterSpecs, DPL
       }
     }
 
+    int fmqRunNumber = -1;
+    try {
+      fmqRunNumber = atoi(device->fConfig->GetProperty<std::string>("runNumber", "").c_str());
+    } catch (...) {
+    }
+
     for (int msgidx = 0; msgidx < parts.Size(); msgidx += 2) {
       if (parts.At(msgidx).get() == nullptr) {
         LOG(error) << "unexpected nullptr found. Skipping message pair.";
         continue;
       }
-      const auto dh = o2::header::get<DataHeader*>(parts.At(msgidx)->GetData());
+      auto* header = parts.At(msgidx)->GetData();
+      const auto dh = o2::header::get<DataHeader*>(header);
       if (!dh) {
         LOG(error) << "data on input " << msgidx << " does not follow the O2 data model, DataHeader missing";
         if (msgidx > 0) {
@@ -491,7 +519,7 @@ InjectorFunction dplModelAdaptor(std::vector<OutputSpec> const& filterSpecs, DPL
         }
         continue;
       }
-      auto dph = o2::header::get<DataProcessingHeader*>(parts.At(msgidx)->GetData());
+      auto dph = o2::header::get<DataProcessingHeader*>(header);
       if (!dph) {
         LOG(error) << "data on input " << msgidx << " does not follow the O2 data model, DataProcessingHeader missing";
         continue;
@@ -506,6 +534,11 @@ InjectorFunction dplModelAdaptor(std::vector<OutputSpec> const& filterSpecs, DPL
       timingInfo.runNumber = dh->runNumber;
       timingInfo.tfCounter = dh->tfCounter;
       LOG(debug) << msgidx << ": " << DataSpecUtils::describe(OutputSpec{dh->dataOrigin, dh->dataDescription, dh->subSpecification}) << " part " << dh->splitPayloadIndex << " of " << dh->splitPayloadParts << "  payload " << parts.At(msgidx + 1)->GetSize();
+      if (dh->runNumber == 0 || (dh->tfCounter == 0 && dh->dataDescription.as<std::string>() != "EOS") || (fmqRunNumber > 0 && fmqRunNumber != dh->runNumber)) {
+        LOG(error) << "INVALID runNumber / tfCounter: runNumber " << dh->runNumber
+                   << ", tfCounter " << dh->tfCounter << ", FMQ runNumber " << fmqRunNumber
+                   << " for msgidx " << msgidx << ": " << DataSpecUtils::describe(OutputSpec{dh->dataOrigin, dh->dataDescription, dh->subSpecification}) << " part " << dh->splitPayloadIndex << " of " << dh->splitPayloadParts << "  payload " << parts.At(msgidx + 1)->GetSize();
+      }
 
       OutputSpec query{dh->dataOrigin, dh->dataDescription, dh->subSpecification};
       LOG(debug) << "processing " << DataSpecUtils::describe(OutputSpec{dh->dataOrigin, dh->dataDescription, dh->subSpecification}) << " time slice " << dph->startTime << " part " << dh->splitPayloadIndex << " of " << dh->splitPayloadParts;
@@ -597,6 +630,11 @@ InjectorFunction incrementalConverter(OutputSpec const& spec, o2::header::Serial
   auto timesliceId = std::make_shared<size_t>(startTime);
   return [timesliceId, spec, step, method](TimingInfo&, ServiceRegistryRef const& services, fair::mq::Parts& parts, ChannelRetriever channelRetriever, size_t newTimesliceId, bool&) {
     auto* device = services.get<RawDeviceService>().device();
+    uint32_t runNumber = 0;
+    try {
+      runNumber = strtoul(device->fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+    } catch (...) {
+    }
     // We iterate on all the parts and we send them two by two,
     // adding the appropriate O2 header.
     for (int i = 0; i < parts.Size(); ++i) {
@@ -609,6 +647,7 @@ InjectorFunction incrementalConverter(OutputSpec const& spec, o2::header::Serial
       dh.dataDescription = matcher.description;
       dh.subSpecification = matcher.subSpec;
       dh.payloadSize = parts.At(i)->GetSize();
+      dh.runNumber = runNumber;
 
       DataProcessingHeader dph{newTimesliceId, 0};
       if (*timesliceId != newTimesliceId) {
@@ -752,14 +791,15 @@ DataProcessorSpec specifyExternalFairMQDeviceProxy(char const* name,
                         outputChannels = std::move(outputChannels)](ServiceRegistryRef ref, TimingInfo& timingInfo, fair::mq::Parts& inputs, int, size_t ci, bool newRun) -> bool {
       auto* device = ref.get<RawDeviceService>().device();
       // pass a copy of the outputRoutes
-      auto channelRetriever = [&outputRoutes](OutputSpec const& query, DataProcessingHeader::StartTime timeslice) -> std::string {
+      auto channelRetriever = [&outputRoutes](OutputSpec const& query, DataProcessingHeader::StartTime timeslice) -> std::string const& {
+        static std::string emptyChannel = "";
         for (auto& route : outputRoutes) {
           LOG(debug) << "matching: " << DataSpecUtils::describe(query) << " to route " << DataSpecUtils::describe(route.matcher);
           if (DataSpecUtils::match(route.matcher, query) && ((timeslice % route.maxTimeslices) == route.timeslice)) {
             return route.channel;
           }
         }
-        return {""};
+        return emptyChannel;
       };
 
       std::string const& channel = channels[ci];
@@ -950,11 +990,18 @@ DataProcessorSpec specifyFairMQDeviceOutputProxy(char const* name,
         if (channelName != outputChannelName) {
           continue;
         }
+
+        uint32_t runNumber = 0;
+        try {
+          runNumber = strtoul(device->fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+        } catch (...) {
+        }
         DataHeader dh;
         dh.dataOrigin = "DPL";
         dh.dataDescription = "EOS";
         dh.subSpecification = 0;
         dh.payloadSize = 0;
+        dh.runNumber = runNumber;
         dh.payloadSerializationMethod = o2::header::gSerializationMethodNone;
         dh.tfCounter = 0;
         dh.firstTForbit = 0;
@@ -1064,12 +1111,18 @@ DataProcessorSpec specifyFairMQDeviceMultiOutputProxy(char const* name,
         if (!checkChannel(channelName)) {
           continue;
         }
+        uint32_t runNumber = 0;
+        try {
+          runNumber = strtoul(device->fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+        } catch (...) {
+        }
         DataHeader dh;
         dh.dataOrigin = "DPL";
         dh.dataDescription = "EOS";
         dh.subSpecification = 0;
         dh.payloadSize = 0;
         dh.payloadSerializationMethod = o2::header::gSerializationMethodNone;
+        dh.runNumber = runNumber;
         dh.tfCounter = 0;
         dh.firstTForbit = 0;
         SourceInfoHeader sih;

@@ -87,14 +87,23 @@ void STFDecoder<Mapping>::init(InitContext& ic)
     mDecoder->setNThreads(mNThreads);
     mUnmutExtraLanes = ic.options().get<bool>("unmute-extra-lanes");
     mVerbosity = ic.options().get<int>("decoder-verbosity");
+    auto dmpSz = ic.options().get<int>("stop-raw-data-dumps-after-size");
+    if (dmpSz > 0) {
+      mMaxRawDumpsSize = size_t(dmpSz) * 1024 * 1024;
+    }
     mDumpOnError = ic.options().get<int>("raw-data-dumps");
-    if (mDumpOnError < 0 || mDumpOnError >= int(GBTLink::RawDataDumps::DUMP_NTYPES)) {
+    if (mDumpOnError < 0) {
+      mDumpOnError = -mDumpOnError;
+      mDumpFrom1stPipeline = true;
+    }
+    if (mDumpOnError >= int(GBTLink::RawDataDumps::DUMP_NTYPES)) {
       throw std::runtime_error(fmt::format("unknown raw data dump level {} requested", mDumpOnError));
     }
     auto dumpDir = ic.options().get<std::string>("raw-data-dumps-directory");
     if (mDumpOnError != int(GBTLink::RawDataDumps::DUMP_NONE) && (!dumpDir.empty() && !o2::utils::Str::pathIsDirectory(dumpDir))) {
       throw std::runtime_error(fmt::format("directory {} for raw data dumps does not exist", dumpDir));
     }
+    mDecoder->setAlwaysParseTrigger(ic.options().get<bool>("always-parse-trigger"));
     mDecoder->setAllowEmptyROFs(ic.options().get<bool>("allow-empty-rofs"));
     mDecoder->setRawDumpDirectory(dumpDir);
     mDecoder->setFillCalibData(mDoCalibData);
@@ -193,7 +202,7 @@ void STFDecoder<Mapping>::run(ProcessingContext& pc)
     if ((expectedTFSize != nTriggersProcessed) && mROFErrRepIntervalMS > 0 && mTFCounter > 1 && nTriggersProcessed > 0) {
       long currTS = std::chrono::time_point_cast<std::chrono::milliseconds>(std::chrono::system_clock::now()).time_since_epoch().count();
       if (currTS - lastErrReportTS > mROFErrRepIntervalMS) {
-        LOGP(error, "Inconsistent number of ROF per TF. From parameters: {} from readout: {} (muting further reporting for {} ms)", expectedTFSize, nTriggersProcessed, mROFErrRepIntervalMS);
+        LOGP(critical, "Inconsistent number of ROF per TF. From parameters: {} from readout: {} (muting further reporting for {} ms)", expectedTFSize, nTriggersProcessed, mROFErrRepIntervalMS);
         lastErrReportTS = currTS;
       }
     }
@@ -238,12 +247,18 @@ void STFDecoder<Mapping>::run(ProcessingContext& pc)
   }
   auto& linkErrors = pc.outputs().make<std::vector<GBTLinkDecodingStat>>(Output{orig, "LinkErrors", 0});
   auto& decErrors = pc.outputs().make<std::vector<ChipError>>(Output{orig, "ChipErrors", 0});
-  mDecoder->collectDecodingErrors(linkErrors, decErrors);
+  auto& errMessages = pc.outputs().make<std::vector<ErrorMessage>>(Output{orig, "ErrorInfo", 0});
+  mDecoder->collectDecodingErrors(linkErrors, decErrors, errMessages);
 
   pc.outputs().snapshot(Output{orig, "PHYSTRIG", 0}, mDecoder->getExternalTriggers());
 
-  if (mDumpOnError != int(GBTLink::RawDataDumps::DUMP_NONE)) {
-    mDecoder->produceRawDataDumps(mDumpOnError, pc.services().get<o2::framework::TimingInfo>());
+  if (mDumpOnError != int(GBTLink::RawDataDumps::DUMP_NONE) &&
+      (!mDumpFrom1stPipeline || pc.services().get<const o2::framework::DeviceSpec>().inputTimesliceId == 0)) {
+    mRawDumpedSize += mDecoder->produceRawDataDumps(mDumpOnError, pc.services().get<o2::framework::TimingInfo>());
+    if (mRawDumpedSize > mMaxRawDumpsSize && mMaxRawDumpsSize > 0) {
+      LOGP(info, "Max total dumped size {} MB exceeded allowed limit, disabling further dumping", mRawDumpedSize / (1024 * 1024));
+      mDumpOnError = int(GBTLink::RawDataDumps::DUMP_NONE);
+    }
   }
 
   if (mDoClusters) {
@@ -286,18 +301,18 @@ void STFDecoder<Mapping>::updateTimeDependentParams(ProcessingContext& pc)
   o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   if (pc.services().get<o2::framework::TimingInfo>().globalRunNumberChanged) { // this params need to be queried only in the beginning of the run
     pc.inputs().get<o2::itsmft::NoiseMap*>("noise");
+    pc.inputs().get<o2::itsmft::DPLAlpideParam<Mapping::getDetID()>*>("alppar");
+    const auto& alpParams = DPLAlpideParam<Mapping::getDetID()>::Instance();
+    alpParams.printKeyValues();
     if (mDoClusters) {
       mClusterer->setContinuousReadOut(o2::base::GRPGeomHelper::instance().getGRPECS()->isDetContinuousReadOut(Mapping::getDetID()));
       pc.inputs().get<o2::itsmft::TopologyDictionary*>("cldict");
-      pc.inputs().get<o2::itsmft::DPLAlpideParam<Mapping::getDetID()>*>("alppar");
       pc.inputs().get<o2::itsmft::ClustererParam<Mapping::getDetID()>*>("cluspar");
       // settings for the fired pixel overflow masking
-      const auto& alpParams = DPLAlpideParam<Mapping::getDetID()>::Instance();
       const auto& clParams = ClustererParam<Mapping::getDetID()>::Instance();
       if (clParams.maxBCDiffToMaskBias > 0 && clParams.maxBCDiffToSquashBias > 0) {
         LOGP(fatal, "maxBCDiffToMaskBias = {} and maxBCDiffToMaskBias = {} cannot be set at the same time. Either set masking or squashing with a BCDiff > 0", clParams.maxBCDiffToMaskBias, clParams.maxBCDiffToSquashBias);
       }
-      alpParams.printKeyValues();
       clParams.printKeyValues();
       auto nbc = clParams.maxBCDiffToMaskBias;
       nbc += mClusterer->isContinuousReadOut() ? alpParams.roFrameLengthInBC : (alpParams.roFrameLengthTrig / o2::constants::lhc::LHCBunchSpacingNS);
@@ -384,6 +399,7 @@ DataProcessorSpec getSTFDecoderSpec(const STFDecoderInp& inp)
 
   outputs.emplace_back(inp.origin, "LinkErrors", 0, Lifetime::Timeframe);
   outputs.emplace_back(inp.origin, "ChipErrors", 0, Lifetime::Timeframe);
+  outputs.emplace_back(inp.origin, "ErrorInfo", 0, Lifetime::Timeframe);
   outputs.emplace_back(inp.origin, "CHIPSSTATUS", 0, Lifetime::Timeframe);
 
   if (inp.askSTFDist) {
@@ -392,9 +408,9 @@ DataProcessorSpec getSTFDecoderSpec(const STFDecoderInp& inp)
   }
   inputs.emplace_back("noise", inp.origin, "NOISEMAP", 0, Lifetime::Condition,
                       o2::framework::ccdbParamSpec(fmt::format("{}/Calib/NoiseMap", inp.origin.as<std::string>())));
+  inputs.emplace_back("alppar", inp.origin, "ALPIDEPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/AlpideParam", inp.origin.as<std::string>())));
   if (inp.doClusters) {
     inputs.emplace_back("cldict", inp.origin, "CLUSDICT", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Calib/ClusterDictionary", inp.origin.as<std::string>())));
-    inputs.emplace_back("alppar", inp.origin, "ALPIDEPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/AlpideParam", inp.origin.as<std::string>())));
     inputs.emplace_back("cluspar", inp.origin, "CLUSPARAM", 0, Lifetime::Condition, ccdbParamSpec(fmt::format("{}/Config/ClustererParam", inp.origin.as<std::string>())));
   }
 
@@ -414,9 +430,11 @@ DataProcessorSpec getSTFDecoderSpec(const STFDecoderInp& inp)
     inp.origin == o2::header::gDataOriginITS ? AlgorithmSpec{adaptFromTask<STFDecoder<ChipMappingITS>>(inp, ggRequest)} : AlgorithmSpec{adaptFromTask<STFDecoder<ChipMappingMFT>>(inp, ggRequest)},
     Options{
       {"nthreads", VariantType::Int, 1, {"Number of decoding/clustering threads"}},
-      {"decoder-verbosity", VariantType::Int, 0, {"Verbosity level (-1: silent, 0: errors, 1: headers, 2: data) of 1st lane"}},
-      {"raw-data-dumps", VariantType::Int, int(GBTLink::RawDataDumps::DUMP_NONE), {"Raw data dumps on error (0: none, 1: HBF for link, 2: whole TF for all links"}},
+      {"decoder-verbosity", VariantType::Int, 0, {"Verbosity level (-1: silent, 0: errors, 1: headers, 2: data, 3: raw data dump) of 1st lane"}},
+      {"always-parse-trigger", VariantType::Bool, false, {"parse trigger word even if flags continuation of old trigger"}},
+      {"raw-data-dumps", VariantType::Int, int(GBTLink::RawDataDumps::DUMP_NONE), {"Raw data dumps on error (0: none, 1: HBF for link, 2: whole TF for all links. If negative, dump only on from 1st pipeline."}},
       {"raw-data-dumps-directory", VariantType::String, "", {"Destination directory for the raw data dumps"}},
+      {"stop-raw-data-dumps-after-size", VariantType::Int, 1024, {"Stop dumping once this size in MB is accumulated. 0: no limit"}},
       {"unmute-extra-lanes", VariantType::Bool, false, {"allow extra lanes to be as verbose as 1st one"}},
       {"allow-empty-rofs", VariantType::Bool, false, {"record ROFs w/o any hit"}},
       {"ignore-noise-map", VariantType::Bool, false, {"do not mask pixels flagged in the noise map"}},

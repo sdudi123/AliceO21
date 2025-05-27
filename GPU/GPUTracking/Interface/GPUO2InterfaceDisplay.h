@@ -16,9 +16,6 @@
 #define GPUO2INTERFACEDisplay_H
 
 // Some defines denoting that we are compiling for O2
-#ifndef GPUCA_HAVE_O2HEADERS
-#define GPUCA_HAVE_O2HEADERS
-#endif
 #ifndef GPUCA_TPC_GEOMETRY_O2
 #define GPUCA_TPC_GEOMETRY_O2
 #endif
@@ -47,9 +44,9 @@ class GPUO2InterfaceDisplay
 
   void UpdateCalib(const GPUCalibObjectsConst* calib);
   void UpdateGRP(const GPUSettingsGRP* grp);
-  int startDisplay();
-  int show(const GPUTrackingInOutPointers* ptrs);
-  int endDisplay();
+  int32_t startDisplay();
+  int32_t show(const GPUTrackingInOutPointers* ptrs);
+  int32_t endDisplay();
 
  private:
   std::unique_ptr<GPUDisplayInterface> mDisplay;

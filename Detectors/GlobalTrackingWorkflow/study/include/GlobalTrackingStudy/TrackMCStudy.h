@@ -12,17 +12,16 @@
 #ifndef O2_TRACKING_STUDY_H
 #define O2_TRACKING_STUDY_H
 
-#include "ReconstructionDataFormats/GlobalTrackID.h"
-#include "Framework/Task.h"
 #include "Framework/DataProcessorSpec.h"
-#include "ReconstructionDataFormats/Track.h"
-#include "MathUtils/detail/Bracket.h"
-#include "DataFormatsTPC/ClusterNative.h"
+#include "Framework/Task.h"
+#include "ReconstructionDataFormats/GlobalTrackID.h"
+#include "TPCCalibration/CorrectionMapsLoader.h"
 
 namespace o2::trackstudy
 {
+
 /// create a processor spec
-o2::framework::DataProcessorSpec getTrackMCStudySpec(o2::dataformats::GlobalTrackID::mask_t srcTracks, o2::dataformats::GlobalTrackID::mask_t srcClus, bool checkMatching);
+o2::framework::DataProcessorSpec getTrackMCStudySpec(o2::dataformats::GlobalTrackID::mask_t srcTracks, o2::dataformats::GlobalTrackID::mask_t srcClus, const o2::tpc::CorrectionMapsLoaderGloOpts& sclOpts, bool checkSV);
 
 } // namespace o2::trackstudy
 

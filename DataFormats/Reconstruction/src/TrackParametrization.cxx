@@ -14,17 +14,6 @@
 /// @since  Oct 1, 2020
 /// @brief
 
-// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
-// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
-// All rights not expressly granted are reserved.
-//
-// This software is distributed under the terms of the GNU General Public
-// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
-//
-// In applying this license CERN does not waive the privileges and immunities
-// granted to it by virtue of its status as an Intergovernmental Organization
-// or submit itself to any jurisdiction.
-
 #include "ReconstructionDataFormats/TrackParametrization.h"
 #include "ReconstructionDataFormats/Vertex.h"
 #include "ReconstructionDataFormats/DCA.h"
@@ -141,7 +130,7 @@ GPUd() bool TrackParametrization<value_T>::getPxPyPzGlo(dim3_t& pxyz) const
 
 //____________________________________________________
 template <typename value_T>
-GPUd() bool TrackParametrization<value_T>::getPosDirGlo(gpu::gpustd::array<value_t, 9>& posdirp) const
+GPUd() bool TrackParametrization<value_T>::getPosDirGlo(std::array<value_t, 9>& posdirp) const
 {
   // fill vector with lab x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha
   value_t ptI = getPtInv();
@@ -242,7 +231,7 @@ GPUd() bool TrackParametrization<value_T>::propagateParamTo(value_t xk, const di
   step *= gpu::CAMath::Sqrt(1.f + getTgl() * getTgl());
   //
   // get the track x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha in the Global System
-  gpu::gpustd::array<value_t, 9> vecLab{0.f};
+  std::array<value_t, 9> vecLab{0.f};
   if (!getPosDirGlo(vecLab)) {
     return false;
   }
@@ -261,7 +250,7 @@ GPUd() bool TrackParametrization<value_T>::propagateParamTo(value_t xk, const di
     costet = b[2] / bb;
     sintet = bt / bb;
   }
-  gpu::gpustd::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
+  std::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
                                       -sinphi * vecLab[0] + cosphi * vecLab[1],
                                       sintet * cosphi * vecLab[0] + sintet * sinphi * vecLab[1] + costet * vecLab[2],
                                       costet * cosphi * vecLab[3] + costet * sinphi * vecLab[4] - sintet * vecLab[5],
@@ -586,7 +575,7 @@ template <typename value_T>
 std::string TrackParametrization<value_T>::asString() const
 {
   // print parameters as string
-  return fmt::format("X:{:+.4e} Alp:{:+.3e} Par: {:+.4e} {:+.4e} {:+.4e} {:+.4e} {:+.4e} |Q|:{:d} {:s}",
+  return fmt::format("X:{:+.4e} Alp:{:+.3e} Par: {:+.4e} {:+.4e} {:+.4e} {:+.4e} {:+.4e} |Q|:{:d} {:s}\n",
                      getX(), getAlpha(), getY(), getZ(), getSnp(), getTgl(), getQ2Pt(), getAbsCharge(), getPID().getName());
 }
 
@@ -603,7 +592,7 @@ std::string TrackParametrization<value_T>::asStringHexadecimal()
   float _Q2Pt = getQ2Pt();
   float _AbsCharge = getAbsCharge();
   // print parameters as string
-  return fmt::format("X:{:x} Alp:{:x} Par: {:x} {:x} {:x} {:x} {:x} |Q|:{:x} {:s}",
+  return fmt::format("X:{:x} Alp:{:x} Par: {:x} {:x} {:x} {:x} {:x} |Q|:{:x} {:s}\n",
                      reinterpret_cast<const unsigned int&>(_X),
                      reinterpret_cast<const unsigned int&>(_Alpha),
                      reinterpret_cast<const unsigned int&>(_Y),
@@ -624,7 +613,7 @@ GPUd() void TrackParametrization<value_T>::printParam() const
 #ifndef GPUCA_ALIGPUCODE
   printf("%s\n", asString().c_str());
 #elif !defined(GPUCA_GPUCODE_DEVICE) || (!defined(__OPENCL__) && defined(GPUCA_GPU_DEBUG_PRINT))
-  printf("X:%+.4e Alp:%+.3e Par: %+.4e %+.4e %+.4e %+.4e %+.4e |Q|:%d %s",
+  printf("X:%+.4e Alp:%+.3e Par: %+.4e %+.4e %+.4e %+.4e %+.4e |Q|:%d %s\n",
          getX(), getAlpha(), getY(), getZ(), getSnp(), getTgl(), getQ2Pt(), getAbsCharge(), getPID().getName());
 #endif
 }
@@ -637,7 +626,7 @@ GPUd() void TrackParametrization<value_T>::printParamHexadecimal()
 #ifndef GPUCA_ALIGPUCODE
   printf("%s\n", asStringHexadecimal().c_str());
 #elif !defined(GPUCA_GPUCODE_DEVICE) || (!defined(__OPENCL__) && defined(GPUCA_GPU_DEBUG_PRINT))
-  printf("X:%x Alp:%x Par: %x %x %x %x %x |Q|:%x %s",
+  printf("X:%x Alp:%x Par: %x %x %x %x %x |Q|:%x %s\n",
          gpu::CAMath::Float2UIntReint(getX()),
          gpu::CAMath::Float2UIntReint(getAlpha()),
          gpu::CAMath::Float2UIntReint(getY()),
@@ -956,8 +945,10 @@ GPUd() typename TrackParametrization<value_T>::value_t TrackParametrization<valu
 
 namespace o2::track
 {
+#if !defined(GPUCA_GPUCODE) || defined(GPUCA_GPUCODE_DEVICE) // FIXME: DR: WORKAROUND to avoid CUDA bug creating host symbols for device code.
 template class TrackParametrization<float>;
-#ifndef GPUCA_GPUCODE_DEVICE
+#endif
+#ifndef GPUCA_GPUCODE
 template class TrackParametrization<double>;
 #endif
 } // namespace o2::track

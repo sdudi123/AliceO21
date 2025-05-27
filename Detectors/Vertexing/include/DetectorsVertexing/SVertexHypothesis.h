@@ -60,7 +60,7 @@ class SVertexHypothesis
 
   bool check(float p2Pos, float p2Neg, float p2V0, float ptV0) const
   { // check if given mass and pt is matching to hypothesis
-    return check(calcMass(p2Pos, p2Neg, p2V0), ptV0);
+    return mPars[SigmaM] >= 0.f && check(calcMass(p2Pos, p2Neg, p2V0), ptV0);
   }
   bool check(float mass, float pt) const
   { // check if given mass and pt is matching to hypothesis
@@ -131,10 +131,14 @@ class SVertex3Hypothesis
   void set(PID v0, PID ppos, PID pneg, PID pbach, float sig, float nSig, float margin, float cpt, float bz = 0.f);
   void set(PID v0, PID ppos, PID pneg, PID pbach, const float pars[NPIDParams], float bz = 0.f);
 
+  PID getPIDHyp() const { return mPIDV0; }
   float getMassV0Hyp() const { return PID::getMass(mPIDV0); }
   float getMassPosProng() const { return PID::getMass(mPIDPosProng); }
   float getMassNegProng() const { return PID::getMass(mPIDNegProng); }
   float getMassBachProng() const { return PID::getMass(mPIDBachProng); }
+  float getChargePosProng() const { return PID::getCharge(mPIDPosProng); }
+  float getChargeNegProng() const { return PID::getCharge(mPIDNegProng); }
+  float getChargeBachProng() const { return PID::getCharge(mPIDBachProng); }
 
   float calcMass2(float p2Pos, float p2Neg, float p2Bach, float p2Tot) const
   {
@@ -147,7 +151,7 @@ class SVertex3Hypothesis
 
   bool check(float p2Pos, float p2Neg, float p2Bach, float p2Tot, float ptV0) const
   { // check if given mass and pt is matching to hypothesis
-    return check(calcMass(p2Pos, p2Neg, p2Bach, p2Tot), ptV0);
+    return mPars[SigmaM] >= 0.f && check(calcMass(p2Pos, p2Neg, p2Bach, p2Tot), ptV0);
   }
 
   bool check(float mass, float pt) const

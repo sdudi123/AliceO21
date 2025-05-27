@@ -29,35 +29,4 @@
 #include <iostream>
 #include <fstream>
 
-#if defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_GPUCODE)
-#include "AliHLTDefinitions.h"
-#include "AliHLTSystem.h"
-#endif
-
-#define GPUCA_GPUReconstructionUpdateDefaults()                                             \
-  if (mProcessingSettings.trackletConstructorInPipeline < 0) {                              \
-    mProcessingSettings.trackletConstructorInPipeline = GPUCA_CONSTRUCTOR_IN_PIPELINE;      \
-  }                                                                                         \
-  if (mProcessingSettings.trackletSelectorInPipeline < 0) {                                 \
-    mProcessingSettings.trackletSelectorInPipeline = GPUCA_SELECTOR_IN_PIPELINE;            \
-  }                                                                                         \
-  if (mProcessingSettings.trackletSelectorSlices < 0) {                                     \
-    mProcessingSettings.trackletSelectorSlices = GPUCA_TRACKLET_SELECTOR_SLICE_COUNT;       \
-  }                                                                                         \
-  if (mProcessingSettings.alternateBorderSort < 0) {                                        \
-    mProcessingSettings.alternateBorderSort = GPUCA_ALTERNATE_BORDER_SORT;                  \
-  }                                                                                         \
-  if (mProcessingSettings.mergerSortTracks < 0) {                                           \
-    mProcessingSettings.mergerSortTracks = GPUCA_SORT_BEFORE_FIT;                           \
-  }                                                                                         \
-  if (param().rec.tpc.looperInterpolationInExtraPass < 0) {                                 \
-    param().rec.tpc.looperInterpolationInExtraPass = GPUCA_MERGER_SPLIT_LOOP_INTERPOLATION; \
-  }                                                                                         \
-  if (mProcessingSettings.tpcCompressionGatherModeKernel < 0) {                             \
-    mProcessingSettings.tpcCompressionGatherModeKernel = GPUCA_COMP_GATHER_KERNEL;          \
-  }                                                                                         \
-  if (mProcessingSettings.tpcCompressionGatherMode < 0) {                                   \
-    mProcessingSettings.tpcCompressionGatherMode = GPUCA_COMP_GATHER_MODE;                  \
-  }
-
-#endif
+#endif // GPURECONSTRUCTIONINCLUDES_H

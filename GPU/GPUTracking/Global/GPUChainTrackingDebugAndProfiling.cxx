@@ -15,29 +15,34 @@
 #include "GPUChainTracking.h"
 #include "GPUTrackingInputProvider.h"
 #include "GPUMemorySizeScalers.h"
+#include "GPUConstantMem.h"
+#include "GPUTPCClusterFilter.h"
 #include <map>
 #include <memory>
 #include <string>
+#include <numeric>
+
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE
 #include "bitmapfile.h"
 #endif
+
 #define PROFILE_MAX_SIZE (100 * 1024 * 1024)
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-static inline unsigned int RGB(unsigned char r, unsigned char g, unsigned char b) { return (unsigned int)r | ((unsigned int)g << 8) | ((unsigned int)b << 16); }
+static inline uint32_t RGB(uint8_t r, uint8_t g, uint8_t b) { return (uint32_t)r | ((uint32_t)g << 8) | ((uint32_t)b << 16); }
 
-int GPUChainTracking::PrepareProfile()
+int32_t GPUChainTracking::PrepareProfile()
 {
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE
-  char* tmpMem = (char*)mRec->AllocateUnmanagedMemory(PROFILE_MAX_SIZE, GPUMemoryResource::MEMORY_GPU);
+  char* tmpMem = (char*)mRec->AllocateDirectMemory(PROFILE_MAX_SIZE, GPUMemoryResource::MEMORY_GPU);
   processorsShadow()->tpcTrackers[0].mStageAtSync = tmpMem;
   runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), -1}}, tmpMem, PROFILE_MAX_SIZE);
 #endif
   return 0;
 }
 
-int GPUChainTracking::DoProfile()
+int32_t GPUChainTracking::DoProfile()
 {
 #ifdef GPUCA_TRACKLET_CONSTRUCTOR_DO_PROFILE
   std::unique_ptr<char[]> stageAtSync{new char[PROFILE_MAX_SIZE]};
@@ -46,7 +51,7 @@ int GPUChainTracking::DoProfile()
   FILE* fp = fopen("profile.txt", "w+");
   FILE* fp2 = fopen("profile.bmp", "w+b");
 
-  const int bmpheight = 8192;
+  const int32_t bmpheight = 8192;
   BITMAPFILEHEADER bmpFH;
   BITMAPINFOHEADER bmpIH;
   memset(&bmpFH, 0, sizeof(bmpFH));
@@ -65,12 +70,12 @@ int GPUChainTracking::DoProfile()
   fwrite(&bmpFH, 1, sizeof(bmpFH), fp2);
   fwrite(&bmpIH, 1, sizeof(bmpIH), fp2);
 
-  int nEmptySync = 0;
-  for (unsigned int i = 0; i < bmpheight * ConstructorBlockCount() * ConstructorThreadCount(); i += ConstructorBlockCount() * ConstructorThreadCount()) {
-    int fEmpty = 1;
-    for (unsigned int j = 0; j < ConstructorBlockCount() * ConstructorThreadCount(); j++) {
+  int32_t nEmptySync = 0;
+  for (uint32_t i = 0; i < bmpheight * ConstructorBlockCount() * ConstructorThreadCount(); i += ConstructorBlockCount() * ConstructorThreadCount()) {
+    int32_t fEmpty = 1;
+    for (uint32_t j = 0; j < ConstructorBlockCount() * ConstructorThreadCount(); j++) {
       fprintf(fp, "%d\t", stageAtSync[i + j]);
-      int color = 0;
+      int32_t color = 0;
       if (stageAtSync[i + j] == 1) {
         color = RGB(255, 0, 0);
       }
@@ -83,7 +88,7 @@ int GPUChainTracking::DoProfile()
       if (stageAtSync[i + j] == 4) {
         color = RGB(255, 255, 0);
       }
-      fwrite(&color, 1, sizeof(int), fp2);
+      fwrite(&color, 1, sizeof(int32_t), fp2);
       if (j > 0 && j % 32 == 0) {
         color = RGB(255, 255, 255);
         fwrite(&color, 1, 4, fp2);
@@ -111,7 +116,7 @@ int GPUChainTracking::DoProfile()
 namespace
 {
 struct GPUChainTrackingMemUsage {
-  void add(unsigned long n, unsigned long bound)
+  void add(size_t n, size_t bound)
   {
     nMax = std::max(nMax, n);
     maxUse = std::max(n / std::max<double>(bound, 1.), maxUse);
@@ -119,14 +124,14 @@ struct GPUChainTrackingMemUsage {
     nBoundSum += bound;
     count++;
   }
-  unsigned long nMax;
-  unsigned long nSum = 0;
-  unsigned long nBoundSum = 0;
+  size_t nMax;
+  size_t nSum = 0;
+  size_t nBoundSum = 0;
   double maxUse = 0.;
-  unsigned int count = 0;
+  uint32_t count = 0;
 };
 
-void addToMap(std::string name, std::map<std::string, GPUChainTrackingMemUsage>& map, unsigned long n, unsigned long bound)
+void addToMap(std::string name, std::map<std::string, GPUChainTrackingMemUsage>& map, uint64_t n, uint64_t bound)
 {
   GPUChainTrackingMemUsage& obj = map.insert({name, {}}).first->second;
   obj.add(n, bound);
@@ -136,7 +141,7 @@ void addToMap(std::string name, std::map<std::string, GPUChainTrackingMemUsage>&
 void GPUChainTracking::PrintMemoryStatistics()
 {
   std::map<std::string, GPUChainTrackingMemUsage> usageMap;
-  for (int i = 0; i < NSLICES; i++) {
+  for (int32_t i = 0; i < NSECTORS; i++) {
 #ifdef GPUCA_TPC_GEOMETRY_O2
     addToMap("TPC Clusterer Sector Peaks", usageMap, processors()->tpcClusterer[i].mPmemory->counters.nPeaks, processors()->tpcClusterer[i].mNMaxPeaks);
     addToMap("TPC Clusterer Sector Clusters", usageMap, processors()->tpcClusterer[i].mPmemory->counters.nClusters, processors()->tpcClusterer[i].mNMaxClusters);
@@ -148,8 +153,8 @@ void GPUChainTracking::PrintMemoryStatistics()
     addToMap("TPC Sector TrackHits", usageMap, *processors()->tpcTrackers[i].NTrackHits(), processors()->tpcTrackers[i].NMaxTrackHits());
   }
   addToMap("TPC Clusterer Clusters", usageMap, mRec->MemoryScalers()->nTPCHits, mRec->MemoryScalers()->NTPCClusters(mRec->MemoryScalers()->nTPCdigits));
-  addToMap("TPC Tracks", usageMap, processors()->tpcMerger.NOutputTracks(), processors()->tpcMerger.NMaxTracks());
-  addToMap("TPC TrackHits", usageMap, processors()->tpcMerger.NOutputTrackClusters(), processors()->tpcMerger.NMaxOutputTrackClusters());
+  addToMap("TPC Tracks", usageMap, processors()->tpcMerger.NMergedTracks(), processors()->tpcMerger.NMaxTracks());
+  addToMap("TPC TrackHits", usageMap, processors()->tpcMerger.NMergedTrackClusters(), processors()->tpcMerger.NMaxMergedTrackClusters());
 
   if (mRec->GetProcessingSettings().createO2Output) {
     addToMap("TPC O2 Tracks", usageMap, processors()->tpcMerger.NOutputTracksTPCO2(), processors()->tpcMerger.NOutputTracksTPCO2());
@@ -163,24 +168,24 @@ void GPUChainTracking::PrintMemoryStatistics()
 #endif
 
   for (auto& elem : usageMap) {
-    printf("Mem Usage %-30s : %'14lu / %'14lu (%3.0f%% / %3.0f%% / count %3u / max %'14lu)\n", elem.first.c_str(), elem.second.nSum, elem.second.nBoundSum, 100. * elem.second.nSum / std::max(1lu, elem.second.nBoundSum), 100. * elem.second.maxUse, elem.second.count, elem.second.nMax);
+    printf("Mem Usage %-30s : %'14zu / %'14zu (%3.0f%% / %3.0f%% / count %3u / max %'14zu)\n", elem.first.c_str(), elem.second.nSum, elem.second.nBoundSum, 100. * elem.second.nSum / std::max<size_t>(1, elem.second.nBoundSum), 100. * elem.second.maxUse, elem.second.count, elem.second.nMax);
   }
 }
 
 void GPUChainTracking::PrintMemoryRelations()
 {
-  for (int i = 0; i < NSLICES; i++) {
+  for (int32_t i = 0; i < NSECTORS; i++) {
     GPUInfo("MEMREL StartHits NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NStartHits());
     GPUInfo("MEMREL Tracklets NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NTracklets());
     GPUInfo("MEMREL Tracklets NCl %d NTrkl %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NRowHits());
     GPUInfo("MEMREL SectorTracks NCl %d NTrk %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NTracks());
     GPUInfo("MEMREL SectorTrackHits NCl %d NTrkH %d", processors()->tpcTrackers[i].NHitsTotal(), *processors()->tpcTrackers[i].NTrackHits());
   }
-  GPUInfo("MEMREL Tracks NCl %d NTrk %d", processors()->tpcMerger.NMaxClusters(), processors()->tpcMerger.NOutputTracks());
-  GPUInfo("MEMREL TrackHitss NCl %d NTrkH %d", processors()->tpcMerger.NMaxClusters(), processors()->tpcMerger.NOutputTrackClusters());
+  GPUInfo("MEMREL Tracks NCl %d NTrk %d", processors()->tpcMerger.NMaxClusters(), processors()->tpcMerger.NMergedTracks());
+  GPUInfo("MEMREL TrackHitss NCl %d NTrkH %d", processors()->tpcMerger.NMaxClusters(), processors()->tpcMerger.NMergedTrackClusters());
 }
 
-void GPUChainTracking::PrepareDebugOutput()
+void GPUChainTracking::PrepareKernelDebugOutput()
 {
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
   const auto& threadContext = GetThreadContext();
@@ -189,11 +194,11 @@ void GPUChainTracking::PrepareDebugOutput()
     WriteToConstantMemory(RecoStep::NoRecoStep, (char*)&processors()->debugOutput - (char*)processors(), &processorsShadow()->debugOutput, sizeof(processors()->debugOutput), -1);
     memset(processors()->debugOutput.memory(), 0, processors()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
   }
-  runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), 0, RecoStep::TPCSliceTracking}}, (mRec->IsGPU() ? processorsShadow() : processors())->debugOutput.memory(), processorsShadow()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
+  runKernel<GPUMemClean16>({{BlockCount(), ThreadCount(), 0, RecoStep::TPCSectorTracking}}, (mRec->IsGPU() ? processorsShadow() : processors())->debugOutput.memory(), processorsShadow()->debugOutput.memorySize() * sizeof(processors()->debugOutput.memory()[0]));
 #endif
 }
 
-void GPUChainTracking::PrintDebugOutput()
+void GPUChainTracking::PrintKernelDebugOutput()
 {
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
   const auto& threadContext = GetThreadContext();
@@ -204,21 +209,21 @@ void GPUChainTracking::PrintDebugOutput()
 
 void GPUChainTracking::PrintOutputStat()
 {
-  int nTracks = 0, nAttachedClusters = 0, nAttachedClustersFitted = 0, nAdjacentClusters = 0;
-  unsigned int nCls = GetProcessingSettings().doublePipeline ? mIOPtrs.clustersNative->nClustersTotal : GetTPCMerger().NMaxClusters();
-  if (ProcessingSettings().createO2Output > 1) {
+  int32_t nTracks = 0, nAttachedClusters = 0, nAttachedClustersFitted = 0, nAdjacentClusters = 0;
+  uint32_t nCls = GetProcessingSettings().doublePipeline ? mIOPtrs.clustersNative->nClustersTotal : processors()->tpcMerger.NMaxClusters();
+  if (GetProcessingSettings().createO2Output > 1) {
     nTracks = mIOPtrs.nOutputTracksTPCO2;
     nAttachedClusters = mIOPtrs.nMergedTrackHits;
   } else {
-    for (unsigned int k = 0; k < mIOPtrs.nMergedTracks; k++) {
+    for (uint32_t k = 0; k < mIOPtrs.nMergedTracks; k++) {
       if (mIOPtrs.mergedTracks[k].OK()) {
         nTracks++;
         nAttachedClusters += mIOPtrs.mergedTracks[k].NClusters();
         nAttachedClustersFitted += mIOPtrs.mergedTracks[k].NClustersFitted();
       }
     }
-    for (unsigned int k = 0; k < nCls; k++) {
-      int attach = mIOPtrs.mergedTrackHitAttachment[k];
+    for (uint32_t k = 0; k < nCls; k++) {
+      int32_t attach = mIOPtrs.mergedTrackHitAttachment[k];
       if (attach & gputpcgmmergertypes::attachFlagMask) {
         nAdjacentClusters++;
       }
@@ -227,15 +232,13 @@ void GPUChainTracking::PrintOutputStat()
 
   char trdText[1024] = "";
   if (GetRecoSteps() & GPUDataTypes::RecoStep::TRDTracking) {
-    int nTRDTracks = 0;
-    int nTRDTracklets = 0;
-    for (unsigned int k = 0; k < mIOPtrs.nTRDTracks; k++) {
+    int32_t nTRDTracks = 0;
+    int32_t nTRDTracklets = 0;
+    for (uint32_t k = 0; k < mIOPtrs.nTRDTracks; k++) {
       if (mIOPtrs.trdTracksO2) {
-#ifdef GPUCA_HAVE_O2HEADERS
         auto& trk = mIOPtrs.trdTracksO2[k];
         nTRDTracklets += trk.getNtracklets();
         nTRDTracks += trk.getNtracklets() != 0;
-#endif
       } else {
         auto& trk = mIOPtrs.trdTracks[k];
         nTRDTracklets += trk.getNtracklets();
@@ -244,36 +247,35 @@ void GPUChainTracking::PrintOutputStat()
     }
     snprintf(trdText, 1024, " - TRD Tracker reconstructed %d tracks (%d tracklets)", nTRDTracks, nTRDTracklets);
   }
-  GPUInfo("Output Tracks: %d (%d / %d / %d / %d clusters (fitted / attached / adjacent / total))%s", nTracks, nAttachedClustersFitted, nAttachedClusters, nAdjacentClusters, nCls, trdText);
+  GPUInfo("Output Tracks: %d (%d / %d / %d / %d clusters (fitted / attached / adjacent / total) - %s format)%s", nTracks, nAttachedClustersFitted, nAttachedClusters, nAdjacentClusters, nCls, GetProcessingSettings().createO2Output > 1 ? "O2" : "GPU", trdText);
 }
 
 void GPUChainTracking::SanityCheck()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   size_t nErrors = 0;
 
-  for (unsigned int i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
+  for (uint32_t i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
     const auto& trk = mIOPtrs.outputTracksTPCO2[i];
     const auto& ref = trk.getClusterRef();
     if (ref.getFirstEntry() > mIOPtrs.nOutputClusRefsTPCO2) {
       if (nErrors++ < 1000) {
-        GPUError("Invalid getFirst() entry in cluster reference: %u > $u", ref.getFirstEntry(), mIOPtrs.nOutputClusRefsTPCO2);
+        GPUError("Invalid getFirst() entry in cluster reference: %u > %u", ref.getFirstEntry(), mIOPtrs.nOutputClusRefsTPCO2);
         continue;
       }
     }
     if (ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2 > mIOPtrs.nOutputClusRefsTPCO2) {
       if (nErrors++ < 1000) {
-        GPUError("Invalid getEntries() entry in cluster reference: %u > $u", ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2, mIOPtrs.nOutputClusRefsTPCO2);
+        GPUError("Invalid getEntries() entry in cluster reference: %u > %u", ref.getFirstEntry() + (ref.getEntries() * 3 + 1) / 2, mIOPtrs.nOutputClusRefsTPCO2);
         continue;
       }
     }
-    for (int j = 0; j < trk.getNClusters(); j++) {
+    for (int32_t j = 0; j < trk.getNClusters(); j++) {
       uint8_t sector, row;
       uint32_t cl;
       trk.getClusterReference(mIOPtrs.outputClusRefsTPCO2, j, sector, row, cl);
-      if (sector >= GPUCA_NSLICES || row >= GPUCA_ROW_COUNT) {
+      if (sector >= GPUCA_NSECTORS || row >= GPUCA_ROW_COUNT) {
         if (nErrors++ < 1000) {
-          GPUError("Invalid sector / row %d / %d", (int)sector, (int)row);
+          GPUError("Invalid sector / row %d / %d", (int32_t)sector, (int32_t)row);
           continue;
         }
       }
@@ -290,5 +292,121 @@ void GPUChainTracking::SanityCheck()
   } else {
     GPUError("Sanity check found %lu errors", nErrors);
   }
-#endif
+}
+
+void GPUChainTracking::RunTPCClusterFilter(o2::tpc::ClusterNativeAccess* clusters, std::function<o2::tpc::ClusterNative*(size_t)> allocator, bool applyClusterCuts)
+{
+  const uint8_t filterType = GetProcessingSettings().tpcApplyClusterFilterOnCPU;
+  GPUTPCClusterFilter clusterFilter(*clusters, filterType);
+  o2::tpc::ClusterNative* outputBuffer = nullptr;
+  for (int32_t iPhase = 0; iPhase < 2; iPhase++) {
+    uint32_t countTotal = 0;
+    for (uint32_t iSector = 0; iSector < GPUCA_NSECTORS; iSector++) {
+      for (uint32_t iRow = 0; iRow < GPUCA_ROW_COUNT; iRow++) {
+        uint32_t count = 0;
+        for (uint32_t k = 0; k < clusters->nClusters[iSector][iRow]; k++) {
+          o2::tpc::ClusterNative cl = clusters->clusters[iSector][iRow][k];
+          bool keep = true;
+          if (applyClusterCuts) {
+            keep = keep && cl.qTot > param().rec.tpc.cfQTotCutoff && cl.qMax > param().rec.tpc.cfQMaxCutoff;
+            keep = keep && (!(cl.getFlags() & o2::tpc::ClusterNative::flagSingle) || ((cl.sigmaPadPacked || cl.qMax > param().rec.tpc.cfQMaxCutoffSinglePad) && (cl.sigmaTimePacked || cl.qMax > param().rec.tpc.cfQMaxCutoffSingleTime)));
+          }
+          if (param().tpcCutTimeBin > 0) {
+            keep = keep && cl.getTime() < param().tpcCutTimeBin;
+          }
+          keep = keep && (!filterType || clusterFilter.filter(iSector, iRow, cl));
+          if (iPhase && keep) {
+            outputBuffer[countTotal] = cl;
+          }
+          count += keep;
+          countTotal += keep;
+        }
+        if (iPhase) {
+          clusters->nClusters[iSector][iRow] = count;
+        }
+      }
+    }
+    if (iPhase) {
+      clusters->clustersLinear = outputBuffer;
+      clusters->setOffsetPtrs();
+    } else {
+      outputBuffer = allocator(countTotal);
+    }
+  }
+}
+
+void GPUChainTracking::DumpClusters(std::ostream& out, const o2::tpc::ClusterNativeAccess* clusters)
+{
+  out << "\nTPC Clusters:\n";
+  for (uint32_t iSec = 0; iSec < GPUCA_NSECTORS; iSec++) {
+    out << "TPCClusters - Sector " << iSec << "\n";
+    for (uint32_t i = 0; i < GPUCA_ROW_COUNT; i++) {
+      out << "  Row: " << i << ": " << clusters->nClusters[iSec][i] << " clusters:\n";
+      for (uint32_t j = 0; j < clusters->nClusters[iSec][i]; j++) {
+        const auto& cl = clusters->clusters[iSec][i][j];
+        out << "    " << std::hex << cl.timeFlagsPacked << std::dec << " " << cl.padPacked << " " << int32_t{cl.sigmaTimePacked} << " " << int32_t{cl.sigmaPadPacked} << " " << cl.qMax << " " << cl.qTot << "\n";
+      }
+    }
+  }
+}
+
+void GPUChainTracking::DebugSortCompressedClusters(o2::tpc::CompressedClustersFlat* cls)
+{
+  o2::tpc::CompressedClusters c = *cls;
+  std::vector<uint32_t> sorted(c.nTracks), offsets(c.nTracks);
+  std::iota(sorted.begin(), sorted.end(), 0);
+  auto sorter = [&c](const auto a, const auto b) {
+    return std::tie(c.sliceA[a], c.rowA[a], c.timeA[a], c.padA[a], c.qPtA[a]) <
+           std::tie(c.sliceA[b], c.rowA[b], c.timeA[b], c.padA[b], c.qPtA[b]);
+  };
+  std::sort(sorted.begin(), sorted.end(), sorter);
+  uint32_t offset = 0;
+  for (uint32_t i = 0; i < c.nTracks; i++) {
+    offsets[i] = offset;
+    offset += c.nTrackClusters[i];
+  }
+
+  auto sortArray = [&c, &sorted, &offsets](auto* src, size_t totalSize, auto getOffset, auto getSize) {
+    auto buf = std::make_unique<std::remove_reference_t<decltype(src[0])>[]>(totalSize);
+    memcpy(buf.get(), src, totalSize * sizeof(*src));
+    uint32_t targetOffset = 0;
+    for (uint32_t i = 0; i < c.nTracks; i++) {
+      const uint32_t j = sorted[i];
+      memcpy(src + targetOffset, buf.get() + getOffset(offsets[j], j), getSize(j) * sizeof(*src));
+      targetOffset += getSize(j);
+    }
+  };
+  auto sortMultiple = [&sortArray](size_t totalSize, auto getOffset, auto getSize, auto&&... arrays) {
+    (..., sortArray(std::forward<decltype(arrays)>(arrays), totalSize, getOffset, getSize));
+  };
+  auto getFullOffset = [](uint32_t off, uint32_t ind) { return off; };
+  auto getReducedOffset = [](uint32_t off, uint32_t ind) { return off - ind; };
+  auto getIndex = [](uint32_t off, uint32_t ind) { return ind; };
+  auto getN = [&c](uint32_t j) { return c.nTrackClusters[j]; };
+  auto getN1 = [&c](uint32_t j) { return c.nTrackClusters[j] - 1; };
+  auto get1 = [](uint32_t j) { return 1; };
+
+  sortMultiple(c.nAttachedClusters, getFullOffset, getN, c.qTotA, c.qMaxA, c.flagsA, c.sigmaPadA, c.sigmaTimeA);
+  sortMultiple(c.nAttachedClustersReduced, getReducedOffset, getN1, c.rowDiffA, c.sliceLegDiffA, c.padResA, c.timeResA);
+  sortMultiple(c.nTracks, getIndex, get1, c.qPtA, c.rowA, c.sliceA, c.timeA, c.padA, c.nTrackClusters); // NOTE: This must be last, since nTrackClusters is used for handling the arrays above!
+}
+
+void GPUChainTracking::DoDebugRawDump()
+{
+  std::string dirName = mRec->getDebugFolder("tpc_raw");
+  if (dirName == "") {
+    return;
+  }
+  GPUTrackingInOutPointers ioPtrs;
+  if (mIOPtrs.tpcZS) {
+    ioPtrs.tpcZS = mIOPtrs.tpcZS;
+  } else if (mIOPtrs.tpcPackedDigits) {
+    ioPtrs.tpcPackedDigits = mIOPtrs.tpcPackedDigits;
+  } else if (mIOPtrs.clustersNative) {
+    ioPtrs.clustersNative = mIOPtrs.clustersNative;
+  }
+
+  GPUInfo("Doing debug raw dump");
+  mRec->DumpSettings((dirName + "/").c_str());
+  DumpData((dirName + "/event.0.dump").c_str(), &ioPtrs);
 }

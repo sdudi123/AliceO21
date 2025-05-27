@@ -48,7 +48,7 @@ int ctpCCDBManager::saveRunScalersToCCDB(CTPRunScalers& scalers, long timeStart,
   if (ret == 0) {
     LOG(info) << "CTP scalers saved in ccdb:" << mCCDBHost << " run:" << scalers.getRunNumber() << " tmin:" << tmin << " tmax:" << tmax;
   } else {
-    LOG(FATAL) << "Problem writing to database ret:" << ret;
+    LOG(fatal) << "Problem writing to database ret:" << ret;
   }
   return ret;
 }
@@ -76,7 +76,7 @@ int ctpCCDBManager::saveRunScalersToQCDB(CTPRunScalers& scalers, long timeStart,
   if (ret == 0) {
     LOG(info) << "CTP scalers saved in qcdb:" << mQCDBHost << " run:" << scalers.getRunNumber() << " tmin:" << tmin << " tmax:" << tmax;
   } else {
-    LOG(FATAL) << "CTP scalers Problem writing to database qcdb ret:" << ret;
+    LOG(fatal) << "CTP scalers Problem writing to database qcdb ret:" << ret;
   }
   return ret;
 }
@@ -103,7 +103,97 @@ int ctpCCDBManager::saveRunConfigToCCDB(CTPConfiguration* cfg, long timeStart)
   if (ret == 0) {
     LOG(info) << "CTP config  saved in ccdb:" << mCCDBHost << " run:" << cfg->getRunNumber() << " tmin:" << tmin << " tmax:" << tmax;
   } else {
-    LOG(FATAL) << "CTPConfig: Problem writing to database ret:" << ret;
+    LOG(fatal) << "CTPConfig: Problem writing to database ret:" << ret;
+  }
+  return ret;
+}
+int ctpCCDBManager::saveSoxOrbit(uint32_t runNumber, uint32_t soxOrbit, long timestamp)
+{
+  // data base
+  if (mCCDBHost == "none") {
+    LOG(info) << "SOX Orbit not written to CCDB none";
+    return 0;
+  }
+  std::vector<int64_t> vect;
+  if (timestamp == 0) {
+    auto now = std::chrono::system_clock::now();
+    timestamp = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+  }
+  vect.push_back(timestamp);
+  vect.push_back((uint64_t)runNumber);
+  vect.push_back((uint64_t)soxOrbit);
+  long tmin = timestamp / 1000;
+  long tmax = tmin + 381928219;
+  o2::ccdb::CcdbApi api;
+  map<string, string> metadata; // can be empty
+  metadata["runNumber"] = std::to_string(runNumber);
+  api.init(mCCDBHost.c_str()); // or http://localhost:8080 for a local installation
+
+  // store abitrary user object in strongly typed manner
+  int ret = api.storeAsTFileAny(&vect, mCCDBPathSoxOrbit, metadata, tmin, tmax);
+  if (ret == 0) {
+    LOG(info) << "SOX orbit  saved in ccdb:" << mCCDBHost << " run:" << runNumber << " tmin:" << tmin << " tmax:" << tmax;
+  } else {
+    LOG(fatal) << "SOX orbit Problem writing to database ret:" << ret;
+  }
+  return 0;
+}
+int ctpCCDBManager::saveOrbitReset(long timeStamp)
+{
+  // data base
+  if (mCCDBHost == "none") {
+    LOG(info) << "Orbit Reset not written to CCDB none";
+    return 0;
+  }
+  std::vector<int64_t> vect;
+  if (timeStamp == 0) {
+    auto now = std::chrono::system_clock::now();
+    timeStamp = std::chrono::duration_cast<std::chrono::microseconds>(now.time_since_epoch()).count();
+    LOG(warn) << "Received timestamp = 0 , using current time:" << timeStamp;
+  }
+  vect.push_back(timeStamp);
+  long tmin = timeStamp / 1000;
+  long tmax = tmin + 381928219;
+  o2::ccdb::CcdbApi api;
+  map<string, string> metadata; // can be empty
+  api.init(mCCDBHost.c_str());  // or http://localhost:8080 for a local installation
+
+  // store abitrary user object in strongly typed manner
+  int ret = api.storeAsTFileAny(&vect, mCCDBPathOrbitReset, metadata, tmin, tmax);
+  if (ret == 0) {
+    LOG(info) << "Orbit reset  saved in ccdb:" << mCCDBHost << " tmin:" << tmin << " tmax:" << tmax;
+  } else {
+    LOG(fatal) << "Orbit reset Problem writing to database ret:" << ret;
+  }
+  return 0;
+}
+int ctpCCDBManager::saveCtpCfg(uint32_t runNumber, long timeStart)
+{
+  if (mCCDBHost == "none") {
+    LOG(info) << "CtpCfg not written to CCDB none";
+    return 0;
+  }
+  CtpCfg ctpcfg;
+  int ret = ctpcfg.readAndSave(mCtpCfgDir);
+  if (ret == 0) {
+    using namespace std::chrono_literals;
+    std::chrono::seconds days3 = 259200s;
+    std::chrono::seconds min10 = 600s;
+    long time3days = std::chrono::duration_cast<std::chrono::milliseconds>(days3).count();
+    long time10min = std::chrono::duration_cast<std::chrono::milliseconds>(min10).count();
+    long tmin = timeStart - time10min;
+    long tmax = timeStart + time3days;
+    o2::ccdb::CcdbApi api;
+    map<string, string> metadata; // can be empty
+    metadata["runNumber"] = std::to_string(runNumber);
+    api.init(mCCDBHost.c_str()); // or http://localhost:8080 for a local installation
+    // store abitrary user object in strongly typed manner
+    ret = api.storeAsTFileAny(&ctpcfg, mCCDBPathCtpCfg, metadata, tmin, tmax);
+    if (ret == 0) {
+      LOG(info) << "CtpCfg  saved in ccdb:" << mCCDBHost << " tmin:" << tmin << " tmax:" << tmax;
+    } else {
+      LOG(error) << "CtpCfg Problem writing to database ret:" << ret;
+    }
   }
   return ret;
 }

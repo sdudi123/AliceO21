@@ -18,8 +18,11 @@
 #include "GPUReconstruction.h"
 #include "GPUTPCClusterOccupancyMap.h"
 #include "GPUErrors.h"
+#include "GPUParam.h"
+#include "DataFormatsTPC/ClusterNative.h"
+#include "GPUTRDSpacePoint.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 void GPUTrackingInputProvider::InitializeProcessor() {}
@@ -27,8 +30,8 @@ void* GPUTrackingInputProvider::SetPointersInputZS(void* mem)
 {
   if (mRec->GetRecoStepsGPU() & GPUDataTypes::RecoStep::TPCClusterFinding) {
     computePointerWithAlignment(mem, mPzsMeta);
-    computePointerWithAlignment(mem, mPzsSizes, GPUTrackingInOutZS::NSLICES * GPUTrackingInOutZS::NENDPOINTS);
-    computePointerWithAlignment(mem, mPzsPtrs, GPUTrackingInOutZS::NSLICES * GPUTrackingInOutZS::NENDPOINTS);
+    computePointerWithAlignment(mem, mPzsSizes, GPUTrackingInOutZS::NSECTORS * GPUTrackingInOutZS::NENDPOINTS);
+    computePointerWithAlignment(mem, mPzsPtrs, GPUTrackingInOutZS::NSECTORS * GPUTrackingInOutZS::NENDPOINTS);
   }
   return mem;
 }

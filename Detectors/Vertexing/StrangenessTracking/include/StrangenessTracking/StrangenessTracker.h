@@ -56,7 +56,7 @@ enum DauType : int {
 
 struct ClusAttachments {
 
-  std::array<unsigned int, 7> arr;
+  std::array<int, 7> arr;
 };
 
 class StrangenessTracker
@@ -279,20 +279,20 @@ class StrangenessTracker
     for (unsigned int iClus{0}; iClus < ITSclus.size(); ++iClus) {
       auto& clus = ITSclus[iClus];
       auto pattID = clus.getPatternID();
+      auto ib = o2::its3::constants::detID::isDetITS3(clus.getChipID());
       int npix;
       o2::itsmft::ClusterPattern patt;
 
-      if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict->isGroup(pattID)) {
+      if (pattID == o2::itsmft::CompCluster::InvalidPatternID || mdict->isGroup(pattID, ib)) {
         patt.acquirePattern(pattIt);
         npix = patt.getNPixels();
       } else {
 
-        npix = mdict->getNpixels(pattID);
-        patt = mdict->getPattern(pattID);
+        npix = mdict->getNpixels(pattID, ib);
+        patt = mdict->getPattern(pattID, ib);
       }
       clusSizeVec[iClus] = npix;
     }
-    // LOG(info) << " Patt Npixel: " << pattVec[0].getNPixels();
   }
 #endif
 
@@ -321,6 +321,7 @@ class StrangenessTracker
  protected:
   bool mMCTruthON = false;                             /// flag availability of MC truth
   int mNThreads = 1;                                   /// number of threads (externally driven)
+  float mGlobalChi2 = -1;                              /// global topology matching chi2
   gsl::span<const TrackITS> mInputITStracks;           // input ITS tracks
   std::vector<VBracket> mITSvtxBrackets;               // time brackets for ITS tracks
   std::vector<int> mTracksIdxTable;                    // index table for ITS tracks
@@ -356,10 +357,7 @@ class StrangenessTracker
   std::vector<DCAFitter4> mFitter4Body; // optional DCA Fitter for final 4 Body refit (per thread)
 
   o2::base::PropagatorImpl<float>::MatCorrType mCorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrNONE; // use mat correction
-
-  std::vector<std::vector<o2::track::TrackParCovF>> mDaughterTracks; // vector of daughter tracks (per thread)
-  ClusAttachments mStructClus;                                       // # of attached tracks, 1 for mother, 2 for daughter
-
+  std::vector<std::vector<o2::track::TrackParCovF>> mDaughterTracks;                                                     // vector of daughter tracks (per thread)
   ClassDefNV(StrangenessTracker, 1);
 };
 

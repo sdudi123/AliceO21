@@ -22,6 +22,7 @@
 #include "Framework/InputRecord.h"
 #include "DataFormatsCTP/Digits.h"
 #include "DataFormatsCTP/LumiInfo.h"
+#include "DataFormatsCTP/Configuration.h"
 
 namespace o2
 {
@@ -35,6 +36,7 @@ class RawDataDecoder
   static void makeGBTWordInverse(std::vector<gbtword80_t>& diglets, gbtword80_t& GBTWord, gbtword80_t& remnant, uint32_t& size_gbt, uint32_t Npld);
   int addCTPDigit(uint32_t linkCRU, uint32_t triggerOrbit, gbtword80_t& diglet, gbtword80_t& pldmask, std::map<o2::InteractionRecord, CTPDigit>& digits);
   int decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2::framework::InputSpec>& filter, o2::pmr::vector<CTPDigit>& digits, std::vector<LumiInfo>& lumiPointsHBF1);
+  int decodeRawFatal(o2::framework::InputRecord& inputs, std::vector<o2::framework::InputSpec>& filter);
   int decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2::framework::InputSpec>& filter, std::vector<CTPDigit>& digits, std::vector<LumiInfo>& lumiPointsHBF1);
   void setDecodeInps(bool decodeinps) { mDecodeInps = decodeinps; }
   void setDoLumi(bool lumi) { mDoLumi = lumi; }
@@ -42,20 +44,31 @@ class RawDataDecoder
   void setVerbose(bool v) { mVerbose = v; }
   void setMAXErrors(int m) { mErrorMax = m; }
   int setLumiInp(int lumiinp, std::string inp);
+  void setCTPConfig(CTPConfiguration cfg) { mCTPConfig = std::move(cfg); };
+  void setCheckConsistency(bool check) { mCheckConsistency = check; }
   uint32_t getIRRejected() const { return mIRRejected; }
   uint32_t getTCRRejected() const { return mTCRRejected; }
   std::vector<uint32_t>& getTFOrbits() { return mTFOrbits; }
   int getErrorIR() { return mErrorIR; }
   int getErrorTCR() { return mErrorTCR; }
+  CTPConfiguration& getCTPConfig() { return mCTPConfig; }
   int init();
   static int shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit, std::bitset<48>& inpmask, int64_t shift, int level, std::map<o2::InteractionRecord, CTPDigit>& digmap);
-  static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit);
+  static int shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask = 0xffffffffffffffff);
+  int checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask = 0xffffffffffffffff, uint64_t trigclassmaskNoTrgDets = 0xffffffffffffffff);
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> getClassErrorsA() { return mClassErrorsA; }
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> getClassErrorsB() { return mClassErrorsB; }
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> getClassCountersA() { return mClassCountersA; }
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> getClassCountersB() { return mClassCountersB; }
+  int getLostDueToShiftCls() { return mLostDueToShiftCC; }
+  int getLostDueToShiftInp() { return mLostDueToShiftInps; }
 
  private:
   static constexpr uint32_t TF_TRIGGERTYPE_MASK = 0x800;
   static constexpr uint32_t HB_TRIGGERTYPE_MASK = 0x2;
   // true: full inps decoding includine latency shifts here; false: latency shifts in CTF decoder
   bool mDecodeInps = false;
+  bool mCheckConsistency = false;
   // for digits
   bool mDoDigits = true;
   std::vector<CTPDigit> mOutputDigits;
@@ -68,16 +81,23 @@ class RawDataDecoder
   gbtword80_t mTVXMask = 0x4;  // TVX is 3rd input
   gbtword80_t mVBAMask = 0x20; // VBA is 6 th input
   bool mVerbose = false;
-  uint32_t mIRRejected = 0;
-  uint32_t mTCRRejected = 0;
+  int mIRRejected = 0;
+  int mTCRRejected = 0;
   bool mPadding = true;
   uint32_t mTFOrbit = 0;
   std::vector<uint32_t> mTFOrbits;
   // error verbosness
   int mErrorIR = 0;
   int mErrorTCR = 0;
-  int mErrorMax = 3;
+  int mErrorMax = 5;
   bool mStickyError = false;
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClassErrorsA{};
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClassErrorsB{}; // from inputs
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClassCountersA{};
+  std::array<uint64_t, o2::ctp::CTP_NCLASSES> mClassCountersB{}; // from inputs
+  int mLostDueToShiftCC = 0;
+  int mLostDueToShiftInps = 0;
+  CTPConfiguration mCTPConfig;
 };
 } // namespace ctp
 } // namespace o2

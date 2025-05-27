@@ -13,14 +13,17 @@
 /// \author David Rohr
 
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPULogging.h"
 #include "GPUO2DataTypes.h"
+#include "GPUTrackingRefit.h"
+#include "GPUConstantMem.h"
+#include "GPUTrackingRefitKernel.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-int GPUChainTracking::RunRefit()
+int32_t GPUChainTracking::RunRefit()
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   bool doGPU = GetRecoStepsGPU() & RecoStep::Refit;
   GPUTrackingRefitProcessor& Refit = processors()->trackingRefit;
   GPUTrackingRefitProcessor& RefitShadow = doGPU ? processorsShadow()->trackingRefit : Refit;
@@ -30,16 +33,15 @@ int GPUChainTracking::RunRefit()
   SetupGPUProcessor(&Refit, false);
   RefitShadow.SetPtrsFromGPUConstantMem(processorsShadow(), doGPU ? &processorsDevice()->param : nullptr);
   RefitShadow.SetPropagator(doGPU ? processorsShadow()->calibObjects.o2Propagator : GetO2Propagator());
-  RefitShadow.mPTracks = (doGPU ? processorsShadow() : processors())->tpcMerger.OutputTracks();
+  RefitShadow.mPTracks = (doGPU ? processorsShadow() : processors())->tpcMerger.MergedTracks();
   WriteToConstantMemory(RecoStep::Refit, (char*)&processors()->trackingRefit - (char*)processors(), &RefitShadow, sizeof(RefitShadow), 0);
-  //TransferMemoryResourcesToGPU(RecoStep::Refit, &Refit, 0);
+  // TransferMemoryResourcesToGPU(RecoStep::Refit, &Refit, 0);
   if (param().rec.trackingRefitGPUModel) {
     runKernel<GPUTrackingRefitKernel, GPUTrackingRefitKernel::mode0asGPU>(GetGrid(mIOPtrs.nMergedTracks, 0));
   } else {
     runKernel<GPUTrackingRefitKernel, GPUTrackingRefitKernel::mode1asTrackParCov>(GetGrid(mIOPtrs.nMergedTracks, 0));
   }
-  //TransferMemoryResourcesToHost(RecoStep::Refit, &Refit, 0);
+  // TransferMemoryResourcesToHost(RecoStep::Refit, &Refit, 0);
   SynchronizeStream(0);
-#endif
   return 0;
 }

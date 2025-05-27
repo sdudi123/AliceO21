@@ -14,9 +14,9 @@
 
 #include "GPUProcessor.h"
 #include "GPUReconstruction.h"
-#include "GPUReconstructionDeviceBase.h"
+#include "GPUSettings.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUProcessor::GPUProcessor() : mRec(nullptr), mGPUProcessorType(PROCESSOR_TYPE_CPU), mLinkedProcessor(nullptr), mConstantMem(nullptr), mAllocateAndInitializeLate(false) {}
 

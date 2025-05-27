@@ -24,8 +24,15 @@
 using namespace o2::conf;
 namespace bpo = boost::program_options;
 
-void SimConfig::initOptions(boost::program_options::options_description& options)
+void SimConfig::initOptions(boost::program_options::options_description& options, bool isUpgrade)
 {
+  // some default args might depend on whether Run3 or Run5
+  // can be updated here:
+  std::string defaultGeomList{"ALICE2"};
+  if (isUpgrade == true) {
+    defaultGeomList = "ALICE3";
+  }
+
   int nsimworkersdefault = std::max(1u, std::thread::hardware_concurrency() / 2);
   options.add_options()(
     "mcEngine,e", bpo::value<std::string>()->default_value("TGeant4"), "VMC backend to be used.")(
@@ -35,7 +42,7 @@ void SimConfig::initOptions(boost::program_options::options_description& options
     "skipModules", bpo::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>({""}), ""), "list of modules excluded in geometry (precendence over -m")(
     "readoutDetectors", bpo::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(), ""), "list of detectors creating hits, all if not given; added to to active modules")(
     "skipReadoutDetectors", bpo::value<std::vector<std::string>>()->multitoken()->default_value(std::vector<std::string>(), ""), "list of detectors to skip hit creation (precendence over --readoutDetectors")(
-    "detectorList", bpo::value<std::string>()->default_value("ALICE2"),
+    "detectorList", bpo::value<std::string>()->default_value(defaultGeomList),
     "Use a specific version of ALICE, e.g., a predefined list."
     "There is an 'official' list provided with:"
     "\nALICE2  : The default configuration for Run 3"
@@ -69,7 +76,7 @@ void SimConfig::initOptions(boost::program_options::options_description& options
     "noGeant", bpo::bool_switch(), "prohibits any Geant transport/physics (by using tight cuts)")(
     "forwardKine", bpo::bool_switch(), "forward kinematics on a FairMQ channel")(
     "noDiscOutput", bpo::bool_switch(), "switch off writing sim results to disc (useful in combination with forwardKine)");
-  options.add_options()("fromCollContext", bpo::value<std::string>()->default_value(""), "Use a pregenerated collision context to infer number of events to simulate, how to embedd them, the vertex position etc. Takes precedence of other options such as \"--nEvents\".");
+  options.add_options()("fromCollContext", bpo::value<std::string>()->default_value(""), "Use a pregenerated collision context to infer number of events to simulate, how to embedd them, the vertex position etc. Takes precedence of other options such as \"--nEvents\". The format is COLLISIONCONTEXTFILE.root[:SIGNALNAME] where SIGNALNAME is the event part in the context which is relevant.");
 }
 
 void SimConfig::determineActiveModules(std::vector<std::string> const& inputargs, std::vector<std::string> const& skippedModules, std::vector<std::string>& activeModules, bool isUpgrade)
@@ -263,6 +270,21 @@ void SimConfig::determineReadoutDetectors(std::vector<std::string> const& active
   }
 }
 
+std::pair<std::string, std::string> SimConfig::getCollContextFilenameAndEventPrefix() const
+{
+  // we decompose the argument to fetch
+  // (a) collision contextfilename
+  // (b) sim prefix to use from the context
+  auto pos = mConfigData.mFromCollisionContext.find(':');
+  std::string collcontextfile{mConfigData.mFromCollisionContext};
+  std::string simprefix{mConfigData.mOutputPrefix};
+  if (pos != std::string::npos) {
+    collcontextfile = mConfigData.mFromCollisionContext.substr(0, pos);
+    simprefix = mConfigData.mFromCollisionContext.substr(pos + 1);
+  }
+  return std::make_pair(collcontextfile, simprefix);
+}
+
 bool SimConfig::resetFromParsedMap(boost::program_options::variables_map const& vm)
 {
   using o2::detectors::DetID;
@@ -326,17 +348,8 @@ bool SimConfig::resetFromParsedMap(boost::program_options::variables_map const& 
     mConfigData.mFilterNoHitEvents = true;
   }
   mConfigData.mFromCollisionContext = vm["fromCollContext"].as<std::string>();
-  // we decompose the argument to fetch
-  // (a) collision contextfilename
-  // (b) sim prefix to use from the context
-  auto pos = mConfigData.mFromCollisionContext.find(':');
-  std::string collcontextfile{mConfigData.mFromCollisionContext};
-  std::string simprefix{mConfigData.mOutputPrefix};
-  if (pos != std::string::npos) {
-    collcontextfile = mConfigData.mFromCollisionContext.substr(0, pos);
-    simprefix = mConfigData.mFromCollisionContext.substr(pos + 1);
-  }
-  adjustFromCollContext(collcontextfile, simprefix);
+  auto collcontext_simprefix = getCollContextFilenameAndEventPrefix();
+  adjustFromCollContext(collcontext_simprefix.first, collcontext_simprefix.second);
 
   // analyse vertex options
   if (!parseVertexModeString(vm["vertexMode"].as<std::string>(), mConfigData.mVertexMode)) {
@@ -378,8 +391,11 @@ bool SimConfig::parseVertexModeString(std::string const& vertexstring, VertexMod
   } else if (vertexstring == "kCCDB") {
     mode = VertexMode::kCCDB;
     return true;
+  } else if (vertexstring == "kCollContext") {
+    mode = VertexMode::kCollCxt;
+    return true;
   }
-  LOG(error) << "Vertex mode must be one of kNoVertex, kDiamondParam, kCCDB";
+  LOG(error) << "Vertex mode must be one of kNoVertex, kDiamondParam, kCCDB, kCollContext";
   return false;
 }
 
@@ -474,8 +490,8 @@ void SimConfig::adjustFromCollContext(std::string const& collcontextfile, std::s
         // we take what is specified in the context
         mConfigData.mNEvents = collisionmap.size();
       } else {
-        LOG(warning) << "The number of events on the command line " << mConfigData.mNEvents << " and in the collision context differ. Taking the min of the 2";
-        mConfigData.mNEvents = std::min((size_t)mConfigData.mNEvents, collisionmap.size());
+        LOG(warning) << "The number of events on the command line " << mConfigData.mNEvents << " and in the collision context differ. We take the one from collision context " << collisionmap.size();
+        mConfigData.mNEvents = collisionmap.size();
       }
       LOG(info) << "Setting number of events to simulate to " << mConfigData.mNEvents;
     }
@@ -490,7 +506,7 @@ bool SimConfig::resetFromArguments(int argc, char* argv[])
   bpo::variables_map vm;
   bpo::options_description desc("Allowed options");
   desc.add_options()("help,h", "Produce help message.");
-  initOptions(desc);
+  initOptions(desc, mConfigData.mIsUpgrade);
 
   try {
     bpo::store(parse_command_line(argc, argv, desc), vm);

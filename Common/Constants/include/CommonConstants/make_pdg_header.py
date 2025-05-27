@@ -89,15 +89,26 @@ class Pdg(Enum):
     kB0 = 511
     kB0Bar = -511
     kBPlus = 521
+    kBCPlus = 541
     kBS = 531
     kBSBar = -531
     kD0 = 421
     kD0Bar = -421
+    kD0StarPlus = 10411
+    kD0Star0 = 10421
+    kD1Plus = 20413
+    kD10 = 20423
+    kD2StarPlus = 415
+    kD2Star0 = 425
     kDMinus = -411
     kDPlus = 411
     kDS = 431
     kDSBar = -431
+    kDSStar = 433
+    kDS1 = 10433
+    kDS2Star = 435
     kDStar = 413
+    kDStar0 = 423
     kChiC1 = 20443
     kJPsi = 443
     kLambdaB0 = 5122
@@ -108,6 +119,8 @@ class Pdg(Enum):
     kPhi = 333
     kSigmaC0 = 4112
     kSigmaCPlusPlus = 4222
+    kSigmaCStar0 = 4114
+    kSigmaCStarPlusPlus = 4224
     kX3872 = 9920443
     kXi0 = 3322
     kXiB0 = 5232
@@ -121,6 +134,8 @@ class Pdg(Enum):
     kHyperTriton = 1010010030
     kHyperHydrogen4 = 1010010040
     kHyperHelium4 = 1010020040
+    kHyperHelium5 = 1010020050
+    kHyperHelium4Sigma = 1110020040
 
 
 dbPdg = ROOT.o2.O2DatabasePDG

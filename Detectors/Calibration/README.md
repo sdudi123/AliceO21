@@ -42,6 +42,13 @@ In order to prepare only one CCDB object at the end of the run you can use `setU
 
 See e.g. LHCClockCalibrator.h/cxx in AliceO2/Detectors/TOF/calibration/include/TOFCalibration/LHCClockCalibrator.h and  AliceO2/Detectors/TOF/calibration/srcLHCClockCalibrator.cxx
 
+Sometimes it might be useful to define the 1st slot of the run shorter than the nominal slot length, e.g. to not rely to long on the previous run or default calibration. In this case one can impose to the
+calibration class an offset using method `setStartOffsetFrac(float offset)`, where `offset` is a fractional of the nominal slot length to be subtracted from the nominal boundaries of all slots (except the
+very 1st one, whose startTF is set to 0). The fractional offset should be in `[0:0.95)` range, any value outside this range will be overridden to the nearest boundary.
+This feature is supported only for the finite slot-length calibrations. E.g. if the nominal slot length is 10 minutes `(==~210000 TFs)`, setting `setStartOffsetFrac(float 0.7)` will lead to 1st slot
+finalized after the first 3 minutes, while the rest of the slots will be defined with nominal 10 minutes coverage. If statistics of this 1st short slot is insufficient, it will be merged as usual
+with the next slot (note this if this happens, in the example above the 1st calibration will be available in 13 minutes...).
+
 ## TimeSlot<Container>
 
 The TimeSlot is a templated class which takes as input type the Container that will hold the calibration data needed to produce the calibration objects (histograms, vectors, array...). Each calibration device could implement its own Container, according to its needs.
@@ -154,7 +161,11 @@ o2-calibration-ccdb-populator-workflow --sspec-min 0 --sspec-max 1  -b
 then the `ObjA` will be uploaded only to the default server (`http://alice-ccdb.cern.ch`), `ObjB` will be uploaded to both default and `local` server and
 `ObjC` will be uploaded to the `local` server only.
 
-By default the ccdb-populator-workflow will not produce `fatal` on failed upload. To require it an option `--fatal-on-failure` can be used.
+By default the `ccdb-populator-workflow` will not produce `fatal` on failed upload. To require it an option `--fatal-on-failure` can be used.
+
+By default the `ccdb-populator-workflow` uploads objects as it gets them. In case there is a danger that objects of the same URL will arrive in the order not sorted in SOV
+(which may lead to screaning of the object with later SOV by other object if earlier ROF) one can use an option `--ordering-latency <N milliseconds>` of the `ccdb-populator-workflow`.
+Then every incoming object will be buffered and uploaded only if no object with the same CCDB path and earlier start of validity was received in preceding N milliseconds. All remaining cached objects are uploaded at EOR (or stop() method call).
 
 <!-- doxy
 * \subpage refDetectorsCalibrationtestMacros

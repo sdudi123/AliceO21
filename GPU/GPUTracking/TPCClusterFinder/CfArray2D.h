@@ -1,0 +1,126 @@
+// Copyright 2019-2020 CERN and copyright holders of ALICE O2.
+// See https://alice-o2.web.cern.ch/copyright for details of the copyright holders.
+// All rights not expressly granted are reserved.
+//
+// This software is distributed under the terms of the GNU General Public
+// License v3 (GPL Version 3), copied verbatim in the file "COPYING".
+//
+// In applying this license CERN does not waive the privileges and immunities
+// granted to it by virtue of its status as an Intergovernmental Organization
+// or submit itself to any jurisdiction.
+
+/// \file PackedCharge.h
+/// \author Felix Weiglhofer
+
+#ifndef O2_GPU_ARRAY2D_H
+#define O2_GPU_ARRAY2D_H
+
+#include "clusterFinderDefs.h"
+#include "CfChargePos.h"
+
+namespace o2::gpu
+{
+
+template <typename T, typename Layout>
+class AbstractCfArray2D
+{
+
+ public:
+  GPUdi() explicit AbstractCfArray2D(T* d) : data(d) {}
+
+  GPUdi() T& operator[](const CfChargePos& p) { return data[Layout::idx(p)]; }
+  GPUdi() const T& operator[](const CfChargePos& p) const { return data[Layout::idx(p)]; }
+
+  GPUdi() void safeWrite(const CfChargePos& p, const T& v)
+  {
+    if (data != nullptr) {
+      (*this)[p] = v;
+    }
+  }
+
+ private:
+  T* data;
+};
+
+template <typename Grid>
+class TilingLayout
+{
+ public:
+  enum {
+    Height = Grid::Height,
+    Width = Grid::Width,
+    WidthInTiles = (TPC_NUM_OF_PADS + Width - 1) / Width,
+  };
+
+  GPUdi() static tpccf::SizeT idx(const CfChargePos& p)
+  {
+    const tpccf::SizeT tilePad = p.gpad / Width;
+    const tpccf::SizeT tileTime = p.timePadded / Height;
+
+    const tpccf::SizeT inTilePad = p.gpad % Width;
+    const tpccf::SizeT inTileTime = p.timePadded % Height;
+
+    return (tileTime * WidthInTiles + tilePad) * (Width * Height) + inTileTime * Width + inTilePad;
+  }
+
+  GPUd() static size_t items(size_t fragmentLen)
+  {
+    return (TPC_NUM_OF_PADS + Width - 1) / Width * Width * (TPC_MAX_FRAGMENT_LEN_PADDED(fragmentLen) + Height - 1) / Height * Height;
+  }
+};
+
+class LinearLayout
+{
+ public:
+  GPUdi() static tpccf::SizeT idx(const CfChargePos& p)
+  {
+    return TPC_NUM_OF_PADS * p.timePadded + p.gpad;
+  }
+
+  GPUd() static size_t items(size_t fragmentLen)
+  {
+    return TPC_NUM_OF_PADS * TPC_MAX_FRAGMENT_LEN_PADDED(fragmentLen);
+  }
+};
+
+template <tpccf::SizeT S>
+struct GridSize;
+
+template <>
+struct GridSize<1> {
+  enum {
+    Width = 8,
+    Height = 8,
+  };
+};
+
+template <>
+struct GridSize<2> {
+  enum {
+    Width = 8,
+    Height = 4,
+  };
+};
+
+template <>
+struct GridSize<4> {
+  enum {
+    Width = 4,
+    Height = 4,
+  };
+};
+
+#if defined(CHARGEMAP_TILING_LAYOUT)
+template <typename T>
+using TPCMapMemoryLayout = TilingLayout<GridSize<sizeof(T)>>;
+#else
+template <typename T>
+using TPCMapMemoryLayout = LinearLayout;
+#endif
+
+template <typename T>
+using CfArray2D = AbstractCfArray2D<T, TPCMapMemoryLayout<T>>;
+
+} // namespace o2::gpu
+
+#endif

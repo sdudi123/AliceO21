@@ -14,38 +14,38 @@
 
 #include "GPUTPCCFPeakFinder.h"
 
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "CfUtils.h"
 #include "PackedCharge.h"
 #include "TPCPadGainCalib.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 
 template <>
-GPUdii() void GPUTPCCFPeakFinder::Thread<0>(int nBlocks, int nThreads, int iBlock, int iThread, GPUSharedMemory& smem, processorType& clusterer)
+GPUdii() void GPUTPCCFPeakFinder::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer)
 {
-  Array2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
-  Array2D<uchar> isPeakMap(clusterer.mPpeakMap);
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   findPeaksImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), smem, chargeMap, clusterer.mPpadIsNoisy, clusterer.mPpositions, clusterer.mPmemory->counters.nPositions, clusterer.Param().rec, *clusterer.GetConstantMem()->calibObjects.tpcPadGain, clusterer.mPisPeak, isPeakMap);
 }
 
 GPUdii() bool GPUTPCCFPeakFinder::isPeak(
   GPUSharedMemory& smem,
   Charge q,
-  const ChargePos& pos,
-  ushort N,
-  const Array2D<PackedCharge>& chargeMap,
+  const CfChargePos& pos,
+  uint16_t N,
+  const CfArray2D<PackedCharge>& chargeMap,
   const GPUSettingsRec& calib,
-  ChargePos* posBcast,
+  CfChargePos* posBcast,
   PackedCharge* buf)
 {
-  ushort ll = get_local_id(0);
+  uint16_t ll = get_local_id(0);
 
-  bool belowThreshold = (q <= calib.tpc.cfQMaxCutoff);
+  bool belowThreshold = (uint32_t)q <= calib.tpc.cfQMaxCutoff;
 
-  ushort lookForPeaks;
-  ushort partId = CfUtils::partition<SCRATCH_PAD_WORK_GROUP_SIZE>(
+  uint16_t lookForPeaks;
+  uint16_t partId = CfUtils::partition<SCRATCH_PAD_WORK_GROUP_SIZE>(
     smem,
     ll,
     belowThreshold,
@@ -72,11 +72,11 @@ GPUdii() bool GPUTPCCFPeakFinder::isPeak(
     return false;
   }
 
-  // Ensure q has the same float->int->float conversion error
+  // Ensure q has the same float->int32_t->float conversion error
   // as values in chargeMap, so identical charges are actually identical
   q = PackedCharge(q).unpack();
 
-  int idx = N * partId;
+  int32_t idx = N * partId;
   bool peak = true;
   peak = peak && buf[idx + 0].unpack() <= q;
   peak = peak && buf[idx + 1].unpack() <= q;
@@ -90,28 +90,28 @@ GPUdii() bool GPUTPCCFPeakFinder::isPeak(
   return peak;
 }
 
-GPUd() void GPUTPCCFPeakFinder::findPeaksImpl(int nBlocks, int nThreads, int iBlock, int iThread, GPUSharedMemory& smem,
-                                              const Array2D<PackedCharge>& chargeMap,
-                                              const uchar* padHasLostBaseline,
-                                              const ChargePos* positions,
+GPUd() void GPUTPCCFPeakFinder::findPeaksImpl(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem,
+                                              const CfArray2D<PackedCharge>& chargeMap,
+                                              const uint8_t* padHasLostBaseline,
+                                              const CfChargePos* positions,
                                               SizeT digitnum,
                                               const GPUSettingsRec& calib,
                                               const TPCPadGainCalib& gainCorrection, // Only used for globalPad() function
-                                              uchar* isPeakPredicate,
-                                              Array2D<uchar>& peakMap)
+                                              uint8_t* isPeakPredicate,
+                                              CfArray2D<uint8_t>& peakMap)
 {
   SizeT idx = get_global_id(0);
 
   // For certain configurations dummy work items are added, so the total
   // number of work items is dividable by 64.
   // These dummy items also compute the last digit but discard the result.
-  ChargePos pos = positions[CAMath::Min(idx, (SizeT)(digitnum - 1))];
+  CfChargePos pos = positions[CAMath::Min(idx, (SizeT)(digitnum - 1))];
   Charge charge = pos.valid() ? chargeMap[pos].unpack() : Charge(0);
 
   bool hasLostBaseline = padHasLostBaseline[gainCorrection.globalPad(pos.row(), pos.pad())];
   charge = (hasLostBaseline) ? 0.f : charge;
 
-  uchar peak = isPeak(smem, charge, pos, SCRATCH_PAD_SEARCH_N, chargeMap, calib, smem.posBcast, smem.buf);
+  uint8_t peak = isPeak(smem, charge, pos, SCRATCH_PAD_SEARCH_N, chargeMap, calib, smem.posBcast, smem.buf);
 
   // Exit early if dummy. See comment above.
   bool iamDummy = (idx >= digitnum);
@@ -122,6 +122,6 @@ GPUd() void GPUTPCCFPeakFinder::findPeaksImpl(int nBlocks, int nThreads, int iBl
   isPeakPredicate[idx] = peak;
 
   if (pos.valid()) {
-    peakMap[pos] = (uchar(charge > calib.tpc.cfInnerThreshold) << 1) | peak;
+    peakMap[pos] = (uint8_t(charge > calib.tpc.cfInnerThreshold) << 1) | peak;
   }
 }

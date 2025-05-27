@@ -9,9 +9,10 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-# add_compile_options(-O0 -g -fPIC)
+#add_compile_options(-O0 -g -fPIC)
 
 o2_add_library(GlobalTrackingStudy
+               TARGETVARNAME targetName
                SOURCES src/TPCTrackStudy.cxx
                        src/TrackingStudy.cxx
                        src/SVStudy.cxx
@@ -21,6 +22,9 @@ o2_add_library(GlobalTrackingStudy
                        src/DumpTracks.cxx
                        src/V0Ext.cxx
                        src/TrackInfoExt.cxx
+                       src/TrackMCStudyConfig.cxx
+                       src/TrackMCStudyTypes.cxx
+                       src/TPCClusSelector.cxx
                PUBLIC_LINK_LIBRARIES O2::GlobalTracking
                                      O2::GlobalTrackingWorkflowReaders
                                      O2::GlobalTrackingWorkflowHelpers
@@ -29,10 +33,12 @@ o2_add_library(GlobalTrackingStudy
                                      O2::TPCWorkflow
                                      O2::SimulationDataFormat)
 
-o2_target_root_dictionary(
-  GlobalTrackingStudy
-  HEADERS include/GlobalTrackingStudy/V0Ext.h
-          include/GlobalTrackingStudy/TrackInfoExt.h
+o2_target_root_dictionary(GlobalTrackingStudy
+                          HEADERS include/GlobalTrackingStudy/V0Ext.h
+                                  include/GlobalTrackingStudy/TrackInfoExt.h
+                                  include/GlobalTrackingStudy/TrackMCStudyConfig.h
+                                  include/GlobalTrackingStudy/TrackMCStudyTypes.h
+                          LINKDEF src/GlobalTrackingStudyLinkDef.h
 )
 
 o2_add_executable(study-workflow
@@ -69,3 +75,8 @@ o2_add_executable(dump-workfow
                   COMPONENT_NAME bc-tracks
                   SOURCES src/track-dump-workflow.cxx
                   PUBLIC_LINK_LIBRARIES O2::GlobalTrackingStudy)
+
+if (OpenMP_CXX_FOUND)
+    target_compile_definitions(${targetName} PRIVATE WITH_OPENMP)
+    target_link_libraries(${targetName} PRIVATE OpenMP::OpenMP_CXX)
+endif()

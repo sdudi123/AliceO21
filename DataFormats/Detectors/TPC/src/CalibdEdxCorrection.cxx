@@ -15,6 +15,7 @@
 #include <string_view>
 
 // o2 includes
+#include "Framework/Logger.h"
 #include "DataFormatsTPC/Defs.h"
 #include "CommonUtils/TreeStreamRedirector.h"
 
@@ -36,18 +37,30 @@ void CalibdEdxCorrection::clear()
   mDims = -1;
 }
 
-void CalibdEdxCorrection::writeToFile(std::string_view fileName) const
+void CalibdEdxCorrection::writeToFile(std::string_view fileName, std::string_view objName) const
 {
   std::unique_ptr<TFile> file(TFile::Open(fileName.data(), "recreate"));
-  file->WriteObject(this, "CalibdEdxCorrection");
+  if (!file) {
+    LOGP(error, "Failed to open file {} for writing", fileName.data());
+    return;
+  }
+
+  file->WriteObject(this, objName.data());
 }
 
-void CalibdEdxCorrection::loadFromFile(std::string_view fileName)
+void CalibdEdxCorrection::loadFromFile(std::string_view fileName, std::string_view objName)
 {
   std::unique_ptr<TFile> file(TFile::Open(fileName.data()));
-  auto tmp = file->Get<CalibdEdxCorrection>("CalibdEdxCorrection");
+  if (!file || file->IsZombie()) {
+    LOGP(error, "Failed to open file {}", fileName.data());
+    return;
+  }
+
+  auto tmp = file->Get<CalibdEdxCorrection>(objName.data());
   if (tmp != nullptr) {
     *this = *tmp;
+  } else {
+    LOGP(error, "Failed to load object with name {} from file {}", objName.data(), fileName.data());
   }
 }
 
@@ -131,6 +144,26 @@ float CalibdEdxCorrection::getMeanParam(const GEMstack stack, ChargeType charge,
   float mean{};
   for (int index = 0; index < SECTORSPERSIDE * SIDES; ++index) {
     mean += getParams(StackID{index, stack}, charge)[param];
+  }
+
+  return mean / (SECTORSPERSIDE * SIDES);
+}
+
+float CalibdEdxCorrection::getMeanEntries(ChargeType charge) const
+{
+  float mean{};
+  for (int index = 0; index < FitSize / 2; ++index) {
+    mean += mEntries[index + charge * FitSize / 2];
+  }
+
+  return mean / (0.5f * FitSize);
+}
+
+float CalibdEdxCorrection::getMeanEntries(const GEMstack stack, ChargeType charge) const
+{
+  float mean{};
+  for (int index = 0; index < SECTORSPERSIDE * SIDES; ++index) {
+    mean += getEntries(StackID{index, stack}, charge);
   }
 
   return mean / (SECTORSPERSIDE * SIDES);

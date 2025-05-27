@@ -37,9 +37,7 @@ class ITSTrackingInterface
                        const bool overrBeamEst)
     : mIsMC{isMC},
       mUseTriggers{trgType},
-      mOverrideBeamEstimation{overrBeamEst}
-  {
-  }
+      mOverrideBeamEstimation{overrBeamEst} {}
 
   void setClusterDictionary(const o2::itsmft::TopologyDictionary* d) { mDict = d; }
   void setMeanVertex(const o2::dataformats::MeanVertexObject* v)
@@ -56,9 +54,10 @@ class ITSTrackingInterface
   void initialise();
   template <bool isGPU = false>
   void run(framework::ProcessingContext& pc);
+  void printSummary() const;
 
-  void updateTimeDependentParams(framework::ProcessingContext& pc);
-  void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);
+  virtual void updateTimeDependentParams(framework::ProcessingContext& pc);
+  virtual void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);
 
   // Custom
   void setTraitsFromProvider(VertexerTraits*, TrackerTraits*, TimeFrame*);
@@ -70,6 +69,18 @@ class ITSTrackingInterface
     mMode = mode;
   }
 
+  auto getTracker() const { return mTracker.get(); }
+  auto getVertexer() const { return mVertexer.get(); }
+
+  TimeFrame* mTimeFrame = nullptr;
+
+ protected:
+  virtual void loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
+                       gsl::span<const itsmft::CompClusterExt> clusters,
+                       gsl::span<const unsigned char>::iterator& pattIt,
+                       const dataformats::MCTruthContainer<MCCompLabel>* mcLabels);
+  void getConfiguration(framework::ProcessingContext& pc);
+
  private:
   bool mIsMC = false;
   bool mRunVertexer = true;
@@ -80,7 +91,6 @@ class ITSTrackingInterface
   const o2::itsmft::TopologyDictionary* mDict = nullptr;
   std::unique_ptr<Tracker> mTracker = nullptr;
   std::unique_ptr<Vertexer> mVertexer = nullptr;
-  TimeFrame* mTimeFrame = nullptr;
   const o2::dataformats::MeanVertexObject* mMeanVertex;
 };
 

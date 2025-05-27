@@ -8,16 +8,21 @@
 // In applying this license CERN does not waive the privileges and immunities
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
+#include "EMCALBase/Geometry.h"
+
+#include <fairlogger/Logger.h>
+
 #include <iomanip>
+#include <string>
+#include <algorithm>
+#include <cstdio>
+#include <tuple>
 
 #include <TGeoBBox.h>
 #include <TGeoManager.h>
 #include <TGeoMatrix.h>
 #include <TList.h>
 
-#include <fairlogger/Logger.h>
-
-#include "EMCALBase/Geometry.h"
 #include "EMCALBase/ShishKebabTrd1Module.h"
 
 #include <boost/algorithm/string/predicate.hpp>
@@ -309,6 +314,9 @@ void Geometry::DefineSamplingFraction(const std::string_view mcname, const std::
   }
 
   Float_t samplingFactorTranportModel = 1.;
+  // Note: The sampling factors are chosen so that results from the simulation
+  // engines correspond well with testbeam data
+
   if (contains(mcname, "Geant3")) {
     samplingFactorTranportModel = 1.; // 0.988 // Do nothing
   } else if (contains(mcname, "Fluka")) {
@@ -318,6 +326,9 @@ void Geometry::DefineSamplingFraction(const std::string_view mcname, const std::
     LOG(info) << "Selected physics list: " << physicslist;
     // sampling factors for different Geant4 physics list
     // GEANT4 10.7 -> EMCAL-784
+
+    // set a default (there may be many physics list strings)
+    samplingFactorTranportModel = 0.81;
     if (physicslist == "FTFP_BERT_EMV+optical") {
       samplingFactorTranportModel = 0.821;
     } else if (physicslist == "FTFP_BERT_EMV+optical+biasing") {
@@ -1551,6 +1562,7 @@ const TGeoHMatrix* Geometry::GetMatrixForSuperModule(Int_t smod) const
 
   if (!SMODULEMATRIX[smod]) {
     if (gGeoManager) {
+      LOG(info) << "Loading EMCAL misalignment matrix for SM " << smod << " from GeoManager.";
       SetMisalMatrix(GetMatrixForSuperModuleFromGeoManager(smod), smod);
     } else {
       LOG(fatal) << "Cannot find EMCAL misalignment matrices! Recover them either: \n"
@@ -1753,6 +1765,25 @@ void Geometry::SetMisalMatrix(const TGeoHMatrix* m, Int_t smod) const
     }
   } else {
     LOG(fatal) << "Wrong supermodule index -> " << smod << std::endl;
+  }
+}
+
+void Geometry::SetMisalMatrixFromCcdb(const char* path, int timestamp) const
+{
+  LOG(info) << "Using CCDB to obtain EMCal alignment.";
+  o2::ccdb::CcdbApi api;
+  map<string, string> metadata; // can be empty
+  api.init("http://alice-ccdb.cern.ch");
+  TObjArray* matrices = api.retrieveFromTFileAny<TObjArray>(path, metadata, timestamp);
+
+  for (int iSM = 0; iSM < mNumberOfSuperModules; ++iSM) {
+    TGeoHMatrix* mat = reinterpret_cast<TGeoHMatrix*>(matrices->At(iSM));
+    if (mat) {
+
+      SetMisalMatrix(mat, iSM);
+    } else {
+      LOG(info) << "Could not obtain Alignment Matrix for SM " << iSM;
+    }
   }
 }
 

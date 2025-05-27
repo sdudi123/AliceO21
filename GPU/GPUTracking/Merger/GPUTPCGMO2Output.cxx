@@ -20,6 +20,7 @@
 #include "DataFormatsTPC/PIDResponse.h"
 #include "TPCFastTransform.h"
 #include "CorrectionMapsHelper.h"
+#include "GPUGetConstexpr.h"
 
 #ifndef GPUCA_GPUCODE
 #include "SimulationDataFormat/ConstMCTruthContainer.h"
@@ -31,29 +32,41 @@ using namespace o2::gpu;
 using namespace o2::tpc;
 using namespace o2::tpc::constants;
 
-GPUdi() static constexpr unsigned char getFlagsReject() { return GPUTPCGMMergedTrackHit::flagReject | GPUTPCGMMergedTrackHit::flagNotFit; }
-GPUdi() static unsigned int getFlagsRequired(const GPUSettingsRec& rec) { return rec.tpc.dropSecondaryLegsInOutput ? gputpcgmmergertypes::attachGoodLeg : gputpcgmmergertypes::attachZero; }
+GPUdi() static constexpr uint8_t getFlagsReject() { return GPUTPCGMMergedTrackHit::flagReject | GPUTPCGMMergedTrackHit::flagHighIncl; }
+GPUdi() static uint32_t getFlagsRequired(const GPUSettingsRec& rec) { return rec.tpc.dropSecondaryLegsInOutput ? gputpcgmmergertypes::attachGoodLeg : gputpcgmmergertypes::attachZero; }
+
+namespace o2::gpu::internal
+{
+
+struct GPUTPCGMO2OutputSort_comp {
+  GPUd() bool operator()(const GPUTPCGMMerger::tmpSort& a, const GPUTPCGMMerger::tmpSort& b)
+  {
+    return GPUCA_DETERMINISTIC_CODE(a.y != b.y ? a.y > b.y : a.x > b.x, a.y > b.y);
+  }
+};
+
+} // namespace o2::gpu::internal
 
 template <>
-GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::prepare>(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
+GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::prepare>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
-  const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
-  const unsigned int nTracks = merger.NOutputTracks();
+  const GPUTPCGMMergedTrack* tracks = merger.MergedTracks();
+  const uint32_t nTracks = merger.NMergedTracks();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
-  const GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
+  const GPUdEdxInfo* tracksdEdx = merger.MergedTracksdEdx();
 
-  constexpr unsigned char flagsReject = getFlagsReject();
-  const unsigned int flagsRequired = getFlagsRequired(merger.Param().rec);
-  bool cutOnTrackdEdx = merger.Param().par.dodEdx && merger.Param().rec.tpc.minTrackdEdxMax2Tot > 0.f;
+  constexpr uint8_t flagsReject = getFlagsReject();
+  const uint32_t flagsRequired = getFlagsRequired(merger.Param().rec);
+  bool cutOnTrackdEdx = merger.Param().par.dodEdx && merger.Param().dodEdxEnabled && merger.Param().rec.tpc.minTrackdEdxMax2Tot > 0.f;
 
   GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
   uint2* GPUrestrict() tmpData = merger.ClusRefTmp();
-  for (unsigned int i = get_global_id(0); i < nTracks; i += get_global_size(0)) {
+  for (uint32_t i = get_global_id(0); i < nTracks; i += get_global_size(0)) {
     if (!tracks[i].OK()) {
       continue;
     }
-    unsigned int nCl = 0;
-    for (unsigned int j = 0; j < tracks[i].NClusters(); j++) {
+    uint32_t nCl = 0;
+    for (uint32_t j = 0; j < tracks[i].NClusters(); j++) {
       if ((trackClusters[tracks[i].FirstClusterRef() + j].state & flagsReject) || (merger.ClusterAttachment()[trackClusters[tracks[i].FirstClusterRef() + j].num] & flagsRequired) != flagsRequired) {
         continue;
       }
@@ -68,68 +81,51 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::prepare>(int nBlocks, i
     if (merger.Param().rec.tpc.dropSecondaryLegsInOutput && nCl + 2 < GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(tracks[i].GetParam().GetQPt() * merger.Param().qptB5Scaler)) { // Give 2 hits tolerance in the primary leg, compared to the full fit of the looper
       continue;
     }
-    if (merger.Param().rec.tpc.minNClustersFinalTrack != -1 && nCl < (unsigned int)merger.Param().rec.tpc.minNClustersFinalTrack) {
+    if (merger.Param().rec.tpc.minNClustersFinalTrack != -1 && nCl < (uint32_t)merger.Param().rec.tpc.minNClustersFinalTrack) {
       continue;
     }
     if (cutOnTrackdEdx && (tracksdEdx[i].dEdxMaxTPC < merger.Param().rec.tpc.minTrackdEdxMax || tracksdEdx[i].dEdxMaxTPC < tracksdEdx[i].dEdxTotTPC * merger.Param().rec.tpc.minTrackdEdxMax2Tot) && !(tracksdEdx[i].dEdxMaxTPC == 0 && CAMath::Abs(tracks[i].GetParam().GetDzDs()) > 0.03f)) {
       continue;
     }
-    unsigned int myId = CAMath::AtomicAdd(&merger.Memory()->nO2Tracks, 1u);
+    uint32_t myId = CAMath::AtomicAdd(&merger.Memory()->nO2Tracks, 1u);
     tmpData[i] = {nCl, CAMath::AtomicAdd(&merger.Memory()->nO2ClusRefs, nCl + (nCl + 1) / 2)};
     trackSort[myId] = {i, (merger.Param().par.earlyTpcTransform || tracks[i].CSide()) ? tracks[i].GetParam().GetTZOffset() : -tracks[i].GetParam().GetTZOffset()};
   }
 }
 
 template <>
-GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
+GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
 #ifndef GPUCA_SPECIALIZE_THRUST_SORTS
-  if (iThread || iBlock) {
-    return;
+  if (iThread == 0 && iBlock == 0) {
+    GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
+    GPUCommonAlgorithm::sortDeviceDynamic(trackSort, trackSort + merger.Memory()->nO2Tracks, internal::GPUTPCGMO2OutputSort_comp());
   }
-  GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
-  auto comp = [](const auto& a, const auto& b) { return (a.y > b.y); };
-  GPUCommonAlgorithm::sortDeviceDynamic(trackSort, trackSort + merger.Memory()->nO2Tracks, comp);
 #endif
 }
 
-#if defined(GPUCA_SPECIALIZE_THRUST_SORTS) && !defined(GPUCA_GPUCODE_COMPILEKERNELS) // Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
-struct GPUTPCGMO2OutputSort_comp {
-  GPUd() bool operator()(const GPUTPCGMMerger::tmpSort& a, const GPUTPCGMMerger::tmpSort& b)
-  {
-    return (a.y > b.y);
-  }
-};
-
 template <>
-inline void GPUCA_KRNL_BACKEND_CLASS::runKernelBackendInternal<GPUTPCGMO2Output, GPUTPCGMO2Output::sort>(const krnlSetupTime& _xyz)
-{
-  thrust::device_ptr<GPUTPCGMMerger::tmpSort> trackSort(mProcessorsShadow->tpcMerger.TrackSortO2());
-  ThrustVolatileAsyncAllocator alloc(this);
-  thrust::sort(GPUCA_THRUST_NAMESPACE::par(alloc).on(mInternals->Streams[_xyz.x.stream]), trackSort, trackSort + processors()->tpcMerger.NOutputTracksTPCO2(), GPUTPCGMO2OutputSort_comp());
-}
-#endif // GPUCA_SPECIALIZE_THRUST_SORTS - Specialize GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::sort>
-
-template <>
-GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
+GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
   constexpr float MinDelta = 0.1f;
-  const GPUTPCGMMergedTrack* tracks = merger.OutputTracks();
-  GPUdEdxInfo* tracksdEdx = merger.OutputTracksdEdx();
-  const int nTracks = merger.NOutputTracksTPCO2();
+  const GPUTPCGMMergedTrack* tracks = merger.MergedTracks();
+  GPUdEdxInfo* tracksdEdx = merger.MergedTracksdEdx();
+  GPUdEdxInfo* tracksdEdxAlt = merger.MergedTracksdEdxAlt();
+  const int32_t nTracks = merger.NOutputTracksTPCO2();
   const GPUTPCGMMergedTrackHit* trackClusters = merger.Clusters();
-  constexpr unsigned char flagsReject = getFlagsReject();
-  const unsigned int flagsRequired = getFlagsRequired(merger.Param().rec);
+  constexpr uint8_t flagsReject = getFlagsReject();
+  const uint32_t flagsRequired = getFlagsRequired(merger.Param().rec);
   TrackTPC* outputTracks = merger.OutputTracksTPCO2();
-  unsigned int* clusRefs = merger.OutputClusRefsTPCO2();
+  uint32_t* clusRefs = merger.OutputClusRefsTPCO2();
+  const auto& param = merger.Param();
 
   GPUTPCGMMerger::tmpSort* GPUrestrict() trackSort = merger.TrackSortO2();
   uint2* GPUrestrict() tmpData = merger.ClusRefTmp();
   float const SNPThresh = 0.999990f;
 
-  for (int iTmp = get_global_id(0); iTmp < nTracks; iTmp += get_global_size(0)) {
+  for (int32_t iTmp = get_global_id(0); iTmp < nTracks; iTmp += get_global_size(0)) {
     TrackTPC oTrack;
-    const int i = trackSort[iTmp].x;
+    const int32_t i = trackSort[iTmp].x;
     auto snpIn = tracks[i].GetParam().GetSinPhi();
     if (snpIn > SNPThresh) {
       snpIn = SNPThresh;
@@ -146,8 +142,15 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, in
 
     oTrack.setChi2(tracks[i].GetParam().GetChi2());
     auto& outerPar = tracks[i].OuterParam();
-    if (merger.Param().par.dodEdx) {
-      oTrack.setdEdx(tracksdEdx[i]);
+    if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.par, dodEdx)) {
+      if (param.dodEdxEnabled) {
+        oTrack.setdEdx(tracksdEdx[i]);
+        if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMask) != GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMaskAlt)) {
+          oTrack.setdEdxAlt(tracksdEdxAlt[i]);
+        } else {
+          oTrack.setdEdxAlt(tracksdEdx[i]);
+        }
+      }
     }
 
     auto snpOut = outerPar.P[2];
@@ -163,9 +166,9 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, in
        outerPar.C[6], outerPar.C[7], outerPar.C[8], outerPar.C[9], outerPar.C[10], outerPar.C[11],
        outerPar.C[12], outerPar.C[13], outerPar.C[14]}));
 
-    if (merger.Param().par.dodEdx && merger.Param().rec.tpc.enablePID) {
+    if (param.par.dodEdx && param.dodEdxEnabled && param.rec.tpc.enablePID) {
       PIDResponse pidResponse{};
-      auto pid = pidResponse.getMostProbablePID(oTrack, merger.Param().rec.tpc.PID_EKrangeMin, merger.Param().rec.tpc.PID_EKrangeMax, merger.Param().rec.tpc.PID_EPrangeMin, merger.Param().rec.tpc.PID_EPrangeMax, merger.Param().rec.tpc.PID_EDrangeMin, merger.Param().rec.tpc.PID_EDrangeMax, merger.Param().rec.tpc.PID_ETrangeMin, merger.Param().rec.tpc.PID_ETrangeMax, merger.Param().rec.tpc.PID_useNsigma, merger.Param().rec.tpc.PID_sigma);
+      auto pid = pidResponse.getMostProbablePID(oTrack, param.rec.tpc.PID_EKrangeMin, param.rec.tpc.PID_EKrangeMax, param.rec.tpc.PID_EPrangeMin, param.rec.tpc.PID_EPrangeMax, param.rec.tpc.PID_EDrangeMin, param.rec.tpc.PID_EDrangeMax, param.rec.tpc.PID_ETrangeMin, merger.Param().rec.tpc.PID_ETrangeMax, merger.Param().rec.tpc.PID_useNsigma, merger.Param().rec.tpc.PID_sigma);
       auto pidRemap = merger.Param().rec.tpc.PID_remap[pid];
       if (pidRemap >= 0) {
         pid = pidRemap;
@@ -174,28 +177,28 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, in
       oTrack.getParamOut().setPID(pid, true);
     }
 
-    unsigned int nOutCl = tmpData[i].x;
-    unsigned int clBuff = tmpData[i].y;
+    uint32_t nOutCl = tmpData[i].x;
+    uint32_t clBuff = tmpData[i].y;
     oTrack.setClusterRef(clBuff, nOutCl);
-    unsigned int* clIndArr = &clusRefs[clBuff];
-    unsigned char* sectorIndexArr = reinterpret_cast<unsigned char*>(clIndArr + nOutCl);
-    unsigned char* rowIndexArr = sectorIndexArr + nOutCl;
+    uint32_t* clIndArr = &clusRefs[clBuff];
+    uint8_t* sectorIndexArr = reinterpret_cast<uint8_t*>(clIndArr + nOutCl);
+    uint8_t* rowIndexArr = sectorIndexArr + nOutCl;
 
-    unsigned int nOutCl2 = 0;
+    uint32_t nOutCl2 = 0;
     float t1 = 0, t2 = 0;
-    int sector1 = 0, sector2 = 0;
+    int32_t sector1 = 0, sector2 = 0;
     const o2::tpc::ClusterNativeAccess* GPUrestrict() clusters = merger.GetConstantMem()->ioPtrs.clustersNative;
-    for (unsigned int j = 0; j < tracks[i].NClusters(); j++) {
+    for (uint32_t j = 0; j < tracks[i].NClusters(); j++) {
       if ((trackClusters[tracks[i].FirstClusterRef() + j].state & flagsReject) || (merger.ClusterAttachment()[trackClusters[tracks[i].FirstClusterRef() + j].num] & flagsRequired) != flagsRequired) {
         continue;
       }
       if (merger.Param().rec.tpc.dropSecondaryLegsInOutput && trackClusters[tracks[i].FirstClusterRef() + j].leg != trackClusters[tracks[i].FirstClusterRef() + tracks[i].NClusters() - 1].leg) {
         continue;
       }
-      int clusterIdGlobal = trackClusters[tracks[i].FirstClusterRef() + j].num;
-      int sector = trackClusters[tracks[i].FirstClusterRef() + j].slice;
-      int globalRow = trackClusters[tracks[i].FirstClusterRef() + j].row;
-      int clusterIdInRow = clusterIdGlobal - clusters->clusterOffset[sector][globalRow];
+      int32_t clusterIdGlobal = trackClusters[tracks[i].FirstClusterRef() + j].num;
+      int32_t sector = trackClusters[tracks[i].FirstClusterRef() + j].sector;
+      int32_t globalRow = trackClusters[tracks[i].FirstClusterRef() + j].row;
+      int32_t clusterIdInRow = clusterIdGlobal - clusters->clusterOffset[sector][globalRow];
       clIndArr[nOutCl2] = clusterIdInRow;
       sectorIndexArr[nOutCl2] = sector;
       rowIndexArr[nOutCl2] = globalRow;
@@ -214,11 +217,11 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, in
     if (merger.Param().par.continuousTracking) {
       time0 = tracks[i].GetParam().GetTZOffset();
       if (cce) {
-        bool lastSide = trackClusters[tracks[i].FirstClusterRef()].slice < MAXSECTOR / 2;
+        bool lastSide = trackClusters[tracks[i].FirstClusterRef()].sector < MAXSECTOR / 2;
         float delta = 0.f;
-        for (unsigned int iCl = 1; iCl < tracks[i].NClusters(); iCl++) {
+        for (uint32_t iCl = 1; iCl < tracks[i].NClusters(); iCl++) {
           auto& cacl1 = trackClusters[tracks[i].FirstClusterRef() + iCl];
-          if (lastSide ^ (cacl1.slice < MAXSECTOR / 2)) {
+          if (lastSide ^ (cacl1.sector < MAXSECTOR / 2)) {
             auto& cl1 = clusters->clustersLinear[cacl1.num];
             auto& cl2 = clusters->clustersLinear[trackClusters[tracks[i].FirstClusterRef() + iCl - 1].num];
             delta = CAMath::Abs(cl1.getTime() - cl2.getTime()) * 0.5f;
@@ -270,7 +273,7 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::output>(int nBlocks, in
 }
 
 template <>
-GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::mc>(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
+GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::mc>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() merger)
 {
 #ifndef GPUCA_GPUCODE
   const o2::tpc::ClusterNativeAccess* GPUrestrict() clusters = merger.GetConstantMem()->ioPtrs.clustersNative;
@@ -282,15 +285,15 @@ GPUdii() void GPUTPCGMO2Output::Thread<GPUTPCGMO2Output::mc>(int nBlocks, int nT
   }
 
   auto labelAssigner = GPUTPCTrkLbl(clusters->clustersMCTruth, 0.1f);
-  unsigned int* clusRefs = merger.OutputClusRefsTPCO2();
-  for (unsigned int i = get_global_id(0); i < merger.NOutputTracksTPCO2(); i += get_global_size(0)) {
+  uint32_t* clusRefs = merger.OutputClusRefsTPCO2();
+  for (uint32_t i = get_global_id(0); i < merger.NOutputTracksTPCO2(); i += get_global_size(0)) {
     labelAssigner.reset();
     const auto& trk = merger.OutputTracksTPCO2()[i];
-    for (int j = 0; j < trk.getNClusters(); j++) {
+    for (int32_t j = 0; j < trk.getNClusters(); j++) {
       uint8_t sectorIndex, rowIndex;
       uint32_t clusterIndex;
       trk.getClusterReference(clusRefs, j, sectorIndex, rowIndex, clusterIndex);
-      unsigned int clusterIdGlobal = clusters->clusterOffset[sectorIndex][rowIndex] + clusterIndex;
+      uint32_t clusterIdGlobal = clusters->clusterOffset[sectorIndex][rowIndex] + clusterIndex;
       labelAssigner.addLabel(clusterIdGlobal);
     }
     merger.OutputTracksTPCO2MC()[i] = labelAssigner.computeLabel();

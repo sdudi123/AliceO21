@@ -14,14 +14,20 @@
 
 #include "GPUNewCalibValues.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUNewCalibValues::updateFrom(const GPUNewCalibValues* from)
 {
   if (from->newSolenoidField) {
-    solenoidField = from->newSolenoidField;
+    newSolenoidField = true;
+    solenoidField = from->solenoidField;
   }
   if (from->newContinuousMaxTimeBin) {
+    newContinuousMaxTimeBin = true;
     continuousMaxTimeBin = from->continuousMaxTimeBin;
+  }
+  if (from->newTPCTimeBinCut) {
+    newTPCTimeBinCut = true;
+    tpcTimeBinCut = from->tpcTimeBinCut;
   }
 }

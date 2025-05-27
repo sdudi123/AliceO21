@@ -19,18 +19,9 @@
 #include "GPUO2DataTypes.h"
 #include "GPUParam.h"
 #include "GPUConstantMem.h"
-
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/CompressedClusters.h"
-#else
-namespace o2::tpc
-{
-struct CompressedClusters {
-};
-} // namespace o2::tpc
-#endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCDecompressionKernels : public GPUKernelTemplate
@@ -38,36 +29,37 @@ class GPUTPCDecompressionKernels : public GPUKernelTemplate
  public:
   GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCDecompression; }
 
-  enum K : int {
+  enum K : int32_t {
     step0attached = 0,
     step1unattached = 1,
   };
 
-  template <int iKernel = defaultKernel, typename... Args>
-  GPUd() static void Thread(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors, Args... args);
-  GPUd() static void decompressTrack(o2::tpc::CompressedClusters& cmprClusters, const GPUParam& param, const unsigned int maxTime, const unsigned int trackIndex, unsigned int clusterOffset, GPUTPCDecompression& decompressor);
-  GPUdi() static o2::tpc::ClusterNative decompressTrackStore(const o2::tpc::CompressedClusters& cmprClusters, const unsigned int clusterOffset, unsigned int slice, unsigned int row, unsigned int pad, unsigned int time, GPUTPCDecompression& decompressor);
-  GPUdi() static void decompressHits(const o2::tpc::CompressedClusters& cmprClusters, const unsigned int start, const unsigned int end, o2::tpc::ClusterNative* clusterNativeBuffer);
+  template <int32_t iKernel = defaultKernel, typename... Args>
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors, Args... args);
 
-  GPUd() static unsigned int computeLinearTmpBufferIndex(unsigned int slice, unsigned int row, unsigned int maxClustersPerBuffer)
+  GPUd() static uint32_t computeLinearTmpBufferIndex(uint32_t sector, uint32_t row, uint32_t maxClustersPerBuffer)
   {
-    return slice * (GPUCA_ROW_COUNT * maxClustersPerBuffer) + row * maxClustersPerBuffer;
+    return sector * (GPUCA_ROW_COUNT * maxClustersPerBuffer) + row * maxClustersPerBuffer;
   }
 
   template <typename T>
-  GPUdi() static void decompressorMemcpyBasic(T* dst, const T* src, unsigned int size);
+  GPUdi() static void decompressorMemcpyBasic(T* dst, const T* src, uint32_t size);
 };
 
 class GPUTPCDecompressionUtilKernels : public GPUKernelTemplate
 {
  public:
-  enum K : int {
-    sortPerSectorRow = 0,
+  enum K : int32_t {
+    countFilteredClusters = 0,
+    storeFilteredClusters = 1,
+    sortPerSectorRow = 2,
   };
 
-  template <int iKernel = defaultKernel>
-  GPUd() static void Thread(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
+  template <int32_t iKernel = defaultKernel>
+  GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
+
+  GPUdi() static bool isClusterKept(const o2::tpc::ClusterNative& cl, const GPUParam& GPUrestrict() param);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif // GPUTPCDECOMPRESSIONKERNELS_H

@@ -25,6 +25,7 @@ o2_add_library(TPCCalibration
                        src/CalibPadGainTracksBase.cxx
                        src/CalibLaserTracks.cxx
                        src/LaserTracksCalibrator.cxx
+                       src/NeuralNetworkClusterizer.cxx
                        src/SACDecoder.cxx
                        src/IDCAverageGroup.cxx
                        src/IDCAverageGroupBase.cxx
@@ -55,6 +56,8 @@ o2_add_library(TPCCalibration
                        src/TPCScaler.cxx
                        src/CorrMapParam.cxx
                        src/TPCMShapeCorrection.cxx
+                       src/DigitAdd.cxx
+                       src/CorrectdEdxDistortions.cxx
                PUBLIC_LINK_LIBRARIES O2::DataFormatsTPC O2::TPCBase
                                      O2::TPCReconstruction ROOT::Minuit
                                      Microsoft.GSL::GSL
@@ -80,6 +83,7 @@ o2_target_root_dictionary(TPCCalibration
                                   include/TPCCalibration/FastHisto.h
                                   include/TPCCalibration/CalibLaserTracks.h
                                   include/TPCCalibration/LaserTracksCalibrator.h
+                                  include/TPCCalibration/NeuralNetworkClusterizer.h
                                   include/TPCCalibration/SACDecoder.h
                                   include/TPCCalibration/IDCAverageGroup.h
                                   include/TPCCalibration/IDCAverageGroupBase.h
@@ -109,7 +113,9 @@ o2_target_root_dictionary(TPCCalibration
                                   include/TPCCalibration/CalculatedEdx.h
                                   include/TPCCalibration/TPCScaler.h
                                   include/TPCCalibration/CorrMapParam.h
-                                  include/TPCCalibration/TPCMShapeCorrection.h)
+                                  include/TPCCalibration/TPCMShapeCorrection.h
+                                  include/TPCCalibration/DigitAdd.h
+                                  include/TPCCalibration/CorrectdEdxDistortions.h)
 
 o2_add_test_root_macro(macro/comparePedestalsAndNoise.C
                        PUBLIC_LINK_LIBRARIES O2::TPCBase

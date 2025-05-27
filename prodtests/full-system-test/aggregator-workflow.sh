@@ -113,10 +113,12 @@ if [[ $BEAMTYPE == "PbPb" ]]; then
   : ${LHCPHASE_TF_PER_SLOT:=100000}
   : ${TOF_CHANNELOFFSETS_UPDATE:=300000}
   : ${TOF_CHANNELOFFSETS_DELTA_UPDATE:=50000}
+  : ${FT0_TIMEOFFSET_TRG_BITS:=384} # min bias and data validity
 else
   : ${LHCPHASE_TF_PER_SLOT:=100000}
   : ${TOF_CHANNELOFFSETS_UPDATE:=300000}
   : ${TOF_CHANNELOFFSETS_DELTA_UPDATE:=50000}
+  : ${FT0_TIMEOFFSET_TRG_BITS:=144} # vertex and data validity
 fi
 
 # special settings for aggregator workflows
@@ -125,6 +127,7 @@ if [[ "${CALIB_TPC_SCDCALIB_SENDTRKDATA:-}" == "1" ]]; then ENABLE_TRACK_INPUT="
 # Calibration workflows
 if ! workflow_has_parameter CALIB_LOCAL_INTEGRATED_AGGREGATOR; then
   WORKFLOW=
+  [[ "${GEN_TOPO_ONTHEFLY:-}" == "1" ]] && WORKFLOW="echo '{}' | " # When running in a pseudo terminal / with ODC, sometimes we have bogus stdin file descriptors
 else
   : ${AGGREGATOR_TASKS:=ALL}
 fi
@@ -233,7 +236,7 @@ if [[ $AGGREGATOR_TASKS == BARREL_TF ]] || [[ $AGGREGATOR_TASKS == ALL ]]; then
   fi
   # ITS
   if [[ $CALIB_ITS_DEADMAP_TIME == 1 ]]; then
-     add_W o2-itsmft-deadmap-builder-workflow "--ccdb-url $CCDB_POPULATOR_UPLOAD_PATH ${CALIB_ITS_DEADMAP_TIME_OPT:-}"
+     add_W o2-itsmft-deadmap-builder-workflow "--ccdb-url $CCDB_POPULATOR_UPLOAD_PATH ${CALIB_ITS_DEADMAP_TIME_OPT:---no-group-its-lanes --skip-static-map}"
   fi
   # MFT
   if [[ $CALIB_MFT_DEADMAP_TIME == 1 ]]; then
@@ -292,9 +295,10 @@ fi
 
 # TPC IDCs and SAC
 crus="0-359"  # to be used with $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC or ALL
-lanesFactorize=10
+lanesFactorize=${O2_TPC_IDC_FACTORIZE_NLANES:-12}
+threadFactorize=${O2_TPC_IDC_FACTORIZE_NTHREADS:-16}
 nTFs=$((1000 * 128 / ${NHBPERTF}))
-nTFs_SAC=$((1000 * 128 / ${NHBPERTF}))
+nTFs_SAC=$((10000 * 128 / ${NHBPERTF}))
 nBuffer=$((100 * 128 / ${NHBPERTF}))
 IDC_DELTA="--disable-IDCDelta true" # off by default
 # deltas are on by default; you need to request explicitly to switch them off;
@@ -306,7 +310,7 @@ if [[ "${DISABLE_IDC_PAD_MAP_WRITING:-}" == 1 ]]; then TPC_WRITING_PAD_STATUS_MA
 if ! workflow_has_parameter CALIB_LOCAL_INTEGRATED_AGGREGATOR; then
   if [[ $CALIB_TPC_IDC == 1 ]] && [[ $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC || $AGGREGATOR_TASKS == ALL ]]; then
     add_W o2-tpc-idc-distribute "--crus ${crus} --timeframes ${nTFs} --output-lanes ${lanesFactorize} --send-precise-timestamp true --condition-tf-per-query ${nTFs} --n-TFs-buffer ${nBuffer}"
-    add_W o2-tpc-idc-factorize "--n-TFs-buffer ${nBuffer} --input-lanes ${lanesFactorize} --crus ${crus} --timeframes ${nTFs} --nthreads-grouping 8 --nthreads-IDC-factorization 8 --sendOutputFFT true --enable-CCDB-output true --enablePadStatusMap true ${TPC_WRITING_PAD_STATUS_MAP} --use-precise-timestamp true $IDC_DELTA" "TPCIDCGroupParam.groupPadsSectorEdges=32211"
+    add_W o2-tpc-idc-factorize "--n-TFs-buffer ${nBuffer} --input-lanes ${lanesFactorize} --crus ${crus} --timeframes ${nTFs} --nthreads-grouping ${threadFactorize} --nthreads-IDC-factorization ${threadFactorize} --sendOutputFFT true --enable-CCDB-output true --enablePadStatusMap true ${TPC_WRITING_PAD_STATUS_MAP} --use-precise-timestamp true $IDC_DELTA" "TPCIDCGroupParam.groupPadsSectorEdges=32211"
     add_W o2-tpc-idc-ft-aggregator "--rangeIDC 200 --inputLanes ${lanesFactorize} --nFourierCoeff 40 --nthreads 8"
   fi
   if [[ $CALIB_TPC_SAC == 1 ]] && [[ $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC || $AGGREGATOR_TASKS == ALL ]]; then
@@ -360,7 +364,7 @@ fi
 if [[ $AGGREGATOR_TASKS == FORWARD_TF || $AGGREGATOR_TASKS == ALL ]]; then
   # FT0
   if [[ $CALIB_FT0_TIMEOFFSET == 1 ]]; then
-    add_W o2-calibration-ft0-time-offset-calib "--tf-per-slot $FT0_TIMEOFFSET_TF_PER_SLOT --max-delay 0" "FT0CalibParam.mNExtraSlots=0;FT0CalibParam.mRebinFactorPerChID[180]=4;"
+    add_W o2-calibration-ft0-time-offset-calib "--tf-per-slot $FT0_TIMEOFFSET_TF_PER_SLOT --max-delay 0" "FT0CalibParam.mNExtraSlots=0;FT0CalibParam.mRebinFactorPerChID[180]=4;FT0DigitFilterParam.mTrgBitsGood=${FT0_TIMEOFFSET_TRG_BITS};FT0DigitFilterParam.mTrgBitsToCheck=${FT0_TIMEOFFSET_TRG_BITS};"
   fi
 fi
 
@@ -400,13 +404,13 @@ if [[ "${GEN_TOPO_VERBOSE:-}" == "1" ]]; then
   fi
 fi
 
-if [[ $CCDB_POPULATOR_UPLOAD_PATH != "none" ]] && [[ ! -z $WORKFLOW ]]; then add_W o2-calibration-ccdb-populator-workflow "--ccdb-path $CCDB_POPULATOR_UPLOAD_PATH --environment \"DPL_DONT_DROP_OLD_TIMESLICE=1\" --sspec-min $CCDBPRO_SUBSPEC_MIN --sspec-max $CCDBPRO_SUBSPEC_MAX"; fi
+if [[ $CCDB_POPULATOR_UPLOAD_PATH != "none" ]] && [[ ! -z $WORKFLOW ]] && [[ $WORKFLOW != "echo '{}' | " ]]; then add_W o2-calibration-ccdb-populator-workflow "--ccdb-path $CCDB_POPULATOR_UPLOAD_PATH --environment \"DPL_DONT_DROP_OLD_TIMESLICE=1\" --sspec-min $CCDBPRO_SUBSPEC_MIN --sspec-max $CCDBPRO_SUBSPEC_MAX"; fi
 
-if [[ $CCDB_DCS_POPULATOR_UPLOAD_PATH != "none" ]] && [[ ! -z $WORKFLOW ]] && [[ $NEED_DCS_CCDB_POPULATOR != 0 ]]; then add_W o2-calibration-ccdb-populator-workflow "--ccdb-path $CCDB_DCS_POPULATOR_UPLOAD_PATH --environment \"DPL_DONT_DROP_OLD_TIMESLICE=1\" --sspec-min $CCDBDCS_SUBSPEC_MIN --sspec-max $CCDBDCS_SUBSPEC_MAX --name-extention dcs"; fi
+if [[ $CCDB_DCS_POPULATOR_UPLOAD_PATH != "none" ]] && [[ ! -z $WORKFLOW ]] && [[ $WORKFLOW != "echo '{}' | " ]] && [[ $NEED_DCS_CCDB_POPULATOR != 0 ]]; then add_W o2-calibration-ccdb-populator-workflow "--ccdb-path $CCDB_DCS_POPULATOR_UPLOAD_PATH --environment \"DPL_DONT_DROP_OLD_TIMESLICE=1\" --sspec-min $CCDBDCS_SUBSPEC_MIN --sspec-max $CCDBDCS_SUBSPEC_MAX --name-extention dcs"; fi
 
 if ! workflow_has_parameter CALIB_LOCAL_INTEGRATED_AGGREGATOR; then
   WORKFLOW+="o2-dpl-run $ARGS_ALL $GLOBALDPLOPT"
   [[ $WORKFLOWMODE != "print" ]] && WORKFLOW+=" --${WORKFLOWMODE} ${WORKFLOWMODE_FILE:-}"
   [[ $WORKFLOWMODE == "print" || "${PRINT_WORKFLOW:-}" == "1" ]] && echo "#Aggregator Workflow command:\n\n${WORKFLOW}\n" | sed -e "s/\\\\n/\n/g" -e"s/| */| \\\\\n/g" | eval cat $( [[ $WORKFLOWMODE == "dds" ]] && echo '1>&2')
-  if [[ $WORKFLOWMODE != "print" ]]; then eval $WORKFLOW; else true; fi
+  if [[ $WORKFLOWMODE != "print" ]] && [[ ! -z $WORKFLOW ]] && [[ $WORKFLOW != "echo '{}' | " ]]; then eval $WORKFLOW; else true; fi
 fi

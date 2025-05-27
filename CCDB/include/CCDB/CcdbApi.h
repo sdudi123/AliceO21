@@ -348,6 +348,11 @@ class CcdbApi //: public DatabaseInterface
   TObject* retrieveFromTFile(std::string const& path, std::map<std::string, std::string> const& metadata, long timestamp,
                              std::map<std::string, std::string>* headers, std::string const& etag,
                              const std::string& createdNotAfter, const std::string& createdNotBefore) const;
+  void loadFileToMemory(std::vector<char>& dest, std::string const& path,
+                        std::map<std::string, std::string> const& metadata, long timestamp,
+                        std::map<std::string, std::string>* headers, std::string const& etag,
+                        const std::string& createdNotAfter, const std::string& createdNotBefore, bool considerSnapshot = true) const;
+
 #if !defined(__CINT__) && !defined(__MAKECINT__) && !defined(__ROOTCLING__) && !defined(__CLING__)
   typedef struct RequestContext {
     o2::pmr::vector<char>& dest;
@@ -383,7 +388,7 @@ class CcdbApi //: public DatabaseInterface
   static bool removeSemaphore(std::string const& name, bool remove = false);
   static void removeLeakingSemaphores(std::string const& basedir, bool remove = false);
 
-  void loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders = nullptr) const;
+  void loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders = nullptr, bool fetchLocalMetaData = true) const;
   void loadFileToMemory(o2::pmr::vector<char>& dest, std::string const& path,
                         std::map<std::string, std::string> const& metadata, long timestamp,
                         std::map<std::string, std::string>* headers, std::string const& etag,
@@ -391,6 +396,9 @@ class CcdbApi //: public DatabaseInterface
 
   // Loads files from alien and cvmfs into given destination.
   bool loadLocalContentToMemory(o2::pmr::vector<char>& dest, std::string& url) const;
+
+  // add annotated flattened headers in the end of the blob
+  static void appendFlatHeader(o2::pmr::vector<char>& dest, const std::map<std::string, std::string>& headers);
 
   // the failure to load the file to memory is signaled by 0 size and non-0 capacity
   static bool isMemoryFileInvalid(const o2::pmr::vector<char>& v) { return v.size() == 0 && v.capacity() > 0; }
@@ -610,6 +618,16 @@ class CcdbApi //: public DatabaseInterface
     return getSnapshotDir(topdir, path) + '/' + sfile;
   }
 
+  template <typename MAP> // can be either std::map or std::multimap
+  static size_t getFlatHeaderSize(const MAP& Headers)
+  {
+    size_t hsize = sizeof(int) + sizeof(FlatHeaderAnnot); // annotation size
+    for (auto& h : Headers) {
+      hsize += h.first.length() + h.second.length() + 2; // 2*(string_buffer + terminating null character)
+    }
+    return hsize;
+  }
+
   // tmp helper and single point of entry for a CURL perform call
   // helps to switch between easy handle perform and multi handles in a single place
   CURLcode CURL_perform(CURL* handle) const;
@@ -631,6 +649,8 @@ class CcdbApi //: public DatabaseInterface
   int mCurlDelayRetries = 100000; // in microseconds
   size_t mCurlTimeoutDownload = 15; // download timeout in seconds, can be configured via ALICEO2_CCDB_CURL_TIMEOUT_DOWNLOAD, updated according to the deployment mode
   size_t mCurlTimeoutUpload = 15;   // upload timeout in seconds, can be configured via ALICEO2_CCDB_CURL_TIMEOUT_UPLOAD, updated according to the deployment mode
+
+  static constexpr char FlatHeaderAnnot[] = "$HEADER$"; // annotation for flat header
 
   ClassDefNV(CcdbApi, 1);
 };

@@ -12,9 +12,10 @@
 # FIXME: the LinkDef should not be in the public area
 
 o2_add_library(Mergers
-               SOURCES src/MergerAlgorithm.cxx src/IntegratingMerger.cxx src/MergerInfrastructureBuilder.cxx
-                       src/MergerBuilder.cxx src/FullHistoryMerger.cxx src/ObjectStore.cxx
-               PUBLIC_LINK_LIBRARIES O2::Framework AliceO2::InfoLogger)
+               SOURCES src/FullHistoryMerger.cxx src/IntegratingMerger.cxx src/Mergeable.cxx
+                       src/MergerAlgorithm.cxx src/MergerBuilder.cxx src/MergerInfrastructureBuilder.cxx
+                       src/ObjectStore.cxx
+               PUBLIC_LINK_LIBRARIES O2::Framework AliceO2::InfoLogger ROOT::Gpad)
 
 o2_target_root_dictionary(
   Mergers

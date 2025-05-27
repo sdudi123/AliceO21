@@ -65,10 +65,7 @@
 #include "SimulationDataFormat/MCCompLabel.h"
 #include "Algorithm/Parser.h"
 #include "DataFormatsGlobalTracking/RecoContainer.h"
-#include "DataFormatsTRD/RecoInputContainer.h"
-#include "TRDBase/Geometry.h"
-#include "TRDBase/GeometryFlat.h"
-#include "ITSBase/GeometryTGeo.h"
+#include "DataFormatsTPC/AltroSyncSignal.h"
 #include "CommonUtils/VerbosityConfig.h"
 #include "CommonUtils/DebugStreamer.h"
 #include <filesystem>
@@ -281,14 +278,18 @@ void GPURecoWorkflowSpec::finaliseCCDBTPC(ConcreteDataMatcher& matcher, void* ob
     mTPCDeadChannelMapCreator->finalizeDeadChannelMap();
     mdEdxCalibContainerBufferNew.get()->setDeadChannelMap(mTPCDeadChannelMapCreator->getDeadChannelMap());
     LOGP(info, "Updating dead channel map with IDC pad flags: {} / {} dead pads from pad flags / total",
-         mTPCDeadChannelMapCreator->getDeadChannelMapIDC().getSum<int>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int>());
+         mTPCDeadChannelMapCreator->getDeadChannelMapIDC().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (matcher == ConcreteDataMatcher(gDataOriginTPC, "TPCRUNINFO", 0)) {
     copyCalibsToBuffer();
-    mTPCDeadChannelMapCreator->loadFEEConfigViaRunInfoTS(mCreationForCalib);
+    const auto* fee = static_cast<o2::tpc::FEEConfig*>(obj);
+    mTPCDeadChannelMapCreator->setDeadChannelMapFEEConfig(*fee);
     mTPCDeadChannelMapCreator->finalizeDeadChannelMap();
     mdEdxCalibContainerBufferNew.get()->setDeadChannelMap(mTPCDeadChannelMapCreator->getDeadChannelMap());
-    LOGP(info, "Updating dead channel map with the FEE info loaded via TPCRUNINFO for creation time {}: {} / {} dead pads from FEE info / total",
-         mCreationForCalib, mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int>());
+    LOGP(info,
+         "Updating dead channel map with the FEE info (tag {}) loaded via TPCRUNINFO"
+         " for creation time {}: {} / {} dead pads from FEE info / total, with",
+         std::underlying_type_t<o2::tpc::FEEConfig::Tags>(fee->tag), mCreationForCalib,
+         mTPCDeadChannelMapCreator->getDeadChannelMapFEE().getSum<int32_t>(), mTPCDeadChannelMapCreator->getDeadChannelMap().getSum<int32_t>());
   } else if (mTPCVDriftHelper->accountCCDBInputs(matcher, obj)) {
   } else if (mCalibObjects.mFastTransformHelper->accountCCDBInputs(matcher, obj)) {
   }
@@ -308,6 +309,10 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
       pc.inputs().get<o2::tpc::CalDet<float>*>("tpcgain");
     }
 
+    if (mSpecConfig.outputTracks || mSpecConfig.caClusterer) {
+      mTPCCutAtTimeBin = mConfParam->overrideTPCTimeBinCur > 0 ? mConfParam->overrideTPCTimeBinCur : pc.inputs().get<o2::tpc::AltroSyncSignal*>("tpcaltrosync")->getTB2Cut(pc.services().get<o2::framework::TimingInfo>().tfCounter);
+    }
+
     // these calibrations are only defined for the tracking
     if (mSpecConfig.outputTracks) {
       // update the calibration objects in case they changed in the CCDB
@@ -320,7 +325,7 @@ bool GPURecoWorkflowSpec::fetchCalibsCCDBTPC<GPUCalibObjectsConst>(ProcessingCon
       }
 
       if (mTPCDeadChannelMapCreator->useSource(tpc::SourcesDeadMap::FEEConfig)) {
-        pc.inputs().get<char*>("tpcruninfo");
+        pc.inputs().get<o2::tpc::FEEConfig*>("tpcruninfo");
       }
 
       if (dEdxCalibContainer->isCorrectionCCDB(o2::tpc::CalibsdEdx::CalResidualGainMap)) {
@@ -421,7 +426,7 @@ void GPURecoWorkflowSpec::doTrackTuneTPC(GPUTrackingInOutPointers& ptrs, char* b
     auto diagInner = trackTune.getCovInnerTotal(scale);
     auto diagOuter = trackTune.getCovOuterTotal(scale);
 
-    for (unsigned int itr = 0; itr < ptrs.nOutputTracksTPCO2; itr++) {
+    for (uint32_t itr = 0; itr < ptrs.nOutputTracksTPCO2; itr++) {
       auto& trc = tpcTracks[itr];
       if (trackTune.useTPCInnerCorr) {
         trc.updateParams(trackTune.tpcParInner);

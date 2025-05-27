@@ -15,7 +15,6 @@
 #include "Framework/AnalysisDataModelHelpers.h"
 #include "Framework/DataProcessingHelpers.h"
 #include "Framework/ExpressionHelpers.h"
-#include "Framework/RootTableBuilderHelpers.h"
 #include "Framework/AlgorithmSpec.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "Framework/ControlService.h"
@@ -65,18 +64,6 @@ static inline auto doExtractOriginal(framework::pack<Ts...>, ProcessingContext& 
   }
 }
 
-template <typename O>
-static inline auto extractTypedOriginal(ProcessingContext& pc)
-{
-  return O{doExtractOriginal(soa::make_originals_from_type<O>(), pc)};
-}
-
-template <typename O>
-static inline auto extractOriginal(ProcessingContext& pc)
-{
-  return o2::soa::ArrowHelpers::joinTables({doExtractOriginal(soa::make_originals_from_type<O>(), pc)});
-}
-
 template <typename... Os>
 static inline auto extractOriginalsTuple(framework::pack<Os...>, ProcessingContext& pc)
 {
@@ -89,54 +76,72 @@ static inline auto extractOriginalsVector(framework::pack<Os...>, ProcessingCont
   return std::vector{extractOriginal<Os>(pc)...};
 }
 
+template <size_t N, std::array<soa::TableRef, N> refs>
+static inline auto extractOriginals(ProcessingContext& pc)
+{
+  return [&]<size_t... Is>(std::index_sequence<Is...>) -> std::vector<std::shared_ptr<arrow::Table>> {
+    return {pc.inputs().get<TableConsumer>(o2::aod::label<refs[Is]>())->asArrowTable()...};
+  }(std::make_index_sequence<refs.size()>());
+}
+namespace
+{
+template <typename D>
+  requires(D::exclusive)
+auto make_build(D metadata, InputSpec const& input, ProcessingContext& pc)
+{
+  using metadata_t = decltype(metadata);
+  using Key = typename metadata_t::Key;
+  using index_pack_t = typename metadata_t::index_pack_t;
+  constexpr auto sources = metadata_t::sources;
+  return o2::framework::IndexBuilder<o2::framework::Exclusive>::indexBuilder<Key, sources.size(), sources>(input.binding.c_str(),
+                                                                                                           extractOriginals<sources.size(), sources>(pc),
+                                                                                                           index_pack_t{});
+}
+
+template <typename D>
+  requires(!D::exclusive)
+auto make_build(D metadata, InputSpec const& input, ProcessingContext& pc)
+{
+  using metadata_t = decltype(metadata);
+  using Key = typename metadata_t::Key;
+  using index_pack_t = typename metadata_t::index_pack_t;
+  constexpr auto sources = metadata_t::sources;
+  return o2::framework::IndexBuilder<o2::framework::Sparse>::indexBuilder<Key, sources.size(), sources>(input.binding.c_str(),
+                                                                                                        extractOriginals<sources.size(), sources>(pc),
+                                                                                                        index_pack_t{});
+}
+} // namespace
+
 AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& requested)
 {
-  return AlgorithmSpec::InitCallback{[requested](InitContext& ic) {
+  return AlgorithmSpec::InitCallback{[requested](InitContext& /*ic*/) {
     return [requested](ProcessingContext& pc) {
       auto outputs = pc.outputs();
       // spawn tables
       for (auto& input : requested) {
         auto&& [origin, description, version] = DataSpecUtils::asConcreteDataMatcher(input);
-        auto maker = [&](auto metadata) {
-          using metadata_t = decltype(metadata);
-          using Key = typename metadata_t::Key;
-          using index_pack_t = typename metadata_t::index_pack_t;
-          using originals = typename metadata_t::originals;
-          if constexpr (metadata_t::exclusive == true) {
-            return o2::framework::IndexBuilder<o2::framework::Exclusive>::indexBuilder<Key>(input.binding.c_str(),
-                                                                                            extractOriginalsVector(originals{}, pc),
-                                                                                            index_pack_t{},
-                                                                                            originals{});
-          } else {
-            return o2::framework::IndexBuilder<o2::framework::Sparse>::indexBuilder<Key>(input.binding.c_str(),
-                                                                                         extractOriginalsVector(originals{}, pc),
-                                                                                         index_pack_t{},
-                                                                                         originals{});
-          }
-        };
-
         if (description == header::DataDescription{"MA_RN2_EX"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run2MatchedExclusiveMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run2MatchedExclusiveMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN2_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run2MatchedSparseMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run2MatchedSparseMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN3_EX"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run3MatchedExclusiveMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run3MatchedExclusiveMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN3_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run3MatchedSparseMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run3MatchedSparseMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_BCCOL_EX"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::MatchedBCCollisionsExclusiveMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::MatchedBCCollisionsExclusiveMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_BCCOL_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::MatchedBCCollisionsSparseMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::MatchedBCCollisionsSparseMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_BCCOLS_EX"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::MatchedBCCollisionsExclusiveMultiMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::MatchedBCCollisionsExclusiveMultiMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_BCCOLS_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::MatchedBCCollisionsSparseMultiMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::MatchedBCCollisionsSparseMultiMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN3_BC_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run3MatchedToBCSparseMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run3MatchedToBCSparseMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN3_BC_EX"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run3MatchedToBCExclusiveMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run3MatchedToBCExclusiveMetadata{}, input, pc));
         } else if (description == header::DataDescription{"MA_RN2_BC_SP"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::Run2MatchedToBCSparseMetadata{}));
+          outputs.adopt(Output{origin, description, version}, make_build(o2::aod::Run2MatchedToBCSparseMetadata{}, input, pc));
         } else {
           throw std::runtime_error("Not an index table");
         }
@@ -144,6 +149,24 @@ AlgorithmSpec AODReaderHelpers::indexBuilderCallback(std::vector<InputSpec>& req
     };
   }};
 }
+
+namespace
+{
+template <o2::aod::is_aod_hash D>
+auto make_spawn(InputSpec const& input, ProcessingContext& pc)
+{
+  using metadata_t = o2::aod::MetadataTrait<D>::metadata;
+  constexpr auto sources = metadata_t::sources;
+  static std::shared_ptr<gandiva::Projector> projector = nullptr;
+  static std::shared_ptr<arrow::Schema> schema = std::make_shared<arrow::Schema>(o2::soa::createFieldsFromColumns(typename metadata_t::expression_pack_t{}));
+  static auto projectors = []<typename... C>(framework::pack<C...>) -> std::array<expressions::Projector, sizeof...(C)>
+  {
+    return {{std::move(C::Projector())...}};
+  }
+  (typename metadata_t::expression_pack_t{});
+  return o2::framework::spawner<D>(extractOriginals<sources.size(), sources>(pc), input.binding.c_str(), projectors.data(), projector, schema);
+}
+} // namespace
 
 AlgorithmSpec AODReaderHelpers::aodSpawnerCallback(std::vector<InputSpec>& requested)
 {
@@ -153,49 +176,37 @@ AlgorithmSpec AODReaderHelpers::aodSpawnerCallback(std::vector<InputSpec>& reque
       // spawn tables
       for (auto& input : requested) {
         auto&& [origin, description, version] = DataSpecUtils::asConcreteDataMatcher(input);
-
-        auto maker = [&](auto metadata) {
-          using metadata_t = decltype(metadata);
-          using expressions = typename metadata_t::expression_pack_t;
-          std::vector<std::shared_ptr<arrow::Table>> originalTables;
-          for (auto& i : input.metadata) {
-            if ((i.type == VariantType::String) && (i.name.find("input:") != std::string::npos)) {
-              auto spec = DataSpecUtils::fromMetadataString(i.defaultValue.get<std::string>());
-              originalTables.push_back(pc.inputs().get<TableConsumer>(spec.binding)->asArrowTable());
-            }
-          }
-          return o2::framework::spawner(expressions{}, std::move(originalTables), input.binding.c_str());
-        };
-
-        if (description == header::DataDescription{"TRACK"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACK_IU"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksIUExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKCOV"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksCovExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKCOV_IU"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksCovIUExtensionMetadata{}));
-        } else if (description == header::DataDescription{"TRACKEXTRA"}) {
+        if (description == header::DataDescription{"EXTRACK"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACK/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXTRACK_IU"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACK_IU/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXTRACKCOV"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACKCOV/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXTRACKCOV_IU"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACKCOV_IU/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXTRACKEXTRA"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtra_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACKEXTRA/0"_h>>(input, pc));
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::TracksExtra_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACKEXTRA/1"_h>>(input, pc));
+          } else if (version == 2U) {
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXTRACKEXTRA/2"_h>>(input, pc));
           }
-        } else if (description == header::DataDescription{"MFTTRACK"}) {
+        } else if (description == header::DataDescription{"EXMFTTRACK"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::MFTTracks_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMFTTRACK/0"_h>>(input, pc));
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::MFTTracks_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMFTTRACK/1"_h>>(input, pc));
           }
-        } else if (description == header::DataDescription{"FWDTRACK"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::FwdTracksExtensionMetadata{}));
-        } else if (description == header::DataDescription{"FWDTRACKCOV"}) {
-          outputs.adopt(Output{origin, description, version}, maker(o2::aod::FwdTracksCovExtensionMetadata{}));
-        } else if (description == header::DataDescription{"MCPARTICLE"}) {
+        } else if (description == header::DataDescription{"EXFWDTRACK"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXFWDTRACK/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXFWDTRACKCOV"}) {
+          outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXFWDTRACKCOV/0"_h>>(input, pc));
+        } else if (description == header::DataDescription{"EXMCPARTICLE"}) {
           if (version == 0U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::McParticles_000ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMCPARTICLE/0"_h>>(input, pc));
           } else if (version == 1U) {
-            outputs.adopt(Output{origin, description, version}, maker(o2::aod::McParticles_001ExtensionMetadata{}));
+            outputs.adopt(Output{origin, description, version}, make_spawn<o2::aod::Hash<"EXMCPARTICLE/1"_h>>(input, pc));
           }
         } else {
           throw runtime_error("Not an extended table");

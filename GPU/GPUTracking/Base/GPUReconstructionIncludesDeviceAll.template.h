@@ -17,17 +17,10 @@
 
 #include "GPUDef.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2::gpu
 {
-namespace gpu
-{
-}
-} // namespace GPUCA_NAMESPACE
-using namespace GPUCA_NAMESPACE::gpu;
-
-#if !defined(GPUCA_OPENCL1) && (!defined(GPUCA_ALIROOT_LIB) || !defined(GPUCA_GPUCODE))
-#define GPUCA_KRNL_NOOCL1
-#endif
+} // namespace o2::gpu
+using namespace o2::gpu;
 
 // clang-format off
 $<JOIN:$<LIST:TRANSFORM,$<LIST:TRANSFORM,$<LIST:REMOVE_DUPLICATES,$<TARGET_PROPERTY:O2_GPU_KERNELS,O2_GPU_KERNEL_FILES>>,APPEND,">,PREPEND,#include ">,

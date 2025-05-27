@@ -13,12 +13,13 @@
 /// \author David Rohr
 
 #include "GPUChainITS.h"
+#include "GPUConstantMem.h"
 #include "DataFormatsITS/TrackITS.h"
 #include "ITStracking/ExternalAllocator.h"
 #include "GPUReconstructionIncludesITS.h"
 #include <algorithm>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 namespace o2::its
 {
@@ -27,7 +28,7 @@ class GPUFrameworkExternalAllocator final : public o2::its::ExternalAllocator
  public:
   void* allocate(size_t size) override
   {
-    return mFWReco->AllocateUnmanagedMemory(size, GPUMemoryResource::MEMORY_GPU);
+    return mFWReco->AllocateDirectMemory(size, GPUMemoryResource::MEMORY_GPU);
   }
 
   void setReconstructionFramework(o2::gpu::GPUReconstruction* fwr) { mFWReco = fwr; }
@@ -43,7 +44,7 @@ GPUChainITS::~GPUChainITS()
   mITSVertexerTraits.reset();
 }
 
-GPUChainITS::GPUChainITS(GPUReconstruction* rec, unsigned int maxTracks) : GPUChain(rec), mMaxTracks(maxTracks) {}
+GPUChainITS::GPUChainITS(GPUReconstruction* rec, uint32_t maxTracks) : GPUChain(rec), mMaxTracks(maxTracks) {}
 
 void GPUChainITS::RegisterPermanentMemoryAndProcessors() { mRec->RegisterGPUProcessor(&processors()->itsFitter, GetRecoStepsGPU() & RecoStep::ITSTracking); }
 
@@ -60,7 +61,7 @@ void GPUChainITS::MemorySize(size_t& gpuMem, size_t& pageLockedHostMem)
   pageLockedHostMem = gpuMem;
 }
 
-int GPUChainITS::Init() { return 0; }
+int32_t GPUChainITS::Init() { return 0; }
 
 o2::its::TrackerTraits* GPUChainITS::GetITSTrackerTraits()
 {
@@ -85,7 +86,7 @@ o2::its::TimeFrame* GPUChainITS::GetITSTimeframe()
   }
 #if !defined(GPUCA_STANDALONE)
   if (mITSTimeFrame->mIsGPU) {
-    auto doFWExtAlloc = [this](size_t size) -> void* { return rec()->AllocateUnmanagedMemory(size, GPUMemoryResource::MEMORY_GPU); };
+    auto doFWExtAlloc = [this](size_t size) -> void* { return rec()->AllocateDirectMemory(size, GPUMemoryResource::MEMORY_GPU); };
 
     mFrameworkAllocator.reset(new o2::its::GPUFrameworkExternalAllocator);
     mFrameworkAllocator->setReconstructionFramework(rec());
@@ -95,8 +96,8 @@ o2::its::TimeFrame* GPUChainITS::GetITSTimeframe()
   return mITSTimeFrame.get();
 }
 
-int GPUChainITS::PrepareEvent() { return 0; }
+int32_t GPUChainITS::PrepareEvent() { return 0; }
 
-int GPUChainITS::Finalize() { return 0; }
+int32_t GPUChainITS::Finalize() { return 0; }
 
-int GPUChainITS::RunChain() { return 0; }
+int32_t GPUChainITS::RunChain() { return 0; }

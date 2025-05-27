@@ -13,7 +13,7 @@
 /// \author David Rohr
 
 // This files contains compile-time constants affecting the GPU algorithms / reconstruction results.
-// Architecture-dependant compile-time constants affecting the performance without changing the results are stored in GPUDefGPUParameters.h
+// Architecture-dependant compile-time constants affecting the performance without changing the results are stored in GPUDefParameters*.h
 
 #ifndef GPUDEFCONSTANTSANDSETTINGS_H
 #define GPUDEFCONSTANTSANDSETTINGS_H
@@ -22,12 +22,12 @@
 
 #include "GPUCommonDef.h"
 
-#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)
-  #error You are using the CA GPU tracking without defining the build type (O2/AliRoot/Standalone). If you are running an O2 ROOT macro, please include GPUO2Interface.h first!
+#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)
+  #error You are using the CA GPU tracking without defining the build type (O2/Standalone). If you are running an O2 ROOT macro, please include GPUO2Interface.h first!
 #endif
 
-#if (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_O2_LIB)) || (defined(GPUCA_ALIROOT_LIB) && defined(GPUCA_STANDALONE)) || (defined(GPUCA_O2_LIB) && defined(GPUCA_STANDALONE))
-  #error Invalid Compile Definitions, need to build for either AliRoot or O2 or Standalone!
+#if (defined(GPUCA_O2_LIB) && defined(GPUCA_STANDALONE))
+  #error Invalid Compile Definitions, need to build for either O2 or Standalone!
 #endif
 
 #define GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(QPTB5) (CAMath::Abs(QPTB5) > 10 ? 10 : (CAMath::Abs(QPTB5) > 5 ? 15 : 29)) // Minimum hits should depend on Pt, low Pt tracks can have few hits. 29 Hits default, 15 for < 200 mev, 10 for < 100 mev
@@ -48,17 +48,17 @@
 
 #define TPC_MAX_TIME_BIN_TRIGGERED 600
 
-#if defined(GPUCA_NSLICES) || defined(GPUCA_ROW_COUNT)
-  #error GPUCA_NSLICES or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
+#if defined(GPUCA_NSECTORS) || defined(GPUCA_ROW_COUNT)
+  #error GPUCA_NSECTORS or GPUCA_ROW_COUNT already defined, do not include GPUTPCGeometry.h before!
 #endif
-#if defined(GPUCA_HAVE_O2HEADERS) && defined(GPUCA_TPC_GEOMETRY_O2) && (!defined(__OPENCL__) || defined(__OPENCLCPP__)) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
+#if defined(GPUCA_TPC_GEOMETRY_O2) && !(defined(ROOT_VERSION_CODE) && ROOT_VERSION_CODE < 393216)
   //Use definitions from the O2 headers if available for nicer code and type safety
   #include "DataFormatsTPC/Constants.h"
-  #define GPUCA_NSLICES o2::tpc::constants::MAXSECTOR
+  #define GPUCA_NSECTORS o2::tpc::constants::MAXSECTOR
   #define GPUCA_ROW_COUNT o2::tpc::constants::MAXGLOBALPADROW
 #else
   //Define it manually, if O2 headers not available, ROOT5, and OpenCL 1.2, which do not know C++11.
-  #define GPUCA_NSLICES 36
+  #define GPUCA_NSECTORS 36
   #ifdef GPUCA_TPC_GEOMETRY_O2
     #define GPUCA_ROW_COUNT 152
   #else
@@ -66,7 +66,7 @@
   #endif
 #endif
 
-//#define GPUCA_MERGER_BY_MC_LABEL                    // Use MC labels for TPC track merging - for performance studies
+//#define GPUCA_MERGER_BY_MC_LABEL                    // Use MC labels for TPC track merging - for performance studies // TODO: Cleanup unneeded options
 //#define GPUCA_FULL_CLUSTERDATA                      // Store all cluster information in the cluster data, also those not needed for tracking.
 //#define GPUCA_TPC_RAW_PROPAGATE_PAD_ROW_TIME        // Propagate Pad, Row, Time cluster information to GM
 //#define GPUCA_GM_USE_FULL_FIELD                     // Use offline magnetic field during GMPropagator prolongation

@@ -21,26 +21,31 @@
 #include "GPUTRDTracker.h"
 #include "GPUTrackingInputProvider.h"
 #include "GPUTRDTrackerKernels.h"
+#include "GPUConstantMem.h"
 #include "utils/strtag.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::trd;
 
-template <int I>
-int GPUChainTracking::RunTRDTracking()
+int32_t GPUChainTracking::RunTRDTracking()
 {
-#ifndef GPUCA_ALIROOT_LIB
-  if (!processors()->trdTrackerGPU.IsInitialized()) {
+  return GetProcessingSettings().trdTrackModelO2 ? RunTRDTrackingInternal<GPUTRDTrackerKernels::o2Version>() : RunTRDTrackingInternal<GPUTRDTrackerKernels::gpuVersion>();
+}
+
+template <int32_t I>
+int32_t GPUChainTracking::RunTRDTrackingInternal()
+{
+  auto& Tracker = processors()->getTRDTracker<I>();
+  if (!Tracker.IsInitialized()) {
     return 1;
   }
 
-  auto& Tracker = processors()->getTRDTracker<I>();
   Tracker.Reset();
   if (mIOPtrs.nTRDTracklets == 0) {
     return 0;
   }
 
-  bool isTriggeredEvent = (param().par.continuousMaxTimeBin == 0);
+  bool isTriggeredEvent = (param().continuousMaxTimeBin == 0);
 
   if (!isTriggeredEvent) {
     Tracker.SetProcessPerTimeFrame(true);
@@ -52,7 +57,7 @@ int GPUChainTracking::RunTRDTracking()
   SetupGPUProcessor(&Tracker, true);
 
   if constexpr (I == GPUTRDTrackerKernels::gpuVersion) {
-    for (unsigned int i = 0; i < mIOPtrs.nMergedTracks; i++) {
+    for (uint32_t i = 0; i < mIOPtrs.nMergedTracks; i++) {
       const GPUTPCGMMergedTrack& trk = mIOPtrs.mergedTracks[i];
       if (!Tracker.PreCheckTrackTRDCandidate(trk)) {
         continue;
@@ -83,8 +88,7 @@ int GPUChainTracking::RunTRDTracking()
       }
     }
   } else {
-#ifdef GPUCA_HAVE_O2HEADERS
-    for (unsigned int i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
+    for (uint32_t i = 0; i < mIOPtrs.nOutputTracksTPCO2; i++) {
       const auto& trk = mIOPtrs.outputTracksTPCO2[i];
 
       if (!Tracker.PreCheckTrackTRDCandidate(trk)) {
@@ -112,7 +116,6 @@ int GPUChainTracking::RunTRDTracking()
         return 1;
       }
     }
-#endif
   }
 
   DoTRDGPUTracking<I>();
@@ -122,21 +125,17 @@ int GPUChainTracking::RunTRDTracking()
     mIOPtrs.trdTracks = Tracker.Tracks();
     mIOPtrs.trdTracksO2 = nullptr;
   } else {
-#ifdef GPUCA_HAVE_O2HEADERS
     mIOPtrs.trdTracks = nullptr;
     mIOPtrs.trdTracksO2 = Tracker.Tracks();
-#endif
   }
   mRec->PopNonPersistentMemory(RecoStep::TRDTracking, qStr2Tag("TRDTRACK"));
 
-#endif // GPUCA_ALIROOT_LIB
   return 0;
 }
 
-template <int I, class T>
-int GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
+template <int32_t I, class T>
+int32_t GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
 {
-#ifdef GPUCA_HAVE_O2HEADERS
   bool doGPU = GetRecoStepsGPU() & RecoStep::TRDTracking;
   auto* Tracker = &processors()->getTRDTracker<I>();
   auto* TrackerShadow = doGPU ? &processorsShadow()->getTRDTracker<I>() : Tracker;
@@ -149,7 +148,7 @@ int GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
   }
   Tracker->PrepareTracking(this);
 
-  int useStream = 0;
+  int32_t useStream = 0;
 
   const auto& threadContext = GetThreadContext();
   SetupGPUProcessor(Tracker, false);
@@ -182,7 +181,7 @@ int GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
       processorsShadow()->ioPtrs.trdTrigRecMask = nullptr;
     }
     WriteToConstantMemory(RecoStep::TRDTracking, (char*)&processors()->ioPtrs - (char*)processors(), &processorsShadow()->ioPtrs, sizeof(processorsShadow()->ioPtrs), useStream);
-    WriteToConstantMemory(RecoStep::TRDTracking, (char*)&processors()->trdTrackerGPU - (char*)processors(), TrackerShadow, sizeof(*TrackerShadow), useStream);
+    WriteToConstantMemory(RecoStep::TRDTracking, (char*)&processors()->getTRDTracker<I>() - (char*)processors(), TrackerShadow, sizeof(*TrackerShadow), useStream);
   }
 
   TransferMemoryResourcesToGPU(RecoStep::TRDTracking, Tracker, useStream);
@@ -193,13 +192,10 @@ int GPUChainTracking::DoTRDGPUTracking(T* externalInstance)
   if (GetProcessingSettings().debugLevel >= 2) {
     GPUInfo("GPU TRD tracker Finished");
   }
-#endif
   return (0);
 }
 
-template int GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::gpuVersion>();
-template int GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTrackerGPU*);
-template int GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTracker*);
-template int GPUChainTracking::RunTRDTracking<GPUTRDTrackerKernels::o2Version>();
-template int GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTracker*);
-template int GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTrackerGPU*);
+template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTrackerGPU*);
+template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::gpuVersion>(GPUTRDTracker*);
+template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTracker*);
+template int32_t GPUChainTracking::DoTRDGPUTracking<GPUTRDTrackerKernels::o2Version>(GPUTRDTrackerGPU*);

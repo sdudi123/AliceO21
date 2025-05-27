@@ -62,6 +62,14 @@ void RUDecodeData::fillChipStatistics(int icab, const ChipPixelData* chipData)
     auto& chErr = chipErrorsTF[compid];
     chErr.first++;
     chErr.second |= chipData->getErrorFlags();
+
+    if (chipData->isErrorSet(ChipStat::RepeatingPixel)) {
+      auto& errMsg = errMsgVecTF.emplace_back();
+      errMsg.id = chipData->getChipID();
+      errMsg.errType = ChipStat::RepeatingPixel;
+      errMsg.errInfo0 = chipData->getErrorInfo() & 0xffff;         // row
+      errMsg.errInfo1 = (chipData->getErrorInfo() >> 16) & 0xffff; // row
+    }
   }
   if (action & ChipStat::ErrActDump) {
     linkHBFToDump[(uint64_t(cableLinkPtr[icab]->subSpec) << 32) + cableLinkPtr[icab]->hbfEntry] = cableLinkPtr[icab]->irHBF.orbit;
@@ -117,7 +125,7 @@ bool RUDecodeData::checkLinkInSync(int icab, const o2::InteractionRecord ir)
     link->statistics.errorCounts[GBTLinkDecodingStat::ErrOldROF]++;
     linkHBFToDump[(uint64_t(link->subSpec) << 32) + link->hbfEntry] = link->irHBF.orbit;
     if (link->needToPrintError(link->statistics.errorCounts[GBTLinkDecodingStat::ErrOldROF]) && !ROFRampUpStage) {
-      LOGP(error, "{} (cable {}) has IR={} for current majority IR={} -> {}", link->describe(),
+      LOGP(critical, "{} (cable {}) has IR={} for current majority IR={} -> {}", link->describe(),
            cableHWID[icab], link->ir.asString(), ir.asString(), link->statistics.ErrNames[GBTLinkDecodingStat::ErrOldROF]);
     }
 #endif

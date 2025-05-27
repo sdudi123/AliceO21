@@ -25,7 +25,7 @@
 #include "GPUO2InterfaceUtils.h"
 #include "GPUParam.h"
 #include "DataFormatsTPC/ClusterNative.h"
-#include "TPCClusterDecompressor.inc"
+#include "TPCClusterDecompressionCore.inc"
 #include "GPUTPCCompressionKernels.inc"
 #include "TPCCalibration/VDriftHelper.h"
 #include "DetectorsBase/GRPGeomHelper.h"
@@ -92,7 +92,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       LOG(fatal) << "configKeyValue tpcTriggeredMode does not match GRP isDetContinuousReadOut(TPC) setting";
     }
 
-    mConfig->configGRP.continuousMaxTimeBin = (GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF() * o2::constants::lhc::LHCMaxBunches + 2 * o2::tpc::constants::LHCBCPERTIMEBIN - 2) / o2::tpc::constants::LHCBCPERTIMEBIN;
+    mConfig->configGRP.grpContinuousMaxTimeBin = GPUO2InterfaceUtils::getTpcMaxTimeBinFromNHbf(GRPGeomHelper::instance().getGRPECS()->getNHBFPerTF());
     mConfig->configGRP.solenoidBzNominalGPU = GPUO2InterfaceUtils::getNominalGPUBz(*GRPGeomHelper::instance().getGRPMagField());
     mParam->UpdateSettings(&mConfig->configGRP);
 
@@ -148,7 +148,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
     if (clusters.nTracks && clusters.solenoidBz != -1e6f && clusters.solenoidBz != mParam->bzkG) {
       throw std::runtime_error("Configured solenoid Bz does not match value used for track model encoding");
     }
-    if (clusters.nTracks && clusters.maxTimeBin != -1e6 && clusters.maxTimeBin != mParam->par.continuousMaxTimeBin) {
+    if (clusters.nTracks && clusters.maxTimeBin != -1e6 && clusters.maxTimeBin != mParam->continuousMaxTimeBin) {
       throw std::runtime_error("Configured max time bin does not match value used for track model encoding");
     }
     mCTFCoder.setSelectedIRFrames(pc.inputs().get<gsl::span<o2::dataformats::IRFrame>>("selIRFrames"));
@@ -159,10 +159,10 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
 
     const auto& tinfo = pc.services().get<o2::framework::TimingInfo>();
     const auto firstIR = o2::InteractionRecord(0, tinfo.firstTForbit);
-    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSLICES / 2));
+    const float totalT = std::max(mFastTransform->getMaxDriftTime(0), mFastTransform->getMaxDriftTime(GPUCA_NSECTORS / 2));
 
     unsigned int offset = 0, lasti = 0;
-    const unsigned int maxTime = (mParam->par.continuousMaxTimeBin + 1) * o2::tpc::ClusterNative::scaleTimePacked - 1;
+    const unsigned int maxTime = (mParam->continuousMaxTimeBin + 1) * o2::tpc::ClusterNative::scaleTimePacked - 1;
 #ifdef WITH_OPENMP
 #pragma omp parallel for firstprivate(offset, lasti) num_threads(mNThreads)
 #endif
@@ -183,7 +183,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
         offset += clusters.nTrackClusters[lasti++];
       }
       lasti++;
-      o2::gpu::TPCClusterDecompressor::decompressTrack(&clusters, *mParam, maxTime, i, offset, checker);
+      o2::gpu::TPCClusterDecompressionCore::decompressTrack(clusters, *mParam, maxTime, i, offset, checker);
       const float tMin = o2::tpc::ClusterNative::unpackTime(tMinP), tMax = o2::tpc::ClusterNative::unpackTime(tMaxP);
       const auto chkVal = firstIR + (tMin * constants::LHCBCPERTIMEBIN);
       const auto chkExt = totalT > tMax - tMin ? ((totalT - (tMax - tMin)) * constants::LHCBCPERTIMEBIN + 1) : 0;
@@ -206,8 +206,8 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       }
     }
     offset = 0;
-    unsigned int offsets[GPUCA_NSLICES][GPUCA_ROW_COUNT];
-    for (unsigned int i = 0; i < GPUCA_NSLICES; i++) {
+    unsigned int offsets[GPUCA_NSECTORS][GPUCA_ROW_COUNT];
+    for (unsigned int i = 0; i < GPUCA_NSECTORS; i++) {
       for (unsigned int j = 0; j < GPUCA_ROW_COUNT; j++) {
         if (i * GPUCA_ROW_COUNT + j >= clusters.nSliceRows) {
           break;
@@ -218,7 +218,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
     }
 
 #ifdef WITH_OPENMP
-#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSLICES + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
+#pragma omp parallel for num_threads(mNThreads) schedule(static, (GPUCA_NSECTORS + mNThreads - 1) / mNThreads) // Static round-robin scheduling with one chunk per thread to ensure correct order of the final vector
 #endif
     for (unsigned int ii = 0; ii < clusters.nSliceRows; ii++) {
       unsigned int i = ii / GPUCA_ROW_COUNT;
@@ -230,9 +230,9 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
       int myThread = 0;
 #endif
       unsigned int count = 0;
-      const float x = mParam->tpcGeometry.Row2X(j);
+      const float x = GPUTPCGeometry::Row2X(j);
       auto checker = [i, j, firstIR, totalT, x, this, &preCl, &count, &outBuffer = tmpBuffer[myThread], &rejectHits, &clustersFiltered](const o2::tpc::ClusterNative& cl, unsigned int k) {
-        const float y = mParam->tpcGeometry.LinearPad2Y(i, j, cl.getPad());
+        const float y = GPUTPCGeometry::LinearPad2Y(i, j, cl.getPad());
         const float r = sqrtf(x * x + y * y);
         const float maxz = r * mEtaFactor + mMaxZ;
         const unsigned int deltaBC = std::max<float>(0.f, totalT - mFastTransform->convDeltaZtoDeltaTimeInTimeFrameAbs(maxz)) * constants::LHCBCPERTIMEBIN;
@@ -255,7 +255,7 @@ void EntropyEncoderSpec::run(ProcessingContext& pc)
         }
       };
       unsigned int end = offsets[i][j] + clusters.nSliceRowClusters[i * GPUCA_ROW_COUNT + j];
-      o2::gpu::TPCClusterDecompressor::decompressHits(&clusters, offsets[i][j], end, checker);
+      o2::gpu::TPCClusterDecompressionCore::decompressHits(clusters, offsets[i][j], end, checker);
     }
     tmpBuffer[0].first.reserve(clustersFiltered.nUnattachedClusters);
     tmpBuffer[0].second.reserve(clustersFiltered.nUnattachedClusters);

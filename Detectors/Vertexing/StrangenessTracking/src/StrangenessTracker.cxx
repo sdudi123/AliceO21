@@ -245,7 +245,7 @@ void StrangenessTracker::processCascade(int iCasc, const Cascade& casc, const Ca
         strangeTrack.mDecayRef = iCasc;
         strangeTrack.mITSRef = mSortedITSindexes[iTrack];
         mStrangeTrackVec[iThread].push_back(strangeTrack);
-        mClusAttachments[iThread].push_back(mStructClus);
+        mClusAttachments[iThread].push_back(structClus);
         if (mMCTruthON) {
           auto lab = getStrangeTrackLabel(itsTrack, strangeTrack, structClus);
           mStrangeTrackLabels[iThread].push_back(lab);
@@ -345,13 +345,12 @@ bool StrangenessTracker::matchDecayToITStrack(float decayR, StrangeTrack& strang
   auto trackClusters = getTrackClusters(itsTrack);
   auto trackClusSizes = getTrackClusterSizes(itsTrack);
   auto& lastClus = trackClusters[0];
-  strangeTrack.mMatchChi2 = getMatchingChi2(strangeTrack.mMother, itsTrack);
 
   auto radTol = decayR < 4 ? mStrParams->mRadiusTolIB : mStrParams->mRadiusTolOB;
   auto nMinClusMother = trackClusters.size() < 4 ? 2 : mStrParams->mMinMotherClus;
 
   std::vector<ITSCluster> motherClusters;
-  std::array<unsigned int, 7> nAttachments;
+  std::array<int, 7> nAttachments;
   nAttachments.fill(-1); // fill arr with -1
 
   int nUpdates = 0;
@@ -413,11 +412,13 @@ bool StrangenessTracker::matchDecayToITStrack(float decayR, StrangeTrack& strang
 
   std::reverse(motherClusters.begin(), motherClusters.end());
 
+  mGlobalChi2 = 0;
   for (auto& clus : motherClusters) {
     if (!updateTrack(clus, motherTrackClone)) {
       break;
     }
   }
+  strangeTrack.mMatchChi2 = mGlobalChi2 / motherClusters.size();
 
   LOG(debug) << "Inward-outward refit finished, starting final topology refit";
   // final Topology refit
@@ -480,7 +481,6 @@ bool StrangenessTracker::matchDecayToITStrack(float decayR, StrangeTrack& strang
     strangeTrack.mTopoChi2 = mFitter3Body[iThread].getChi2AtPCACandidate();
   }
   structClus.arr = nAttachments;
-
   return true;
 }
 
@@ -507,9 +507,8 @@ bool StrangenessTracker::updateTrack(const ITSCluster& clus, o2::track::TrackPar
       return false;
     }
   }
-  auto chi2 = std::abs(track.getPredictedChi2(clus)); // abs to be understood
-  LOG(debug) << "Chi2: " << chi2;
-  if (chi2 > mStrParams->mMaxChi2 || chi2 < 0) {
+  auto chi2 = track.getPredictedChi2Quiet(clus); // abs to be understood
+  if (std::abs(chi2) > mStrParams->mMaxChi2) {
     return false;
   }
 
@@ -517,6 +516,7 @@ bool StrangenessTracker::updateTrack(const ITSCluster& clus, o2::track::TrackPar
     return false;
   }
 
+  mGlobalChi2 += chi2;
   return true;
 }
 

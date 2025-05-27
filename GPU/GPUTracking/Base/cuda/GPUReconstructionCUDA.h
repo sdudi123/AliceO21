@@ -16,82 +16,70 @@
 #define GPURECONSTRUCTIONCUDA_H
 
 #include "GPUReconstructionDeviceBase.h"
+#include "GPUCommonAlgorithm.h"
 #include <vector>
 #include <string>
 
 #ifdef _WIN32
-extern "C" __declspec(dllexport) GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
+extern "C" __declspec(dllexport) o2::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #else
-extern "C" GPUCA_NAMESPACE::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const GPUCA_NAMESPACE::gpu::GPUSettingsDeviceBackend& cfg);
+extern "C" o2::gpu::GPUReconstruction* GPUReconstruction_Create_CUDA(const o2::gpu::GPUSettingsDeviceBackend& cfg);
 #endif
 
-namespace GPUCA_NAMESPACE
+namespace Ort
 {
-namespace gpu
+struct SessionOptions;
+}
+
+namespace o2::gpu
 {
 struct GPUReconstructionCUDAInternals;
 
-class GPUReconstructionCUDABackend : public GPUReconstructionDeviceBase
+class GPUReconstructionCUDA : public GPUReconstructionProcessing::KernelInterface<GPUReconstructionCUDA, GPUReconstructionDeviceBase>
 {
  public:
-  ~GPUReconstructionCUDABackend() override;
-  static int GPUFailedMsgAI(const long long int error, const char* file, int line);
-  void GPUFailedMsgA(const long long int error, const char* file, int line);
-
- protected:
-  GPUReconstructionCUDABackend(const GPUSettingsDeviceBackend& cfg);
+  GPUReconstructionCUDA(const GPUSettingsDeviceBackend& cfg);
+  ~GPUReconstructionCUDA() override;
 
   void PrintKernelOccupancies() override;
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override;
 
-  template <class T, int I = 0, typename... Args>
-  int runKernelBackend(const krnlSetupArgs<T, I, Args...>& args);
-  template <class T, int I = 0, typename... Args>
-  void runKernelBackendInternal(const krnlSetupTime& _xyz, const Args&... args);
-  template <class T, int I = 0>
-  gpu_reconstruction_kernels::krnlProperties getKernelPropertiesBackend();
-  template <class T, int I>
-  class backendInternal;
+  template <class T, int32_t I = 0, typename... Args>
+  void runKernelBackend(const krnlSetupTime& _xyz, const Args&... args);
+  template <class T, int32_t I = 0, typename... Args>
+  void runKernelBackendTimed(const krnlSetupTime& _xyz, const Args&... args);
+  template <class T, int32_t I>
+  struct kernelBackendMacro;
 
-  template <bool multi, class T, int I = 0>
-  static int getRTCkernelNum(int k = -1);
-
-  void getRTCKernelCalls(std::vector<std::string>& kernels);
-
-  GPUReconstructionCUDAInternals* mInternals;
-};
-
-class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionCUDABackend>
-{
- public:
-  ~GPUReconstructionCUDA() override;
-  GPUReconstructionCUDA(const GPUSettingsDeviceBackend& cfg);
+  template <class T, class S>
+  friend GPUh() void GPUCommonAlgorithm::sortOnDevice(auto* rec, int32_t stream, T* begin, size_t N, const S& comp);
 
  protected:
-  int InitDevice_Runtime() override;
-  int ExitDevice_Runtime() override;
-  void UpdateAutomaticProcessingSettings() override;
+  GPUReconstructionCUDAInternals* mInternals;
 
-  std::unique_ptr<GPUThreadContext> GetThreadContext() override;
+  int32_t InitDevice_Runtime() override;
+  int32_t ExitDevice_Runtime() override;
+
+  std::unique_ptr<threadContext> GetThreadContext() override;
   void SynchronizeGPU() override;
-  int GPUDebug(const char* state = "UNKNOWN", int stream = -1, bool force = false) override;
-  void SynchronizeStream(int stream) override;
-  void SynchronizeEvents(deviceEvent* evList, int nEvents = 1) override;
-  void StreamWaitForEvents(int stream, deviceEvent* evList, int nEvents = 1) override;
-  bool IsEventDone(deviceEvent* evList, int nEvents = 1) override;
-  int registerMemoryForGPU_internal(const void* ptr, size_t size) override;
-  int unregisterMemoryForGPU_internal(const void* ptr) override;
+  int32_t GPUDebug(const char* state = "UNKNOWN", int32_t stream = -1, bool force = false) override;
+  void SynchronizeStream(int32_t stream) override;
+  void SynchronizeEvents(deviceEvent* evList, int32_t nEvents = 1) override;
+  void StreamWaitForEvents(int32_t stream, deviceEvent* evList, int32_t nEvents = 1) override;
+  bool IsEventDone(deviceEvent* evList, int32_t nEvents = 1) override;
+  int32_t registerMemoryForGPU_internal(const void* ptr, size_t size) override;
+  int32_t unregisterMemoryForGPU_internal(const void* ptr) override;
 
-  size_t WriteToConstantMemory(size_t offset, const void* src, size_t size, int stream = -1, deviceEvent* ev = nullptr) override;
-  size_t TransferMemoryInternal(GPUMemoryResource* res, int stream, deviceEvent* ev, deviceEvent* evList, int nEvents, bool toGPU, const void* src, void* dst) override;
-  size_t GPUMemCpy(void* dst, const void* src, size_t size, int stream, int toGPU, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int nEvents = 1) override;
+  size_t WriteToConstantMemory(size_t offset, const void* src, size_t size, int32_t stream = -1, deviceEvent* ev = nullptr) override;
+  size_t GPUMemCpy(void* dst, const void* src, size_t size, int32_t stream, int32_t toGPU, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int32_t nEvents = 1) override;
   void ReleaseEvent(deviceEvent ev) override;
-  void RecordMarker(deviceEvent ev, int stream) override;
+  void RecordMarker(deviceEvent* ev, int32_t stream) override;
+  void SetONNXGPUStream(Ort::SessionOptions& session_options, int32_t stream, int32_t* deviceId) override;
 
   void GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame) override;
 
 #ifndef __HIPCC__ // CUDA
   bool CanQueryMaxMemory() override { return true; }
-  int PrepareTextures() override;
   void startGPUProfiling() override;
   void endGPUProfiling() override;
 #else // HIP
@@ -99,13 +87,13 @@ class GPUReconstructionCUDA : public GPUReconstructionKernels<GPUReconstructionC
 #endif
 
  private:
-  int genRTC(std::string& filename, unsigned int& nCompile);
+  int32_t genRTC(std::string& filename, uint32_t& nCompile);
+  void getRTCKernelCalls(std::vector<std::string>& kernels);
   void genAndLoadRTC();
-  void loadKernelModules(bool perKernel, bool perSingleMulti = true);
+  void loadKernelModules(bool perKernel);
   const char *mRtcSrcExtension = ".src", *mRtcBinExtension = ".o";
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

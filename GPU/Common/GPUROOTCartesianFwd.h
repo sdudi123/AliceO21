@@ -24,11 +24,11 @@ namespace ROOT
 {
 namespace Math
 {
-template <class T, unsigned int D1, unsigned int D2, class R>
+template <class T, uint32_t D1, uint32_t D2, class R>
 class SMatrix;
-template <class T, unsigned int D>
+template <class T, uint32_t D>
 class MatRepSym;
-template <class T, unsigned int D1, unsigned int D2>
+template <class T, uint32_t D1, uint32_t D2>
 class MatRepStd;
 template <class CoordSystem, class Tag>
 class PositionVector2D;
@@ -46,16 +46,14 @@ class DefaultCoordinateSystemTag;
 } // namespace Math
 } // namespace ROOT
 
-namespace o2
-{
-namespace math_utils
+namespace o2::math_utils
 {
 
 namespace detail
 {
-template <typename T, int I>
+template <typename T, int32_t I>
 struct GPUPoint2D;
-template <typename T, int I>
+template <typename T, int32_t I>
 struct GPUPoint3D;
 } // namespace detail
 
@@ -79,7 +77,6 @@ template <typename T>
 using Vector3D = detail::GPUPoint3D<T, 1>;
 #endif
 
-} // namespace math_utils
-} // namespace o2
+} // namespace o2::math_utils
 
 #endif

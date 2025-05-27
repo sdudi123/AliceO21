@@ -18,16 +18,16 @@
 #include "GPUCommonDef.h"
 #include "GPUDefConstantsAndSettings.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 struct GPUParam;
 struct GPUTPCClusterOccupancyMapBin {
-  unsigned short bin[GPUCA_NSLICES][GPUCA_ROW_COUNT];
+  uint16_t bin[GPUCA_NSECTORS][GPUCA_ROW_COUNT];
 
-  GPUd() static unsigned int getNBins(const GPUParam& param);
-  GPUd() static unsigned int getTotalSize(const GPUParam& param);
+  GPUd() static uint32_t getNBins(const GPUParam& param);
+  GPUd() static uint32_t getTotalSize(const GPUParam& param);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

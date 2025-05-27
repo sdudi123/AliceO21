@@ -37,7 +37,8 @@ enum class SimFieldMode {
 enum class VertexMode {
   kNoVertex = 0,     // no vertexing should be applied in the generator
   kDiamondParam = 1, // Diamond param will influence vertexing
-  kCCDB = 2          // vertex should be taken from CCDB (Calib/MeanVertex object)
+  kCCDB = 2,         // vertex should be taken from CCDB (Calib/MeanVertex object)
+  kCollCxt = 3       // vertex should be taken from collision context
 };
 
 enum class TimeStampMode {
@@ -83,6 +84,7 @@ struct SimConfigData {
   bool mNoGeant = false;                              // if Geant transport should be turned off (when one is only interested in the generated events)
   bool mIsUpgrade = false;                            // true if the simulation is for Run 5
   std::string mFromCollisionContext = "";             // string denoting a collision context file; If given, this file will be used to determine number of events
+                                                      //
   bool mForwardKine = false;                          // true if tracks and event headers are to be published on a FairMQ channel (for reading by other consumers)
   bool mWriteToDisc = true;                           // whether we write simulation products (kine, hits) to disc
   VertexMode mVertexMode = VertexMode::kDiamondParam; // by default we should use die InteractionDiamond parameter
@@ -118,7 +120,7 @@ class SimConfig
     return SimConfig();
   }
 
-  static void initOptions(boost::program_options::options_description&);
+  static void initOptions(boost::program_options::options_description&, bool isUpgrade = false);
 
   // initializes the configuration from command line arguments
   // returns true of correctly initialized and not --help called
@@ -176,6 +178,10 @@ class SimConfig
   bool forwardKine() const { return mConfigData.mForwardKine; }
   bool writeToDisc() const { return mConfigData.mWriteToDisc; }
   VertexMode getVertexMode() const { return mConfigData.mVertexMode; }
+
+  // returns the pair of collision context filename as well as event prefix encoded
+  // in the mFromCollisionContext string. Returns empty string if information is not available or set.
+  std::pair<std::string, std::string> getCollContextFilenameAndEventPrefix() const;
 
  private:
   SimConfigData mConfigData; //!

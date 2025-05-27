@@ -18,15 +18,16 @@
 #include <deque>
 #include <memory>
 
-#include "Rtypes.h"  // for Digitizer::Class
-#include "TObject.h" // for TObject
+#include "Rtypes.h"
+#include "TObject.h"
 
-#include "ITSMFTSimulation/ChipDigitsContainer.h"
 #include "ITSMFTSimulation/AlpideSimResponse.h"
-#include "ITSMFTSimulation/DigiParams.h"
 #include "ITSMFTSimulation/Hit.h"
 #include "ITSBase/GeometryTGeo.h"
-#include "ITS3Base/SegmentationSuperAlpide.h"
+#include "ITS3Base/SegmentationMosaix.h"
+#include "ITS3Simulation/DigiParams.h"
+#include "ITS3Simulation/ChipDigitsContainer.h"
+#include "ITS3Simulation/ChipSimResponse.h"
 #include "DataFormatsITSMFT/Digit.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "CommonDataFormat/InteractionRecord.h"
@@ -35,6 +36,7 @@
 
 namespace o2::its3
 {
+
 class Digitizer : public TObject
 {
   using ExtraDig = std::vector<itsmft::PreDigitLabelRef>; ///< container for extra contributions to PreDigits
@@ -44,8 +46,8 @@ class Digitizer : public TObject
   void setMCLabels(o2::dataformats::MCTruthContainer<o2::MCCompLabel>* mclb) { mMCLabels = mclb; }
   void setROFRecords(std::vector<o2::itsmft::ROFRecord>* rec) { mROFRecords = rec; }
 
-  o2::itsmft::DigiParams& getParams() { return (o2::itsmft::DigiParams&)mParams; }
-  const o2::itsmft::DigiParams& getParams() const { return mParams; }
+  o2::its3::DigiParams& getParams() { return mParams; }
+  const o2::its3::DigiParams& getParams() const { return mParams; }
 
   void init();
 
@@ -62,9 +64,6 @@ class Digitizer : public TObject
   bool isContinuous() const { return mParams.isContinuous(); }
   void fillOutputContainer(uint32_t maxFrame = 0xffffffff);
 
-  void setDigiParams(const o2::itsmft::DigiParams& par) { mParams = par; }
-  const o2::itsmft::DigiParams& getDigitParams() const { return mParams; }
-
   // provide the common itsmft::GeometryTGeo to access matrices and segmentation
   void setGeometry(const o2::its::GeometryTGeo* gm) { mGeometry = gm; }
 
@@ -76,9 +75,11 @@ class Digitizer : public TObject
     mEventROFrameMax = 0;
   }
 
+  void setDeadChannelsMap(const o2::itsmft::NoiseMap* mp) { mDeadChanMap = mp; }
+
  private:
   void processHit(const o2::itsmft::Hit& hit, uint32_t& maxFr, int evID, int srcID);
-  void registerDigits(o2::itsmft::ChipDigitsContainer& chip, uint32_t roFrame, float tInROF, int nROF,
+  void registerDigits(o2::its3::ChipDigitsContainer& chip, uint32_t roFrame, float tInROF, int nROF,
                       uint16_t row, uint16_t col, int nEle, o2::MCCompLabel& lbl);
 
   ExtraDig* getExtraDigBuffer(uint32_t roFrame)
@@ -95,7 +96,7 @@ class Digitizer : public TObject
 
   static constexpr float sec2ns = 1e9;
 
-  o2::itsmft::DigiParams mParams;          ///< digitization parameters
+  o2::its3::DigiParams mParams;            ///< digitization parameters
   o2::InteractionTimeRecord mEventTime;    ///< global event time and interaction record
   o2::InteractionRecord mIRFirstSampledTF; ///< IR of the 1st sampled IR, noise-only ROFs will be inserted till this IR only
   double mCollisionTimeWrtROF{};
@@ -106,19 +107,30 @@ class Digitizer : public TObject
   uint32_t mEventROFrameMin = 0xffffffff; ///< lowest RO frame for processed events (w/o automatic noise ROFs)
   uint32_t mEventROFrameMax = 0;          ///< highest RO frame forfor processed events (w/o automatic noise ROFs)
 
-  o2::itsmft::AlpideSimResponse* mAlpSimResp = nullptr; // simulated response
+  static constexpr std::array<o2::its3::SegmentationMosaix, 3> mIBSegmentations{0, 1, 2};
 
-  const o2::its::GeometryTGeo* mGeometry = nullptr; ///< ITS OR MFT upgrade geometry
+  o2::its3::ChipSimResponse* mSimRespIB = nullptr;     // simulated response for IB
+  o2::itsmft::AlpideSimResponse* mSimRespOB = nullptr; // simulated response for OB
+  bool mSimRespIBOrientation{false};                   // wether the orientation in the IB response function is flipped
+  float mSimRespIBShift{0.f};                          // adjusting the Y-shift in the IB response function to match sensor local coord.
+  float mSimRespIBScaleX{1.f};                         // scale x-local coordinate to response function x-coordinate
+  float mSimRespIBScaleZ{1.f};                         // scale z-local coordinate to response function z-coordinate
+  float mSimRespOBShift{0.f};                          // adjusting the Y-shift in the OB response function to match sensor local coord.
 
-  std::vector<o2::itsmft::ChipDigitsContainer> mChips; ///< Array of chips digits containers
+  const o2::its::GeometryTGeo* mGeometry = nullptr; ///< ITS3 geometry
+
+  std::vector<o2::its3::ChipDigitsContainer> mChips;   ///< Array of chips digits containers
   std::deque<std::unique_ptr<ExtraDig>> mExtraBuff;    ///< burrer (per roFrame) for extra digits
 
   std::vector<o2::itsmft::Digit>* mDigits = nullptr;                       //! output digits
   std::vector<o2::itsmft::ROFRecord>* mROFRecords = nullptr;               //! output ROF records
   o2::dataformats::MCTruthContainer<o2::MCCompLabel>* mMCLabels = nullptr; //! output labels
 
-  ClassDef(Digitizer, 4);
+  const o2::itsmft::NoiseMap* mDeadChanMap = nullptr;
+
+  ClassDef(Digitizer, 5);
 };
+
 } // namespace o2::its3
 
 #endif /* ALICEO2_ITS3_DIGITIZER_H */

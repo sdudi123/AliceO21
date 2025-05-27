@@ -15,8 +15,8 @@
 
 #include <cmath>
 #include <bitset>
+#include <limits>
 #include <numeric>
-#include <utility> // std::move
 
 #include "Framework/DataTypes.h"
 #include "CommonConstants/MathConstants.h"
@@ -24,16 +24,12 @@
 #include "CommonConstants/GeomConstants.h"
 #include "CommonConstants/ZDCConstants.h"
 #include "SimulationDataFormat/MCGenProperties.h"
+#include "Framework/PID.h"
 
 namespace o2
 {
 namespace aod
 {
-// This is required to register SOA_TABLEs inside
-// the o2::aod namespace.
-// DECLARE_SOA_METADATA();
-DECLARE_SOA_VERSIONING();
-
 namespace bc
 {
 DECLARE_SOA_COLUMN(RunNumber, runNumber, int);          //! Run number
@@ -64,15 +60,16 @@ DECLARE_SOA_COLUMN(Timestamp, timestamp, uint64_t); //! Timestamp of a BC in ms 
 
 DECLARE_SOA_TABLE(Timestamps, "AOD", "TIMESTAMPS", //! Table which holds the timestamp of a BC
                   timestamp::Timestamp);
+
+using BCsWithTimestamps = soa::Join<aod::BCs, aod::Timestamps>;
 } // namespace aod
+
 namespace soa
 {
-extern template struct Join<aod::BCs, aod::Timestamps>;
+extern template struct JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::BCs, aod::Timestamps>;
 }
 namespace aod
 {
-using BCsWithTimestamps = soa::Join<aod::BCs, aod::Timestamps>;
-
 namespace collision
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                              //! Most probably BC to where this collision has occured
@@ -242,13 +239,16 @@ DECLARE_SOA_COLUMN(ITSClusterSizes, itsClusterSizes, uint32_t);                 
 DECLARE_SOA_COLUMN(ITSClusterMap, itsClusterMap, uint8_t);                                    //! Old cluster ITS cluster map, kept for version 0 compatibility
 DECLARE_SOA_COLUMN(TPCNClsFindable, tpcNClsFindable, uint8_t);                                //! Findable TPC clusters for this track geometry
 DECLARE_SOA_COLUMN(TPCNClsFindableMinusFound, tpcNClsFindableMinusFound, int8_t);             //! TPC Clusters: Findable - Found
+DECLARE_SOA_COLUMN(TPCNClsFindableMinusPID, tpcNClsFindableMinusPID, int8_t);                 //! TPC Clusters: Findable - Found clusters used for PID
 DECLARE_SOA_COLUMN(TPCNClsFindableMinusCrossedRows, tpcNClsFindableMinusCrossedRows, int8_t); //! TPC Clusters: Findable - crossed rows
 DECLARE_SOA_COLUMN(TPCNClsShared, tpcNClsShared, uint8_t);                                    //! Number of shared TPC clusters
+DECLARE_SOA_COLUMN(ITSSharedClusterMap, itsSharedClusterMap, uint8_t);                        //! shared ITS cluster map (Run 2)
 DECLARE_SOA_COLUMN(TRDPattern, trdPattern, uint8_t);                                          //! Contributor to the track on TRD layer in bits 0-5, starting from the innermost, bit 6 indicates a potentially split tracklet, bit 7 if the track crossed a padrow
 DECLARE_SOA_COLUMN(ITSChi2NCl, itsChi2NCl, float);                                            //! Chi2 / cluster for the ITS track segment
 DECLARE_SOA_COLUMN(TPCChi2NCl, tpcChi2NCl, float);                                            //! Chi2 / cluster for the TPC track segment
 DECLARE_SOA_COLUMN(TRDChi2, trdChi2, float);                                                  //! Chi2 for the TRD track segment
 DECLARE_SOA_COLUMN(TOFChi2, tofChi2, float);                                                  //! Chi2 for the TOF track segment
+DECLARE_SOA_COLUMN(ITSSignal, itsSignal, float);                                              //! dE/dx signal in the ITS (Run 2)
 DECLARE_SOA_COLUMN(TPCSignal, tpcSignal, float);                                              //! dE/dx signal in the TPC
 DECLARE_SOA_COLUMN(TRDSignal, trdSignal, float);                                              //! PID signal in the TRD
 DECLARE_SOA_COLUMN(Length, length, float);                                                    //! Track length
@@ -265,6 +265,60 @@ DECLARE_SOA_EXPRESSION_COLUMN(DetectorMap, detectorMap, uint8_t, //! Detector ma
                                 ifnode(aod::track::tpcNClsFindable > (uint8_t)0, static_cast<uint8_t>(o2::aod::track::TPC), (uint8_t)0x0) |
                                 ifnode(aod::track::trdPattern > (uint8_t)0, static_cast<uint8_t>(o2::aod::track::TRD), (uint8_t)0x0) |
                                 ifnode((aod::track::tofChi2 >= 0.f) && (aod::track::tofExpMom > 0.f), static_cast<uint8_t>(o2::aod::track::TOF), (uint8_t)0x0));
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeEl, tofExpTimeEl, //! Expected time for the track to reach the TOF under the electron hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassElectron * o2::constants::physics::MassElectron;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeMu, tofExpTimeMu, //! Expected time for the track to reach the TOF under the muon hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassMuon * o2::constants::physics::MassMuon;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimePi, tofExpTimePi, //! Expected time for the track to reach the TOF under the pion hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassPionCharged * o2::constants::physics::MassPionCharged;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeKa, tofExpTimeKa, //! Expected time for the track to reach the TOF under the kaon hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassKaonCharged * o2::constants::physics::MassKaonCharged;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimePr, tofExpTimePr, //! Expected time for the track to reach the TOF under the proton hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassProton * o2::constants::physics::MassProton;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeDe, tofExpTimeDe, //! Expected time for the track to reach the TOF under the deuteron hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassDeuteron * o2::constants::physics::MassDeuteron;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeTr, tofExpTimeTr, //! Expected time for the track to reach the TOF under the triton hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassTriton * o2::constants::physics::MassTriton;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeHe, tofExpTimeHe, //! Expected time for the track to reach the TOF under the helium3 hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassHelium3 * o2::constants::physics::MassHelium3;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(TOFExpTimeAl, tofExpTimeAl, //! Expected time for the track to reach the TOF under the helium4 hypothesis
+                           [](float length, float tofExpMom) -> float {
+                             constexpr float massSquared = o2::constants::physics::MassAlpha * o2::constants::physics::MassAlpha;
+                             return o2::framework::pid::tof::MassToExpTime(tofExpMom, length, massSquared);
+                           });
 
 namespace v001
 {
@@ -303,10 +357,15 @@ DECLARE_SOA_DYNAMIC_COLUMN(ITSNClsInnerBarrel, itsNClsInnerBarrel, //! Number of
                            });
 DECLARE_SOA_DYNAMIC_COLUMN(ITSClsSizeInLayer, itsClsSizeInLayer, //! Size of the ITS cluster in a given layer
                            [](uint32_t itsClusterSizes, int layer) -> uint8_t {
-                             if (layer >= 7) {
+                             if (layer >= 7 || layer < 0) {
                                return 0;
                              }
                              return (itsClusterSizes >> (layer * 4)) & 0xf;
+                           });
+
+DECLARE_SOA_DYNAMIC_COLUMN(IsITSAfterburner, isITSAfterburner, //! If the track used the afterburner in the ITS
+                           [](uint8_t detectorMap, float itsChi2Ncl) -> bool {
+                             return (detectorMap & o2::aod::track::ITS) && (itsChi2Ncl < 0.f);
                            });
 
 namespace extensions
@@ -332,6 +391,7 @@ DECLARE_SOA_DYNAMIC_COLUMN(TPCDeltaTBwd, tpcDeltaTBwd, //! Delta Backward of tra
                              return p.getDeltaTBwd();
                            });
 } // namespace extensions
+
 } // namespace v001
 
 DECLARE_SOA_DYNAMIC_COLUMN(HasITS, hasITS, //! Flag to check if track has a ITS match
@@ -348,6 +408,8 @@ DECLARE_SOA_DYNAMIC_COLUMN(PIDForTracking, pidForTracking, //! PID hypothesis us
                            [](uint32_t flags) -> uint32_t { return flags >> 28; });
 DECLARE_SOA_DYNAMIC_COLUMN(TPCNClsFound, tpcNClsFound, //! Number of found TPC clusters
                            [](uint8_t tpcNClsFindable, int8_t tpcNClsFindableMinusFound) -> int16_t { return (int16_t)tpcNClsFindable - tpcNClsFindableMinusFound; });
+DECLARE_SOA_DYNAMIC_COLUMN(TPCNClsPID, tpcNClsPID, //! Number of found TPC clusters used for PID
+                           [](uint8_t tpcNClsFindable, int8_t tpcNClsFindableMinusPID) -> int16_t { return (int16_t)tpcNClsFindable - tpcNClsFindableMinusPID; });
 DECLARE_SOA_DYNAMIC_COLUMN(TPCNClsCrossedRows, tpcNClsCrossedRows, //! Number of crossed TPC Rows
                            [](uint8_t tpcNClsFindable, int8_t TPCNClsFindableMinusCrossedRows) -> int16_t { return (int16_t)tpcNClsFindable - TPCNClsFindableMinusCrossedRows; });
 DECLARE_SOA_DYNAMIC_COLUMN(ITSNCls, itsNCls, //! Number of ITS clusters
@@ -369,6 +431,16 @@ DECLARE_SOA_DYNAMIC_COLUMN(ITSNClsInnerBarrel, itsNClsInnerBarrel, //! Number of
                                  itsNclsInnerBarrel++;
                              }
                              return itsNclsInnerBarrel;
+                           });
+DECLARE_SOA_DYNAMIC_COLUMN(ITSNSharedCls, itsNSharedCls, //! Number of shared ITS clusters (Run 2)
+                           [](uint8_t itsSharedClusterMap) -> uint8_t {
+                             uint8_t itsNSharedCls = 0;
+                             constexpr uint8_t bit = 1;
+                             for (int layer = 0; layer < 6; layer++) { // ITS1: 6 layers
+                               if (itsSharedClusterMap & (bit << layer))
+                                 itsNSharedCls++;
+                             }
+                             return itsNSharedCls;
                            });
 DECLARE_SOA_DYNAMIC_COLUMN(TPCFoundOverFindableCls, tpcFoundOverFindableCls, //! Ratio of found over findable clusters
                            [](uint8_t tpcNClsFindable, int8_t tpcNClsFindableMinusFound) -> float {
@@ -412,7 +484,7 @@ DECLARE_SOA_TABLE_FULL(StoredTracks, "Tracks", "AOD", "TRACK", //! On disk versi
                        track::Sign<track::Signed1Pt>,
                        o2::soa::Marker<1>);
 
-DECLARE_SOA_EXTENDED_TABLE(Tracks, StoredTracks, "TRACK", //! Track parameters at collision vertex
+DECLARE_SOA_EXTENDED_TABLE(Tracks, StoredTracks, "EXTRACK", 0, //! Track parameters at collision vertex
                            aod::track::Pt,
                            aod::track::P,
                            aod::track::Eta,
@@ -432,7 +504,7 @@ DECLARE_SOA_TABLE_FULL(StoredTracksIU, "Tracks_IU", "AOD", "TRACK_IU", //! On di
                        track::Sign<track::Signed1Pt>,
                        o2::soa::Marker<2>);
 
-DECLARE_SOA_EXTENDED_TABLE(TracksIU, StoredTracksIU, "TRACK_IU", //! Track parameters at inner most update (e.g. ITS) as it comes from the tracking
+DECLARE_SOA_EXTENDED_TABLE(TracksIU, StoredTracksIU, "EXTRACK_IU", 0, //! Track parameters at inner most update (e.g. ITS) as it comes from the tracking
                            aod::track::Pt,
                            aod::track::P,
                            aod::track::Eta,
@@ -443,7 +515,7 @@ DECLARE_SOA_TABLE_FULL(StoredTracksCov, "TracksCov", "AOD", "TRACKCOV", //! On d
                        track::RhoZY, track::RhoSnpY, track::RhoSnpZ, track::RhoTglY, track::RhoTglZ,
                        track::RhoTglSnp, track::Rho1PtY, track::Rho1PtZ, track::Rho1PtSnp, track::Rho1PtTgl, o2::soa::Marker<1>);
 
-DECLARE_SOA_EXTENDED_TABLE(TracksCov, StoredTracksCov, "TRACKCOV", //! Track covariance matrix at collision vertex
+DECLARE_SOA_EXTENDED_TABLE(TracksCov, StoredTracksCov, "EXTRACKCOV", 0, //! Track covariance matrix at collision vertex
                            aod::track::CYY,
                            aod::track::CZY,
                            aod::track::CZZ,
@@ -465,7 +537,7 @@ DECLARE_SOA_TABLE_FULL(StoredTracksCovIU, "TracksCov_IU", "AOD", "TRACKCOV_IU", 
                        track::RhoZY, track::RhoSnpY, track::RhoSnpZ, track::RhoTglY, track::RhoTglZ,
                        track::RhoTglSnp, track::Rho1PtY, track::Rho1PtZ, track::Rho1PtSnp, track::Rho1PtTgl, o2::soa::Marker<2>);
 
-DECLARE_SOA_EXTENDED_TABLE(TracksCovIU, StoredTracksCovIU, "TRACKCOV_IU", //! Track covariance matrix at inner most update (e.g. ITS) as it comes from the tracking
+DECLARE_SOA_EXTENDED_TABLE(TracksCovIU, StoredTracksCovIU, "EXTRACKCOV_IU", 0, //! Track covariance matrix at inner most update (e.g. ITS) as it comes from the tracking
                            aod::track::CYY,
                            aod::track::CZY,
                            aod::track::CZZ,
@@ -494,6 +566,15 @@ DECLARE_SOA_TABLE_FULL(StoredTracksExtra_000, "TracksExtra", "AOD", "TRACKEXTRA"
                        track::HasTRD<track::DetectorMap>, track::HasTOF<track::DetectorMap>,
                        track::TPCNClsFound<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
                        track::TPCNClsCrossedRows<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
+                       track::TOFExpTimeEl<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeMu<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimePi<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeKa<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimePr<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeDe<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeTr<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeHe<track::Length, track::TOFExpMom>,
+                       track::TOFExpTimeAl<track::Length, track::TOFExpMom>,
                        track::ITSNCls<track::ITSClusterMap>, track::ITSNClsInnerBarrel<track::ITSClusterMap>,
                        track::TPCCrossedRowsOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
                        track::TPCFoundOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
@@ -514,31 +595,80 @@ DECLARE_SOA_TABLE_FULL_VERSIONED(StoredTracksExtra_001, "TracksExtra", "AOD", "T
                                  track::TPCNClsCrossedRows<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
                                  track::v001::ITSClusterMap<track::ITSClusterSizes>, track::v001::ITSNCls<track::ITSClusterSizes>, track::v001::ITSNClsInnerBarrel<track::ITSClusterSizes>,
                                  track::v001::ITSClsSizeInLayer<track::ITSClusterSizes>,
+                                 track::v001::IsITSAfterburner<track::v001::DetectorMap, track::ITSChi2NCl>,
+                                 track::TOFExpTimeEl<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeMu<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimePi<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeKa<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimePr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeDe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeTr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeHe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeAl<track::Length, track::TOFExpMom>,
                                  track::TPCCrossedRowsOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
                                  track::TPCFoundOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
                                  track::TPCFractionSharedCls<track::TPCNClsShared, track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
                                  track::TrackEtaEMCAL, track::TrackPhiEMCAL, track::TrackTime, track::TrackTimeRes);
 
-DECLARE_SOA_EXTENDED_TABLE(TracksExtra_000, StoredTracksExtra_000, "TRACKEXTRA", //! Additional track information (clusters, PID, etc.)
+DECLARE_SOA_TABLE_FULL_VERSIONED(StoredTracksExtra_002, "TracksExtra", "AOD", "TRACKEXTRA", 2, // On disk version of TracksExtra, version 2
+                                 track::TPCInnerParam, track::Flags, track::ITSClusterSizes,
+                                 track::TPCNClsFindable, track::TPCNClsFindableMinusFound, track::TPCNClsFindableMinusPID, track::TPCNClsFindableMinusCrossedRows,
+                                 track::TPCNClsShared, track::v001::extensions::TPCDeltaTFwd<track::TrackTimeRes, track::Flags>, track::v001::extensions::TPCDeltaTBwd<track::TrackTimeRes, track::Flags>,
+                                 track::TRDPattern, track::ITSChi2NCl, track::TPCChi2NCl, track::TRDChi2, track::TOFChi2,
+                                 track::TPCSignal, track::TRDSignal, track::Length, track::TOFExpMom,
+                                 track::PIDForTracking<track::Flags>,
+                                 track::IsPVContributor<track::Flags>,
+                                 track::HasITS<track::v001::DetectorMap>, track::HasTPC<track::v001::DetectorMap>,
+                                 track::HasTRD<track::v001::DetectorMap>, track::HasTOF<track::v001::DetectorMap>,
+                                 track::TPCNClsFound<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
+                                 track::TPCNClsCrossedRows<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
+                                 track::v001::ITSClusterMap<track::ITSClusterSizes>, track::v001::ITSNCls<track::ITSClusterSizes>, track::v001::ITSNClsInnerBarrel<track::ITSClusterSizes>,
+                                 track::v001::ITSClsSizeInLayer<track::ITSClusterSizes>,
+                                 track::v001::IsITSAfterburner<track::v001::DetectorMap, track::ITSChi2NCl>,
+                                 track::TOFExpTimeEl<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeMu<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimePi<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeKa<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimePr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeDe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeTr<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeHe<track::Length, track::TOFExpMom>,
+                                 track::TOFExpTimeAl<track::Length, track::TOFExpMom>,
+                                 track::TPCCrossedRowsOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusCrossedRows>,
+                                 track::TPCFoundOverFindableCls<track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
+                                 track::TPCFractionSharedCls<track::TPCNClsShared, track::TPCNClsFindable, track::TPCNClsFindableMinusFound>,
+                                 track::TrackEtaEMCAL, track::TrackPhiEMCAL, track::TrackTime, track::TrackTimeRes);
+
+DECLARE_SOA_EXTENDED_TABLE(TracksExtra_000, StoredTracksExtra_000, "EXTRACKEXTRA", 0, //! Additional track information (clusters, PID, etc.)
                            track::DetectorMap);
-DECLARE_SOA_EXTENDED_TABLE(TracksExtra_001, StoredTracksExtra_001, "TRACKEXTRA", //! Additional track information (clusters, PID, etc.)
+DECLARE_SOA_EXTENDED_TABLE(TracksExtra_001, StoredTracksExtra_001, "EXTRACKEXTRA", 1, //! Additional track information (clusters, PID, etc.)
+                           track::v001::DetectorMap);
+DECLARE_SOA_EXTENDED_TABLE(TracksExtra_002, StoredTracksExtra_002, "EXTRACKEXTRA", 2, //! Additional track information (clusters, PID, etc.)
                            track::v001::DetectorMap);
 
-using StoredTracksExtra = StoredTracksExtra_001;
-using TracksExtra = TracksExtra_001;
+DECLARE_SOA_TABLE(Run2TrackExtras_000, "AOD", "RUN2TRACKEXTRA",
+                  track::ITSSignal);
+DECLARE_SOA_TABLE_VERSIONED(Run2TrackExtras_001, "AOD", "RUN2TRACKEXTRA", 1, //! adds ITS shared cluster map
+                            track::ITSSignal, track::ITSSharedClusterMap,
+                            track::ITSNSharedCls<track::ITSSharedClusterMap>);
+
+using StoredTracksExtra = StoredTracksExtra_002;
+using TracksExtra = TracksExtra_002;
 
 using Track = Tracks::iterator;
 using TrackIU = TracksIU::iterator;
 using TrackCov = TracksCov::iterator;
 using TrackCovIU = TracksCovIU::iterator;
 using TrackExtra = TracksExtra::iterator;
+using Run2TrackExtras = Run2TrackExtras_001;
+using Run2TrackExtra = Run2TrackExtras::iterator;
 
 } // namespace aod
 namespace soa
 {
-extern template struct soa::Join<aod::Tracks, aod::TracksExtra>;
-extern template struct soa::Join<aod::Tracks, aod::TracksCov, aod::TracksExtra>;
-extern template struct soa::Join<aod::TracksExtension, aod::StoredTracks>;
+extern template struct soa::JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::Tracks, aod::TracksExtra>;
+extern template struct soa::JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::Tracks, aod::TracksCov, aod::TracksExtra>;
+extern template struct soa::JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::TracksExtension, aod::StoredTracks>;
 } // namespace soa
 namespace aod
 {
@@ -548,28 +678,77 @@ using FullTrack = FullTracks::iterator;
 namespace trackqa
 {
 // TRACKQA TABLE COLUMNS
-DECLARE_SOA_INDEX_COLUMN(Track, track);                              //! track to which this QA information belongs
-DECLARE_SOA_COLUMN(TPCTime0, tpcTime0, float);                       //! tpc only time0 (mTime0 in TPC track)
-DECLARE_SOA_COLUMN(TPCDCAR, tpcdcaR, int16_t);                       //! tpc only DCAr
-DECLARE_SOA_COLUMN(TPCDCAZ, tpcdcaZ, int16_t);                       //! tpc only DCAz
-DECLARE_SOA_COLUMN(TPCClusterByteMask, tpcClusterByteMask, uint8_t); //! tracklet bitmask - track defining 8 tracklets (152=8*19 rows) bit set if nCluster>thr (default 5)
-DECLARE_SOA_COLUMN(TPCdEdxMax0R, tpcdEdxMax0R, uint8_t);             //! TPC dEdxQMax -ROC0/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxMax1R, tpcdEdxMax1R, uint8_t);             //! TPC dEdxQMax -ROC1/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxMax2R, tpcdEdxMax2R, uint8_t);             //! TPC dEdxQMax -ROC2/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxMax3R, tpcdEdxMax3R, uint8_t);             //! TPC dEdxQMax -ROC3/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxTot0R, tpcdEdxTot0R, uint8_t);             //! TPC dEdxQtot -ROC0/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxTot1R, tpcdEdxTot1R, uint8_t);             //! TPC dEdxQtot -ROC1/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxTot2R, tpcdEdxTot2R, uint8_t);             //! TPC dEdxQtot -ROC2/dEdx
-DECLARE_SOA_COLUMN(TPCdEdxTot3R, tpcdEdxTot3R, uint8_t);             //! TPC dEdxQtot -ROC3/dEdx
+DECLARE_SOA_INDEX_COLUMN(Track, track);                                   //! track to which this QA information belongs
+DECLARE_SOA_COLUMN(TPCTime0, tpcTime0, float);                            //! tpc only time0 (mTime0 in TPC track)
+DECLARE_SOA_COLUMN(TPCdEdxNorm, tpcdEdxNorm, float);                      //! 100/TrackTPC.mdEdxAlt used to normalize dEdX...values below
+DECLARE_SOA_COLUMN(TPCDCAR, tpcdcaR, int16_t);                            //! tpc only DCAr
+DECLARE_SOA_COLUMN(TPCDCAZ, tpcdcaZ, int16_t);                            //! tpc only DCAz
+DECLARE_SOA_COLUMN(TPCClusterByteMask, tpcClusterByteMask, uint8_t);      //! tracklet bitmask - track defining 8 tracklets (152=8*19 rows) bit set if nCluster>thr (default 5)
+DECLARE_SOA_COLUMN(TPCdEdxMax0R, tpcdEdxMax0R, uint8_t);                  //! TPC dEdxQMax -ROC0/dEdx from TrackTPC.mdEdxAlt
+DECLARE_SOA_COLUMN(TPCdEdxMax1R, tpcdEdxMax1R, uint8_t);                  //! TPC dEdxQMax -ROC1/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxMax2R, tpcdEdxMax2R, uint8_t);                  //! TPC dEdxQMax -ROC2/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxMax3R, tpcdEdxMax3R, uint8_t);                  //! TPC dEdxQMax -ROC3/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxTot0R, tpcdEdxTot0R, uint8_t);                  //! TPC dEdxQtot -ROC0/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxTot1R, tpcdEdxTot1R, uint8_t);                  //! TPC dEdxQtot -ROC1/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxTot2R, tpcdEdxTot2R, uint8_t);                  //! TPC dEdxQtot -ROC2/dEdx
+DECLARE_SOA_COLUMN(TPCdEdxTot3R, tpcdEdxTot3R, uint8_t);                  //! TPC dEdxQtot -ROC3/dEdx
+DECLARE_SOA_COLUMN(DeltaRefContParamY, deltaRefContParamY, int8_t);       //! Normalized delta of contributor tracks at reference point in the same frame Y
+DECLARE_SOA_COLUMN(DeltaRefContParamZ, deltaRefITSParamZ, int8_t);        //! Normalized delta of contributor tracks at reference point in the same frame Z
+DECLARE_SOA_COLUMN(DeltaRefContParamSnp, deltaRefContParamSnp, int8_t);   //! Normalized delta of contributor tracks at reference point in the same frame Snp
+DECLARE_SOA_COLUMN(DeltaRefContParamTgl, deltaRefContParamTgl, int8_t);   //! Normalized delta of contributor tracks at reference point in the same frame Tgl
+DECLARE_SOA_COLUMN(DeltaRefContParamQ2Pt, deltaRefContParamQ2Pt, int8_t); //! Normalized delta of contributor tracks at reference point in the same frame Q2Pt
+DECLARE_SOA_COLUMN(DeltaRefGloParamY, deltaRefGloParamY, int8_t);         //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Y
+DECLARE_SOA_COLUMN(DeltaRefGloParamZ, deltaRefGloParamZ, int8_t);         //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Z
+DECLARE_SOA_COLUMN(DeltaRefGloParamSnp, deltaRefGloParamSnp, int8_t);     //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Snp
+DECLARE_SOA_COLUMN(DeltaRefGloParamTgl, deltaRefGloParamTgl, int8_t);     //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Tgl
+DECLARE_SOA_COLUMN(DeltaRefGloParamQ2Pt, deltaRefGloParamQ2Pt, int8_t);   //! Normalized delta of global track to average contributors matched tracks at reference point in the same frame Q2Pt
+DECLARE_SOA_COLUMN(DeltaTOFdX, deltaTOFdX, int8_t);                       //!
+DECLARE_SOA_COLUMN(DeltaTOFdZ, deltaTOFdZ, int8_t);                       //!
+
+DECLARE_SOA_DYNAMIC_COLUMN(IsDummy, isDummy, //! indicates if the propagation of the contrib. tracks was successful and residuals are available
+                           [](int8_t cY, int8_t cZ, int8_t cSnp, int8_t cTgl, int8_t cQ2Pt, int8_t gY, int8_t gZ, int8_t gSnp, int8_t gTgl, int8_t gQ2Pt) -> bool {
+                             constexpr int8_t m = std::numeric_limits<int8_t>::min();
+                             return (cY == m && cZ == m && cSnp == m && cTgl == m && cQ2Pt == m && gY == m && gZ == m && gSnp == m && gTgl == m && gQ2Pt == m);
+                           });
 } // namespace trackqa
 
-DECLARE_SOA_TABLE(TracksQA, "AOD", "TRACKQA", //! trackQA information - sampled QA information currently for the TPC
+DECLARE_SOA_TABLE(TracksQA_000, "AOD", "TRACKQA", //! trackQA information - sampled QA information currently for the TPC - version 0
                   o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
-                  //                  o2::soa::Index<>, trackqa::TrackId, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
                   trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
                   trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R);
+//                  o2::soa::Index<>, trackqa::TrackId, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
 
-using TrackQA = TracksQA::iterator;
+DECLARE_SOA_TABLE_VERSIONED(TracksQA_001, "AOD", "TRACKQA", 1, //! trackQA information - version 1 - including contributor residuals of matched tracks at reference radius
+                            o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
+                            trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
+                            trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R,
+                            trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                            trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt,
+                            trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                                             trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
+
+DECLARE_SOA_TABLE_VERSIONED(TracksQA_002, "AOD", "TRACKQA", 2, //! trackQA information - version 2 - including contributor residuals of matched tracks at reference radius + TOF delta information
+                            o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
+                            trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
+                            trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R,
+                            trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                            trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt,
+                            trackqa::DeltaTOFdX, trackqa::DeltaTOFdZ,
+                            trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                                             trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
+
+DECLARE_SOA_TABLE_VERSIONED(TracksQA_003, "AOD", "TRACKQA", 3, //! trackQA information - version 3 - including alternative dedx normalization
+                            o2::soa::Index<>, trackqa::TrackId, trackqa::TPCTime0, trackqa::TPCdEdxNorm, trackqa::TPCDCAR, trackqa::TPCDCAZ, trackqa::TPCClusterByteMask,
+                            trackqa::TPCdEdxMax0R, trackqa::TPCdEdxMax1R, trackqa::TPCdEdxMax2R, trackqa::TPCdEdxMax3R,
+                            trackqa::TPCdEdxTot0R, trackqa::TPCdEdxTot1R, trackqa::TPCdEdxTot2R, trackqa::TPCdEdxTot3R,
+                            trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                            trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt,
+                            trackqa::DeltaTOFdX, trackqa::DeltaTOFdZ,
+                            trackqa::IsDummy<trackqa::DeltaRefContParamY, trackqa::DeltaRefContParamZ, trackqa::DeltaRefContParamSnp, trackqa::DeltaRefContParamTgl, trackqa::DeltaRefContParamQ2Pt,
+                                             trackqa::DeltaRefGloParamY, trackqa::DeltaRefGloParamZ, trackqa::DeltaRefGloParamSnp, trackqa::DeltaRefGloParamTgl, trackqa::DeltaRefGloParamQ2Pt>);
+
+using TracksQAVersion = TracksQA_003;
+using TracksQA = TracksQAVersion::iterator;
 
 namespace fwdtrack
 {
@@ -719,12 +898,12 @@ DECLARE_SOA_TABLE_FULL_VERSIONED(StoredMFTTracks_001, "MFTTracks", "AOD", "MFTTR
                                  fwdtrack::Sign<fwdtrack::Signed1Pt>, fwdtrack::Chi2,
                                  fwdtrack::TrackTime, fwdtrack::TrackTimeRes);
 
-DECLARE_SOA_EXTENDED_TABLE(MFTTracks_000, StoredMFTTracks_000, "MFTTRACK", //! Additional MFTTracks information (Pt, Eta, P), version 0
+DECLARE_SOA_EXTENDED_TABLE(MFTTracks_000, StoredMFTTracks_000, "EXMFTTRACK", 0, //! Additional MFTTracks information (Pt, Eta, P), version 0
                            aod::fwdtrack::Pt,
                            aod::fwdtrack::Eta,
                            aod::fwdtrack::P);
 
-DECLARE_SOA_EXTENDED_TABLE(MFTTracks_001, StoredMFTTracks_001, "MFTTRACK", //! Additional MFTTracks information (Pt, Eta, P), version 1
+DECLARE_SOA_EXTENDED_TABLE(MFTTracks_001, StoredMFTTracks_001, "EXMFTTRACK", 1, //! Additional MFTTracks information (Pt, Eta, P), version 1
                            aod::fwdtrack::Pt,
                            aod::fwdtrack::Eta,
                            aod::fwdtrack::P);
@@ -753,9 +932,9 @@ DECLARE_SOA_TABLE_FULL(StoredFwdTracks, "FwdTracks", "AOD", "FWDTRACK",
                        fwdtrack::MCHBitMap, fwdtrack::MIDBitMap, fwdtrack::MIDBoards,
                        fwdtrack::TrackTime, fwdtrack::TrackTimeRes);
 
-DECLARE_SOA_EXTENDED_TABLE(FwdTracks, StoredFwdTracks, "FWDTRACK", //!
-                           aod::fwdtrack::Eta,                     // NOTE the order is different here than in MFTTracks as table extension has to be unique
+DECLARE_SOA_EXTENDED_TABLE(FwdTracks, StoredFwdTracks, "EXFWDTRACK", 0, //!
                            aod::fwdtrack::Pt,
+                           aod::fwdtrack::Eta,
                            aod::fwdtrack::P);
 
 DECLARE_SOA_TABLE_FULL(StoredFwdTracksCov, "FwdTracksCov", "AOD", "FWDTRACKCOV", //!
@@ -763,7 +942,7 @@ DECLARE_SOA_TABLE_FULL(StoredFwdTracksCov, "FwdTracksCov", "AOD", "FWDTRACKCOV",
                        fwdtrack::RhoXY, fwdtrack::RhoPhiY, fwdtrack::RhoPhiX, fwdtrack::RhoTglX, fwdtrack::RhoTglY,
                        fwdtrack::RhoTglPhi, fwdtrack::Rho1PtX, fwdtrack::Rho1PtY, fwdtrack::Rho1PtPhi, fwdtrack::Rho1PtTgl);
 
-DECLARE_SOA_EXTENDED_TABLE(FwdTracksCov, StoredFwdTracksCov, "FWDTRACKCOV", //!
+DECLARE_SOA_EXTENDED_TABLE(FwdTracksCov, StoredFwdTracksCov, "EXFWDTRACKCOV", 0, //!
                            aod::fwdtrack::CXX,
                            aod::fwdtrack::CXY,
                            aod::fwdtrack::CYY,
@@ -783,10 +962,36 @@ DECLARE_SOA_EXTENDED_TABLE(FwdTracksCov, StoredFwdTracksCov, "FWDTRACKCOV", //!
 using FwdTrack = FwdTracks::iterator;
 using FwdTrackCovFwd = FwdTracksCov::iterator;
 
+DECLARE_SOA_TABLE_FULL(StoredMFTTracksCov, "MFTTracksCov", "AOD", "MFTTRACKCOV", //!
+                       o2::soa::Index<>, fwdtrack::MFTTrackId,
+                       fwdtrack::SigmaX, fwdtrack::SigmaY, fwdtrack::SigmaPhi, fwdtrack::SigmaTgl, fwdtrack::Sigma1Pt,
+                       fwdtrack::RhoXY, fwdtrack::RhoPhiX, fwdtrack::RhoPhiY, fwdtrack::RhoTglX, fwdtrack::RhoTglY,
+                       fwdtrack::RhoTglPhi, fwdtrack::Rho1PtX, fwdtrack::Rho1PtY, fwdtrack::Rho1PtPhi, fwdtrack::Rho1PtTgl);
+
+DECLARE_SOA_EXTENDED_TABLE(MFTTracksCov, StoredMFTTracksCov, "EXMFTTRACKCOV", 0, //!
+                           aod::fwdtrack::CXX,
+                           aod::fwdtrack::CXY,
+                           aod::fwdtrack::CYY,
+                           aod::fwdtrack::CPhiX,
+                           aod::fwdtrack::CPhiY,
+                           aod::fwdtrack::CPhiPhi,
+                           aod::fwdtrack::CTglX,
+                           aod::fwdtrack::CTglY,
+                           aod::fwdtrack::CTglPhi,
+                           aod::fwdtrack::CTglTgl,
+                           aod::fwdtrack::C1PtX,
+                           aod::fwdtrack::C1PtY,
+                           aod::fwdtrack::C1PtPhi,
+                           aod::fwdtrack::C1PtTgl,
+                           aod::fwdtrack::C1Pt21Pt2);
+
+using MFTTrack = MFTTracks::iterator;
+using MFTTrackCovFwd = MFTTracksCov::iterator;
+
 } // namespace aod
 namespace soa
 {
-extern template struct Join<aod::FwdTracks, aod::FwdTracksCov>;
+extern template struct JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::FwdTracks, aod::FwdTracksCov>;
 }
 namespace aod
 {
@@ -1273,6 +1478,7 @@ namespace fv0a
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                             //! BC index
 DECLARE_SOA_COLUMN(Amplitude, amplitude, std::vector<float>); //! Amplitudes of non-zero channels. The channel IDs are given in Channel (at the same index)
+DECLARE_SOA_COLUMN(TimeFV0A, timeFV0A, std::vector<float>);   //! Time of non-zero channels. The channel IDs are given in Channel (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(Channel, channel, std::vector<uint8_t>);   //! Channel IDs which had non-zero amplitudes. There are at maximum 48 channels.
 DECLARE_SOA_COLUMN(Time, time, float);                        //! Time in ns
 DECLARE_SOA_COLUMN(TriggerMask, triggerMask, uint8_t);        //!
@@ -1281,6 +1487,10 @@ DECLARE_SOA_COLUMN(TriggerMask, triggerMask, uint8_t);        //!
 DECLARE_SOA_TABLE(FV0As, "AOD", "FV0A", //!
                   o2::soa::Index<>, fv0a::BCId, fv0a::Amplitude, fv0a::Channel, fv0a::Time, fv0a::TriggerMask);
 using FV0A = FV0As::iterator;
+
+DECLARE_SOA_TABLE(FV0AsExtra, "AOD", "FV0AEXTRA", //! FV0AsExtra table
+                  o2::soa::Index<>, fv0a::BCId, fv0a::TimeFV0A);
+using FV0AExtra = FV0AsExtra::iterator;
 
 // V0C table for Run2 only
 namespace fv0c
@@ -1299,8 +1509,10 @@ namespace ft0
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                               //! BC index
 DECLARE_SOA_COLUMN(AmplitudeA, amplitudeA, std::vector<float>); //! Amplitudes of non-zero channels on the A-side. The channel IDs are given in ChannelA (at the same index)
+DECLARE_SOA_COLUMN(TimeFT0A, timeFT0A, std::vector<float>);     //! Time of non-zero channels on the A-side. The channel IDs are given in ChannelA (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(ChannelA, channelA, std::vector<uint8_t>);   //! Channel IDs on the A side which had non-zero amplitudes. There are at maximum 96 channels.
 DECLARE_SOA_COLUMN(AmplitudeC, amplitudeC, std::vector<float>); //! Amplitudes of non-zero channels on the C-side. The channel IDs are given in ChannelC (at the same index)
+DECLARE_SOA_COLUMN(TimeFT0C, timeFT0C, std::vector<float>);     //! Time of non-zero channels on the C-side. The channel IDs are given in ChannelC (at the same index). Only for the FITExtra table
 DECLARE_SOA_COLUMN(ChannelC, channelC, std::vector<uint8_t>);   //! Channel IDs on the C side which had non-zero amplitudes. There are at maximum 112 channels.
 DECLARE_SOA_COLUMN(TimeA, timeA, float);                        //! Average A-side time
 DECLARE_SOA_COLUMN(TimeC, timeC, float);                        //! Average C-side time
@@ -1344,6 +1556,11 @@ DECLARE_SOA_TABLE(FT0s, "AOD", "FT0", //!
                   ft0::SumAmpA<ft0::AmplitudeA>, ft0::SumAmpC<ft0::AmplitudeC>);
 using FT0 = FT0s::iterator;
 
+DECLARE_SOA_TABLE(FT0sExtra, "AOD", "FT0EXTRA", //! FT0sExtra table
+                  o2::soa::Index<>, ft0::BCId,
+                  ft0::TimeFT0A, ft0::TimeFT0C);
+using FT0Extra = FT0sExtra::iterator;
+
 namespace fdd
 {
 DECLARE_SOA_INDEX_COLUMN(BC, bc);                     //! BC index
@@ -1352,6 +1569,9 @@ DECLARE_SOA_COLUMN(AmplitudeC, amplitudeC, float[4]); //! Amplitude in adjacent 
 
 DECLARE_SOA_COLUMN(ChargeA, chargeA, int16_t[8]); //! Amplitude per channel A-side
 DECLARE_SOA_COLUMN(ChargeC, chargeC, int16_t[8]); //! Amplitude per channel C-side
+
+DECLARE_SOA_COLUMN(TimeFDDA, timeFDDA, float[8]); //! Time per channel A-side, only for the FITExtra table
+DECLARE_SOA_COLUMN(TimeFDDC, timeFDDC, float[8]); //! Time per channel C-side, only for the FITExtra table
 
 DECLARE_SOA_COLUMN(TimeA, timeA, float);               //!
 DECLARE_SOA_COLUMN(TimeC, timeC, float);               //!
@@ -1374,6 +1594,11 @@ DECLARE_SOA_TABLE_VERSIONED(FDDs_001, "AOD", "FDD", 1, //! FDD table, version 00
 using FDDs = FDDs_001; //! this defines the current default version
 using FDD = FDDs::iterator;
 
+DECLARE_SOA_TABLE(FDDsExtra, "AOD", "FDDEXTRA", //! FDDsExtra table
+                  o2::soa::Index<>, fdd::BCId,
+                  fdd::TimeFDDA, fdd::TimeFDDC);
+using FDDExtra = FDDsExtra::iterator;
+
 namespace v0
 {
 DECLARE_SOA_INDEX_COLUMN_FULL(PosTrack, posTrack, int, Tracks, "_Pos"); //! Positive track
@@ -1382,7 +1607,7 @@ DECLARE_SOA_INDEX_COLUMN(Collision, collision);                         //! Coll
 DECLARE_SOA_COLUMN(V0Type, v0Type, uint8_t);                            //! custom bitmap for various selections (see below)
 
 DECLARE_SOA_DYNAMIC_COLUMN(IsStandardV0, isStandardV0, //! is standard V0
-                           [](uint8_t V0Type) -> bool { return V0Type & (1 << 0); });
+                           [](uint8_t V0Type) -> bool { return V0Type == 1; });
 DECLARE_SOA_DYNAMIC_COLUMN(IsPhotonV0, isPhotonV0, //! is TPC-only V0 for which the photon-mass-hypothesis was good
                            [](uint8_t V0Type) -> bool { return V0Type & (1 << 1); });
 DECLARE_SOA_DYNAMIC_COLUMN(IsCollinearV0, isCollinearV0, //! is V0 for which the photon-mass-hypothesis was good and was fitted collinearly
@@ -1430,7 +1655,7 @@ DECLARE_SOA_INDEX_COLUMN_FULL(Track2, track2, int, Tracks, "_2"); //! Track 2 in
 DECLARE_SOA_INDEX_COLUMN(Collision, collision);                   //! Collision index
 } // namespace decay3body
 
-DECLARE_SOA_TABLE(Decay3Bodys, "AOD", "DECAY3BODY", //! Run 2 cascade table
+DECLARE_SOA_TABLE(Decay3Bodys, "AOD", "DECAY3BODY", //! 3-body decay table
                   o2::soa::Index<>, decay3body::CollisionId, decay3body::Track0Id, decay3body::Track1Id, decay3body::Track2Id);
 
 using Decay3Bodys = Decay3Bodys; //! this defines the current default version
@@ -1507,13 +1732,13 @@ using TrackedV0 = TrackedV0s::iterator;
 using Tracked3Bodys = Tracked3Bodys;
 using Tracked3body = Tracked3Bodys::iterator;
 
-namespace origin
+namespace origins
 {
 DECLARE_SOA_COLUMN(DataframeID, dataframeID, uint64_t); //! Data frame ID (what is usually found in directory name in the AO2D.root, i.e. DF_XXX)
-} // namespace origin
+} // namespace origins
 
 DECLARE_SOA_TABLE(Origins, "AOD", "ORIGIN", //! Table which contains the IDs of all dataframes merged into this dataframe
-                  o2::soa::Index<>, origin::DataframeID);
+                  o2::soa::Index<>, origins::DataframeID);
 
 using Origin = Origins::iterator;
 
@@ -1531,15 +1756,85 @@ DECLARE_SOA_COLUMN(SPDFiredFastOrL0, spdFiredFastOrL0, uint16_t);     //! Fired 
 DECLARE_SOA_COLUMN(SPDFiredFastOrL1, spdFiredFastOrL1, uint16_t);     //! Fired FASTOR signals in the first layer of the SPD (online)
 DECLARE_SOA_COLUMN(V0TriggerChargeA, v0TriggerChargeA, uint16_t);     //! V0A trigger charge
 DECLARE_SOA_COLUMN(V0TriggerChargeC, v0TriggerChargeC, uint16_t);     //! V0C trigger charge
+DECLARE_SOA_COLUMN(NTPCClusters, nTPCClusters, uint32_t);             //! total number of TPC clusters (for ev sel)
+DECLARE_SOA_COLUMN(NSDDSSDClusters, nSDDSSDClusters, uint32_t);       //! total number of SSD + SDD clusters (for ev sel)
+namespace oftv0
+{
+DECLARE_SOA_INDEX_COLUMN(Collision, collision);                         //! Collision index
+DECLARE_SOA_INDEX_COLUMN_FULL(PosTrack, posTrack, int, Tracks, "_Pos"); //! Positive track
+DECLARE_SOA_INDEX_COLUMN_FULL(NegTrack, negTrack, int, Tracks, "_Neg"); //! Negative track
+DECLARE_SOA_COLUMN(Px, px, float);                                      //! momentum in x
+DECLARE_SOA_COLUMN(Py, py, float);                                      //! momentum in y
+DECLARE_SOA_COLUMN(Pz, pz, float);                                      //! momentum in z
+DECLARE_SOA_COLUMN(E, e, float);                                        //! energy
+DECLARE_SOA_COLUMN(Qt, qt, float);                                      //! Qt of AP
+DECLARE_SOA_COLUMN(Alpha, alpha, float);                                //! Alpha of AP
+DECLARE_SOA_COLUMN(X, x, float);                                        //! conversion point x coordiante
+DECLARE_SOA_COLUMN(Y, y, float);                                        //! conversion point y coordiante
+DECLARE_SOA_COLUMN(Z, z, float);                                        //! conversion point z coordiante
+DECLARE_SOA_COLUMN(Chi2NDF, chi2NDF, float);                            //! chi^2 over NDF from KFParticle
+DECLARE_SOA_COLUMN(PsiPair, psiPair, float);                            //! Psi pair
+DECLARE_SOA_COLUMN(DCAr, dcaR, float);                                  //! DCA in radial direction
+DECLARE_SOA_COLUMN(DCAz, dcaZ, float);                                  //! DCA in z direction
+DECLARE_SOA_COLUMN(MassInMeV, mass, float);                             //! mass of the conversion in MeV. Do NOT use for cut!
+} // namespace oftv0
+namespace pmd
+{
+DECLARE_SOA_INDEX_COLUMN(BC, bc);                       //! BC index
+DECLARE_SOA_COLUMN(X, pmdclsx, float);                  //! cluster x position
+DECLARE_SOA_COLUMN(Y, pmdclsy, float);                  //! cluster y position
+DECLARE_SOA_COLUMN(Z, pmdclsz, float);                  //! cluster z position
+DECLARE_SOA_COLUMN(CluADC, pmdclsadc, float);           //! cluster energy in ADC
+DECLARE_SOA_COLUMN(CluPID, pmdclspid, float);           //! cluster probability, 1: photon, 0:hadron
+DECLARE_SOA_COLUMN(Det, pmddet, uint8_t);               //! Detector, 0:PRE, 1:CPV
+DECLARE_SOA_COLUMN(Ncell, pmdncell, uint8_t);           //! cluster cells
+DECLARE_SOA_COLUMN(Smn, pmdmodule, int32_t);            //! module number
+DECLARE_SOA_COLUMN(TrackNo, pmdtrackno, int32_t);       //! Track number assigned to clus from simulation
+DECLARE_SOA_COLUMN(TrackPid, pmdtrackpid, int32_t);     //! Track PID assigned to clus from simulation
+DECLARE_SOA_COLUMN(SigX, pmdsigx, float);               //! Cluster x-width
+DECLARE_SOA_COLUMN(SigY, pmdsigy, float);               //! Cluster y-width
+DECLARE_SOA_COLUMN(ClMatching, pmdclmatching, int32_t); //! Cluster of PRE matching with CPV
+} // namespace pmd
 } // namespace run2
 
-DECLARE_SOA_TABLE(Run2BCInfos, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
+DECLARE_SOA_TABLE(Run2BCInfos_000, "AOD", "RUN2BCINFO", run2::EventCuts, //! Legacy information for Run 2 event selection
                   run2::TriggerMaskNext50, run2::L0TriggerInputMask,
                   run2::SPDClustersL0, run2::SPDClustersL1,
                   run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
                   run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
                   run2::V0TriggerChargeA, run2::V0TriggerChargeC);
+
+DECLARE_SOA_TABLE_VERSIONED(Run2BCInfos_001, "AOD", "RUN2BCINFO", 1,
+                            run2::EventCuts, //! Legacy information for Run 2 event selection
+                            run2::TriggerMaskNext50, run2::L0TriggerInputMask,
+                            run2::SPDClustersL0, run2::SPDClustersL1,
+                            run2::SPDFiredChipsL0, run2::SPDFiredChipsL1,
+                            run2::SPDFiredFastOrL0, run2::SPDFiredFastOrL1,
+                            run2::V0TriggerChargeA, run2::V0TriggerChargeC,
+                            run2::NTPCClusters, run2::NSDDSSDClusters);
+
+using Run2BCInfos = Run2BCInfos_001;
 using Run2BCInfo = Run2BCInfos::iterator;
+
+DECLARE_SOA_TABLE(Run2OTFV0s, "AOD", "Run2OTFV0", //! Run 2 V0 on the fly table
+                  o2::soa::Index<>,
+                  run2::oftv0::CollisionId, run2::oftv0::PosTrackId, run2::oftv0::NegTrackId,
+                  run2::oftv0::Px, run2::oftv0::Py, run2::oftv0::Pz, run2::oftv0::E,
+                  run2::oftv0::Qt, run2::oftv0::Alpha,
+                  run2::oftv0::X, run2::oftv0::Y, run2::oftv0::Z,
+                  run2::oftv0::Chi2NDF, run2::oftv0::PsiPair,
+                  run2::oftv0::DCAr, run2::oftv0::DCAz,
+                  run2::oftv0::MassInMeV);
+
+using Run2OTFV0 = Run2OTFV0s::iterator;
+
+DECLARE_SOA_TABLE(Pmds, "AOD", "PMD", //! Photon information from PMD detector
+                  o2::soa::Index<>, run2::pmd::BCId, run2::pmd::X, run2::pmd::Y,
+                  run2::pmd::Z, run2::pmd::CluADC, run2::pmd::CluPID, run2::pmd::Det,
+                  run2::pmd::Ncell, run2::pmd::Smn, run2::pmd::TrackNo, run2::pmd::TrackPid,
+                  run2::pmd::SigX, run2::pmd::SigY, run2::pmd::ClMatching);
+
+using Pmd = Pmds::iterator;
 
 // ---- MC tables ----
 namespace mccollision
@@ -1680,14 +1975,14 @@ DECLARE_SOA_TABLE_FULL_VERSIONED(StoredMcParticles_001, "McParticles", "AOD", "M
                                  mcparticle::GetProcess<mcparticle::Flags, mcparticle::StatusCode>,
                                  mcparticle::IsPhysicalPrimary<mcparticle::Flags>);
 
-DECLARE_SOA_EXTENDED_TABLE(McParticles_000, StoredMcParticles_000, "MCPARTICLE", //! Basic MC particle properties
+DECLARE_SOA_EXTENDED_TABLE(McParticles_000, StoredMcParticles_000, "EXMCPARTICLE", 0, //! Basic MC particle properties
                            mcparticle::Phi,
                            mcparticle::Eta,
                            mcparticle::Pt,
                            mcparticle::P,
                            mcparticle::Y);
 
-DECLARE_SOA_EXTENDED_TABLE(McParticles_001, StoredMcParticles_001, "MCPARTICLE", //! Basic MC particle properties
+DECLARE_SOA_EXTENDED_TABLE(McParticles_001, StoredMcParticles_001, "EXMCPARTICLE", 1, //! Basic MC particle properties
                            mcparticle::Phi,
                            mcparticle::Eta,
                            mcparticle::Pt,
@@ -1700,18 +1995,20 @@ using McParticle = McParticles::iterator;
 } // namespace aod
 namespace soa
 {
-DECLARE_EQUIVALENT_FOR_INDEX(aod::Collisions_000, aod::Collisions_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredMcParticles_000, aod::StoredMcParticles_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracks, aod::StoredTracksIU);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracks, aod::StoredTracksExtra_000);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracksIU, aod::StoredTracksExtra_000);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracks, aod::StoredTracksExtra_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracksIU, aod::StoredTracksExtra_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracksExtra_000, aod::StoredTracksExtra_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::HMPID_000, aod::HMPID_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredMFTTracks, aod::StoredMFTTracks_000);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredMFTTracks, aod::StoredMFTTracks_001);
-DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredMFTTracks_000, aod::StoredMFTTracks_001);
+DECLARE_EQUIVALENT_FOR_INDEX_NG("COLLISION/0", "COLLISION/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("MCPARTICLE/0", "MCPARTICLE/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACK_IU/0");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/0");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/0");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK/0", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACK_IU/0", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/0", "TRACKEXTRA/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/0", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("TRACKEXTRA/1", "TRACKEXTRA/2");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("HMPID/0", "HMPID/1");
+DECLARE_EQUIVALENT_FOR_INDEX_NG("MFTTracks/0", "MFTTracks/1");
 } // namespace soa
 
 namespace aod
@@ -1894,8 +2191,8 @@ DECLARE_EQUIVALENT_FOR_INDEX(aod::StoredTracksIU, aod::McTrackLabels);
 DECLARE_EQUIVALENT_FOR_INDEX(aod::Collisions, aod::McCollisionLabels);
 // Joins with collisions (only for sparse ones)
 // NOTE: index table needs to be always last argument
-extern template struct Join<aod::Collisions, aod::Run2MatchedSparse>;
-extern template struct Join<aod::Collisions, aod::Run3MatchedSparse>;
+extern template struct JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::Collisions, aod::Run2MatchedSparse>;
+extern template struct JoinFull<o2::aod::Hash<"JOIN/0"_h>, aod::Collisions, aod::Run3MatchedSparse>;
 } // namespace soa
 namespace aod
 {

@@ -16,9 +16,7 @@
 #include "DetectorsBase/Propagator.h"
 #include "GPUCommonDef.h"
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 class CellSeed;
 namespace gpu
@@ -40,9 +38,10 @@ GPUd() bool fitTrack(TrackITSExt& track,
 template <int nLayers = 7>
 GPUg() void fitTrackSeedsKernel(
   CellSeed* trackSeeds,
-  TrackingFrameInfo** foundTrackingFrameInfo,
+  const TrackingFrameInfo** foundTrackingFrameInfo,
   o2::its::TrackITSExt* tracks,
-  const size_t nSeeds,
+  const float* minPts,
+  const unsigned int nSeeds,
   const float Bz,
   const int startLevel,
   float maxChi2ClusterAttachment,
@@ -52,16 +51,166 @@ GPUg() void fitTrackSeedsKernel(
 #endif
 } // namespace gpu
 
+template <int nLayers = 7>
+void countTrackletsInROFsHandler(const IndexTableUtils* utils,
+                                 const uint8_t* multMask,
+                                 const int startROF,
+                                 const int endROF,
+                                 const int maxROF,
+                                 const int deltaROF,
+                                 const int vertexId,
+                                 const Vertex* vertices,
+                                 const int* rofPV,
+                                 const int nVertices,
+                                 const Cluster** clusters,
+                                 std::vector<unsigned int> nClusters,
+                                 const int** ROFClusters,
+                                 const unsigned char** usedClusters,
+                                 const int** clustersIndexTables,
+                                 int** trackletsLUTs,
+                                 gsl::span<int*> trackletsLUTsHost,
+                                 const int iteration,
+                                 const float NSigmaCut,
+                                 std::vector<float>& phiCuts,
+                                 const float resolutionPV,
+                                 std::vector<float>& minR,
+                                 std::vector<float>& maxR,
+                                 std::vector<float>& resolutions,
+                                 std::vector<float>& radii,
+                                 std::vector<float>& mulScatAng,
+                                 const int nBlocks,
+                                 const int nThreads);
+
+template <int nLayers = 7>
+void computeTrackletsInROFsHandler(const IndexTableUtils* utils,
+                                   const uint8_t* multMask,
+                                   const int startROF,
+                                   const int endROF,
+                                   const int maxROF,
+                                   const int deltaROF,
+                                   const int vertexId,
+                                   const Vertex* vertices,
+                                   const int* rofPV,
+                                   const int nVertices,
+                                   const Cluster** clusters,
+                                   std::vector<unsigned int> nClusters,
+                                   const int** ROFClusters,
+                                   const unsigned char** usedClusters,
+                                   const int** clustersIndexTables,
+                                   Tracklet** tracklets,
+                                   gsl::span<Tracklet*> spanTracklets,
+                                   gsl::span<int> nTracklets,
+                                   int** trackletsLUTs,
+                                   gsl::span<int*> trackletsLUTsHost,
+                                   const int iteration,
+                                   const float NSigmaCut,
+                                   std::vector<float>& phiCuts,
+                                   const float resolutionPV,
+                                   std::vector<float>& minR,
+                                   std::vector<float>& maxR,
+                                   std::vector<float>& resolutions,
+                                   std::vector<float>& radii,
+                                   std::vector<float>& mulScatAng,
+                                   const int nBlocks,
+                                   const int nThreads);
+
+void countCellsHandler(const Cluster** sortedClusters,
+                       const Cluster** unsortedClusters,
+                       const TrackingFrameInfo** tfInfo,
+                       Tracklet** tracklets,
+                       int** trackletsLUT,
+                       const int nTracklets,
+                       const int layer,
+                       CellSeed* cells,
+                       int** cellsLUTsDeviceArray,
+                       int* cellsLUTsHost,
+                       const float bz,
+                       const float maxChi2ClusterAttachment,
+                       const float cellDeltaTanLambdaSigma,
+                       const float nSigmaCut,
+                       const int nBlocks,
+                       const int nThreads);
+
+void computeCellsHandler(const Cluster** sortedClusters,
+                         const Cluster** unsortedClusters,
+                         const TrackingFrameInfo** tfInfo,
+                         Tracklet** tracklets,
+                         int** trackletsLUT,
+                         const int nTracklets,
+                         const int layer,
+                         CellSeed* cells,
+                         int** cellsLUTsDeviceArray,
+                         int* cellsLUTsHost,
+                         const float bz,
+                         const float maxChi2ClusterAttachment,
+                         const float cellDeltaTanLambdaSigma,
+                         const float nSigmaCut,
+                         const int nBlocks,
+                         const int nThreads);
+
+unsigned int countCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                        int* neighboursLUTs,
+                                        int** cellsLUTs,
+                                        gpuPair<int, int>* cellNeighbours,
+                                        int* neighboursIndexTable,
+                                        const float maxChi2ClusterAttachment,
+                                        const float bz,
+                                        const int layerIndex,
+                                        const unsigned int nCells,
+                                        const unsigned int nCellsNext,
+                                        const int maxCellNeighbours,
+                                        const int nBlocks,
+                                        const int nThreads);
+
+void computeCellNeighboursHandler(CellSeed** cellsLayersDevice,
+                                  int* neighboursLUTs,
+                                  int** cellsLUTs,
+                                  gpuPair<int, int>* cellNeighbours,
+                                  int* neighboursIndexTable,
+                                  const float maxChi2ClusterAttachment,
+                                  const float bz,
+                                  const int layerIndex,
+                                  const unsigned int nCells,
+                                  const unsigned int nCellsNext,
+                                  const int maxCellNeighbours,
+                                  const int nBlocks,
+                                  const int nThreads);
+
+int filterCellNeighboursHandler(gpuPair<int, int>*,
+                                int*,
+                                unsigned int);
+
+template <int nLayers = 7>
+void processNeighboursHandler(const int startLayer,
+                              const int startLevel,
+                              CellSeed** allCellSeeds,
+                              CellSeed* currentCellSeeds,
+                              std::array<int, nLayers - 2>& nCells,
+                              const unsigned char** usedClusters,
+                              std::array<int*, nLayers - 2>& neighbours,
+                              gsl::span<int*> neighboursDeviceLUTs,
+                              const TrackingFrameInfo** foundTrackingFrameInfo,
+                              std::vector<CellSeed>& seedsHost,
+                              const float bz,
+                              const float MaxChi2ClusterAttachment,
+                              const float maxChi2NDF,
+                              const o2::base::Propagator* propagator,
+                              const o2::base::PropagatorF::MatCorrType matCorrType,
+                              const int nBlocks,
+                              const int nThreads);
+
 void trackSeedHandler(CellSeed* trackSeeds,
-                      TrackingFrameInfo** foundTrackingFrameInfo,
+                      const TrackingFrameInfo** foundTrackingFrameInfo,
                       o2::its::TrackITSExt* tracks,
-                      const size_t nSeeds,
+                      std::vector<float>& minPtsHost,
+                      const unsigned int nSeeds,
                       const float Bz,
                       const int startLevel,
                       float maxChi2ClusterAttachment,
                       float maxChi2NDF,
                       const o2::base::Propagator* propagator,
-                      const o2::base::PropagatorF::MatCorrType matCorrType);
-} // namespace its
-} // namespace o2
+                      const o2::base::PropagatorF::MatCorrType matCorrType,
+                      const int nBlocks,
+                      const int nThreads);
+} // namespace o2::its
 #endif // ITSTRACKINGGPU_TRACKINGKERNELS_H_

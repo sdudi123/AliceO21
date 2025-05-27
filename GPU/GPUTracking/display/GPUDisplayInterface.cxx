@@ -19,8 +19,9 @@
 #include <dlfcn.h>
 #include <mutex>
 #include <tuple>
+#include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 static constexpr const char* libName = "lib" LIBRARY_PREFIX "GPUTrackingDisplay" LIBRARY_EXTENSION;
 static constexpr const char* funcName = "GPUTrackingDisplayLoader";
@@ -64,9 +65,9 @@ static void* loadUnloadLib(bool load)
   return nullptr;
 }
 
-GPUDisplayInterface* GPUDisplayInterface::getDisplay(GPUDisplayFrontendInterface* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param, const GPUCalibObjectsConst* calib, const GPUSettingsDisplay* config)
+GPUDisplayInterface* GPUDisplayInterface::getDisplay(GPUDisplayFrontendInterface* frontend, GPUChainTracking* chain, GPUQA* qa, const GPUParam* param, const GPUCalibObjectsConst* calib, const GPUSettingsDisplay* config, const GPUSettingsProcessing* proc)
 {
-  std::tuple args = {frontend, chain, qa, param, calib, config};
+  std::tuple args = {frontend, chain, qa, param, calib, config, proc};
   auto func = (GPUDisplayInterface * (*)(const char*, void*)) loadUnloadLib(true);
   return func ? func("display", &args) : nullptr;
 }

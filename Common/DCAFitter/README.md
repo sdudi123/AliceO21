@@ -2,7 +2,7 @@
 \page refDetectorsVertexing DCAFitter
 /doxy -->
 
-## DCAFitterN
+# DCAFitterN
 
 Templated class to fit the Point of Closest Approach (PCA) of secondary vertex with N prongs. Allows minimization of either absolute or weighted Distances of Closest Approach (DCA) of N tracks to their common PCA.
 
@@ -74,7 +74,60 @@ Extra method `setWeightedFinalPCA(bool)` is provided for the "mixed" mode: if `s
 but the final V0 position will be calculated using weighted average. One can also recalculate the V0 position by the weighted average method by calling explicitly
 `ft.recalculatePCAWithErrors(int icand=0)`, w/o prior call of `setWeightedFinalPCA(true)`: this will update the position returned by the `getPCACandidate(int cand = 0)`.
 
-The covariance matrix of the V0 position is calculated as an inversed sum of tracks inversed covariances at respective `X_dca` points.
+The covariance matrix of the V0 position is calculated as an inverted sum of tracks inversed covariances at respective `X_dca` points.
 
 See ``O2/Common/DCAFitter/test/testDCAFitterN.cxx`` for more extended example.
 Currently only 2 and 3 prongs permitted, thought this can be changed by modifying ``DCAFitterN::NMax`` constant.
+
+## Error handling
+
+It may happen that the track propagation to the the proximity of the PCA fails at the various stage of the fit. In this case the fit is abandoned and the failure flag is set, it can be checked using
+isPropagationFailure(int cand = 0)` method.
+
+Also, due to the linearization errors the covariance matrix of the track propagated to some point may become non-positive defined.
+In this case the relevant correlation coefficient of the cov.matrix is redefined to cure the position part of the cov.matrix and further program flow depends on the user settings for `DCAFitterN::setBadCovPolicy(v)`:
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::Discard);` : abandon fit (default)
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::Override);` : continue fit with overridden cov.matrix
+
+`DCAFitterN::setBadCovPolicy(DCAFitterN::OverrideAnFlag);` continue fit with overridden cov.matrix but set the propagation failure flag (can be checked using the same `isPropagationFailure(int cand = 0)` method).
+
+## Fit status
+The fitter provides a fit status for each candidate, which can be retrieved using:
+```
+FitStatus status = ft.getFitStatus(int cand = 0);
+```
+The possible values are:
+```
+enum FitStatus : uint8_t {    // part of the DCAFitterN class
+     None,                    // no status set (should not be possible!)
+
+     /* Good Conditions */
+     Converged, // fit converged
+     MaxIter,   // max iterations reached before fit convergence (can still be a good vertex)
+
+     /* Error Conditions */
+     NoCrossing,      // no reasonable crossing was found
+     RejRadius,       // radius of crossing was not acceptable
+     RejTrackX,       // one candidate track x was below the minimum required radius
+     RejTrackRoughZ,  // rejected by rough cut on tracks Z difference
+     RejChi2Max,      // rejected by maximum chi2 cut
+     FailProp,        // propagation of at least prong to PCA failed
+     FailInvCov,      // inversion of cov.-matrix failed
+     FailInvWeight,   // inversion of Ti weight matrix failed
+     FailInv2ndDeriv, // inversion of 2nd derivatives failed
+     FailCorrTracks,  // correction of tracks to updated x failed
+     FailCloserAlt,   // alternative PCA is closer
+};
+```
+This is allows to track where candiate fit was abondended.
+```
+int nc = ft.process(tr0,tr1,tr2);
+auto status = ft.getFitStatus();
+if (nc) {
+     // status can either be FitStatus::Converged or FitStatus::MaxIter
+}
+// status can be on of the error conditions
+```
+A more thorough example is given in `testDCAFitterN.cxx`.

@@ -12,13 +12,11 @@
 #include "ReconstructionDataFormats/TrackParametrizationWithError.h"
 #include "ReconstructionDataFormats/Vertex.h"
 #include "ReconstructionDataFormats/DCA.h"
+#include "CommonConstants/MathConstants.h"
 #include <GPUCommonLogger.h>
 
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <iostream>
-#ifndef GPUCA_STANDALONE
-#include "Math/SMatrix.h"
-#endif
 #endif
 
 #ifndef GPUCA_ALIGPUCODE
@@ -261,7 +259,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateToDCA(const o2::dat
 //______________________________________________________________
 template <typename value_T>
 GPUd() TrackParametrizationWithError<value_T>::TrackParametrizationWithError(const dim3_t& xyz, const dim3_t& pxpypz,
-                                                                             const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
+                                                                             const std::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
 {
   // construct track param and covariance from kinematics and lab errors
   set(xyz, pxpypz, cv, charge, sectorAlpha, pid);
@@ -270,7 +268,7 @@ GPUd() TrackParametrizationWithError<value_T>::TrackParametrizationWithError(con
 //______________________________________________________________
 template <typename value_T>
 GPUd() void TrackParametrizationWithError<value_T>::set(const dim3_t& xyz, const dim3_t& pxpypz,
-                                                        const gpu::gpustd::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
+                                                        const std::array<value_t, kLabCovMatSize>& cv, int charge, bool sectorAlpha, const PID pid)
 {
   // set track param and covariance from kinematics and lab errors
 
@@ -477,7 +475,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateTo(value_t xk, cons
   step *= gpu::CAMath::Sqrt(1.f + this->getTgl() * this->getTgl());
   //
   // get the track x,y,z,px/p,py/p,pz/p,p,sinAlpha,cosAlpha in the Global System
-  gpu::gpustd::array<value_t, 9> vecLab{0.f};
+  std::array<value_t, 9> vecLab{0.f};
   if (!this->getPosDirGlo(vecLab)) {
     return false;
   }
@@ -544,7 +542,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::propagateTo(value_t xk, cons
     costet = b[2] / bb;
     sintet = bt / bb;
   }
-  gpu::gpustd::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
+  std::array<value_t, 7> vect{costet * cosphi * vecLab[0] + costet * sinphi * vecLab[1] - sintet * vecLab[2],
                                       -sinphi * vecLab[0] + cosphi * vecLab[1],
                                       sintet * cosphi * vecLab[0] + sintet * sinphi * vecLab[1] + costet * vecLab[2],
                                       costet * cosphi * vecLab[3] + costet * sinphi * vecLab[4] - sintet * vecLab[5],
@@ -736,7 +734,7 @@ GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const value
 
 //______________________________________________
 template <typename value_T>
-GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2Unchecked(const value_t* p, const value_t* cov) const -> value_t
+GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2Quiet(const value_t* p, const value_t* cov) const -> value_t
 {
   // Estimate the chi2 of the space point "p" with the cov. matrix "cov"
   auto sdd = static_cast<double>(getSigmaY2()) + static_cast<double>(cov[0]);
@@ -754,11 +752,17 @@ GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2Unchecked(co
   return (d * (szz * d - sdz * z) + z * (sdd * z - d * sdz)) / det;
 }
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // Disable function relying on ROOT SMatrix on GPU
+//______________________________________________
+template <typename value_T>
+GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const TrackParametrizationWithError<value_T>& rhs) const -> value_t
+{
+  MatrixDSym5 cov; // perform matrix operations in double!
+  return getPredictedChi2(rhs, cov);
+}
 
 //______________________________________________
 template <typename value_T>
-void TrackParametrizationWithError<value_T>::buildCombinedCovMatrix(const TrackParametrizationWithError<value_T>& rhs, MatrixDSym5& cov) const
+GPUd() void TrackParametrizationWithError<value_T>::buildCombinedCovMatrix(const TrackParametrizationWithError<value_T>& rhs, MatrixDSym5& cov) const
 {
   // fill combined cov.matrix (NOT inverted)
   cov(kY, kY) = static_cast<double>(getSigmaY2()) + static_cast<double>(rhs.getSigmaY2());
@@ -780,24 +784,16 @@ void TrackParametrizationWithError<value_T>::buildCombinedCovMatrix(const TrackP
 
 //______________________________________________
 template <typename value_T>
-GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const TrackParametrizationWithError<value_T>& rhs) const -> value_t
-{
-  MatrixDSym5 cov; // perform matrix operations in double!
-  return getPredictedChi2(rhs, cov);
-}
-
-//______________________________________________
-template <typename value_T>
 GPUd() auto TrackParametrizationWithError<value_T>::getPredictedChi2(const TrackParametrizationWithError<value_T>& rhs, MatrixDSym5& covToSet) const -> value_t
 {
   // get chi2 wrt other track, which must be defined at the same parameters X,alpha
   // Supplied non-initialized covToSet matrix is filled by inverse combined matrix for further use
 
-  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference Alpha of the tracks differ: " << this->getAlpha() << " : " << rhs.getAlpha();
     return 2.f * HugeF;
   }
-  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference X of the tracks differ: " << this->getX() << " : " << rhs.getX();
     return 2.f * HugeF;
   }
@@ -826,11 +822,11 @@ GPUd() bool TrackParametrizationWithError<value_T>::update(const TrackParametriz
   // update track with other track, the inverted combined cov matrix should be supplied
 
   // consider skipping this check, since it is usually already done upstream
-  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getAlpha() - rhs.getAlpha()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference Alpha of the tracks differ: " << this->getAlpha() << " : " << rhs.getAlpha();
     return false;
   }
-  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > FLT_EPSILON) {
+  if (gpu::CAMath::Abs(this->getX() - rhs.getX()) > o2::constants::math::Epsilon) {
     LOG(error) << "The reference X of the tracks differ: " << this->getX() << " : " << rhs.getX();
     return false;
   }
@@ -867,7 +863,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::update(const TrackParametriz
   }
 
   // updated covariance: Cov0 = Cov0 - K*Cov0
-  matK *= ROOT::Math::SMatrix<double, kNParams, kNParams, ROOT::Math::MatRepStd<double, kNParams>>(matC0);
+  matK *= o2::math_utils::SMatrix<double, kNParams, kNParams, o2::math_utils::MatRepStd<double, kNParams>>(matC0);
   mC[kSigY2] -= matK(kY, kY);
   mC[kSigZY] -= matK(kZ, kY);
   mC[kSigZ2] -= matK(kZ, kZ);
@@ -900,8 +896,6 @@ GPUd() bool TrackParametrizationWithError<value_T>::update(const TrackParametriz
   }
   return update(rhs, covI);
 }
-
-#endif
 
 //______________________________________________
 template <typename value_T>
@@ -1121,7 +1115,7 @@ GPUd() bool TrackParametrizationWithError<value_T>::correctForMaterial(value_t x
 
 //______________________________________________________________
 template <typename value_T>
-GPUd() bool TrackParametrizationWithError<value_T>::getCovXYZPxPyPzGlo(gpu::gpustd::array<value_t, kLabCovMatSize>& cv) const
+GPUd() bool TrackParametrizationWithError<value_T>::getCovXYZPxPyPzGlo(std::array<value_t, kLabCovMatSize>& cv) const
 {
   //---------------------------------------------------------------------
   // This function returns the global covariance matrix of the track params
@@ -1217,7 +1211,7 @@ GPUd() void TrackParametrizationWithError<value_T>::print() const
 #elif !defined(GPUCA_GPUCODE_DEVICE) || (!defined(__OPENCL__) && defined(GPUCA_GPU_DEBUG_PRINT))
   TrackParametrization<value_T>::printParam();
   printf(
-    "\nCov: [%+.3e] [%+.3e %+.3e] [%+.3e %+.3e %+.3e] [%+.3e %+.3e %+.3e %+.3e] [%+.3e %+.3e %+.3e %+.3e %+.3e]",
+    " Cov: [%+.3e] [%+.3e %+.3e] [%+.3e %+.3e %+.3e] [%+.3e %+.3e %+.3e %+.3e] [%+.3e %+.3e %+.3e %+.3e %+.3e]\n",
     mC[kSigY2], mC[kSigZY], mC[kSigZ2], mC[kSigSnpY], mC[kSigSnpZ], mC[kSigSnp2], mC[kSigTglY],
     mC[kSigTglZ], mC[kSigTglSnp], mC[kSigTgl2], mC[kSigQ2PtY], mC[kSigQ2PtZ], mC[kSigQ2PtSnp], mC[kSigQ2PtTgl],
     mC[kSigQ2Pt2]);
@@ -1234,7 +1228,7 @@ GPUd() void TrackParametrizationWithError<value_T>::printHexadecimal()
 #elif !defined(GPUCA_GPUCODE_DEVICE) || (!defined(__OPENCL__) && defined(GPUCA_GPU_DEBUG_PRINT))
   TrackParametrization<value_T>::printParamHexadecimal();
   printf(
-    "\nCov: [%x] [%x %x] [%x %x %x] [%x %x %x %x] [%x %x %x %x %x]",
+    " Cov: [%x] [%x %x] [%x %x %x] [%x %x %x %x] [%x %x %x %x %x]\n",
     gpu::CAMath::Float2UIntReint(mC[kSigY2]),
     gpu::CAMath::Float2UIntReint(mC[kSigZY]), gpu::CAMath::Float2UIntReint(mC[kSigZ2]),
     gpu::CAMath::Float2UIntReint(mC[kSigSnpY]), gpu::CAMath::Float2UIntReint(mC[kSigSnpZ]), gpu::CAMath::Float2UIntReint(mC[kSigSnp2]),
@@ -1245,8 +1239,10 @@ GPUd() void TrackParametrizationWithError<value_T>::printHexadecimal()
 
 namespace o2::track
 {
+#if !defined(GPUCA_GPUCODE) || defined(GPUCA_GPUCODE_DEVICE) // FIXME: DR: WORKAROUND to avoid CUDA bug creating host symbols for device code.
 template class TrackParametrizationWithError<float>;
-#ifndef GPUCA_GPUCODE_DEVICE
+#endif
+#ifndef GPUCA_GPUCODE
 template class TrackParametrizationWithError<double>;
 #endif
 } // namespace o2::track

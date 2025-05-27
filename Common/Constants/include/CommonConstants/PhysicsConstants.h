@@ -34,15 +34,26 @@ enum Pdg {
   kB0 = 511,
   kB0Bar = -511,
   kBPlus = 521,
+  kBCPlus = 541,
   kBS = 531,
   kBSBar = -531,
   kD0 = 421,
   kD0Bar = -421,
+  kD0StarPlus = 10411,
+  kD0Star0 = 10421,
+  kD1Plus = 20413,
+  kD10 = 20423,
+  kD2StarPlus = 415,
+  kD2Star0 = 425,
   kDMinus = -411,
   kDPlus = 411,
   kDS = 431,
   kDSBar = -431,
+  kDSStar = 433,
+  kDS1 = 10433,
+  kDS2Star = 435,
   kDStar = 413,
+  kDStar0 = 423,
   kChiC1 = 20443,
   kJPsi = 443,
   kLambdaB0 = 5122,
@@ -53,6 +64,8 @@ enum Pdg {
   kPhi = 333,
   kSigmaC0 = 4112,
   kSigmaCPlusPlus = 4222,
+  kSigmaCStar0 = 4114,
+  kSigmaCStarPlusPlus = 4224,
   kX3872 = 9920443,
   kXi0 = 3322,
   kXiB0 = 5232,
@@ -65,22 +78,35 @@ enum Pdg {
   kAlpha = 1000020040,
   kHyperTriton = 1010010030,
   kHyperHydrogen4 = 1010010040,
-  kHyperHelium4 = 1010020040
+  kHyperHelium4 = 1010020040,
+  kHyperHelium5 = 1010020050,
+  kHyperHelium4Sigma = 1110020040
 };
 
 /// \brief Declarations of masses for additional particles
 constexpr double MassB0 = 5.27966;
 constexpr double MassB0Bar = 5.27966;
 constexpr double MassBPlus = 5.27934;
+constexpr double MassBCPlus = 6.27447;
 constexpr double MassBS = 5.36692;
 constexpr double MassBSBar = 5.36692;
 constexpr double MassD0 = 1.86484;
 constexpr double MassD0Bar = 1.86484;
+constexpr double MassD0StarPlus = 2.272;
+constexpr double MassD0Star0 = 2.343;
+constexpr double MassD1Plus = 2.372;
+constexpr double MassD10 = 2.412;
+constexpr double MassD2StarPlus = 2.4601;
+constexpr double MassD2Star0 = 2.4611;
 constexpr double MassDMinus = 1.86966;
 constexpr double MassDPlus = 1.86966;
 constexpr double MassDS = 1.96835;
 constexpr double MassDSBar = 1.96835;
+constexpr double MassDSStar = 2.1122;
+constexpr double MassDS1 = 2.53511;
+constexpr double MassDS2Star = 2.5691;
 constexpr double MassDStar = 2.01026;
+constexpr double MassDStar0 = 2.00685;
 constexpr double MassChiC1 = 3.51067;
 constexpr double MassJPsi = 3.0969;
 constexpr double MassLambdaB0 = 5.6196;
@@ -91,6 +117,8 @@ constexpr double MassKPlusStar892 = 0.89167;
 constexpr double MassPhi = 1.019461;
 constexpr double MassSigmaC0 = 2.45375;
 constexpr double MassSigmaCPlusPlus = 2.45397;
+constexpr double MassSigmaCStar0 = 2.51848;
+constexpr double MassSigmaCStarPlusPlus = 2.51841;
 constexpr double MassX3872 = 3.87165;
 constexpr double MassXi0 = 1.31486;
 constexpr double MassXiB0 = 5.7919;
@@ -104,6 +132,8 @@ constexpr double MassAlpha = 3.7273794066;
 constexpr double MassHyperTriton = 2.99131;
 constexpr double MassHyperHydrogen4 = 3.9226;
 constexpr double MassHyperHelium4 = 3.9217;
+constexpr double MassHyperHelium5 = 4.841;
+constexpr double MassHyperHelium4Sigma = 3.995;
 
 /// \brief Declarations of masses for particles in ROOT PDG_t
 constexpr double MassDown = 0.00467;
@@ -174,9 +204,16 @@ constexpr double MassKaonNeutral = MassK0;
 constexpr double MassLambda = MassLambda0;
 constexpr double MassHyperhydrog4 = MassHyperHydrogen4;
 constexpr double MassHyperhelium4 = MassHyperHelium4;
+constexpr double MassHyperhelium4sigma = MassHyperHelium4Sigma;
 
-constexpr float LightSpeedCm2S = 299792458.e2;           // C in cm/s
-constexpr float LightSpeedCm2NS = LightSpeedCm2S * 1e-9; // C in cm/ns
+// Light speed
+constexpr float LightSpeedCm2S = 299792458.e2;            // C in cm/s
+constexpr float LightSpeedCm2NS = LightSpeedCm2S * 1e-9;  // C in cm/ns
+constexpr float LightSpeedCm2PS = LightSpeedCm2S * 1e-12; // C in cm/ps
+
+// Light speed inverse
+constexpr float invLightSpeedCm2PS = 1. / LightSpeedCm2PS; // 1/C in ps/cm
+
 } // namespace o2::constants::physics
 
 #endif

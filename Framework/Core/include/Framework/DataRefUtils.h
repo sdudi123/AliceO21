@@ -11,6 +11,7 @@
 #ifndef O2_FRAMEWORK_DATAREFUTILS_H_
 #define O2_FRAMEWORK_DATAREFUTILS_H_
 
+#include "Framework/DataDescriptorMatcher.h"
 #include "Framework/DataRef.h"
 #include "Framework/RootSerializationSupport.h"
 #include "Framework/SerializationMethods.h"
@@ -33,6 +34,9 @@ class ConfigurableParam;
 namespace o2::framework
 {
 
+template <typename H>
+concept DataHeaderLike = requires(H& dh) {dh.dataOrigin; dh.dataDescription; dh.subSpecification; };
+
 // FIXME: Should enforce the fact that DataRefs are read only...
 struct DataRefUtils {
 
@@ -52,7 +56,7 @@ struct DataRefUtils {
       if ((payloadSize % sizeof(T)) != 0) {
         throw runtime_error("Cannot extract POD from message as size do not match");
       }
-      //FIXME: provide a const collection
+      // FIXME: provide a const collection
       return gsl::span<T>(reinterpret_cast<T*>(const_cast<char*>(ref.payload)), payloadSize / sizeof(T));
     } else if constexpr (has_root_dictionary<T>::value == true &&
                          is_messageable<T>::value == false) {
@@ -122,7 +126,7 @@ struct DataRefUtils {
         // object only depends on the state at serialization of the original object. However,
         // all objects created during deserialization are new and must be owned by the collection
         // to avoid memory leak. So we call SetOwner if it is available for the type.
-        if constexpr (has_root_setowner<T>::value) {
+        if constexpr (requires(T t) { t.SetOwner(true); }) {
           result->SetOwner(true);
         }
       });
@@ -159,7 +163,7 @@ struct DataRefUtils {
           throw runtime_error_f("Unable to extract class %s", cl == nullptr ? "<name not available>" : cl->GetName());
         }
         // workaround for ROOT feature, see above
-        if constexpr (has_root_setowner<T>::value) {
+        if constexpr (requires(T t) { t.SetOwner(true); }) {
           result->SetOwner(true);
         }
       });
@@ -179,6 +183,7 @@ struct DataRefUtils {
   }
   // Decode a CCDB object using the CcdbApi.
   static void* decodeCCDB(DataRef const& ref, std::type_info const& info);
+  static std::map<std::string, std::string> extractCCDBHeaders(DataRef const& ref);
 
   static o2::header::DataHeader::PayloadSizeType getPayloadSize(const DataRef& ref)
   {
@@ -219,16 +224,23 @@ struct DataRefUtils {
     return ref.spec != nullptr && ref.spec->binding == binding;
   }
 
-  /// check if the O2 message referred by DataRef matches a particular
-  /// input spec. The DataHeader is retrieved from the header message and matched
-  /// against @ref spec parameter.
-  static bool match(DataRef const& ref, InputSpec const& spec)
+  template <DataHeaderLike H>
+  static bool matchHeader(DataRef const& ref, InputSpec const& spec)
   {
-    auto dh = DataRefUtils::getHeader<o2::header::DataHeader*>(ref);
+    auto const* dh = o2::header::get<H*>(ref.header);
     if (dh == nullptr) {
       return false;
     }
     return DataSpecUtils::match(spec, dh->dataOrigin, dh->dataDescription, dh->subSpecification);
+  }
+
+  /// check if the O2 message referred by DataRef matches a particular
+  /// input spec. The DataHeader is retrieved from the header message and matched
+  /// against @ref spec parameter.
+  template <DataHeaderLike... H>
+  static bool match(DataRef const& ref, InputSpec const& spec)
+  {
+    return (DataRefUtils::matchHeader<H>(ref, spec) || ... || matchHeader<o2::header::DataHeader>(ref, spec));
   }
 };
 

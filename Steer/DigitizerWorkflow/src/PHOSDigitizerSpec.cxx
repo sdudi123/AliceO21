@@ -25,6 +25,7 @@
 #include "PHOSBase/PHOSSimParams.h"
 #include "DataFormatsParameters/GRPObject.h"
 #include "DataFormatsPHOS/MCLabel.h"
+#include "DetectorsRaw/HBFUtils.h"
 #include <SimulationDataFormat/MCTruthContainer.h>
 
 using namespace o2::framework;
@@ -58,20 +59,6 @@ void DigitizerSpec::initDigitizerTask(framework::InitContext& ic)
     delete mHits;
   }
   mHits = new std::vector<Hit>();
-}
-// helper function which will be offered as a service
-void DigitizerSpec::retrieveHits(const char* brname,
-                                 int sourceID,
-                                 int entryID)
-{
-  auto br = mSimChains[sourceID]->GetBranch(brname);
-  if (!br) {
-    LOG(error) << "No branch found";
-    return;
-  }
-  mHits->clear();
-  br->SetAddress(&mHits);
-  br->GetEntry(entryID);
 }
 
 void DigitizerSpec::run(framework::ProcessingContext& pc)
@@ -112,9 +99,22 @@ void DigitizerSpec::run(framework::ProcessingContext& pc)
   bool isLastStream = true;
   double eventTime = timesview[0].getTimeNS() - o2::phos::PHOSSimParams::Instance().mDeadTime; // checked above that list not empty
   int eventId = 0;
+
+  // the interaction record marking the timeframe start
+  auto firstTF = InteractionTimeRecord(o2::raw::HBFUtils::Instance().getFirstSampledTFIR(), 0);
+
   // loop over all composite collisions given from context
   // (aka loop over all the interaction records)
   for (int collID = 0; collID < n; ++collID) {
+    // Note: Very crude filter to neglect collisions coming before
+    // the first interaction record of the timeframe. Remove this, once these collisions can be handled
+    // within the digitization routine. Collisions before this timeframe might impact digits of this timeframe.
+    // See https://its.cern.ch/jira/browse/O2-5395.
+    if (timesview[collID] < firstTF) {
+      LOG(info) << "Too early: Not digitizing collision " << collID;
+      continue;
+    }
+
     double dt = timesview[collID].getTimeNS() - eventTime; // start new PHOS readout, continue current or dead time?
     if (dt > mReadoutTime && dt < mDeadTime) {             // dead time, skip event
       continue;
@@ -142,7 +142,9 @@ void DigitizerSpec::run(framework::ProcessingContext& pc)
       // get the hits for this event and this source
       int source = part->sourceID;
       int entry = part->entryID;
-      retrieveHits("PHSHit", source, entry);
+      mHits->clear();
+      context->retrieveHits(mSimChains, "PHSHit", source, entry, mHits);
+
       part++;
       if (part == eventParts[collID].end() && isLastStream) { // last stream, copy digits directly to output vector
         mDigitizer.processHits(mHits, mDigitsFinal, mDigitsOut, mLabels, entry, source, dt);

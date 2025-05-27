@@ -133,39 +133,57 @@ void utils::addFECInfo()
   h->SetTitle(title.data());
 }
 
-void utils::saveCanvases(TObjArray& arr, std::string_view outDir, std::string_view types, std::string_view rootFileName)
+void utils::saveCanvases(TObjArray& arr, std::string_view outDir, std::string_view types, std::string_view singleOutFileName, std::string nameAdd)
 {
   if (types.size()) {
     for (auto c : arr) {
-      utils::saveCanvas(*static_cast<TCanvas*>(c), outDir, types);
+      utils::saveCanvas(*static_cast<TCanvas*>(c), outDir, types, nameAdd);
     }
   }
 
-  if (rootFileName.size()) {
-    std::unique_ptr<TFile> outFile(TFile::Open(fmt::format("{}/{}", outDir, rootFileName).data(), "recreate"));
-    arr.Write(arr.GetName(), TObject::kSingleKey);
-    outFile->Close();
+  if (singleOutFileName.size()) {
+    const auto outFileNames = o2::utils::Str::tokenize(singleOutFileName.data(), ',');
+    for (const auto& outFileName : outFileNames) {
+      auto fileName = fmt::format("{}/{}", outDir, outFileName);
+      if (o2::utils::Str::endsWith(outFileName, ".root")) {
+        std::unique_ptr<TFile> outFile(TFile::Open(fileName.data(), "recreate"));
+        arr.Write(arr.GetName(), TObject::kSingleKey);
+        outFile->Close();
+      } else if (o2::utils::Str::endsWith(outFileName, ".pdf")) {
+        const auto nCanv = arr.GetEntries();
+        for (int i = 0; i < nCanv; ++i) {
+          auto fileName2 = fileName;
+          if (i == 0) {
+            fileName2 += "(";
+          } else if (i == nCanv - 1) {
+            fileName2 += ")";
+          }
+          auto c = static_cast<TCanvas*>(arr.UncheckedAt(i));
+          c->Print(fileName2.data(), fmt::format("Title:{}", c->GetTitle()).data());
+        }
+      }
+    }
   }
 }
 
-void utils::saveCanvases(std::vector<TCanvas*>& canvases, std::string_view outDir, std::string_view types, std::string_view rootFileName)
+void utils::saveCanvases(std::vector<TCanvas*>& canvases, std::string_view outDir, std::string_view types, std::string_view singleOutFileName, std::string nameAdd)
 {
   TObjArray arr;
   for (auto c : canvases) {
     arr.Add(c);
   }
 
-  saveCanvases(arr, outDir, types, rootFileName);
+  saveCanvases(arr, outDir, types, singleOutFileName, nameAdd);
 }
 
-void utils::saveCanvas(TCanvas& c, std::string_view outDir, std::string_view types)
+void utils::saveCanvas(TCanvas& c, std::string_view outDir, std::string_view types, std::string nameAdd)
 {
   if (!types.size()) {
     return;
   }
   const auto typesVec = tokenize(types, ",");
   for (const auto& type : typesVec) {
-    c.SaveAs(fmt::format("{}/{}.{}", outDir, c.GetName(), type).data());
+    c.SaveAs(fmt::format("{}/{}{}.{}", outDir, c.GetName(), nameAdd, type).data());
   }
 }
 

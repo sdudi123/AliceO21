@@ -96,6 +96,9 @@
 #pragma link C++ struct o2::tpc::SACDelta < float> + ;
 #pragma link C++ struct o2::tpc::SACDelta < unsigned short> + ;
 #pragma link C++ struct o2::tpc::SACDelta < unsigned char> + ;
+#pragma link C++ struct o2::tpc::SAC < float> + ;
+#pragma link C++ struct o2::tpc::SAC < unsigned short> + ;
+#pragma link C++ struct o2::tpc::SAC < unsigned char> + ;
 #pragma link C++ struct o2::tpc::SACZero + ;
 #pragma link C++ struct o2::tpc::SACOne + ;
 #pragma link C++ struct o2::tpc::FourierCoeffSAC + ;
@@ -117,4 +120,6 @@
 #pragma link C++ class o2::tpc::TPCMShapeCorrection + ;
 #pragma link C++ struct o2::tpc::TPCMShape + ;
 #pragma link C++ struct o2::tpc::BoundaryPotentialIFC + ;
+#pragma link C++ class o2::tpc::DigitAdd + ;
+#pragma link C++ class std::vector < o2::tpc::DigitAdd> + ;
 #endif

@@ -17,21 +17,20 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUNewCalibValues {
   bool newSolenoidField = false;
   bool newContinuousMaxTimeBin = false;
+  bool newTPCTimeBinCut = false;
   float solenoidField = 0.f;
-  unsigned int continuousMaxTimeBin = 0;
+  uint32_t continuousMaxTimeBin = 0;
+  int32_t tpcTimeBinCut = 0;
 
   void updateFrom(const GPUNewCalibValues* from);
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

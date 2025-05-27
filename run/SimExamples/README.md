@@ -6,6 +6,7 @@
 
 <!-- doxy
 * \subpage refrunSimExamplesPythia8
+* \subpage refrunSimExamplesPythiaHepMCWrapper
 * \subpage refrunSimExamplesHF_Embedding_Pythia8
 * \subpage refrunSimExamplesSignal_ImpactB
 * \subpage refrunSimExamplesTrigger_ImpactB_Pythia8
@@ -14,6 +15,9 @@
 * \subpage refrunSimExamplesAliRoot_AMPT
 * \subpage refrunSimExamplesHepMC
 * \subpage refrunSimExamplesHepMC_STARlight
+* \subpage refrunSimExamplesHepMC_EPOS4
+* \subpage refrunSimExamplesHybrid
+* \subpage refrunSimExamplesHybrid_parallel
 * \subpage refrunSimExamplesJet_Embedding_Pythia8
 * \subpage refrunSimExamplesMcTracksToAOD
 * \subpage refrunSimExamplesMcTracksToAOD

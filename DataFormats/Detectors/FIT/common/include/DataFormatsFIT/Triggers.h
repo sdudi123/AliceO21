@@ -25,10 +25,15 @@ namespace o2
 {
 namespace fit
 {
-
 class Triggers
 {
  public:
+  template <typename... TrgBits>
+  constexpr static uint64_t word(TrgBits&&... trgBits)
+  {
+    return ((1ull << std::forward<TrgBits>(trgBits)) | ...);
+  }
+
   enum { bitA = 0,
          bitC = 1,                           // alias of bitAOut (FT0/FDD)
          bitAOut = 1,                        // alias of bitC (FV0)
@@ -40,7 +45,8 @@ class Triggers
          bitAIn = 4,                         // alias of bitVertex (FV0)
          bitLaser = 5,                       // indicates the laser was triggered in this BC
          bitOutputsAreBlocked = 6,           // indicates that laser-induced pulses should arrive from detector to FEE in this BC (and trigger outputs are blocked)
-         bitDataIsValid = 7 };               // data is valid for processing
+         bitDataIsValid = 7,                 // data is valid for processing
+         bitMinBias = 8 };                   // extra calculated bit, vrt & (cern || semicent)
   static const int16_t DEFAULT_TIME = -5000; // for average of one side (A or C)
   static const int16_t DEFAULT_AMP = 0;
   static const int16_t DEFAULT_ZERO = 0;
@@ -56,6 +62,21 @@ class Triggers
     timeA = atimeA;
     timeC = atimeC;
   }
+  inline static bool checkMinBiasFT0(uint64_t trgWord)
+  {
+    return static_cast<bool>(trgWord & word(bitVertex)) && static_cast<bool>(trgWord & word(bitSCen, bitCen));
+  }
+  static uint64_t makeExtendedTrgWord(uint64_t trgWord)
+  {
+    return trgWord | (static_cast<uint64_t>(checkMinBiasFT0(trgWord)) << bitMinBias);
+  }
+  static constexpr std::pair<uint8_t, uint8_t> parseDigitTriggerWord(uint8_t digitWord, bool shiftTechBitsToBegin = false)
+  {
+    const uint8_t techWordMask = word(bitLaser, bitOutputsAreBlocked, bitDataIsValid);
+    const uint8_t shiftTechWordPos = shiftTechBitsToBegin ? bitLaser : 0;
+    return {(digitWord & (~techWordMask)), (digitWord & techWordMask) >> shiftTechWordPos};
+  }
+
   bool getOrA() const { return (triggersignals & (1 << bitA)) != 0; }
   bool getOrC() const { return (triggersignals & (1 << bitC)) != 0; }               // only used by FT0/FDD (same bit as OrAOut in FV0)
   bool getOrAOut() const { return (triggersignals & (1 << bitAOut)) != 0; }         // only used by FV0 (same bit as OrC in FT0/FDD)
@@ -68,6 +89,8 @@ class Triggers
   bool getLaser() const { return (triggersignals & (1 << bitLaser)) != 0; }
   bool getOutputsAreBlocked() const { return (triggersignals & (1 << bitOutputsAreBlocked)) != 0; }
   bool getDataIsValid() const { return (triggersignals & (1 << bitDataIsValid)) != 0; }
+  bool getMinBiasFT0() const { return checkMinBiasFT0(static_cast<uint64_t>(triggersignals)); }
+  uint64_t getExtendedTrgWordFT0() const { return makeExtendedTrgWord(static_cast<uint64_t>(triggersignals)); }
 
   uint8_t getTriggersignals() const { return triggersignals; }
   uint8_t getNChanA() const { return nChanA; }
@@ -86,6 +109,10 @@ class Triggers
     amplC = aamplC;
     timeA = atimeA;
     timeC = atimeC;
+  }
+  void setTriggers(uint8_t trgsig)
+  {
+    triggersignals = trgsig;
   }
 
   void setTriggers(Bool_t isA, Bool_t isC, Bool_t isVrtx, Bool_t isCnt, Bool_t isSCnt, uint8_t chanA, uint8_t chanC, int32_t aamplA,

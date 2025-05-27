@@ -308,6 +308,11 @@ int CTPRunScalers::convertRawToO2()
   for (uint32_t i = 1; i < mScalerRecordRaw.size(); i++) {
     //update overflows
     int ret = updateOverflows(mScalerRecordRaw[i - 1], mScalerRecordRaw[i], overflows);
+    // for(int k = 0; k < mClassMask.size(); k++) {
+    //   if(mClassMask[k]) {
+    //     LOG(info) << i << " " << k << " " << overflows[k][0] << " " << overflows[k][1] << " " << overflows[k][2] << " " << overflows[k][3] << " " << overflows[k][4] << " " << overflows[k][5];
+    //   }
+    // }
     //
     if (ret == 0) {
       CTPScalerRecordO2 o2rec;
@@ -396,7 +401,7 @@ int CTPRunScalers::checkConsistency(const CTPScalerO2& scal0, const CTPScalerO2&
   // LMB >= LMA >= L0B >= L0A >= L1B >= L1A: 5 relations
   // broken for classes started at L0
   //
-  int64_t difThres = 2;
+  int64_t difThres = 6;
   int64_t dif = (scal1.lmAfter - scal0.lmAfter) - (scal1.lmBefore - scal0.lmBefore);
   if (dif <= difThres) {
     eCnts.lmBlmAd1++;
@@ -432,12 +437,14 @@ int CTPRunScalers::checkConsistency(const CTPScalerO2& scal0, const CTPScalerO2&
     // ret++;
   }
   dif = (scal1.l1Before - scal0.l1Before) - (scal1.l0After - scal0.l0After);
+  // LOG(info) << "L1B L0A " << dif << " " << scal1.l1Before << " " << scal1.l0After << " " << scal0.l1Before << " " << scal0.l0After;
   if (dif <= difThres) {
     eCnts.l0Al1Bd1++;
   } else if (dif > difThres) {
     eCnts.l0Al1B++;
     if (eCnts.l0Al1B < eCnts.MAXPRINT) {
-      LOG(error) << "L1B > L0A Before error:" << dif;
+      // LOG(error) << "L1B > L0A Before error:" << dif << " " << scal1.l1Before << " " << scal1.l0After << " " << scal0.l1Before << " " << scal0.l0After;
+      LOG(warning) << "L1B > L0A Before error:" << dif;
     }
     ret++;
   }
@@ -466,10 +473,11 @@ int CTPRunScalers::updateOverflows(const CTPScalerRecordRaw& rec0, const CTPScal
 }
 int CTPRunScalers::checkConsistency(const CTPScalerRecordO2& rec0, const CTPScalerRecordO2& rec1, errorCounters& eCnts) const
 {
+  int ret = 0;
   for (uint32_t i = 0; i < rec0.scalers.size(); i++) {
-    checkConsistency(rec0.scalers[i], rec1.scalers[i], eCnts);
+    ret += checkConsistency(rec0.scalers[i], rec1.scalers[i], eCnts);
   }
-  return 0;
+  return ret;
 }
 int CTPRunScalers::updateOverflows(const CTPScalerRaw& scal0, const CTPScalerRaw& scal1, std::array<uint32_t, 6>& overflow) const
 {
@@ -649,12 +657,82 @@ void CTPRunScalers::printLMBRateVsT() const
     }
   }
 }
-
+//
+uint64_t CTPRunScalers::getLumiNoPuCorr(int classindex, int type) const
+{
+  if (type < 7) {
+    const auto s0 = mScalerRecordO2[0].scalers[classindex];
+    const auto s1 = mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[classindex];
+    switch (type) {
+      case 1:
+        return (s1.lmBefore - s0.lmBefore);
+      case 2:
+        return (s1.lmAfter - s0.lmAfter);
+      case 3:
+        return (s1.l0Before - s0.l0Before);
+      case 4:
+        return (s1.l0After - s0.l0After);
+      case 5:
+        return (s1.l1Before - s0.l1Before);
+      case 6:
+        return (s1.l1After - s0.l1After);
+      default:
+        LOG(error) << "Wrong type:" << type;
+        return -1; // wrong type
+    }
+  } else if (type == 7) {
+    auto s0 = mScalerRecordO2[0].scalersInps[classindex]; // type CTPScalerO2*
+    auto s1 = mScalerRecordO2[mScalerRecordO2.size() - 1].scalersInps[classindex];
+    return (s1 - s0);
+  } else {
+    LOG(error) << "Wrong type:" << type;
+    return -1; // wrong type
+  }
+};
+//
+std::vector<std::pair<double_t, double_t>> CTPRunScalers::getRatesForIndex(int classindex, int type) const
+{
+  std::vector<std::pair<double_t, double_t>> scals;
+  for (int i = 0; i < mScalerRecordO2.size() - 1; i++) {
+    double_t diff = 0;
+    // double_t timeDiff = mScalerRecordO2[i + 1].epochTime -  mScalerRecordO2[i].epochTime;
+    double_t timeDiff = (mScalerRecordO2[i + 1].intRecord.orbit - mScalerRecordO2[i].intRecord.orbit) * o2::constants::lhc::LHCOrbitMUS / 1.e6;
+    if (type < 7) {
+      const auto s0 = mScalerRecordO2[i].scalers[classindex];
+      const auto s1 = mScalerRecordO2[i + 1].scalers[classindex];
+      if (type == 1) {
+        diff = s1.lmBefore - s0.lmBefore;
+      } else if (type == 2) {
+        diff = s1.lmAfter - s0.lmAfter;
+      } else if (type == 3) {
+        diff = s1.l0Before - s0.l0Before;
+      } else if (type == 4) {
+        diff = s1.l0After - s0.l0After;
+      } else if (type == 5) {
+        diff = s1.l1Before - s0.l1Before;
+      } else if (type == 6) {
+        diff = s1.l1After - s0.l1After;
+      } else {
+        LOG(error) << "Wrong type:" << type;
+        return scals; // wrong type
+      }
+    } else if (type == 7) {
+      auto s0 = mScalerRecordO2[i].scalersInps[classindex]; // type CTPScalerO2*
+      auto s1 = mScalerRecordO2[i + 1].scalersInps[classindex];
+      diff = s1 - s0;
+    } else {
+      LOG(error) << "Wrong type:" << type;
+      return scals; // wrong type
+    }
+    scals.emplace_back(std::pair<double_t, double_t>{diff, timeDiff});
+  }
+  return scals;
+};
 // returns the pair of global (levelled) interaction rate, as well as instantaneous interpolated
 // rate in Hz at a certain orbit number within the run
 // type - 7 : inputs
 // type - 1..6 : lmb,lma,l0b,l0a,l1b,l1a
-std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex, int type) const
+std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex, int type, bool qc) const
 {
   if (mScalerRecordO2.size() <= 1) {
     LOG(error) << "not enough data";
@@ -666,46 +744,59 @@ std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex,
 
   // then we can use binary search to find the right entries
   auto iter = std::lower_bound(mScalerRecordO2.begin(), mScalerRecordO2.end(), orbit, [&](CTPScalerRecordO2 const& a, uint32_t value) { return a.intRecord.orbit <= value; });
-  auto nextindex = iter - mScalerRecordO2.begin(); // this points to the first index that has orbit greater or equal to given orbit
+  auto nextindex = std::distance(mScalerRecordO2.begin(), iter); // this points to the first index that has orbit greater or equal to given orbit
 
   auto calcRate = [&](auto index1, auto index2) -> double {
-    auto next = &mScalerRecordO2[index2];
-    auto prev = &mScalerRecordO2[index1];
-    auto timedelta = (next->intRecord.orbit - prev->intRecord.orbit) * 88.e-6; // converts orbits into time
+    const auto& snext = mScalerRecordO2[index2];
+    const auto& sprev = mScalerRecordO2[index1];
+    auto timedelta = (snext.intRecord.orbit - sprev.intRecord.orbit) * 88.e-6; // converts orbits into time
     if (type < 7) {
-      auto s0 = &(prev->scalers[classindex]); // type CTPScalerO2*
-      auto s1 = &(next->scalers[classindex]);
+      const auto& s0 = sprev.scalers[classindex]; // type CTPScalerO2*
+      const auto& s1 = snext.scalers[classindex];
       switch (type) {
         case 1:
-          return (s1->lmBefore - s0->lmBefore) / timedelta;
+          return (s1.lmBefore - s0.lmBefore) / timedelta;
         case 2:
-          return (s1->lmAfter - s0->lmAfter) / timedelta;
+          return (s1.lmAfter - s0.lmAfter) / timedelta;
         case 3:
-          return (s1->l0Before - s0->l0Before) / timedelta;
+          return (s1.l0Before - s0.l0Before) / timedelta;
         case 4:
-          return (s1->l0After - s0->l0After) / timedelta;
+          return (s1.l0After - s0.l0After) / timedelta;
         case 5:
-          return (s1->l1Before - s0->l1Before) / timedelta;
+          return (s1.l1Before - s0.l1Before) / timedelta;
         case 6:
-          return (s1->l1After - s0->l1After) / timedelta;
+          return (s1.l1After - s0.l1After) / timedelta;
         default:
           LOG(error) << "Wrong type:" << type;
           return -1; // wrong type
       }
     } else if (type == 7) {
-      auto s0 = &(prev->scalersInps[classindex]); // type CTPScalerO2*
-      auto s1 = &(next->scalersInps[classindex]);
+      auto s0 = sprev.scalersInps[classindex]; // type CTPScalerO2*
+      auto s1 = snext.scalersInps[classindex];
       return (s1 - s0) / timedelta;
     } else {
       LOG(error) << "Wrong type:" << type;
       return -1; // wrong type
     }
   };
-
-  if (nextindex == 0 || nextindex == mScalerRecordO2.size()) {
+  // qc flag decides what to return if time outside run
+  if (nextindex == 0) {
     // orbit is out of bounds
-    LOG(info) << "query orbit " << orbit << " out of bounds; Just returning the global rate";
-    return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    if (qc == 0) {
+      LOG(info) << "query orbit " << orbit << " before first record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query orbit " << orbit << " before first record; Returning the first rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* first rate */ calcRate(0, 1));
+    }
+  } else if (nextindex == mScalerRecordO2.size()) {
+    if (qc == 0) {
+      LOG(info) << "query orbit " << orbit << " after last record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query orbit " << orbit << " after last record; Returning the last rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* last rate */ calcRate(mScalerRecordO2.size() - 2, mScalerRecordO2.size() - 1));
+    }
   } else {
     return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ calcRate(nextindex - 1, nextindex));
   }
@@ -715,7 +806,7 @@ std::pair<double, double> CTPRunScalers::getRate(uint32_t orbit, int classindex,
 // rate in Hz at a certain orbit number within the run
 // type - 7 : inputs
 // type - 1..6 : lmb,lma,l0b,l0a,l1b,l1a
-std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int classindex, int type) const
+std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int classindex, int type, bool qc) const
 {
   if (mScalerRecordO2.size() <= 1) {
     LOG(error) << "not enough data";
@@ -730,49 +821,61 @@ std::pair<double, double> CTPRunScalers::getRateGivenT(double timestamp, int cla
   // this points to the first index that has orbit greater to given orbit;
   // If this is 0, it means that the above condition was false from the beginning, basically saying that the timestamp is below any of the ScalerRecords' orbits.
   // If this is mScalerRecordO2.size(), it means mScalerRecordO2.end() was returned, condition was met throughout all ScalerRecords, basically saying the timestamp is above any of the ScalarRecordss orbits.
-  auto nextindex = iter - mScalerRecordO2.begin();
+  auto nextindex = std::distance(mScalerRecordO2.begin(), iter);
 
   auto calcRate = [&](auto index1, auto index2) -> double {
-    auto next = &mScalerRecordO2[index2];
-    auto prev = &mScalerRecordO2[index1];
-    auto timedelta = (next->intRecord.orbit - prev->intRecord.orbit) * 88.e-6; // converts orbits into time
+    const auto& snext = mScalerRecordO2[index2];
+    const auto& sprev = mScalerRecordO2[index1];
+    auto timedelta = (snext.intRecord.orbit - sprev.intRecord.orbit) * 88.e-6; // converts orbits into time
     // std::cout << "timedelta:" << timedelta << std::endl;
     if (type < 7) {
-      auto s0 = &(prev->scalers[classindex]); // type CTPScalerO2*
-      auto s1 = &(next->scalers[classindex]);
+      const auto& s0 = sprev.scalers[classindex]; // type CTPScalerO2*
+      const auto& s1 = snext.scalers[classindex];
       switch (type) {
         case 1:
-          return (s1->lmBefore - s0->lmBefore) / timedelta;
+          return (s1.lmBefore - s0.lmBefore) / timedelta;
         case 2:
-          return (s1->lmAfter - s0->lmAfter) / timedelta;
+          return (s1.lmAfter - s0.lmAfter) / timedelta;
         case 3:
-          return (s1->l0Before - s0->l0Before) / timedelta;
+          return (s1.l0Before - s0.l0Before) / timedelta;
         case 4:
-          return (s1->l0After - s0->l0After) / timedelta;
+          return (s1.l0After - s0.l0After) / timedelta;
         case 5:
-          return (s1->l1Before - s0->l1Before) / timedelta;
+          return (s1.l1Before - s0.l1Before) / timedelta;
         case 6:
-          return (s1->l1After - s0->l1After) / timedelta;
+          return (s1.l1After - s0.l1After) / timedelta;
         default:
           LOG(error) << "Wrong type:" << type;
           return -1; // wrong type
       }
     } else if (type == 7) {
       // LOG(info) << "doing input:";
-      auto s0 = prev->scalersInps[classindex]; // type CTPScalerO2*
-      auto s1 = next->scalersInps[classindex];
+      auto s0 = sprev.scalersInps[classindex]; // type CTPScalerO2*
+      auto s1 = snext.scalersInps[classindex];
       return (s1 - s0) / timedelta;
     } else {
       LOG(error) << "Wrong type:" << type;
       return -1; // wrong type
     }
   };
-  if (nextindex == 0 || nextindex == mScalerRecordO2.size()) {
+  if (nextindex == 0) {
     // orbit is out of bounds
-    LOG(info) << "query timestamp " << (long)timestamp << " out of bounds; Just returning the global rate";
-    return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    if (qc == 0) {
+      LOG(info) << "query timestamp " << (long)timestamp << " before first record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query timestamp " << (long)timestamp << " before first record; Returning the first rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* first rate */ calcRate(0, 1));
+    }
+  } else if (nextindex == mScalerRecordO2.size()) {
+    if (qc == 0) {
+      LOG(info) << "query timestamp " << (long)timestamp << " after last record; Just returning the global rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ -1);
+    } else {
+      LOG(info) << "query timestamp " << (long)timestamp << " after last record; Returning the last rate";
+      return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* last rate */ calcRate(mScalerRecordO2.size() - 2, mScalerRecordO2.size() - 1));
+    }
   } else {
-
     return std::make_pair(/*global mean rate*/ calcRate(0, mScalerRecordO2.size() - 1), /* current rate */ calcRate(nextindex - 1, nextindex));
   }
   return std::make_pair(-1., -1.);

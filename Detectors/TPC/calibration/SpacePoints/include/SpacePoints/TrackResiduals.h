@@ -100,7 +100,7 @@ class TrackResiduals
     LocalResid(short dyIn, short dzIn, short tgSlpIn, std::array<unsigned char, VoxDim> bvoxIn) : dy(dyIn), dz(dzIn), tgSlp(tgSlpIn), bvox(bvoxIn) {}
     short dy{0};                              ///< residual in y, ranges from -param::sMaxResid to +param::sMaxResid
     short dz{0};                              ///< residual in z, ranges from -param::sMaxResid to +param::sMaxResid
-    short tgSlp{0};                           ///< tangens of the phi angle between padrow and track, ranges from -param::sMaxAngle to +param::sMaxAngle
+    short tgSlp{0};                           ///< tangens of the phi angle between padrow and track, ranges from -param::MaxTgSlp to +param::MaxTgSlp
     std::array<unsigned char, VoxDim> bvox{}; ///< voxel identifier: VoxZ, VoxF, VoxX
     ClassDefNV(LocalResid, 1);
   };
@@ -449,7 +449,6 @@ class TrackResiduals
   // some constants
   static constexpr float sFloatEps{1.e-7f}; ///< float epsilon for robust linear fitting
   static constexpr float sDeadZone{1.5f};   ///< dead zone for TPC in between sectors
-  static constexpr float sMaxZ2X{1.f};      ///< max value for Z2X
   static constexpr int sSmtLinDim{4};       ///< max matrix size for smoothing (pol1)
   static constexpr int sMaxSmtDim{7};       ///< max matrix size for smoothing (pol2)
 

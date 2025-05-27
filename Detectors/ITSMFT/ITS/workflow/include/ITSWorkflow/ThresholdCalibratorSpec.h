@@ -131,7 +131,8 @@ class ITSThresholdCalibrator : public Task
  private:
   void updateTimeDependentParams(ProcessingContext& pc);
   // detector information
-  static constexpr short int N_COL = 1024; // column number in Alpide chip
+  static constexpr short int N_COL = 1024; // number of columns in Alpide chip
+  static constexpr short int N_ROW = 512;  // number of rows in Alpide chip
 
   static const short int N_RU = o2::itsmft::ChipMappingITS::getNRUs();
 
@@ -147,7 +148,6 @@ class ITSThresholdCalibrator : public Task
 
   // Hash tables to store the hit and threshold information per pixel
   std::map<short int, std::map<int, std::vector<std::vector<std::vector<unsigned short int>>>>> mPixelHits;
-  std::map<short int, std::deque<short int>> mForbiddenRows;
   // Unordered map for saving sum of values (thr/ithr/vcasn) for avg calculation
   std::map<short int, std::array<long int, 6>> mThresholds;
   // Map including PixID for noisy pixels
@@ -231,8 +231,9 @@ class ITSThresholdCalibrator : public Task
   short int mRunType = -1;
   short int mRunTypeUp = -1;
   short int mRunTypeRU[N_RU] = {0};
-  short int mCdwCntRU[N_RU] = {0};
-  short int mRowRU[N_RU] = {0};
+  short int mRunTypeRUCopy[N_RU] = {0};
+  short int mCdwCntRU[N_RU][N_ROW] = {{0}};
+  short int mLoopVal[N_RU][N_ROW] = {{0}};
   bool mActiveLinks[N_RU][3] = {{false}};
   std::set<short int> mRuSet;
   // Either "T" for threshold, "V" for VCASN, or "I" for ITHR
@@ -320,6 +321,9 @@ class ITSThresholdCalibrator : public Task
 
   // Variable to select from which MEB to consider the hits.
   int mMeb = -1;
+
+  // Percentage cut for VCASN/ITHR scans
+  short int mPercentageCut = 25; // default, at least 1 good row equivalent
 };
 
 // Create a processor spec

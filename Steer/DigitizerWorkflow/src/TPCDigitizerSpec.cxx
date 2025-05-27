@@ -34,6 +34,7 @@
 #include "DataFormatsParameters/GRPObject.h"
 #include "DataFormatsTPC/TPCSectorHeader.h"
 #include "TPCBase/CDBInterface.h"
+#include "TPCBase/ParameterGEM.h"
 #include "DataFormatsTPC/Digit.h"
 #include "TPCSimulation/Digitizer.h"
 #include "TPCSimulation/Detector.h"
@@ -120,6 +121,9 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
 
     mWithMCTruth = o2::conf::DigiParams::Instance().mctruth;
     auto triggeredMode = ic.options().get<bool>("TPCtriggered");
+    mRecalcDistortions = !(ic.options().get<bool>("do-not-recalculate-distortions"));
+    const int nthreadsDist = ic.options().get<int>("n-threads-distortions");
+    SC::setNThreads(nthreadsDist);
     mUseCalibrationsFromCCDB = ic.options().get<bool>("TPCuseCCDB");
     mMeanLumiDistortions = ic.options().get<float>("meanLumiDistortions");
     mMeanLumiDistortionsDerivative = ic.options().get<float>("meanLumiDistortionsDerivative");
@@ -204,6 +208,14 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
         mDigitizer.setMeanLumiDistortionsDerivative(mMeanLumiDistortionsDerivative);
       }
     }
+    if (matcher == ConcreteDataMatcher(o2::header::gDataOriginTPC, "TPCGASPARAM", 0)) {
+      LOGP(info, "TPC gas param updated");
+      ParameterGas::Instance().printKeyValues(true, true);
+    }
+    if (matcher == ConcreteDataMatcher(o2::header::gDataOriginTPC, "TPCGEMPARAM", 0)) {
+      LOGP(info, "TPC GEM param updated");
+      ParameterGEM::Instance().printKeyValues(true, true);
+    }
   }
 
   void run(framework::ProcessingContext& pc)
@@ -215,11 +227,16 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
     cdb.setUseDefaults(!mUseCalibrationsFromCCDB);
     // whatever are global settings for CCDB usage, we have to extract the TPC vdrift from CCDB for anchored simulations
     mTPCVDriftHelper.extractCCDBInputs(pc);
+    pc.inputs().get<ParameterGas*>("gasparam");
+    pc.inputs().get<ParameterGEM*>("gemparam");
     if (mDistortionType) {
       pc.inputs().get<SC*>("tpcdistortions");
       if (mDistortionType == 2) {
         pc.inputs().get<SC*>("tpcdistortionsderiv");
         mDigitizer.setLumiScaleFactor();
+        if (mRecalcDistortions) {
+          mDigitizer.recalculateDistortions();
+        }
       }
     }
 
@@ -475,6 +492,7 @@ class TPCDPLDigitizerTask : public BaseDPLDigitizer
   int mDistortionType = 0;
   float mMeanLumiDistortions = -1;
   float mMeanLumiDistortionsDerivative = -1;
+  bool mRecalcDistortions = false;
 };
 
 o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP, bool mctruth, bool internalwriter, int distortionType)
@@ -513,6 +531,8 @@ o2::framework::DataProcessorSpec getTPCDigitizerSpec(int channel, bool writeGRP,
       {"TPCuseCCDB", VariantType::Bool, false, {"true: load calibrations from CCDB; false: use random calibratoins"}},
       {"meanLumiDistortions", VariantType::Float, -1.f, {"override lumi of distortion object if >=0"}},
       {"meanLumiDistortionsDerivative", VariantType::Float, -1.f, {"override lumi of derivative distortion object if >=0"}},
+      {"do-not-recalculate-distortions", VariantType::Bool, false, {"Do not recalculate the distortions"}},
+      {"n-threads-distortions", VariantType::Int, 4, {"Number of threads used for the calculation of the distortions"}},
     }};
 }
 
@@ -530,6 +550,8 @@ o2::framework::WorkflowSpec getTPCDigitizerSpec(int nLanes, std::vector<int> con
   // add the channel for the GRP information to the first processor
   for (auto& spec : pipelines) {
     o2::tpc::VDriftHelper::requestCCDBInputs(spec.inputs); // add the same CCDB request to each pipeline
+    spec.inputs.emplace_back("gasparam", o2::header::gDataOriginTPC, "TPCGASPARAM", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::ParGas)));
+    spec.inputs.emplace_back("gemparam", o2::header::gDataOriginTPC, "TPCGEMPARAM", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::ParGEM)));
     if (distortionType) {
       spec.inputs.emplace_back("tpcdistortions", o2::header::gDataOriginTPC, "TPCDIST", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::DistortionMapMC), {}, 1)); // time-dependent
       // load derivative map in case scaling was requested

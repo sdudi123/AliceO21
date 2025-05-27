@@ -23,6 +23,7 @@
 #include "CommonDataFormat/IRFrame.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "ITStracking/TrackingConfigParam.h"
+#include "Framework/DeviceSpec.h"
 
 namespace o2
 {
@@ -35,34 +36,67 @@ void ITSTrackingInterface::initialise()
   mCosmicsProcessing = false;
   std::vector<VertexingParameters> vertParams;
   std::vector<TrackingParameters> trackParams;
+  const auto& trackConf = o2::its::TrackerParamConfig::Instance();
+  float bFactor = std::abs(o2::base::Propagator::Instance()->getNominalBz()) / 5.0066791;
+  if (bFactor < 0.01) {
+    bFactor = 1.;
+  }
   if (mMode == TrackingMode::Unset) {
-    mMode = (TrackingMode)(o2::its::TrackerParamConfig::Instance().trackingMode);
+    mMode = (TrackingMode)(trackConf.trackingMode);
     LOGP(info, "Tracking mode not set, trying to fetch it from configurable params to: {}", asString(mMode));
   }
   if (mMode == TrackingMode::Async) {
-    trackParams.resize(o2::its::TrackerParamConfig::Instance().doUPCIteration ? 4 : 3);
+    trackParams.resize(trackConf.doUPCIteration ? 4 : 3);
     vertParams.resize(2); // The number of actual iterations will be set as a configKeyVal to allow for pp/PbPb choice
     trackParams[1].TrackletMinPt = 0.2f;
     trackParams[1].CellDeltaTanLambdaSigma *= 2.;
     trackParams[2].TrackletMinPt = 0.1f;
     trackParams[2].CellDeltaTanLambdaSigma *= 4.;
+
+    trackParams[0].MinPt[0] = 1.f / 12; // 7cl
+
+    trackParams[1].MinPt[0] = 1.f / 12; // 7cl
+
     trackParams[2].MinTrackLength = 4;
+    trackParams[2].MinPt[0] = 1.f / 12; // 7cl
+    trackParams[2].MinPt[1] = 1.f / 5;  // 6cl
+    trackParams[2].MinPt[2] = 1.f / 1;  // 5cl
+    trackParams[2].MinPt[3] = 1.f / 6;  // 4cl
+
+    trackParams[2].StartLayerMask = (1 << 6) + (1 << 3);
     if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
+      trackParams[3].MinTrackLength = 4;
       trackParams[3].TrackletMinPt = 0.1f;
       trackParams[3].CellDeltaTanLambdaSigma *= 4.;
-      trackParams[3].MinTrackLength = 4;
       trackParams[3].DeltaROF = 0; // UPC specific setting
     }
-    for (auto& param : trackParams) {
+    for (size_t ip = 0; ip < trackParams.size(); ip++) {
+      auto& param = trackParams[ip];
       param.ZBins = 64;
       param.PhiBins = 32;
       param.CellsPerClusterLimit = 1.e3f;
       param.TrackletsPerClusterLimit = 1.e3f;
+      // check if something was overridden via configurable params
+      if (ip < trackConf.MaxIter) {
+        if (trackConf.startLayerMask[ip] > 0) {
+          trackParams[2].StartLayerMask = trackConf.startLayerMask[ip];
+        }
+        if (trackConf.minTrackLgtIter[ip] > 0) {
+          param.MinTrackLength = trackConf.minTrackLgtIter[ip];
+        }
+        for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+          int lslot0 = (trackConf.MaxTrackLength - ilg), lslot = lslot0 + ip * (trackConf.MaxTrackLength - trackConf.MinTrackLength + 1);
+          if (trackConf.minPtIterLgt[lslot] > 0.) {
+            param.MinPt[lslot0] = trackConf.minPtIterLgt[lslot];
+          }
+        }
+      }
     }
     LOGP(info, "Initializing tracker in async. phase reconstruction with {} passes for tracking and {}/{} for vertexing", trackParams.size(), o2::its::VertexerParamConfig::Instance().nIterations, vertParams.size());
     vertParams[1].phiCut = 0.015f;
     vertParams[1].tanLambdaCut = 0.015f;
     vertParams[1].vertPerRofThreshold = 0;
+    vertParams[1].deltaRof = 0;
   } else if (mMode == TrackingMode::Sync) {
     trackParams.resize(1);
     trackParams[0].ZBins = 64;
@@ -92,6 +126,15 @@ void ITSTrackingInterface::initialise()
   for (auto& params : trackParams) {
     params.CorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
   }
+  // adjust pT settings to actual mag. field
+  for (size_t ip = 0; ip < trackParams.size(); ip++) {
+    auto& param = trackParams[ip];
+    param.TrackletMinPt *= bFactor;
+    for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+      int lslot = trackConf.MaxTrackLength - ilg;
+      param.MinPt[lslot] *= bFactor;
+    }
+  }
   mTracker->setParameters(trackParams);
   mVertexer->setParameters(vertParams);
 }
@@ -118,15 +161,14 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   }
 
   auto rofsinput = pc.inputs().get<gsl::span<o2::itsmft::ROFRecord>>("ROframes");
-  auto& rofs = pc.outputs().make<std::vector<o2::itsmft::ROFRecord>>(Output{"ITS", "ITSTrackROF", 0}, rofsinput.begin(), rofsinput.end());
+  auto& trackROFvec = pc.outputs().make<std::vector<o2::itsmft::ROFRecord>>(Output{"ITS", "ITSTrackROF", 0}, rofsinput.begin(), rofsinput.end());
   auto& irFrames = pc.outputs().make<std::vector<o2::dataformats::IRFrame>>(Output{"ITS", "IRFRAMES", 0});
   const auto& alpParams = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance(); // RS: this should come from CCDB
 
-  irFrames.reserve(rofs.size());
+  irFrames.reserve(trackROFvec.size());
   int nBCPerTF = alpParams.roFrameLengthInBC;
 
-  LOGP(info, "ITSTracker pulled {} clusters, {} RO frames", compClusters.size(), rofs.size());
-
+  LOGP(info, "ITSTracker pulled {} clusters, {} RO frames", compClusters.size(), trackROFvec.size());
   const dataformats::MCTruthContainer<MCCompLabel>* labels = nullptr;
   gsl::span<itsmft::MC2ROFRecord const> mc2rofs;
   if (mIsMC) {
@@ -165,8 +207,8 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
 
   gsl::span<const unsigned char>::iterator pattIt = patterns.begin();
 
-  gsl::span<itsmft::ROFRecord> rofspan(rofs);
-  mTimeFrame->loadROFrameData(rofspan, compClusters, pattIt, mDict, labels);
+  gsl::span<itsmft::ROFRecord> trackROFspan(trackROFvec);
+  loadROF(trackROFspan, compClusters, pattIt, labels);
   pattIt = patterns.begin();
   std::vector<int> savedROF;
   auto logger = [&](std::string s) { LOG(info) << s; };
@@ -174,13 +216,13 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   auto errorLogger = [&](std::string s) { LOG(error) << s; };
 
   FastMultEst multEst; // mult estimator
-  std::vector<bool> processingMask, processUPCMask;
-  int cutVertexMult{0}, cutUPCVertex{0}, cutRandomMult = int(rofs.size()) - multEst.selectROFs(rofs, compClusters, physTriggers, processingMask);
+  std::vector<uint8_t> processingMask, processUPCMask;
+  int cutVertexMult{0}, cutUPCVertex{0}, cutRandomMult = int(trackROFvec.size()) - multEst.selectROFs(trackROFvec, compClusters, physTriggers, processingMask);
   processUPCMask.resize(processingMask.size(), false);
   mTimeFrame->setMultiplicityCutMask(processingMask);
   float vertexerElapsedTime{0.f};
   if (mRunVertexer) {
-    vertROFvec.reserve(rofs.size());
+    vertROFvec.reserve(trackROFvec.size());
     // Run seeding vertexer
     if constexpr (isGPU) {
       vertexerElapsedTime = mVertexer->clustersToVerticesHybrid(logger);
@@ -192,19 +234,30 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   }
   const auto& multEstConf = FastMultEstConfig::Instance(); // parameters for mult estimation and cuts
   gsl::span<const std::pair<MCCompLabel, float>> vMCRecInfo;
-  for (auto iRof{0}; iRof < rofspan.size(); ++iRof) {
+  for (auto iRof{0}; iRof < trackROFspan.size(); ++iRof) {
     std::vector<Vertex> vtxVecLoc;
-    auto& vtxROF = vertROFvec.emplace_back(rofspan[iRof]);
+    auto& vtxROF = vertROFvec.emplace_back(trackROFspan[iRof]);
     vtxROF.setFirstEntry(vertices.size());
     if (mRunVertexer) {
       auto vtxSpan = mTimeFrame->getPrimaryVertices(iRof);
       if (mIsMC) {
         vMCRecInfo = mTimeFrame->getPrimaryVerticesMCRecInfo(iRof);
       }
-      if (o2::its::TrackerParamConfig::Instance().doUPCIteration && (vtxSpan.size() && vtxSpan[0].getFlags() == 1)) { // at least one vertex in this ROF and it is from second vertex iteration
-        LOGP(debug, "ROF {} rejected as vertices are from the UPC iteration", iRof);
-        processUPCMask[iRof] = true;
-        cutUPCVertex++;
+      if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
+        if (vtxSpan.size()) {
+          if (vtxSpan[0].isFlagSet(Vertex::UPCMode) == 1) { // at least one vertex in this ROF and it is from second vertex iteration
+            LOGP(debug, "ROF {} rejected as vertices are from the UPC iteration", iRof);
+            processUPCMask[iRof] = true;
+            cutUPCVertex++;
+            vtxROF.setFlag(o2::itsmft::ROFRecord::VtxUPCMode);
+          } else { // in all cases except if as standard mode vertex was found, the ROF was processed with UPC settings
+            vtxROF.setFlag(o2::itsmft::ROFRecord::VtxStdMode);
+          }
+        } else {
+          vtxROF.setFlag(o2::itsmft::ROFRecord::VtxUPCMode);
+        }
+      } else {
+        vtxROF.setFlag(o2::itsmft::ROFRecord::VtxStdMode);
       }
       vtxROF.setNEntries(vtxSpan.size());
       bool selROF = vtxSpan.size() == 0;
@@ -232,42 +285,35 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
       for (auto& v : vtxVecLoc) {
         vertices.push_back(v);
       }
-      mTimeFrame->addPrimaryVertices(vtxVecLoc);
+      mTimeFrame->addPrimaryVertices(vtxVecLoc, iRof, 0);
     }
   }
-  LOG(info) << fmt::format(" - rejected {}/{} ROFs: random/mult.sel:{} (seed {}), vtx.sel:{}, upc.sel:{}", cutRandomMult + cutVertexMult + cutUPCVertex, rofspan.size(), cutRandomMult, multEst.lastRandomSeed, cutVertexMult, cutUPCVertex);
-  LOG(info) << fmt::format(" - Vertex seeding total elapsed time: {} ms for {} ({} + {}) vertices found in {}/{} ROFs",
-                           vertexerElapsedTime,
-                           mTimeFrame->getPrimaryVerticesNum(),
-                           mTimeFrame->getTotVertIteration()[0],
-                           o2::its::VertexerParamConfig::Instance().nIterations > 1 ? mTimeFrame->getTotVertIteration()[1] : 0,
-                           rofspan.size() - mTimeFrame->getNoVertexROF(),
-                           rofspan.size());
-
+  if (mRunVertexer) {
+    LOG(info) << fmt::format(" - Vertex seeding total elapsed time: {} ms for {} ({} + {}) vertices found in {}/{} ROFs",
+                             vertexerElapsedTime,
+                             mTimeFrame->getPrimaryVerticesNum(),
+                             mTimeFrame->getTotVertIteration()[0],
+                             o2::its::VertexerParamConfig::Instance().nIterations > 1 ? mTimeFrame->getTotVertIteration()[1] : 0,
+                             trackROFspan.size() - mTimeFrame->getNoVertexROF(),
+                             trackROFspan.size());
+    LOG(info) << fmt::format("FastMultEst: rejected {}/{} ROFs: random/mult.sel:{} (seed {}), vtx.sel:{}", cutRandomMult + cutVertexMult, trackROFspan.size(), cutRandomMult, multEst.lastRandomSeed, cutVertexMult);
+  }
   if (mOverrideBeamEstimation) {
     LOG(info) << fmt::format(" - Beam position set to: {}, {} from meanvertex object", mTimeFrame->getBeamX(), mTimeFrame->getBeamY());
   } else {
     LOG(info) << fmt::format(" - Beam position computed for the TF: {}, {}", mTimeFrame->getBeamX(), mTimeFrame->getBeamY());
   }
-  if (mCosmicsProcessing && compClusters.size() > 1500 * rofspan.size()) {
+  if (mCosmicsProcessing && compClusters.size() > 1500 * trackROFspan.size()) {
     LOG(error) << "Cosmics processing was requested with an average detector occupancy exceeding 1.e-7, skipping TF processing.";
   } else {
 
     mTimeFrame->setMultiplicityCutMask(processingMask);
     mTimeFrame->setROFMask(processUPCMask);
     // Run CA tracker
-    if constexpr (isGPU) {
-      if (mMode == o2::its::TrackingMode::Async) {
-        mTracker->clustersToTracksHybrid(logger, fatalLogger);
-      } else {
-        mTracker->clustersToTracksHybrid(logger, errorLogger);
-      }
+    if (mMode == o2::its::TrackingMode::Async && o2::its::TrackerParamConfig::Instance().fataliseUponFailure) {
+      mTracker->clustersToTracks(logger, fatalLogger);
     } else {
-      if (mMode == o2::its::TrackingMode::Async) {
-        mTracker->clustersToTracks(logger, fatalLogger);
-      } else {
-        mTracker->clustersToTracks(logger, errorLogger);
-      }
+      mTracker->clustersToTracks(logger, errorLogger);
     }
     size_t totTracks{mTimeFrame->getNumberOfTracks()}, totClusIDs{mTimeFrame->getNumberOfUsedClusters()};
     allTracks.reserve(totTracks);
@@ -277,17 +323,18 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
       LOG(warning) << fmt::format(" - The processed timeframe had {} clusters with wild z coordinates, check the dictionaries", mTimeFrame->hasBogusClusters());
     }
 
-    for (unsigned int iROF{0}; iROF < rofs.size(); ++iROF) {
-      auto& rof{rofs[iROF]};
+    for (unsigned int iROF{0}; iROF < trackROFvec.size(); ++iROF) {
+      auto& tracksROF{trackROFvec[iROF]};
+      auto& vtxROF = vertROFvec[iROF];
       auto& tracks = mTimeFrame->getTracks(iROF);
       auto number{tracks.size()};
       auto first{allTracks.size()};
-      int offset = -rof.getFirstEntry(); // cluster entry!!!
-      rof.setFirstEntry(first);
-      rof.setNEntries(number);
-
+      int offset = -tracksROF.getFirstEntry(); // cluster entry!!!
+      tracksROF.setFirstEntry(first);
+      tracksROF.setNEntries(number);
+      tracksROF.setFlags(vtxROF.getFlags()); // copies 0xffffffff if cosmics
       if (processingMask[iROF]) {
-        irFrames.emplace_back(rof.getBCData(), rof.getBCData() + nBCPerTF - 1).info = tracks.size();
+        irFrames.emplace_back(tracksROF.getBCData(), tracksROF.getBCData() + nBCPerTF - 1).info = tracks.size();
       }
       allTrackLabels.reserve(mTimeFrame->getTracksLabel(iROF).size()); // should be 0 if not MC
       std::copy(mTimeFrame->getTracksLabel(iROF).begin(), mTimeFrame->getTracksLabel(iROF).end(), std::back_inserter(allTrackLabels));
@@ -330,11 +377,27 @@ void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContex
     }
     GeometryTGeo* geom = GeometryTGeo::Instance();
     geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot, o2::math_utils::TransformType::T2G));
-    mVertexer->getGlobalConfiguration();
-    mTracker->getGlobalConfiguration();
-    if (mOverrideBeamEstimation) {
-      pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
+    initialise();
+    getConfiguration(pc);
+
+    if (pc.services().get<const o2::framework::DeviceSpec>().inputTimesliceId == 0) { // print settings only for the 1st pipeling
+      o2::its::VertexerParamConfig::Instance().printKeyValues();
+      o2::its::TrackerParamConfig::Instance().printKeyValues();
+      const auto& trParams = mTracker->getParameters();
+      for (size_t it = 0; it < trParams.size(); it++) {
+        const auto& par = trParams[it];
+        LOGP(info, "recoIter#{} : {}", it, par.asString());
+      }
     }
+  }
+}
+
+void ITSTrackingInterface::getConfiguration(framework::ProcessingContext& pc)
+{
+  mVertexer->getGlobalConfiguration();
+  mTracker->getGlobalConfiguration();
+  if (mOverrideBeamEstimation) {
+    pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
   }
 }
 
@@ -367,6 +430,11 @@ void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
   }
 }
 
+void ITSTrackingInterface::printSummary() const
+{
+  mTracker->printSummary();
+}
+
 void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
                                                  TrackerTraits* trackerTraits,
                                                  TimeFrame* frame)
@@ -376,6 +444,14 @@ void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
   mTimeFrame = frame;
   mVertexer->adoptTimeFrame(*mTimeFrame);
   mTracker->adoptTimeFrame(*mTimeFrame);
+}
+
+void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
+                                   gsl::span<const itsmft::CompClusterExt> clusters,
+                                   gsl::span<const unsigned char>::iterator& pattIt,
+                                   const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
+{
+  mTimeFrame->loadROFrameData(trackROFspan, clusters, pattIt, mDict, mcLabels);
 }
 
 template void ITSTrackingInterface::run<true>(framework::ProcessingContext& pc);

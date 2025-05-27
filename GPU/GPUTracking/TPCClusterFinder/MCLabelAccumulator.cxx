@@ -18,26 +18,26 @@
 #include "GPUTPCClusterFinder.h"
 #include "SimulationDataFormat/MCTruthContainer.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
-using namespace GPUCA_NAMESPACE::gpu::tpccf;
+using namespace o2::gpu;
+using namespace o2::gpu::tpccf;
 
 MCLabelAccumulator::MCLabelAccumulator(GPUTPCClusterFinder& clusterer)
   : mIndexMap(clusterer.mPindexMap), mLabels(clusterer.mPinputLabels), mOutput(clusterer.mPlabelsByRow)
 {
 }
 
-void MCLabelAccumulator::collect(const ChargePos& pos, Charge q)
+void MCLabelAccumulator::collect(const CfChargePos& pos, Charge q)
 {
   if (q == 0 || !engaged()) {
     return;
   }
 
-  uint index = mIndexMap[pos];
+  uint32_t index = mIndexMap[pos];
 
   const auto& labels = mLabels->getLabels(index);
 
   for (const auto& label : labels) {
-    int h = label.getRawValue() % mMaybeHasLabel.size();
+    int32_t h = label.getRawValue() % mMaybeHasLabel.size();
 
     if (mMaybeHasLabel[h]) {
       auto lookup = std::find(mClusterLabels.begin(), mClusterLabels.end(), label);
@@ -51,7 +51,7 @@ void MCLabelAccumulator::collect(const ChargePos& pos, Charge q)
   }
 }
 
-void MCLabelAccumulator::commit(Row row, uint indexInRow, uint maxElemsPerBucket)
+void MCLabelAccumulator::commit(Row row, uint32_t indexInRow, uint32_t maxElemsPerBucket)
 {
   if (indexInRow >= maxElemsPerBucket || !engaged()) {
     return;

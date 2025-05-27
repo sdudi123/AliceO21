@@ -17,8 +17,9 @@
 #include "GPUTPCClusterData.h"
 #include "GPUReconstruction.h"
 #include "GPUO2DataTypes.h"
+#include "GPUParam.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void GPUTPCConvert::InitializeProcessor() {}
 

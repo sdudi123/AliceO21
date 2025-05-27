@@ -16,6 +16,7 @@
 #include <atomic>
 #include <cstdint>
 #include <array>
+#include <memory>
 #include <numeric>
 #include <mutex>
 #include <utility>
@@ -69,8 +70,16 @@ enum struct ProcessingStatsId : short {
 
 /// Helper struct to hold statistics about the data processing happening.
 struct DataProcessingStats {
+  // Parameters for the default behaviour
+  struct DefaultConfig {
+    int64_t minOnlinePublishInterval = 0;
+  };
+
+  DefaultConfig config = {};
+
   DataProcessingStats(std::function<void(int64_t& base, int64_t& offset)> getRealtimeBase,
-                      std::function<int64_t(int64_t base, int64_t offset)> getTimestamp);
+                      std::function<int64_t(int64_t base, int64_t offset)> getTimestamp,
+                      DefaultConfig config);
 
   constexpr static ServiceKind service_kind = ServiceKind::Global;
   constexpr static unsigned short MAX_METRICS = 1 << 15;
@@ -180,6 +189,8 @@ struct DataProcessingStats {
   std::array<MetricSpec, MAX_METRICS> metricSpecs = {};
   std::array<int64_t, MAX_METRICS> lastPublishedMetrics = {};
   std::vector<int> availableMetrics;
+  // for fast check for AVAILABLE_MANAGED_SHM metric which is only provided for readout-proxy
+  bool hasAvailSHMMetric = false;
   // How many commands have been committed to the queue.
   std::atomic<int> insertedCmds = 0;
   // The insertion point for the next command.

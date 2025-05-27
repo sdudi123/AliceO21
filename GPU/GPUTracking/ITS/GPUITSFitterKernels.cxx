@@ -22,17 +22,17 @@
 #include "ITStracking/Cell.h"
 #include "CommonConstants/MathConstants.h"
 
-#ifdef CA_DEBUG
+#if defined(CA_DEBUG) && !defined(GPUCA_GPUCODE_DEVICE)
 #include <cstdio>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2;
 using namespace o2::its;
 
-GPUdii() bool GPUITSFitterKernels::fitTrack(GPUITSFitter& GPUrestrict() Fitter, GPUTPCGMPropagator& GPUrestrict() prop, GPUITSTrack& GPUrestrict() track, int start, int end, int step)
+GPUdii() bool GPUITSFitterKernels::fitTrack(GPUITSFitter& GPUrestrict() Fitter, GPUTPCGMPropagator& GPUrestrict() prop, GPUITSTrack& GPUrestrict() track, int32_t start, int32_t end, int32_t step)
 {
-  for (int iLayer{start}; iLayer != end; iLayer += step) {
+  for (int32_t iLayer{start}; iLayer != end; iLayer += step) {
     if (track.mClusters[iLayer] == o2::its::constants::its::UnusedIndex) {
       continue;
     }
@@ -56,31 +56,30 @@ GPUdii() bool GPUITSFitterKernels::fitTrack(GPUITSFitter& GPUrestrict() Fitter, 
 }
 
 template <>
-GPUdii() void GPUITSFitterKernels::Thread<0>(int nBlocks, int nThreads, int iBlock, int iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors)
+GPUdii() void GPUITSFitterKernels::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors)
 {
   GPUITSFitter& Fitter = processors.itsFitter;
 
   GPUTPCGMPropagator prop;
   prop.SetPolynomialField(&processors.param.polynomialField);
   prop.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
-  prop.SetToyMCEventsFlag(0);
   prop.SetFitInProjections(1);
   float bz = -5.f; // FIXME
 
 #ifdef CA_DEBUG
-  int roadCounters[4]{0, 0, 0, 0};
-  int fitCounters[4]{0, 0, 0, 0};
-  int backpropagatedCounters[4]{0, 0, 0, 0};
-  int refitCounters[4]{0, 0, 0, 0};
+  int32_t roadCounters[4]{0, 0, 0, 0};
+  int32_t fitCounters[4]{0, 0, 0, 0};
+  int32_t backpropagatedCounters[4]{0, 0, 0, 0};
+  int32_t refitCounters[4]{0, 0, 0, 0};
 #endif
-  for (int iRoad = get_global_id(0); iRoad < Fitter.NumberOfRoads(); iRoad += get_global_size(0)) {
+  for (int32_t iRoad = get_global_id(0); iRoad < Fitter.NumberOfRoads(); iRoad += get_global_size(0)) {
     Road<5>& road = Fitter.roads()[iRoad];
-    int clusters[7] = {o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex};
-    int lastCellLevel = o2::its::constants::its::UnusedIndex;
-    CA_DEBUGGER(int nClusters = 2);
+    int32_t clusters[7] = {o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex, o2::its::constants::its::UnusedIndex};
+    int32_t lastCellLevel = o2::its::constants::its::UnusedIndex;
+    CA_DEBUGGER(int32_t nClusters = 2);
 
-    for (int iCell{0}; iCell < Fitter.NumberOfLayers() - 2; ++iCell) {
-      const int cellIndex = road[iCell];
+    for (int32_t iCell{0}; iCell < Fitter.NumberOfLayers() - 2; ++iCell) {
+      const int32_t cellIndex = road[iCell];
       if (cellIndex == o2::its::constants::its::UnusedIndex) {
         continue;
       } else {
@@ -99,7 +98,7 @@ GPUdii() void GPUITSFitterKernels::Thread<0>(int nBlocks, int nThreads, int iBlo
     }
 
     /// From primary vertex context index to event index (== the one used as input of the tracking code)
-    for (int iC{0}; iC < 7; iC++) {
+    for (int32_t iC{0}; iC < 7; iC++) {
       if (clusters[iC] != o2::its::constants::its::UnusedIndex) {
         clusters[iC] = Fitter.clusters()[iC][clusters[iC]].clusterId;
       }
@@ -176,10 +175,10 @@ GPUdii() void GPUITSFitterKernels::Thread<0>(int nBlocks, int nThreads, int iBlo
       continue;
     }
     CA_DEBUGGER(backpropagatedCounters[nClusters - 4]++);
-    for (int k = 0; k < 5; k++) {
+    for (int32_t k = 0; k < 5; k++) {
       temporaryTrack.mOuterParam.P[k] = temporaryTrack.Par()[k];
     }
-    for (int k = 0; k < 15; k++) {
+    for (int32_t k = 0; k < 15; k++) {
       temporaryTrack.mOuterParam.C[k] = temporaryTrack.Cov()[k];
     }
     temporaryTrack.mOuterParam.X = temporaryTrack.X();
@@ -190,7 +189,7 @@ GPUdii() void GPUITSFitterKernels::Thread<0>(int nBlocks, int nThreads, int iBlo
       continue;
     }
     CA_DEBUGGER(refitCounters[nClusters - 4]++);
-    int trackId = CAMath::AtomicAdd(&Fitter.NumberOfTracks(), 1u);
+    int32_t trackId = CAMath::AtomicAdd(&Fitter.NumberOfTracks(), 1u);
     Fitter.tracks()[trackId] = temporaryTrack;
   }
 #ifdef CA_DEBUG

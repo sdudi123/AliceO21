@@ -16,25 +16,21 @@
 #define GPUTRIGGEROUTPUTS_H
 
 #include "GPUCommonDef.h"
+#include "DataFormatsTPC/ZeroSuppression.h"
+
 #include <unordered_set>
 #include <array>
-#ifdef GPUCA_HAVE_O2HEADERS
-#include "DataFormatsTPC/ZeroSuppression.h"
-#endif
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 struct GPUTriggerOutputs {
-#ifdef GPUCA_HAVE_O2HEADERS
   struct hasher {
     size_t operator()(const o2::tpc::TriggerInfoDLBZS& key) const
     {
-      std::array<unsigned int, sizeof(key) / sizeof(unsigned int)> tmp;
+      std::array<uint32_t, sizeof(key) / sizeof(uint32_t)> tmp;
       memcpy((void*)tmp.data(), (const void*)&key, sizeof(key));
-      std::hash<unsigned int> std_hasher;
+      std::hash<uint32_t> std_hasher;
       size_t result = 0;
       for (size_t i = 0; i < tmp.size(); ++i) {
         result ^= std_hasher(tmp[i]);
@@ -51,11 +47,9 @@ struct GPUTriggerOutputs {
   };
 
   std::unordered_set<o2::tpc::TriggerInfoDLBZS, hasher, equal> triggers;
-  static_assert(sizeof(o2::tpc::TriggerInfoDLBZS) % sizeof(unsigned int) == 0);
-#endif
+  static_assert(sizeof(o2::tpc::TriggerInfoDLBZS) % sizeof(uint32_t) == 0);
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

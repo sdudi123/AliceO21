@@ -17,13 +17,13 @@
 #include "GPUTPCGeometry.h"
 #include "DataFormatsTPC/Constants.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 TPCPadBitMap::TPCPadBitMap()
 {
-  GPUTPCGeometry geo{};
-  int offset = 0;
-  for (int r = 0; r < GPUCA_ROW_COUNT; r++) {
+  constexpr GPUTPCGeometry geo;
+  int32_t offset = 0;
+  for (int32_t r = 0; r < GPUCA_ROW_COUNT; r++) {
     mPadOffsetPerRow[r] = offset;
     offset += geo.NPads(r);
   }
@@ -39,8 +39,8 @@ TPCPadBitMap::TPCPadBitMap(const o2::tpc::CalDet<bool>& map) : TPCPadBitMap()
 
 void TPCPadBitMap::setFromMap(const o2::tpc::CalDet<bool>& map)
 {
-  for (int sector = 0; sector < o2::tpc::constants::MAXSECTOR; sector++) {
-    for (int p = 0; p < TPC_PADS_IN_SECTOR; p++) {
+  for (int32_t sector = 0; sector < o2::tpc::constants::MAXSECTOR; sector++) {
+    for (int32_t p = 0; p < TPC_PADS_IN_SECTOR; p++) {
       const auto val = map.getValue(sector, p);
       mBitMap[sector].set(p, val);
     }

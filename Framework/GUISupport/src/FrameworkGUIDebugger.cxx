@@ -69,11 +69,17 @@ ImVec4 colorForLogLevel(LogParsingHelpers::LogLevel logLevel)
   switch (logLevel) {
     case LogParsingHelpers::LogLevel::Info:
       return PaletteHelpers::GREEN;
+    case LogParsingHelpers::LogLevel::Important:
+      return PaletteHelpers::GREEN;
     case LogParsingHelpers::LogLevel::Debug:
       return PaletteHelpers::WHITE;
+    case LogParsingHelpers::LogLevel::Alarm:
+      return PaletteHelpers::YELLOW;
     case LogParsingHelpers::LogLevel::Warning:
       return PaletteHelpers::DARK_YELLOW;
     case LogParsingHelpers::LogLevel::Error:
+      return PaletteHelpers::RED;
+    case LogParsingHelpers::LogLevel::Critical:
       return PaletteHelpers::RED;
     case LogParsingHelpers::LogLevel::Fatal:
       return PaletteHelpers::RED;
@@ -145,18 +151,12 @@ void displayHistory(const DeviceInfo& info, DeviceControl& control)
       ji = (ji + 1) % historySize;
       continue;
     }
-    // Print matching lines
+    // Print matching lines. Notice we filter twice, once on input, to reduce the
+    // stream, a second time at display time, to avoid showing unrelevant
+    // messages from past.
     if (strstr(line.c_str(), control.logFilter) != nullptr) {
-      auto color = colorForLogLevel(logLevel);
-      // We filter twice, once on input, to reduce the
-      // stream, a second time at display time, to avoid
-      // showing unrelevant messages from past.
       if (logLevel >= control.logLevel) {
-        if (line.find('%', 0) != std::string::npos) {
-          ImGui::TextUnformatted(line.c_str(), line.c_str() + line.size());
-        } else {
-          ImGui::TextColored(color, line.c_str(), line.c_str() + line.size());
-        }
+        ImGui::TextColored(colorForLogLevel(logLevel), "%s", line.c_str());
       }
     }
     ji = (ji + 1) % historySize;
@@ -981,10 +981,20 @@ void pushWindowColorDueToStatus(const DeviceInfo& info)
     return;
   }
   switch (info.maxLogLevel) {
+    case LogLevel::Critical:
+      ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_RED);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::RED);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_RED);
+      break;
     case LogLevel::Error:
       ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_RED);
       ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::RED);
       ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_RED);
+      break;
+    case LogLevel::Alarm:
+      ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_YELLOW);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgActive, PaletteHelpers::YELLOW);
+      ImGui::PushStyleColor(ImGuiCol_TitleBgCollapsed, PaletteHelpers::SHADED_YELLOW);
       break;
     case LogLevel::Warning:
       ImGui::PushStyleColor(ImGuiCol_TitleBg, PaletteHelpers::SHADED_YELLOW);
