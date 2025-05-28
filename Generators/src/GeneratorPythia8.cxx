@@ -659,7 +659,7 @@ Bool_t
       // Ignore isospin if equal to 9
       auto pdgNoI = (pdg / 10) * 10;
       if (std::abs(pdg - pdgNoI) == 9)
-        pdg=pdgNoI;
+        pdg = pdgNoI;
     }
     auto st = o2::mcgenstatus::MCGenStatusEncoding(particle.statusHepMC(), //
                                                    particle.status())      //
