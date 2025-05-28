@@ -130,10 +130,10 @@ class Pdg(Enum):
     kXiCCPlusPlus = 4422
     kXiCPlus = 4232
     kXiC0 = 4132
-    kXiCPlus3055 = 4325
-    kXiCPlus3080 = 4326
-    kXiCZero3055 = 4315
-    kXiCZero3080 = 4316
+    kXiC3055Plus = 4325
+    kXiC3080Plus = 4326
+    kXiC3055_0 = 4315
+    kXiC3080_0 = 4316
     kDeuteron = 1000010020
     kTriton = 1000010030
     kHelium3 = 1000020030
