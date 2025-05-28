@@ -16,17 +16,12 @@
 #ifndef TRACKINGITSU_INCLUDE_CACLUSTER_H_
 #define TRACKINGITSU_INCLUDE_CACLUSTER_H_
 
-#include "GPUCommonRtypes.h"
-#include "ITStracking/Definitions.h"
-#include "ITStracking/MathUtils.h"
-
-#ifndef GPUCA_GPUCODE_DEVICE
 #include <array>
-#endif
 
-namespace o2
-{
-namespace its
+#include "GPUCommonRtypes.h"
+#include "GPUCommonArray.h"
+
+namespace o2::its
 {
 
 class IndexTableUtils;
@@ -40,13 +35,13 @@ struct Cluster final {
   bool operator==(const Cluster&) const;
   GPUhd() void print() const;
 
-  float xCoordinate;      // = -999.f;
-  float yCoordinate;      // = -999.f;
-  float zCoordinate;      // = -999.f;
-  float phi;              // = -999.f;
-  float radius;           // = -999.f;
-  int clusterId;          // = -1;
-  int indexTableBinIndex; // = -1;
+  float xCoordinate{-999.f};
+  float yCoordinate{-999.f};
+  float zCoordinate{-999.f};
+  float phi{-999.f};
+  float radius{-999.f};
+  int clusterId{-1};
+  int indexTableBinIndex{-1};
 
   ClassDefNV(Cluster, 1);
 };
@@ -62,11 +57,11 @@ struct TrackingFrameInfo {
   TrackingFrameInfo() = default;
   TrackingFrameInfo(float x, float y, float z, float xTF, float alpha, std::array<float, 2>&& posTF, std::array<float, 3>&& covTF);
 
-  float xCoordinate;
-  float yCoordinate;
-  float zCoordinate;
-  float xTrackingFrame;
-  float alphaTrackingFrame;
+  float xCoordinate{-999.f};
+  float yCoordinate{-999.f};
+  float zCoordinate{-999.f};
+  float xTrackingFrame{-999.f};
+  float alphaTrackingFrame{-999.f};
   std::array<float, 2> positionTrackingFrame = {-1., -1.};
   std::array<float, 3> covarianceTrackingFrame = {999., 999., 999.};
   GPUdi() void print() const
@@ -78,10 +73,8 @@ struct TrackingFrameInfo {
            covarianceTrackingFrame[0], covarianceTrackingFrame[1], covarianceTrackingFrame[2]);
 #endif
   }
-
-  ClassDefNV(TrackingFrameInfo, 1);
 };
-} // namespace its
-} // namespace o2
+
+} // namespace o2::its
 
 #endif /* TRACKINGITSU_INCLUDE_CACLUSTER_H_ */
