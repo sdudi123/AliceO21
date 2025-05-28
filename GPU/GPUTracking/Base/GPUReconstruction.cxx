@@ -111,16 +111,16 @@ GPUReconstruction::~GPUReconstruction()
   }
 }
 
-void GPUReconstruction::GetITSTraits(std::unique_ptr<o2::its::TrackerTraits>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame>* timeFrame)
+void GPUReconstruction::GetITSTraits(std::unique_ptr<o2::its::TrackerTraits<7>>* trackerTraits, std::unique_ptr<o2::its::VertexerTraits>* vertexerTraits, std::unique_ptr<o2::its::TimeFrame<7>>* timeFrame)
 {
   if (trackerTraits) {
-    trackerTraits->reset(new o2::its::TrackerTraits);
+    trackerTraits->reset(new o2::its::TrackerTraits<7>);
   }
   if (vertexerTraits) {
     vertexerTraits->reset(new o2::its::VertexerTraits);
   }
   if (timeFrame) {
-    timeFrame->reset(new o2::its::TimeFrame);
+    timeFrame->reset(new o2::its::TimeFrame<7>);
   }
 }
 
@@ -193,6 +193,7 @@ int32_t GPUReconstruction::Init()
     }
     mSlaves[i]->ClearAllocatedMemory();
   }
+  debugInit();
   return 0;
 }
 
@@ -303,7 +304,7 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings->rtc.optConstexpr = false;
   }
 
-  mMemoryScalers->factor = GetProcessingSettings().memoryScalingFactor;
+  mMemoryScalers->scalingFactor = GetProcessingSettings().memoryScalingFactor;
   mMemoryScalers->conservative = GetProcessingSettings().conservativeMemoryEstimate;
   mMemoryScalers->returnMaxVal = GetProcessingSettings().forceMaxMemScalers != 0;
   if (GetProcessingSettings().forceMaxMemScalers > 1) {
@@ -347,13 +348,20 @@ int32_t GPUReconstruction::InitPhaseBeforeDevice()
     mProcessingSettings->nTPCClustererLanes = GPUCA_NSECTORS;
   }
 
+  if (GetProcessingSettings().doublePipeline) {
+    mProcessingSettings->rtctech.allowOptimizedSlaveReconstruction = true;
+  }
   if (GetProcessingSettings().doublePipeline && (mChains.size() != 1 || mChains[0]->SupportsDoublePipeline() == false || !IsGPU() || GetProcessingSettings().memoryAllocationStrategy != GPUMemoryResource::ALLOCATION_GLOBAL)) {
     GPUError("Must use double pipeline mode only with exactly one chain that must support it");
     return 1;
   }
-
   if (mMaster == nullptr && GetProcessingSettings().doublePipeline) {
     mPipelineContext.reset(new GPUReconstructionPipelineContext);
+  }
+
+  if (mMaster && GetProcessingSettings().rtc.enable && (GetProcessingSettings().rtc.optConstexpr || GetProcessingSettings().rtc.optSpecialCode) && !GetProcessingSettings().rtctech.allowOptimizedSlaveReconstruction) {
+    GPUError("Not allowed to create optimized RTC code with more than one GPUReconstruction instances");
+    return 1;
   }
 
   mDeviceMemorySize = mHostMemorySize = 0;
@@ -462,6 +470,7 @@ int32_t GPUReconstruction::Exit()
   if (mInitialized) {
     ExitDevice();
   }
+  debugExit();
   mInitialized = false;
   return 0;
 }

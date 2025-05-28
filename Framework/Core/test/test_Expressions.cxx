@@ -146,6 +146,15 @@ TEST_CASE("TestTreeParsing")
   REQUIRE(ptfilterspecs2[0].left == (DatumSpec{std::string{"fPt"}, typeid(o2::aod::track::Pt).hash_code(), atype::FLOAT}));
   REQUIRE(ptfilterspecs2[0].right == (DatumSpec{LiteralNode::var_t{1.0f}, atype::FLOAT}));
   REQUIRE(ptfilterspecs2[0].result == (DatumSpec{0u, atype::BOOL}));
+
+  Configurable<int> cvalue{"cvalue", 1, "test value"};
+  Filter testFilter = o2::aod::track::tpcNClsShared < as<uint8_t>(cvalue);
+  REQUIRE(testFilter.node->self.index() == 2);
+  REQUIRE(testFilter.node->left->self.index() == 1);
+  REQUIRE(testFilter.node->right->self.index() == 3);
+  REQUIRE(std::get<PlaceholderNode>(testFilter.node->right->self).name == "cvalue");
+  auto testSpecs = createOperations(testFilter);
+  REQUIRE(testSpecs[0].right == (DatumSpec{LiteralNode::var_t{(uint8_t)1}, atype::UINT8}));
 }
 
 TEST_CASE("TestGandivaTreeCreation")
@@ -281,6 +290,13 @@ TEST_CASE("TestConditionalExpressions")
   auto gandiva_condition2 = makeCondition(gandiva_tree2);
   auto gandiva_filter2 = createFilter(schema2, gandiva_condition2);
   REQUIRE(gandiva_tree2->ToString() == "bool greater_than((float) fSigned1Pt, (const float) 0 raw(0)) && if (bool less_than(float absf((float) fEta), (const float) 1 raw(3f800000)) && if (bool less_than((float) fPt, (const float) 1 raw(3f800000))) { bool greater_than((float) fPhi, (const float) 1.5708 raw(3fc90fdb)) } else { bool less_than((float) fPhi, (const float) 1.5708 raw(3fc90fdb)) }) { bool greater_than(float absf((float) fX), (const float) 1 raw(3f800000)) } else { bool greater_than(float absf((float) fY), (const float) 1 raw(3f800000)) }");
+
+  // clamp
+  Projector clp = clamp(o2::aod::track::pt, 1.0f, 10.f);
+  auto clpspecs = createOperations(clp);
+  auto schemaclp = std::make_shared<arrow::Schema>(std::vector{o2::aod::track::Pt::asArrowField()});
+  auto gandiva_tree_clp = createExpressionTree(clpspecs, schemaclp);
+  REQUIRE(gandiva_tree_clp->ToString() == "if (bool less_than((float) fPt, (const float) 1 raw(3f800000))) { (const float) 1 raw(3f800000) } else { if (bool greater_than((float) fPt, (const float) 10 raw(41200000))) { (const float) 10 raw(41200000) } else { (float) fPt } }");
 }
 
 TEST_CASE("TestBinnedExpressions")

@@ -177,9 +177,9 @@ GeneratorFromO2Kine::GeneratorFromO2Kine(const char* name)
   setPositionUnit(1.);
   setTimeUnit(1.);
 
-  if (strncmp(name, "alien:/", 7) == 0) {
-    mAlienInstance = TGrid::Connect("alien");
-    if (!mAlienInstance) {
+  if (strncmp(name, "alien:/", 7) == 0 && !gGrid) {
+    TGrid::Connect("alien:");
+    if (!gGrid) {
       LOG(fatal) << "Could not connect to alien, did you check the alien token?";
       return;
     }
@@ -385,6 +385,11 @@ GeneratorFromEventPool::GeneratorFromEventPool(EventPoolGenConfig const& pars) :
 
 bool GeneratorFromEventPool::Init()
 {
+  // this simply passes tracks trough. Leave units intact.
+  setTimeUnit(1.);
+  setPositionUnit(1.);
+  setEnergyUnit(1.);
+
   // initialize the event pool
   if (mConfig.rngseed > 0) {
     mRandomEngine.seed(mConfig.rngseed);
