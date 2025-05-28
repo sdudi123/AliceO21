@@ -32,12 +32,14 @@ struct P {
   PROCESS_SWITCH(P, process1, "", true);
 };
 
-namespace o2::aod {
-namespace ct {
+namespace o2::aod
+{
+namespace ct
+{
 DECLARE_SOA_CONFIGURABLE_EXPRESSION_COLUMN(Test, test, float, "test");
 }
 DECLARE_SOA_CONFIGURABLE_EXTENDED_TABLE(TracksMore, TracksIU, "TRKMORE", ct::Test);
-}
+} // namespace o2::aod
 
 TEST_CASE("IdentificationConcepts")
 {
