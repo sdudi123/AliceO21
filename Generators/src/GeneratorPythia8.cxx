@@ -657,7 +657,7 @@ Bool_t
     // Select nuclei (A PDG id code for nuclei is on the form 100ZZZAAAI)
     if (std::abs(pdg) > 1000000000) {
       // Ignore isospin if equal to 9
-      auto pdgNoI = (pdg / 10) *1 0;
+      auto pdgNoI = (pdg / 10) * 10;
       if (std::abs(pdg - pdgNoI) == 9)
         pdg=pdgNoI;
     }
