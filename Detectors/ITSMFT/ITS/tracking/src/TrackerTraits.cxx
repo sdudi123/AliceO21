@@ -341,15 +341,15 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
                       mTimeFrame->getClusters()[iLayer][currentTracklet.firstClusterIndex].clusterId,
                       mTimeFrame->getClusters()[iLayer + 1][nextTracklet.firstClusterIndex].clusterId,
                       mTimeFrame->getClusters()[iLayer + 2][nextTracklet.secondClusterIndex].clusterId};
-                    const auto& cluster1_glo = mTimeFrame->getUnsortedClusters()[iLayer].at(clusId[0]);
-                    const auto& cluster2_glo = mTimeFrame->getUnsortedClusters()[iLayer + 1].at(clusId[1]);
-                    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + 2).at(clusId[2]);
+                    const auto& cluster1_glo = mTimeFrame->getUnsortedClusters()[iLayer][clusId[0]];
+                    const auto& cluster2_glo = mTimeFrame->getUnsortedClusters()[iLayer + 1][clusId[1]];
+                    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + 2)[clusId[2]];
                     auto track{buildTrackSeed(cluster1_glo, cluster2_glo, cluster3_tf)};
 
                     float chi2{0.f};
                     bool good{false};
                     for (int iC{2}; iC--;) {
-                      const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + iC).at(clusId[iC]);
+                      const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + iC)[clusId[iC]];
 
                       if (!track.rotate(trackingHit.alphaTrackingFrame)) {
                         break;
@@ -423,15 +423,15 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
                       mTimeFrame->getClusters()[iLayer][currentTracklet.firstClusterIndex].clusterId,
                       mTimeFrame->getClusters()[iLayer + 1][nextTracklet.firstClusterIndex].clusterId,
                       mTimeFrame->getClusters()[iLayer + 2][nextTracklet.secondClusterIndex].clusterId};
-                    const auto& cluster1_glo = mTimeFrame->getUnsortedClusters()[iLayer].at(clusId[0]);
-                    const auto& cluster2_glo = mTimeFrame->getUnsortedClusters()[iLayer + 1].at(clusId[1]);
-                    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + 2).at(clusId[2]);
+                    const auto& cluster1_glo = mTimeFrame->getUnsortedClusters()[iLayer][clusId[0]];
+                    const auto& cluster2_glo = mTimeFrame->getUnsortedClusters()[iLayer + 1][clusId[1]];
+                    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + 2)[clusId[2]];
                     auto track{buildTrackSeed(cluster1_glo, cluster2_glo, cluster3_tf)};
 
                     float chi2{0.f};
                     bool good{false};
                     for (int iC{2}; iC--;) {
-                      const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + iC).at(clusId[iC]);
+                      const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer + iC)[clusId[iC]];
 
                       if (!track.rotate(trackingHit.alphaTrackingFrame)) {
                         break;
@@ -669,7 +669,7 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
             }
             /// Let's start the fitting procedure
             CellSeed seed{currentCell};
-            auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1).at(neighbourCell.getFirstClusterIndex());
+            auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1)[neighbourCell.getFirstClusterIndex()];
 
             if (!seed.rotate(trHit.alphaTrackingFrame)) {
               CA_DEBUGGER(failed[1]++);
@@ -739,7 +739,7 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
 
             auto seed = currentCell;
 
-            const auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1).at(neighbourCell.getFirstClusterIndex());
+            const auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1)[neighbourCell.getFirstClusterIndex()];
             if (!seed.rotate(trHit.alphaTrackingFrame) || !propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
               continue;
             }
@@ -1019,7 +1019,7 @@ void TrackerTraits<nLayers>::findShortPrimaries()
     auto pvs{mTimeFrame->getPrimaryVertices(rof)};
     auto pvsXAlpha{mTimeFrame->getPrimaryVerticesXAlpha(rof)};
 
-    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(2).at(cluster3_glo.clusterId);
+    const auto& cluster3_tf = mTimeFrame->getTrackingFrameInfoOnLayer(2)[cluster3_glo.clusterId];
     TrackITSExt temporaryTrack{buildTrackSeed(cluster1_glo, cluster2_glo, cluster3_tf)};
     temporaryTrack.setExternalClusterIndex(0, cluster1_glo.clusterId, true);
     temporaryTrack.setExternalClusterIndex(1, cluster2_glo.clusterId, true);
@@ -1085,7 +1085,7 @@ bool TrackerTraits<nLayers>::fitTrack(TrackITSExt& track, int start, int end, in
     if (track.getClusterIndex(iLayer) == constants::its::UnusedIndex) {
       continue;
     }
-    const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer).at(track.getClusterIndex(iLayer));
+    const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer)[track.getClusterIndex(iLayer)];
 
     if (!track.rotate(trackingHit.alphaTrackingFrame)) {
       return false;
@@ -1189,7 +1189,7 @@ bool TrackerTraits<nLayers>::trackFollowing(TrackITSExt* track, int rof, bool ou
             continue;
           }
 
-          const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer).at(nextCluster.clusterId);
+          const TrackingFrameInfo& trackingHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer)[nextCluster.clusterId];
 
           auto tbupdated{hypo};
           auto& tbuParams = outward ? tbupdated.getParamOut() : tbupdated.getParamIn();
