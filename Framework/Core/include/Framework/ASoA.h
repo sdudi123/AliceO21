@@ -2380,15 +2380,15 @@ O2HASH("TEST/0");
 /// A configurable 'expression' column. i.e. a column that can be calculated from other
 /// columns with gandiva based on dynamically supplied C++ expression or a string definition.
 #define DECLARE_SOA_CONFIGURABLE_EXPRESSION_COLUMN(_Name_, _Getter_, _Type_, _Label_)                                                             \
-  struct _Name_ : o2::soa::PersistentColumn<_Type_, _Name_> {                                                                                               \
+  struct _Name_ : o2::soa::PersistentColumn<_Type_, _Name_> {                                                                                     \
     static constexpr const char* mLabel = _Label_;                                                                                                \
     static constexpr const int32_t mHash = _Label_ ""_h;                                                                                          \
-    using base = o2::soa::PersistentColumn<_Type_, _Name_>;                                                                                                 \
+    using base = o2::soa::PersistentColumn<_Type_, _Name_>;                                                                                       \
     using type = _Type_;                                                                                                                          \
     using column_t = _Name_;                                                                                                                      \
     using spawnable_t = std::true_type;                                                                                                           \
     _Name_(arrow::ChunkedArray const* column)                                                                                                     \
-      : o2::soa::PersistentColumn<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                                    \
+      : o2::soa::PersistentColumn<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                          \
     {                                                                                                                                             \
     }                                                                                                                                             \
                                                                                                                                                   \
