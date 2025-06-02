@@ -695,7 +695,7 @@ void VertexerTraits::computeVerticesInRof(int rofId,
 
 void VertexerTraits::setNThreads(int n)
 {
-  if (mNThreads == n) {
+  if (mNThreads == n && mTaskArena.is_active()) {
     return;
   }
   mNThreads = n > 0 ? n : 1;

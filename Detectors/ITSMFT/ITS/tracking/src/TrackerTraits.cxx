@@ -1049,7 +1049,7 @@ bool TrackerTraits<nLayers>::isMatLUT() const
 template <int nLayers>
 void TrackerTraits<nLayers>::setNThreads(int n)
 {
-  if (mNThreads == n) {
+  if (mNThreads == n && mTaskArena.is_active()) {
     return;
   }
   mNThreads = n > 0 ? n : 1;
