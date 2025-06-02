@@ -2388,7 +2388,7 @@ O2HASH("TEST/0");
     using column_t = _Name_;                                                                                                                      \
     using spawnable_t = std::true_type;                                                                                                           \
     _Name_(arrow::ChunkedArray const* column)                                                                                                     \
-      : o2::soa::Column<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                                    \
+      : o2::soa::PersistentColumn<_Type_, _Name_>(o2::soa::ColumnIterator<type>(column))                                                                    \
     {                                                                                                                                             \
     }                                                                                                                                             \
                                                                                                                                                   \
