@@ -71,7 +71,7 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
     int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
     int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
 
-    mTaskArena.execute([&] {
+    mTaskArena->execute([&] {
       tbb::parallel_for(
         tbb::blocked_range<int>(0, mTrkParams[iteration].TrackletsPerRoad()),
         [&](const tbb::blocked_range<int>& Layers) {
@@ -200,7 +200,7 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
     return a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex == b.secondClusterIndex;
   };
 
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<int>(0, mTrkParams[iteration].CellsPerRoad()),
       [&](const tbb::blocked_range<int>& Layers) {
@@ -229,7 +229,7 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
   /// Layer 0 is done outside the loop
   // in-place deduplication
   auto& trklt0 = mTimeFrame->getTracklets()[0];
-  mTaskArena.execute([&] { tbb::parallel_sort(trklt0.begin(), trklt0.end(), sortTracklets); });
+  mTaskArena->execute([&] { tbb::parallel_sort(trklt0.begin(), trklt0.end(), sortTracklets); });
   trklt0.erase(std::unique(trklt0.begin(), trklt0.end(), equalTracklets), trklt0.end());
   trklt0.shrink_to_fit();
 
@@ -275,7 +275,7 @@ void TrackerTraits<nLayers>::computeLayerCells(const int iteration)
     }
   }
 
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<int>(0, mTrkParams[iteration].CellsPerRoad()),
       [&](const tbb::blocked_range<int>& Layers) {
@@ -496,7 +496,7 @@ void TrackerTraits<nLayers>::findCellsNeighbours(const int iteration)
       continue;
     }
 
-    mTaskArena.execute([&] {
+    mTaskArena->execute([&] {
       int layerCellsNum{static_cast<int>(mTimeFrame->getCells()[iLayer].size())};
 
       bounded_vector<int> perCellCount(layerCellsNum + 1, 0, mMemoryPool.get());
@@ -621,7 +621,7 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
   int failed[5]{0, 0, 0, 0, 0}, attempts{0}, failedByMismatch{0};
 #endif
 
-  mTaskArena.execute([&] {
+  mTaskArena->execute([&] {
     bounded_vector<int> perCellCount(currentCellSeed.size() + 1, 0, mMemoryPool.get());
     tbb::parallel_for(
       tbb::blocked_range<int>(0, (int)currentCellSeed.size()),
@@ -812,7 +812,7 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
     }
 
     bounded_vector<TrackITSExt> tracks(mMemoryPool.get());
-    mTaskArena.execute([&] {
+    mTaskArena->execute([&] {
       bounded_vector<int> perSeedCount(trackSeeds.size() + 1, 0, mMemoryPool.get());
       tbb::parallel_for(
         tbb::blocked_range<int>(0, (int)trackSeeds.size()),
@@ -1258,17 +1258,19 @@ bool TrackerTraits<nLayers>::isMatLUT() const
 }
 
 template <int nLayers>
-void TrackerTraits<nLayers>::setNThreads(int n)
+void TrackerTraits<nLayers>::setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena)
 {
-  if (mNThreads == n && mTaskArena.is_active()) {
-    return;
-  }
-  mNThreads = n > 0 ? n : 1;
 #if defined(OPTIMISATION_OUTPUT) || defined(CA_DEBUG)
-  mNThreads = 1; // only works while serial
+  mTaskArena = std::make_shared<tbb::task_arena>(1);
+#else
+  if (arena == nullptr) {
+    mTaskArena = std::make_shared<tbb::task_arena>(std::abs(n));
+    LOGP(info, "Setting tracker with {} threads.", n);
+  } else {
+    mTaskArena = arena;
+    LOGP(info, "Attaching tracker to calling thread's arena");
+  }
 #endif
-  mTaskArena.initialize(mNThreads);
-  LOGP(info, "Setting tracker with {} threads.", mNThreads);
 }
 
 template class TrackerTraits<7>;
