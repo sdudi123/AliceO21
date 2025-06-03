@@ -590,3 +590,10 @@ BOOST_AUTO_TEST_CASE(vectored)
     BOOST_CHECK(context.dest.size() != 0);
   }
 }
+
+BOOST_AUTO_TEST_CASE(empty_url)
+{
+  CcdbApi api;
+  ccdbUrl = "";
+  BOOST_CHECK_EXCEPTION(api.init(ccdbUrl), invalid_argument, [](std::invalid_argument const&) -> bool { return true; });
+}
