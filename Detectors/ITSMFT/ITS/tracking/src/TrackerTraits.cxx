@@ -14,9 +14,11 @@
 ///
 
 #include <algorithm>
+#include <cwctype>
 #include <iostream>
 #include <iterator>
 #include <ranges>
+#include <type_traits>
 
 #ifdef OPTIMISATION_OUTPUT
 #include <format>
@@ -42,6 +44,12 @@ namespace o2::its
 {
 
 static constexpr int debugLevel{0};
+
+struct PassMode {
+  using OnePass = std::integral_constant<int, 0>;
+  using TwoPassCount = std::integral_constant<int, 1>;
+  using TwoPassInsert = std::integral_constant<int, 2>;
+};
 
 template <int nLayers>
 void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROFslice, int iVertex)
@@ -622,140 +630,127 @@ void TrackerTraits<nLayers>::processNeighbours(int iLayer, int iLevel, const bou
 #endif
 
   mTaskArena->execute([&] {
-    bounded_vector<int> perCellCount(currentCellSeed.size() + 1, 0, mMemoryPool.get());
-    tbb::parallel_for(
-      tbb::blocked_range<int>(0, (int)currentCellSeed.size()),
-      [&](const tbb::blocked_range<int>& Cells) {
-        for (int iCell = Cells.begin(); iCell < Cells.end(); ++iCell) {
-          const CellSeed& currentCell{currentCellSeed[iCell]};
-          int foundSeeds{0};
-          if (currentCell.getLevel() != iLevel) {
+    auto forCellNeighbours = [&](auto Tag, int iCell, int offset = 0) -> int {
+      const CellSeed& currentCell{currentCellSeed[iCell]};
+
+      if constexpr (decltype(Tag)::value != PassMode::TwoPassInsert::value) {
+        if (currentCell.getLevel() != iLevel) {
+          return 0;
+        }
+        if (currentCellId.empty() && (mTimeFrame->isClusterUsed(iLayer, currentCell.getFirstClusterIndex()) ||
+                                      mTimeFrame->isClusterUsed(iLayer + 1, currentCell.getSecondClusterIndex()) ||
+                                      mTimeFrame->isClusterUsed(iLayer + 2, currentCell.getThirdClusterIndex()))) {
+          return 0; /// this we do only on the first iteration, hence the check on currentCellId
+        }
+      }
+
+      const int cellId = currentCellId.empty() ? iCell : currentCellId[iCell];
+      const int startNeighbourId{cellId ? mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId - 1] : 0};
+      const int endNeighbourId{mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId]};
+      int foundSeeds{0};
+      for (int iNeighbourCell{startNeighbourId}; iNeighbourCell < endNeighbourId; ++iNeighbourCell) {
+        CA_DEBUGGER(attempts++);
+        const int neighbourCellId = mTimeFrame->getCellsNeighbours()[iLayer - 1][iNeighbourCell];
+        const CellSeed& neighbourCell = mTimeFrame->getCells()[iLayer - 1][neighbourCellId];
+        if (neighbourCell.getSecondTrackletIndex() != currentCell.getFirstTrackletIndex()) {
+          CA_DEBUGGER(failedByMismatch++);
+          continue;
+        }
+        if (mTimeFrame->isClusterUsed(iLayer - 1, neighbourCell.getFirstClusterIndex())) {
+          continue;
+        }
+        if (currentCell.getLevel() - 1 != neighbourCell.getLevel()) {
+          CA_DEBUGGER(failed[0]++);
+          continue;
+        }
+        /// Let's start the fitting procedure
+        CellSeed seed{currentCell};
+        const auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1)[neighbourCell.getFirstClusterIndex()];
+
+        if (!seed.rotate(trHit.alphaTrackingFrame)) {
+          CA_DEBUGGER(failed[1]++);
+          continue;
+        }
+
+        if (!propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
+          CA_DEBUGGER(failed[2]++);
+          continue;
+        }
+
+        if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
+          if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
             continue;
           }
-          if (currentCellId.empty() && (mTimeFrame->isClusterUsed(iLayer, currentCell.getFirstClusterIndex()) ||
-                                        mTimeFrame->isClusterUsed(iLayer + 1, currentCell.getSecondClusterIndex()) ||
-                                        mTimeFrame->isClusterUsed(iLayer + 2, currentCell.getThirdClusterIndex()))) {
-            continue; /// this we do only on the first iteration, hence the check on currentCellId
-          }
-          const int cellId = currentCellId.empty() ? iCell : currentCellId[iCell];
-          const int startNeighbourId{cellId ? mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId - 1] : 0};
-          const int endNeighbourId{mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId]};
-
-          for (int iNeighbourCell{startNeighbourId}; iNeighbourCell < endNeighbourId; ++iNeighbourCell) {
-            CA_DEBUGGER(attempts++);
-            const int neighbourCellId = mTimeFrame->getCellsNeighbours()[iLayer - 1][iNeighbourCell];
-            const CellSeed& neighbourCell = mTimeFrame->getCells()[iLayer - 1][neighbourCellId];
-            if (neighbourCell.getSecondTrackletIndex() != currentCell.getFirstTrackletIndex()) {
-              CA_DEBUGGER(failedByMismatch++);
-              continue;
-            }
-            if (mTimeFrame->isClusterUsed(iLayer - 1, neighbourCell.getFirstClusterIndex())) {
-              continue;
-            }
-            if (currentCell.getLevel() - 1 != neighbourCell.getLevel()) {
-              CA_DEBUGGER(failed[0]++);
-              continue;
-            }
-            /// Let's start the fitting procedure
-            CellSeed seed{currentCell};
-            auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1)[neighbourCell.getFirstClusterIndex()];
-
-            if (!seed.rotate(trHit.alphaTrackingFrame)) {
-              CA_DEBUGGER(failed[1]++);
-              continue;
-            }
-
-            if (!propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
-              CA_DEBUGGER(failed[2]++);
-              continue;
-            }
-
-            if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
-                continue;
-              }
-            }
-
-            auto predChi2{seed.getPredictedChi2Quiet(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)};
-            if ((predChi2 > mTrkParams[0].MaxChi2ClusterAttachment) || predChi2 < 0.f) {
-              CA_DEBUGGER(failed[3]++);
-              continue;
-            }
-            seed.setChi2(seed.getChi2() + predChi2);
-            if (!seed.o2::track::TrackParCov::update(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)) {
-              CA_DEBUGGER(failed[4]++);
-              continue;
-            }
-            ++foundSeeds;
-          }
-          perCellCount[iCell] = foundSeeds;
         }
-      });
 
-    std::exclusive_scan(perCellCount.begin(), perCellCount.end(), perCellCount.begin(), 0);
-    auto totalNeighbours{perCellCount.back()};
-    if (totalNeighbours == 0) {
-      return;
+        auto predChi2{seed.getPredictedChi2Quiet(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)};
+        if ((predChi2 > mTrkParams[0].MaxChi2ClusterAttachment) || predChi2 < 0.f) {
+          CA_DEBUGGER(failed[3]++);
+          continue;
+        }
+        seed.setChi2(seed.getChi2() + predChi2);
+        if (!seed.o2::track::TrackParCov::update(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)) {
+          CA_DEBUGGER(failed[4]++);
+          continue;
+        }
+
+        if constexpr (decltype(Tag)::value != PassMode::TwoPassCount::value) {
+          seed.getClusters()[iLayer - 1] = neighbourCell.getFirstClusterIndex();
+          seed.setLevel(neighbourCell.getLevel());
+          seed.setFirstTrackletIndex(neighbourCell.getFirstTrackletIndex());
+          seed.setSecondTrackletIndex(neighbourCell.getSecondTrackletIndex());
+        }
+
+        if constexpr (decltype(Tag)::value == PassMode::OnePass::value) {
+          updatedCellSeeds.push_back(seed);
+          updatedCellsIds.push_back(neighbourCellId);
+        } else if constexpr (decltype(Tag)::value == PassMode::TwoPassCount::value) {
+          ++foundSeeds;
+        } else if constexpr (decltype(Tag)::value == PassMode::TwoPassInsert::value) {
+          updatedCellSeeds[offset] = seed;
+          updatedCellsIds[offset++] = neighbourCellId;
+        } else {
+          static_assert(false, "Unknown mode!");
+        }
+      }
+      return foundSeeds;
+    };
+
+    const int nCells = static_cast<int>(currentCellSeed.size());
+    if (mTaskArena->max_concurrency() <= 1) {
+      for (int iCell{0}; iCell < nCells; ++iCell) {
+        forCellNeighbours(PassMode::OnePass{}, iCell);
+      }
+    } else {
+      bounded_vector<int> perCellCount(nCells + 1, 0, mMemoryPool.get());
+      tbb::parallel_for(
+        tbb::blocked_range<int>(0, nCells),
+        [&](const tbb::blocked_range<int>& Cells) {
+          for (int iCell = Cells.begin(); iCell < Cells.end(); ++iCell) {
+            perCellCount[iCell] = forCellNeighbours(PassMode::TwoPassCount{}, iCell);
+          }
+        });
+
+      std::exclusive_scan(perCellCount.begin(), perCellCount.end(), perCellCount.begin(), 0);
+      auto totalNeighbours{perCellCount.back()};
+      if (totalNeighbours == 0) {
+        return;
+      }
+      updatedCellSeeds.resize(totalNeighbours);
+      updatedCellsIds.resize(totalNeighbours);
+
+      tbb::parallel_for(
+        tbb::blocked_range<int>(0, nCells),
+        [&](const tbb::blocked_range<int>& Cells) {
+          for (int iCell = Cells.begin(); iCell < Cells.end(); ++iCell) {
+            int offset = perCellCount[iCell];
+            if (offset == perCellCount[iCell + 1]) {
+              continue;
+            }
+            forCellNeighbours(PassMode::TwoPassInsert{}, iCell, offset);
+          }
+        });
     }
-    updatedCellSeeds.resize(totalNeighbours);
-    updatedCellsIds.resize(totalNeighbours);
-
-    tbb::parallel_for(
-      tbb::blocked_range<int>(0, (int)currentCellSeed.size()),
-      [&](const tbb::blocked_range<int>& Cells) {
-        for (int iCell = Cells.begin(); iCell < Cells.end(); ++iCell) {
-          if (perCellCount[iCell] == perCellCount[iCell + 1]) {
-            continue;
-          }
-          // no need for further checks on cell level
-
-          const CellSeed& currentCell{currentCellSeed[iCell]};
-          const int cellId = currentCellId.empty() ? iCell : currentCellId[iCell];
-          const int startNeighbourId{cellId ? mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId - 1] : 0};
-          const int endNeighbourId{mTimeFrame->getCellsNeighboursLUT()[iLayer - 1][cellId]};
-
-          int offset = perCellCount[iCell];
-          for (int iNeighbourCell{startNeighbourId}; iNeighbourCell < endNeighbourId; ++iNeighbourCell) {
-            const int neighbourCellId = mTimeFrame->getCellsNeighbours()[iLayer - 1][iNeighbourCell];
-            const CellSeed& neighbourCell = mTimeFrame->getCells()[iLayer - 1][neighbourCellId];
-            if (neighbourCell.getSecondTrackletIndex() != currentCell.getFirstTrackletIndex() ||
-                mTimeFrame->isClusterUsed(iLayer - 1, neighbourCell.getFirstClusterIndex()) ||
-                currentCell.getLevel() - 1 != neighbourCell.getLevel()) {
-              continue;
-            }
-
-            auto seed = currentCell;
-
-            const auto& trHit = mTimeFrame->getTrackingFrameInfoOnLayer(iLayer - 1)[neighbourCell.getFirstClusterIndex()];
-            if (!seed.rotate(trHit.alphaTrackingFrame) || !propagator->propagateToX(seed, trHit.xTrackingFrame, getBz(), o2::base::PropagatorImpl<float>::MAX_SIN_PHI, o2::base::PropagatorImpl<float>::MAX_STEP, mCorrType)) {
-              continue;
-            }
-
-            if (mCorrType == o2::base::PropagatorF::MatCorrType::USEMatCorrNONE) {
-              if (!seed.correctForMaterial(mTrkParams[0].LayerxX0[iLayer - 1], mTrkParams[0].LayerxX0[iLayer - 1] * constants::Radl * constants::Rho, true)) {
-                continue;
-              }
-            }
-
-            auto predChi2{seed.getPredictedChi2Quiet(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)};
-            if ((predChi2 > mTrkParams[0].MaxChi2ClusterAttachment) || predChi2 < 0.f) {
-              continue;
-            }
-            seed.setChi2(seed.getChi2() + predChi2);
-            if (!seed.o2::track::TrackParCov::update(trHit.positionTrackingFrame, trHit.covarianceTrackingFrame)) {
-              continue;
-            }
-
-            seed.getClusters()[iLayer - 1] = neighbourCell.getFirstClusterIndex();
-            seed.setLevel(neighbourCell.getLevel());
-            seed.setFirstTrackletIndex(neighbourCell.getFirstTrackletIndex());
-            seed.setSecondTrackletIndex(neighbourCell.getSecondTrackletIndex());
-
-            updatedCellSeeds[offset] = seed;
-            updatedCellsIds[offset++] = neighbourCellId;
-          }
-        }
-      });
   });
 
 #ifdef CA_DEBUG
