@@ -32,7 +32,7 @@ struct AggregatedRunInfo {
   int runNumber = 0;       // run number
   int64_t sor = 0;         // best known timestamp for the start of run
   int64_t eor = 0;         // best known timestamp for end of run
-  int64_t orbitsPerTF = 0; // number of orbits per TF
+  int64_t orbitsPerTF = 0; // number of orbits per TF (takes precedence over that in GRPECS)
   int64_t orbitReset = 0;  // timestamp of orbit reset before run
   int64_t orbitSOR = 0;    // orbit when run starts after orbit reset
   int64_t orbitEOR = 0;    // orbit when run ends after orbit reset
@@ -43,6 +43,19 @@ struct AggregatedRunInfo {
   // fills and returns AggregatedRunInfo for a given run number.
   static AggregatedRunInfo buildAggregatedRunInfo(o2::ccdb::CCDBManagerInstance& ccdb, int runnumber);
   static AggregatedRunInfo buildAggregatedRunInfo(int runnumber, long sorMS, long eorMS, long orbitResetMUS, const o2::parameters::GRPECSObject* grpecs, const std::vector<Long64_t>* ctfFirstRunOrbitVec);
+
+  // Special method for MC becayse MC may use extra settings or different values.
+  // The idea is to rely on a composite RunInfo object that a MC production uploaded to CCDB.
+  // This may depend:
+  // - on the runnumber
+  // - the lpm_prod_tag as a unique specifier of a MC GRID campaign
+  // - maybe username -> to allow for analysis of user-generated AO2D. The username determines the base-path where to look for CCDB objects
+  // The return value is a pointer to AggregatedRunInfo if such object exists or nullptr otherwise
+  static AggregatedRunInfo const* lookupAggregatedRunInfo_MC(o2::ccdb::CCDBManagerInstance& ccdb, int run_number, std::string const& lpm_prod_tag, std::string const& username = "aliprod");
+
+  static void publishToCCDB_MC(AggregatedRunInfo const& info, o2::ccdb::CCDBManagerInstance& ccdb, int run_number, std::string const& lpm_prod_tag, std::string const& username);
+
+  ClassDefNV(AggregatedRunInfo, 1);
 };
 
 } // namespace o2::parameters

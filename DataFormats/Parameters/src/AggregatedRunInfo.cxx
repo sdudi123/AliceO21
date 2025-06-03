@@ -83,3 +83,53 @@ o2::parameters::AggregatedRunInfo AggregatedRunInfo::buildAggregatedRunInfo(int 
   }
   return AggregatedRunInfo{runnumber, sorMS, eorMS, nOrbitsPerTF, orbitResetMUS, orbitSOR, orbitEOR, grpecs};
 }
+
+namespace
+{
+
+std::string getFullPath_MC(std::string username)
+{
+  // construct the path where to lookup
+  std::string path = "/Users/" + std::string(1, username[0]) + "/" + username;
+  std::string fullpath = path + "/" + "MCAggregatedRunInfo";
+  return fullpath;
+}
+
+} // namespace
+
+o2::parameters::AggregatedRunInfo const* AggregatedRunInfo::lookupAggregatedRunInfo_MC(o2::ccdb::CCDBManagerInstance& ccdb, int run_number, std::string const& lpm_prod_tag, std::string const& username)
+{
+  // we simply look if we find a prebuild AggregatedRunInfo, stored from an MC production, under the expected location
+
+  std::map<std::string, std::string> headers;
+  std::map<std::string, std::string> metaDataFilter;
+  metaDataFilter["lpm_prod_tag"] = lpm_prod_tag;
+
+  bool oldFatalState = ccdb.getFatalWhenNull();
+  ccdb.setFatalWhenNull(false);
+  auto obj = ccdb.getSpecific<o2::parameters::AggregatedRunInfo>(getFullPath_MC(username), run_number, metaDataFilter, &headers);
+  ccdb.setFatalWhenNull(oldFatalState);
+  return obj;
+}
+
+void o2::parameters::AggregatedRunInfo::publishToCCDB_MC(AggregatedRunInfo const& info, o2::ccdb::CCDBManagerInstance& ccdb, int run_number, std::string const& lpm_prod_tag, std::string const& username)
+{
+  // we upload the info to the MC path on CCDB - but we check first of all of this is already there
+  auto path = getFullPath_MC(username);
+  std::map<std::string, std::string> meta;
+  meta["lpm_prod_tag"] = lpm_prod_tag;
+
+  auto cl = TClass::GetClass(typeid(AggregatedRunInfo));
+  auto ti = cl->GetTypeInfo();
+
+  auto& api = ccdb.getCCDBAccessor();
+
+  auto headers = api.retrieveHeaders(path, meta, run_number);
+  if (headers.find("lpm_prod_tag") != headers.end()) {
+    LOG(info) << "AggregatedRunInfo Object already present on CCDB for this production tag and user. Not doing anything";
+    // already uploaded
+    return;
+  }
+
+  api.storeAsTFile_impl(&info, *ti, path, meta, run_number, run_number + 1);
+}
