@@ -16,31 +16,30 @@
 #include "ITSReconstruction/FastMultEst.h"
 
 #include "ITStracking/TrackingInterface.h"
+#include <memory>
 
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DataFormatsITSMFT/PhysTrigger.h"
 #include "DataFormatsTRD/TriggerRecord.h"
 #include "CommonDataFormat/IRFrame.h"
 #include "DetectorsBase/GRPGeomHelper.h"
+#include "ITStracking/BoundedAllocator.h"
 #include "ITStracking/TrackingConfigParam.h"
 #include "Framework/DeviceSpec.h"
 
-namespace o2
-{
-using namespace framework;
-namespace its
-{
+using namespace o2::framework;
+using namespace o2::its;
+
 void ITSTrackingInterface::initialise()
 {
   mRunVertexer = true;
   mCosmicsProcessing = false;
   std::vector<VertexingParameters> vertParams;
   std::vector<TrackingParameters> trackParams;
+  const auto& vertConf = o2::its::VertexerParamConfig::Instance();
   const auto& trackConf = o2::its::TrackerParamConfig::Instance();
   float bFactor = std::abs(o2::base::Propagator::Instance()->getNominalBz()) / 5.0066791;
-  if (bFactor < 0.01) {
-    bFactor = 1.;
-  }
+  float bFactorTracklets = bFactor < 0.01 ? 1. : bFactor; // for tracklets only
   if (mMode == TrackingMode::Unset) {
     mMode = (TrackingMode)(trackConf.trackingMode);
     LOGP(info, "Tracking mode not set, trying to fetch it from configurable params to: {}", asString(mMode));
@@ -123,13 +122,25 @@ void ITSTrackingInterface::initialise()
     throw std::runtime_error(fmt::format("Unsupported ITS tracking mode {:s} ", asString(mMode)));
   }
 
+  // TODO this imposes the same memory limits on each iteration
+  for (auto& p : vertParams) {
+    p.PrintMemory = vertConf.printMemory;
+    p.MaxMemory = vertConf.maxMemory;
+    p.DropTFUponFailure = vertConf.dropTFUponFailure;
+  }
+  for (auto& p : trackParams) {
+    p.PrintMemory = trackConf.printMemory;
+    p.MaxMemory = trackConf.maxMemory;
+    p.DropTFUponFailure = trackConf.dropTFUponFailure;
+  }
+
   for (auto& params : trackParams) {
     params.CorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
   }
   // adjust pT settings to actual mag. field
   for (size_t ip = 0; ip < trackParams.size(); ip++) {
     auto& param = trackParams[ip];
-    param.TrackletMinPt *= bFactor;
+    param.TrackletMinPt *= bFactorTracklets;
     for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
       int lslot = trackConf.MaxTrackLength - ilg;
       param.MinPt[lslot] *= bFactor;
@@ -239,7 +250,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         vMCRecInfo = mTimeFrame->getPrimaryVerticesMCRecInfo(iRof);
       }
       if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
-        if (vtxSpan.size()) {
+        if (!vtxSpan.empty()) {
           if (vtxSpan[0].isFlagSet(Vertex::UPCMode) == 1) { // at least one vertex in this ROF and it is from second vertex iteration
             LOGP(debug, "ROF {} rejected as vertices are from the UPC iteration", iRof);
             processUPCMask[iRof] = true;
@@ -255,7 +266,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         vtxROF.setFlag(o2::itsmft::ROFRecord::VtxStdMode);
       }
       vtxROF.setNEntries(vtxSpan.size());
-      bool selROF = vtxSpan.size() == 0;
+      bool selROF = vtxSpan.empty();
       for (auto iV{0}; iV < vtxSpan.size(); ++iV) {
         auto& v = vtxSpan[iV];
         if (multEstConf.isVtxMultCutRequested() && !multEstConf.isPassingVtxMultCut(v.getNContributors())) {
@@ -274,7 +285,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         cutVertexMult++;
       }
     } else { // cosmics
-      vtxVecLoc.emplace_back(Vertex());
+      vtxVecLoc.emplace_back();
       vtxVecLoc.back().setNContributors(1);
       vtxROF.setNEntries(vtxVecLoc.size());
       for (auto& v : vtxVecLoc) {
@@ -363,6 +374,9 @@ void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContex
 {
   o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   static bool initOnceDone = false;
+  if (mOverrideBeamEstimation) {
+    pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
+  }
   if (!initOnceDone) { // this params need to be queried only once
     initOnceDone = true;
     pc.inputs().get<o2::itsmft::TopologyDictionary*>("itscldict"); // just to trigger the finaliseCCDB
@@ -391,9 +405,6 @@ void ITSTrackingInterface::getConfiguration(framework::ProcessingContext& pc)
 {
   mVertexer->getGlobalConfiguration();
   mTracker->getGlobalConfiguration();
-  if (mOverrideBeamEstimation) {
-    pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
-  }
 }
 
 void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
@@ -427,6 +438,7 @@ void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
 
 void ITSTrackingInterface::printSummary() const
 {
+  mMemoryPool->print();
   mTracker->printSummary();
 }
 
@@ -439,6 +451,16 @@ void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
   mTimeFrame = frame;
   mVertexer->adoptTimeFrame(*mTimeFrame);
   mTracker->adoptTimeFrame(*mTimeFrame);
+
+  // set common memory resource
+  if (!mMemoryPool) {
+    mMemoryPool = std::make_shared<BoundedMemoryResource>();
+  }
+  vertexerTraits->setMemoryPool(mMemoryPool);
+  trackerTraits->setMemoryPool(mMemoryPool);
+  mTimeFrame->setMemoryPool(mMemoryPool);
+  mTracker->setMemoryPool(mMemoryPool);
+  mVertexer->setMemoryPool(mMemoryPool);
 }
 
 void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
@@ -448,5 +470,3 @@ void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
 {
   mTimeFrame->loadROFrameData(trackROFspan, clusters, pattIt, mDict, mcLabels);
 }
-} // namespace its
-} // namespace o2

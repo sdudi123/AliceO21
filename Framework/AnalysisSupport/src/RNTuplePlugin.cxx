@@ -30,6 +30,8 @@
 #include <arrow/array/array_primitive.h>
 #include <arrow/array/builder_nested.h>
 #include <arrow/array/builder_primitive.h>
+#include <arrow/array/util.h>
+#include <arrow/record_batch.h>
 #include <arrow/dataset/file_base.h>
 
 #if __has_include(<ROOT/RFieldBase.hxx>)
@@ -42,7 +44,6 @@ namespace rns = ROOT::Experimental;
 using DPLFieldToken = rns::REntry::RFieldToken;
 using DPLLocalIndex = rns::RClusterIndex;
 #endif
-
 
 template class
   std::unique_ptr<rns::RNTupleReader>;
@@ -186,15 +187,17 @@ class RNTupleFileFormat : public arrow::dataset::FileFormat
 };
 
 template <typename T>
-requires requires (T&& f) { f.GetSubFields(); }
-auto getSubfields(T const&field) {
-    return field.GetSubFields();
+  requires requires(T&& f) { f.GetSubFields(); }
+auto getSubfields(T const& field)
+{
+  return field.GetSubFields();
 }
 
 template <typename T>
-requires requires (T&& f) { f.GetConstSubfields(); }
-auto getSubfields(T const&field) {
-    return field.GetConstSubfields();
+  requires requires(T&& f) { f.GetConstSubfields(); }
+auto getSubfields(T const& field)
+{
+  return field.GetConstSubfields();
 }
 
 struct RootNTupleVisitor : public rns::Detail::RFieldVisitor {
@@ -281,7 +284,6 @@ struct RootNTupleVisitor : public rns::Detail::RFieldVisitor {
     this->datatype = arrow::int16();
   }
 #endif
-
 
   void VisitBoolField(const rns::RField<bool>& field) override
   {
@@ -560,17 +562,18 @@ class RNTupleFileWriter : public arrow::dataset::FileWriter
 };
 
 template <typename T>
-requires requires (T const&m) { m.GetFieldZero(); }
-auto &getFieldZero(T const &m) {
+  requires requires(T const& m) { m.GetFieldZero(); }
+auto& getFieldZero(T const& m)
+{
   return m.GetFieldZero();
 }
 
 template <typename T>
-requires requires (T const&m) { m.GetConstFieldZero(); }
-auto &getFieldZero(T const &m) {
+  requires requires(T const& m) { m.GetConstFieldZero(); }
+auto& getFieldZero(T const& m)
+{
   return m.GetConstFieldZero();
 }
-
 
 arrow::Result<std::shared_ptr<arrow::Schema>> RNTupleFileFormat::Inspect(const arrow::dataset::FileSource& source) const
 {
@@ -859,18 +862,19 @@ arrow::Result<arrow::RecordBatchGenerator> RNTupleFileFormat::ScanBatchesAsync(
         }
         switch (listSize) {
           case -1: {
-            auto varray = std::make_shared<arrow::PrimitiveArray>(physicalField->type()->field(0)->type(), totalSize, arrowValuesBuffer);
-            array = std::make_shared<arrow::ListArray>(physicalField->type(), readEntries, arrowOffsetBuffer, varray);
+            auto vdata = std::make_shared<arrow::ArrayData>(physicalField->type()->field(0)->type(), totalSize, std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, arrowValuesBuffer});
+            array = std::make_shared<arrow::ListArray>(physicalField->type(), readEntries, arrowOffsetBuffer, arrow::MakeArray(vdata));
           } break;
           case 1: {
             totalSize = readEntries * listSize;
-            array = std::make_shared<arrow::PrimitiveArray>(physicalField->type(), readEntries, arrowValuesBuffer);
+            auto data = std::make_shared<arrow::ArrayData>(physicalField->type(), readEntries, std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, arrowValuesBuffer});
+            array = arrow::MakeArray(data);
 
           } break;
           default: {
             totalSize = readEntries * listSize;
-            auto varray = std::make_shared<arrow::PrimitiveArray>(physicalField->type()->field(0)->type(), totalSize, arrowValuesBuffer);
-            array = std::make_shared<arrow::FixedSizeListArray>(physicalField->type(), readEntries, varray);
+            auto vdata = std::make_shared<arrow::ArrayData>(physicalField->type()->field(0)->type(), totalSize, std::vector<std::shared_ptr<arrow::Buffer>>{nullptr, arrowValuesBuffer});
+            array = std::make_shared<arrow::FixedSizeListArray>(physicalField->type(), readEntries, arrow::MakeArray(vdata));
           }
         }
       }
