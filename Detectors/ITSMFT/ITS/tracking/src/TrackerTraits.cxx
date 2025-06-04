@@ -761,65 +761,73 @@ void TrackerTraits<nLayers>::findRoads(const int iteration)
 
     bounded_vector<TrackITSExt> tracks(mMemoryPool.get());
     mTaskArena->execute([&] {
-      bounded_vector<int> perSeedCount(trackSeeds.size() + 1, 0, mMemoryPool.get());
-      tbb::parallel_for(
-        tbb::blocked_range<int>(0, (int)trackSeeds.size()),
-        [&](const tbb::blocked_range<int>& Seeds) {
-          for (int iSeed = Seeds.begin(); iSeed < Seeds.end(); ++iSeed) {
-            const CellSeed& seed{trackSeeds[iSeed]};
-            TrackITSExt temporaryTrack{seed};
-            temporaryTrack.resetCovariance();
-            temporaryTrack.setChi2(0);
-            for (int iL{0}; iL < 7; ++iL) {
-              temporaryTrack.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::UnusedIndex);
-            }
+      auto forSeed = [&](auto Tag, int iSeed, int offset = 0) {
+        const CellSeed& seed{trackSeeds[iSeed]};
+        TrackITSExt temporaryTrack{seed};
+        temporaryTrack.resetCovariance();
+        temporaryTrack.setChi2(0);
+        for (int iL{0}; iL < 7; ++iL) {
+          temporaryTrack.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::UnusedIndex);
+        }
 
-            bool fitSuccess = fitTrack(temporaryTrack, 0, mTrkParams[0].NLayers, 1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF);
-            if (!fitSuccess) {
-              continue;
+        bool fitSuccess = fitTrack(temporaryTrack, 0, mTrkParams[0].NLayers, 1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF);
+        if (!fitSuccess) {
+          return 0;
+        }
+
+        temporaryTrack.getParamOut() = temporaryTrack.getParamIn();
+        temporaryTrack.resetCovariance();
+        temporaryTrack.setChi2(0);
+        fitSuccess = fitTrack(temporaryTrack, mTrkParams[0].NLayers - 1, -1, -1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF, 50.f);
+        if (!fitSuccess || temporaryTrack.getPt() < mTrkParams[iteration].MinPt[mTrkParams[iteration].NLayers - temporaryTrack.getNClusters()]) {
+          return 0;
+        }
+
+        if constexpr (decltype(Tag)::value == PassMode::OnePass::value) {
+          tracks.push_back(temporaryTrack);
+        } else if constexpr (decltype(Tag)::value == PassMode::TwoPassCount::value) {
+          // nothing to do
+        } else if constexpr (decltype(Tag)::value == PassMode::TwoPassInsert::value) {
+          tracks[offset] = temporaryTrack;
+        } else {
+          static_assert(false, "Unknown mode!");
+        }
+        return 1;
+      };
+
+      const int nSeeds = static_cast<int>(trackSeeds.size());
+      if (mTaskArena->max_concurrency() <= 1) {
+        for (int iSeed{0}; iSeed < nSeeds; ++iSeed) {
+          forSeed(PassMode::OnePass{}, iSeed);
+        }
+      } else {
+        bounded_vector<int> perSeedCount(nSeeds + 1, 0, mMemoryPool.get());
+        tbb::parallel_for(
+          tbb::blocked_range<int>(0, nSeeds),
+          [&](const tbb::blocked_range<int>& Seeds) {
+            for (int iSeed = Seeds.begin(); iSeed < Seeds.end(); ++iSeed) {
+              perSeedCount[iSeed] = forSeed(PassMode::TwoPassCount{}, iSeed);
             }
-            temporaryTrack.getParamOut() = temporaryTrack.getParamIn();
-            temporaryTrack.resetCovariance();
-            temporaryTrack.setChi2(0);
-            fitSuccess = fitTrack(temporaryTrack, mTrkParams[0].NLayers - 1, -1, -1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF, 50.f);
-            if (!fitSuccess || temporaryTrack.getPt() < mTrkParams[iteration].MinPt[mTrkParams[iteration].NLayers - temporaryTrack.getNClusters()]) {
-              continue;
+          });
+
+        std::exclusive_scan(perSeedCount.begin(), perSeedCount.end(), perSeedCount.begin(), 0);
+        auto totalTracks{perSeedCount.back()};
+        if (totalTracks == 0) {
+          return;
+        }
+        tracks.resize(totalTracks);
+
+        tbb::parallel_for(
+          tbb::blocked_range<int>(0, nSeeds),
+          [&](const tbb::blocked_range<int>& Seeds) {
+            for (int iSeed = Seeds.begin(); iSeed < Seeds.end(); ++iSeed) {
+              if (perSeedCount[iSeed] == perSeedCount[iSeed + 1]) {
+                continue;
+              }
+              forSeed(PassMode::TwoPassInsert{}, iSeed, perSeedCount[iSeed]);
             }
-            ++perSeedCount[iSeed];
-          }
-        });
-      std::exclusive_scan(perSeedCount.begin(), perSeedCount.end(), perSeedCount.begin(), 0);
-      auto totalTracks{perSeedCount.back()};
-      if (totalTracks == 0) {
-        return;
+          });
       }
-      tracks.resize(totalTracks);
-
-      tbb::parallel_for(
-        tbb::blocked_range<int>(0, (int)trackSeeds.size()),
-        [&](const tbb::blocked_range<int>& Seeds) {
-          for (int iSeed = Seeds.begin(); iSeed < Seeds.end(); ++iSeed) {
-            if (perSeedCount[iSeed] == perSeedCount[iSeed + 1]) {
-              continue;
-            }
-            const CellSeed& seed{trackSeeds[iSeed]};
-            auto& trk = tracks[perSeedCount[iSeed]] = TrackITSExt(seed);
-            trk.resetCovariance();
-            trk.setChi2(0);
-            for (int iL{0}; iL < 7; ++iL) {
-              trk.setExternalClusterIndex(iL, seed.getCluster(iL), seed.getCluster(iL) != constants::UnusedIndex);
-            }
-
-            bool fitSuccess = fitTrack(trk, 0, mTrkParams[0].NLayers, 1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF);
-            if (!fitSuccess) {
-              continue;
-            }
-            trk.getParamOut() = trk.getParamIn();
-            trk.resetCovariance();
-            trk.setChi2(0);
-            fitTrack(trk, mTrkParams[0].NLayers - 1, -1, -1, mTrkParams[0].MaxChi2ClusterAttachment, mTrkParams[0].MaxChi2NDF, 50.f);
-          }
-        });
 
       deepVectorClear(trackSeeds);
       tbb::parallel_sort(tracks.begin(), tracks.end(), [](const auto& a, const auto& b) {
