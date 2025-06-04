@@ -14,13 +14,10 @@
 
 #include "Framework/ASoA.h"
 #include "Framework/HistogramSpec.h" // only for VARIABLE_WIDTH
-#include "Framework/Pack.h"
-#include <arrow/table.h>
-#include <array>
-#include <cstddef>
-#include <cstdint>
-#include <tuple>
 #include <vector>
+#include <cstddef>
+#include <tuple>
+#include <cstdint>
 
 namespace o2::framework
 {
