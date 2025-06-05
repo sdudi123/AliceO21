@@ -16,15 +16,11 @@
 
 #include "TPCWorkflow/TPCPressureTemperatureSpec.h"
 #include "Framework/Task.h"
-#include "Framework/Logger.h"
 #include "Framework/DataProcessorSpec.h"
-#include "Framework/CCDBParamSpec.h"
-#include "TPCBase/CDBInterface.h"
 #include "Framework/ConfigParamRegistry.h"
 #include "DetectorsBase/GRPGeomHelper.h"
-#include "CommonDataFormat/Pair.h"
-#include "DataFormatsTPC/DCS.h"
 #include "CommonUtils/TreeStreamRedirector.h"
+#include "TPCCalibration/PressureTemperatureHelper.h"
 
 using namespace o2::framework;
 
@@ -41,7 +37,7 @@ class PressureTemperatureDevice : public o2::framework::Task
   {
     o2::base::GRPGeomHelper::instance().setRequest(mCCDBRequest);
     const int intInterval = ic.options().get<int>("fit-interval");
-    mFitIntervalMS = intInterval * 1000;
+    mPTHelper.setFitIntervalTemp(intInterval * 1000);
     const bool enableDebugTree = ic.options().get<bool>("enable-root-output");
     if (enableDebugTree) {
       mStreamer = std::make_unique<o2::utils::TreeStreamRedirector>("pt.root", "recreate");
@@ -55,111 +51,37 @@ class PressureTemperatureDevice : public o2::framework::Task
     }
   }
 
-  /// \brief interpolate input values for given timestamp
-  /// \param timestamps time stamps of the data
-  /// \param values data points
-  /// \param timestamp time where to interpolate the values
-  float interpolate(const std::vector<uint64_t>& timestamps, const std::vector<float>& values, uint64_t timestamp)
-  {
-    if (auto idxClosest = o2::math_utils::findClosestIndices(timestamps, timestamp)) {
-      auto [idxLeft, idxRight] = *idxClosest;
-      if (idxRight > idxLeft) {
-        const uint64_t x0 = timestamps[idxLeft];
-        const uint64_t x1 = timestamps[idxRight];
-        const float y0 = values[idxLeft];
-        const float y1 = values[idxRight];
-        const float y = (y0 * (x1 - timestamp) + y1 * (timestamp - x0)) / (x1 - x0);
-        return y;
-      } else {
-        return values[idxLeft];
-      }
-    }
-    return 0; // this should never happen
-  }
-
   void run(o2::framework::ProcessingContext& pc) final
   {
     o2::base::GRPGeomHelper::instance().checkUpdates(pc);
-    pc.inputs().get<dcs::Pressure*>("pressure");
-    pc.inputs().get<dcs::Temperature*>("temperature");
+    mPTHelper.extractCCDBInputs(pc);
     const auto orbitResetTimeMS = o2::base::GRPGeomHelper::instance().getOrbitResetTimeMS();
     const auto firstTFOrbit = pc.services().get<o2::framework::TimingInfo>().firstTForbit;
     const uint64_t timestamp = orbitResetTimeMS + firstTFOrbit * o2::constants::lhc::LHCOrbitMUS * 0.001;
-
-    // find closest temperature and pressure
-    const float pressure = interpolate(mPressure.second, mPressure.first, timestamp);
-    const float tempA = interpolate(mTemperatureA.second, mTemperatureA.first, timestamp);
-    const float tempC = interpolate(mTemperatureC.second, mTemperatureC.first, timestamp);
+    mPTHelper.sendPTForTS(pc, timestamp);
 
     if (mStreamer) {
+      const float pressure = mPTHelper.getPressure(timestamp);
+      const auto temp = mPTHelper.getTemperature(timestamp);
       (*mStreamer) << "pt"
                    << "pressure=" << pressure
-                   << "temperatureA=" << tempA
-                   << "temperatureC=" << tempC
+                   << "temperatureA=" << temp.first
+                   << "temperatureC=" << temp.second
                    << "time=" << timestamp
                    << "\n";
     }
-
-    LOGP(info, "Sending pressure {}, temperature A {} and temperature C {} for timestamp {}", pressure, tempA, tempC, timestamp);
-    pc.outputs().snapshot(Output{o2::header::gDataOriginTPC, o2::tpc::getDataDescriptionTemperature()}, dataformats::Pair<float, float>{tempA, tempC});
-    pc.outputs().snapshot(Output{o2::header::gDataOriginTPC, o2::tpc::getDataDescriptionPressure()}, pressure);
   }
 
   void finaliseCCDB(o2::framework::ConcreteDataMatcher& matcher, void* obj) final
   {
     o2::base::GRPGeomHelper::instance().finaliseCCDB(matcher, obj);
-    if (matcher == ConcreteDataMatcher(o2::header::gDataOriginTPC, "PRESSURECCDB", 0)) {
-      LOGP(info, "Updating pressure");
-      const auto& pressure = ((dcs::Pressure*)obj);
-      mPressure.second = pressure->robustPressure.time;
-      mPressure.first = pressure->robustPressure.robustPressure;
-
-      if (mStreamer) {
-        (*mStreamer) << "p"
-                     << "pressureCCDB=" << pressure
-                     << "pressure=" << mPressure
-                     << "\n";
-      }
-    }
-
-    if (matcher == ConcreteDataMatcher(o2::header::gDataOriginTPC, "TEMPERATURECCDB", 0)) {
-      LOGP(info, "Updating temperature");
-      auto temp = *(dcs::Temperature*)obj;
-      temp.fitTemperature(o2::tpc::Side::A, mFitIntervalMS, false);
-      temp.fitTemperature(o2::tpc::Side::C, mFitIntervalMS, false);
-
-      mTemperatureA.first.clear();
-      mTemperatureC.first.clear();
-      mTemperatureA.second.clear();
-      mTemperatureC.second.clear();
-
-      for (const auto& dp : temp.statsA.data) {
-        mTemperatureA.first.emplace_back(dp.value.mean);
-        mTemperatureA.second.emplace_back(dp.time);
-      }
-
-      for (const auto& dp : temp.statsC.data) {
-        mTemperatureC.first.emplace_back(dp.value.mean);
-        mTemperatureC.second.emplace_back(dp.time);
-      }
-
-      if (mStreamer) {
-        (*mStreamer) << "t"
-                     << "temperatureCCDB=" << temp
-                     << "temperatureA=" << mTemperatureA
-                     << "temperatureC=" << mTemperatureC
-                     << "\n";
-      }
-    }
+    mPTHelper.accountCCDBInputs(matcher, obj);
   }
 
  private:
-  std::shared_ptr<o2::base::GRPGeomRequest> mCCDBRequest;             ///< info for CCDB request
-  std::pair<std::vector<float>, std::vector<uint64_t>> mPressure;     ///< pressure values for both measurements
-  std::pair<std::vector<float>, std::vector<uint64_t>> mTemperatureA; ///< temperature values A-side
-  std::pair<std::vector<float>, std::vector<uint64_t>> mTemperatureC; ///< temperature values C-side
-  std::unique_ptr<o2::utils::TreeStreamRedirector> mStreamer;         ///< debug streamer
-  int mFitIntervalMS{5 * 60 * 1000};                                  ///< fit interval for the temperature
+  PressureTemperatureHelper mPTHelper;
+  std::shared_ptr<o2::base::GRPGeomRequest> mCCDBRequest;     ///< info for CCDB request
+  std::unique_ptr<o2::utils::TreeStreamRedirector> mStreamer; ///< debug streamer
 };
 
 o2::framework::DataProcessorSpec getTPCPressureTemperatureSpec()
@@ -168,11 +90,8 @@ o2::framework::DataProcessorSpec getTPCPressureTemperatureSpec()
   std::vector<OutputSpec> outputs;
   o2::header::DataDescription dataDescription;
 
-  inputs.emplace_back("pressure", o2::header::gDataOriginTPC, "PRESSURECCDB", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalPressure), {}, 1));          // time-dependent
-  inputs.emplace_back("temperature", o2::header::gDataOriginTPC, "TEMPERATURECCDB", 0, Lifetime::Condition, ccdbParamSpec(o2::tpc::CDBTypeMap.at(o2::tpc::CDBType::CalTemperature), {}, 1)); // time-dependent
-
-  outputs.emplace_back(o2::header::gDataOriginTPC, o2::tpc::getDataDescriptionPressure(), 0, Lifetime::Timeframe);
-  outputs.emplace_back(o2::header::gDataOriginTPC, o2::tpc::getDataDescriptionTemperature(), 0, Lifetime::Timeframe);
+  PressureTemperatureHelper::requestCCDBInputs(inputs);
+  PressureTemperatureHelper::setOutputs(outputs);
 
   auto ccdbRequest = std::make_shared<o2::base::GRPGeomRequest>(true,                           // orbitResetTime
                                                                 false,                          // GRPECS=true for nHBF per TF

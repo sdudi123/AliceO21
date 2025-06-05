@@ -19,8 +19,6 @@ namespace o2
 {
 namespace tpc
 {
-static constexpr header::DataDescription getDataDescriptionPressure() { return header::DataDescription{"pressure"}; }
-static constexpr header::DataDescription getDataDescriptionTemperature() { return header::DataDescription{"temperature"}; }
 
 o2::framework::DataProcessorSpec getTPCPressureTemperatureSpec();
 
