@@ -336,6 +336,7 @@ bool prepareDelayedOutput(ProcessingContext&, T&)
 }
 
 template <is_defines T>
+  requires(T::delayed == true)
 bool prepareDelayedOutput(ProcessingContext& context, T& defines)
 {
   if (defines.needRecompilation) {
