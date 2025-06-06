@@ -11,13 +11,20 @@
 #ifndef O2_HEADERS_STACK_H
 #define O2_HEADERS_STACK_H
 
-#include "MemoryResources/MemoryResources.h"
-#include "Headers/DataHeader.h"
+#include "MemoryResources/MemoryResources.h" // IWYU pragma: export
+#include "Headers/DataHeader.h"              // IWYU pragma: export
+#include <type_traits>
 
-namespace o2
-{
+template <typename T>
+concept PolymorphicAllocatorLike = requires(T& t) {
+  { t.allocate(0) };
+  { t.deallocate(nullptr, 0) };
+};
 
-namespace header
+template <typename T>
+concept DataHeaderLike = std::is_convertible_v<T, o2::header::BaseHeader>;
+
+namespace o2::header
 {
 //__________________________________________________________________________________________________
 /// @struct Stack
@@ -47,7 +54,7 @@ struct Stack {
  public:
   using allocator_type = boost::container::pmr::polymorphic_allocator<std::byte>;
   using value_type = std::byte;
-  using BufferType = std::unique_ptr<value_type[], freeobj>; //this gives us proper default move semantics for free
+  using BufferType = std::unique_ptr<value_type[], freeobj>; // this gives us proper default move semantics for free
 
   Stack() = default;
   Stack(Stack&&) = default;
@@ -55,10 +62,10 @@ struct Stack {
   Stack& operator=(Stack&) = delete;
   Stack& operator=(Stack&&) = default;
 
-  value_type* data() const { return buffer.get(); }
-  size_t size() const { return bufferSize; }
-  allocator_type get_allocator() const { return allocator; }
-  const BaseHeader* first() const { return reinterpret_cast<const BaseHeader*>(this->data()); }
+  [[nodiscard]] value_type* data() const { return buffer.get(); }
+  [[nodiscard]] size_t size() const { return bufferSize; }
+  [[nodiscard]] allocator_type get_allocator() const { return allocator; }
+  [[nodiscard]] const BaseHeader* first() const { return reinterpret_cast<const BaseHeader*>(this->data()); }
   static const BaseHeader* firstHeader(std::byte const* buf) { return BaseHeader::get(buf); }
   static const BaseHeader* lastHeader(std::byte const* buf)
   {
@@ -88,18 +95,15 @@ struct Stack {
   /// allocation is done using new_delete_resource.
   /// In the final stack the first header must be DataHeader.
   /// all headers must derive from BaseHeader, in addition also other stacks can be passed to ctor.
-  template <typename FirstArgType, typename... Headers,
-            typename std::enable_if_t<
-              !std::is_convertible<FirstArgType, boost::container::pmr::polymorphic_allocator<std::byte>>::value, int> = 0>
-  Stack(FirstArgType&& firstHeader, Headers&&... headers)
-    : Stack(boost::container::pmr::new_delete_resource(), std::forward<FirstArgType>(firstHeader),
-            std::forward<Headers>(headers)...)
+  template <DataHeaderLike... Headers>
+  Stack(Headers&&... headers)
+    : Stack(boost::container::pmr::new_delete_resource(), std::forward<Headers>(headers)...)
   {
   }
 
   //______________________________________________________________________________________________
-  template <typename... Headers>
-  Stack(const allocator_type allocatorArg, Headers&&... headers)
+  template <PolymorphicAllocatorLike Allocator, DataHeaderLike... Headers>
+  Stack(Allocator allocatorArg, Headers&&... headers)
     : allocator{allocatorArg},
       bufferSize{calculateSize(std::forward<Headers>(headers)...)},
       buffer{static_cast<std::byte*>(allocator.resource()->allocate(bufferSize, alignof(std::max_align_t))), freeobj{allocator.resource()}}
@@ -122,9 +126,9 @@ struct Stack {
   template <typename T>
   constexpr static size_t calculateSize(T&& h) noexcept
   {
-    //if it's a pointer (to a stack) traverse it
+    // if it's a pointer (to a stack) traverse it
     if constexpr (std::is_convertible_v<T, std::byte*>) {
-      const BaseHeader* next = BaseHeader::get(std::forward<T>(h));
+      const o2::header::BaseHeader* next = o2::header::BaseHeader::get(std::forward<T>(h));
       if (!next) {
         return 0;
       }
@@ -133,13 +137,13 @@ struct Stack {
         size += next->size();
       }
       return size;
-      //otherwise get the size directly
+      // otherwise get the size directly
     } else {
       return h.size();
     }
   }
 
-  //recursion terminator
+  // recursion terminator
   constexpr static size_t calculateSize() { return 0; }
 
  private:
@@ -160,13 +164,13 @@ struct Stack {
         return here;
       }
       std::copy(h.data(), h.data() + h.size(), here);
-      BaseHeader* last = const_cast<BaseHeader*>(lastHeader(here));
+      auto* last = const_cast<BaseHeader*>(lastHeader(here));
       if (!last) {
         return here;
       }
       last->flagsNextHeader = more;
       return here + h.size();
-    } else if constexpr (std::is_same_v<BaseHeader, headerType>) {
+    } else if constexpr (std::is_same_v<o2::header::BaseHeader, headerType>) {
       std::copy(h.data(), h.data() + h.size(), here);
       reinterpret_cast<BaseHeader*>(here)->flagsNextHeader = more;
       return here + h.size();
@@ -231,7 +235,6 @@ struct Stack {
   }
 };
 
-} // namespace header
-} // namespace o2
+} // namespace o2::header
 
 #endif // HEADERS_STACK_H
