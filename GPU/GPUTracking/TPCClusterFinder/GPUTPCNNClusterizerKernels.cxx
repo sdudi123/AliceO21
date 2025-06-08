@@ -459,6 +459,33 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
   }
 }
 
+// ---------------------------------
+template <>
+GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t onlyMC, uint batchStart)
+{
+  // Implements identical publishing logic as the heuristic clusterizer and deconvolution kernel
+  uint32_t idx = get_global_id(0);
+  auto& clusterer = processors.tpcClusterer[sector];
+  auto& clustererNN = processors.tpcNNClusterer[sector];
+  CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
+  CfChargePos peak = clusterer.mPfilteredPeakPositions[idx + batchStart];
+
+  for(int i = 0; i < 8; i++) {
+    Delta2 d = cfconsts::InnerNeighbors[i];
+    CfChargePos tmp_pos = peak.delta(d);
+    PackedCharge charge = chargeMap[tmp_pos];
+    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit());
+    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit());
+  }
+  for(int i = 0; i < 16; i++) {
+    Delta2 d = cfconsts::OuterNeighbors[i];
+    CfChargePos tmp_pos = peak.delta(d);
+    PackedCharge charge = chargeMap[tmp_pos];
+    clustererNN.mClusterFlags[2 * idx] += (d.y != 0 && charge.isSplit() && !charge.has3x3Peak());
+    clustererNN.mClusterFlags[2 * idx + 1] += (d.x != 0 && charge.isSplit() && !charge.has3x3Peak());
+  }
+}
+
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 GPUd() int32_t GPUTPCNNClusterizerKernels::padOffset(int32_t row_ref, int32_t row_current)
 {

@@ -1003,6 +1003,10 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
             // auto start0 = std::chrono::high_resolution_clock::now();
             runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::fillInputNNSingleElement>({GetGrid(iSize * clustererNNShadow.mNnClusterizerElementSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the data
 
+            if (clustererNNShadow.mNnClusterizerSetDeconvolutionFlags) {
+              runKernel<GPUTPCNNClusterizerKernels, GPUTPCNNClusterizerKernels::publishDeconvolutionFlags>({GetGrid(iSize, lane), krnlRunRangeNone}, iSector, clustererNNShadow.mNnInferenceInputDType, withMC, batchStart); // Filling the regression data
+            }
+
             // auto stop0 = std::chrono::high_resolution_clock::now();
             // auto start1 = std::chrono::high_resolution_clock::now();
 
