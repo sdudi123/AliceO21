@@ -71,14 +71,15 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
   gsl::span<const Vertex> diamondSpan(&diamondVert, 1);
   int startROF{mTrkParams[iteration].nROFsPerIterations > 0 ? iROFslice * mTrkParams[iteration].nROFsPerIterations : 0};
   int endROF{o2::gpu::GPUCommonMath::Min(mTrkParams[iteration].nROFsPerIterations > 0 ? (iROFslice + 1) * mTrkParams[iteration].nROFsPerIterations + mTrkParams[iteration].DeltaROF : mTimeFrame->getNrof(), mTimeFrame->getNrof())};
-  for (int rof0{startROF}; rof0 < endROF; ++rof0) {
-    gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : mTimeFrame->getPrimaryVertices(rof0);
-    const int startVtx{iVertex >= 0 ? iVertex : 0};
-    const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
-    int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
-    int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
 
-    mTaskArena->execute([&] {
+  mTaskArena->execute([&] {
+    for (int rof0{startROF}; rof0 < endROF; ++rof0) {
+      gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : mTimeFrame->getPrimaryVertices(rof0);
+      const int startVtx{iVertex >= 0 ? iVertex : 0};
+      const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
+      int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
+      int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
+
       tbb::parallel_for(
         tbb::blocked_range<int>(0, mTrkParams[iteration].TrackletsPerRoad()),
         [&](const tbb::blocked_range<int>& Layers) {
@@ -197,48 +198,38 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
             }
           }
         });
-    });
-  }
+    }
 
-  auto sortTracklets = [](const Tracklet& a, const Tracklet& b) -> bool {
-    return a.firstClusterIndex < b.firstClusterIndex || (a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex < b.secondClusterIndex);
-  };
-  auto equalTracklets = [](const Tracklet& a, const Tracklet& b) -> bool {
-    return a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex == b.secondClusterIndex;
-  };
-
-  mTaskArena->execute([&] {
     tbb::parallel_for(
-      tbb::blocked_range<int>(0, mTrkParams[iteration].CellsPerRoad()),
+      tbb::blocked_range<int>(0, mTrkParams[iteration].TrackletsPerRoad()),
       [&](const tbb::blocked_range<int>& Layers) {
         for (int iLayer = Layers.begin(); iLayer < Layers.end(); ++iLayer) {
           /// Sort tracklets
-          auto& trkl{mTimeFrame->getTracklets()[iLayer + 1]};
-          tbb::parallel_sort(trkl.begin(), trkl.end(), sortTracklets);
+          auto& trkl{mTimeFrame->getTracklets()[iLayer]};
+          tbb::parallel_sort(trkl.begin(), trkl.end(), [](const Tracklet& a, const Tracklet& b) -> bool {
+            return a.firstClusterIndex < b.firstClusterIndex || (a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex < b.secondClusterIndex);
+          });
           /// Remove duplicates
-          trkl.erase(std::unique(trkl.begin(), trkl.end(), equalTracklets), trkl.end());
+          trkl.erase(std::unique(trkl.begin(), trkl.end(), [](const Tracklet& a, const Tracklet& b) -> bool {
+                       return a.firstClusterIndex == b.firstClusterIndex && a.secondClusterIndex == b.secondClusterIndex;
+                     }),
+                     trkl.end());
           trkl.shrink_to_fit();
-          /// recalculate lut
-          auto& lut{mTimeFrame->getTrackletsLookupTable()[iLayer]};
-          std::fill(lut.begin(), lut.end(), 0);
-          if (trkl.empty()) {
-            return;
+          if (iLayer > 0) { /// recalculate lut
+            auto& lut{mTimeFrame->getTrackletsLookupTable()[iLayer - 1]};
+            std::fill(lut.begin(), lut.end(), 0);
+            if (trkl.empty()) {
+              return;
+            }
+            for (const auto& tkl : trkl) {
+              lut[tkl.firstClusterIndex]++;
+            }
+            std::exclusive_scan(lut.begin(), lut.end(), lut.begin(), 0);
+            lut.push_back(trkl.size());
           }
-          for (const auto& tkl : trkl) {
-            lut[tkl.firstClusterIndex]++;
-          }
-          std::exclusive_scan(lut.begin(), lut.end(), lut.begin(), 0);
-          lut.push_back(trkl.size());
         }
       });
   });
-
-  /// Layer 0 is done outside the loop
-  // in-place deduplication
-  auto& trklt0 = mTimeFrame->getTracklets()[0];
-  mTaskArena->execute([&] { tbb::parallel_sort(trklt0.begin(), trklt0.end(), sortTracklets); });
-  trklt0.erase(std::unique(trklt0.begin(), trklt0.end(), equalTracklets), trklt0.end());
-  trklt0.shrink_to_fit();
 
   /// Create tracklets labels
   if (mTimeFrame->hasMCinformation()) {
