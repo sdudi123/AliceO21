@@ -113,7 +113,7 @@ GPUdii() void GPUTPCCFDeconvolution::deconvolutionImpl(int32_t nBlocks, int32_t 
 
   PackedCharge charge = chargeMap[pos];
 
-  if(overwriteCharge) {
+  if (overwriteCharge) {
     PackedCharge p(charge.unpack() / peakCount, has3x3, split);
     chargeMap[pos] = p;
   } else {
