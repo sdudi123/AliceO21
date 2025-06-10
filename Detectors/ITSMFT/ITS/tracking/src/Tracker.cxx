@@ -25,6 +25,7 @@
 #include "ITStracking/TrackingConfigParam.h"
 
 #include "ReconstructionDataFormats/Track.h"
+#include <algorithm>
 #include <cassert>
 #include <format>
 #include <cstdlib>
@@ -77,9 +78,21 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
 
       total += evaluateTask(&Tracker::initialiseTimeFrame, StateNames[mCurState = TFInit], iteration, logger, iteration);
       for (iROFs = 0; iROFs < nROFsIterations; ++iROFs) {
-        iVertex = (!mTrkParams[0].PerPrimaryVertexProcessing) ? -1 : 0;
+        if (mTimeFrame->getPrimaryVertices(iROFs).empty()) {
+          continue;
+        }
+
+        std::vector<int> vertOrder(mTimeFrame->getPrimaryVerticesNum(iROFs), -1);
+        if (mTrkParams[0].PerPrimaryVertexProcessing) {
+          // do low mult. cluster first, should steal less, keep relative order though
+          std::iota(vertOrder.begin(), vertOrder.end(), 0);
+          std::stable_sort(vertOrder.begin(), vertOrder.end(), [&](int a, int b) -> bool { return mTimeFrame->getPrimaryVertices(iROFs)[a].getNContributors() < mTimeFrame->getPrimaryVertices(iROFs)[b].getNContributors(); });
+          iVertex = 0;
+        }
+
         do {
-          timeTracklets += evaluateTask(&Tracker::computeTracklets, StateNames[mCurState = Trackleting], iteration, evalLog, iteration, iROFs, iVertex);
+          // LOGP(info, "iVtx={} -> {} / {}", iVertex, vertOrder[iVertex], vertOrder.size());
+          timeTracklets += evaluateTask(&Tracker::computeTracklets, StateNames[mCurState = Trackleting], iteration, evalLog, iteration, iROFs, vertOrder[iVertex]);
           nTracklets += mTraits->getTFNumberOfTracklets();
           float trackletsPerCluster = mTraits->getTFNumberOfClusters() > 0 ? float(mTraits->getTFNumberOfTracklets()) / float(mTraits->getTFNumberOfClusters()) : 0.f;
           if (trackletsPerCluster > mTrkParams[iteration].TrackletsPerClusterLimit) {
@@ -98,7 +111,7 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
           timeNeighbours += evaluateTask(&Tracker::findCellsNeighbours, StateNames[mCurState = Neighbouring], iteration, evalLog, iteration);
           nNeighbours += mTimeFrame->getNumberOfNeighbours();
           timeRoads += evaluateTask(&Tracker::findRoads, StateNames[mCurState = Roading], iteration, evalLog, iteration);
-        } while (iVertex >= 0 && ++iVertex < mTimeFrame->getPrimaryVerticesNum(iROFs));
+        } while (vertOrder[iVertex] >= 0 && ++iVertex < mTimeFrame->getPrimaryVerticesNum(iROFs));
       }
       logger(std::format(" - Tracklet finding: {} tracklets found in {:.2f} ms", nTracklets, timeTracklets));
       logger(std::format(" - Cell finding: {} cells found in {:.2f} ms", nCells, timeCells));
