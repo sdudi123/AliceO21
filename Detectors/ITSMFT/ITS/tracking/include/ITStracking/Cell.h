@@ -102,8 +102,7 @@ class CellSeed final : public o2::track::TrackParCovF
   }
 
  private:
-  float mChi2 = 0.f;
-  int mLevel = 0;
+  float mChi2{0.f};
   int mTracklets[2] = {-1, -1};
   int mClusters[7] = {-1, -1, -1, -1, -1, -1, -1};
 };
