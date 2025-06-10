@@ -17,6 +17,7 @@
 #define O2_ITS_TRACKING_MATHUTILS_H_
 
 #include "CommonConstants/MathConstants.h"
+#include "ITStracking/Constants.h"
 #include "MathUtils/Utils.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonDef.h"
@@ -42,8 +43,9 @@ GPUhdi() constexpr float getNormalizedPhi(float phi)
 
 GPUhdi() float computeCurvature(float x1, float y1, float x2, float y2, float x3, float y3)
 {
+  // in case the triangle is degenerate we return infinite curvature.
   const float d = (x2 - x1) * (y3 - y2) - (x3 - x2) * (y2 - y1);
-  if (o2::gpu::CAMath::Abs(d) < o2::constants::math::Almost0) {
+  if (o2::gpu::CAMath::Abs(d) < o2::its::constants::Tolerance) {
     return 0.f;
   }
   const float a =
@@ -51,24 +53,37 @@ GPUhdi() float computeCurvature(float x1, float y1, float x2, float y2, float x3
   const float b =
     0.5f * ((x2 - x1) * (y3 * y3 - y2 * y2 + x3 * x3 - x2 * x2) - (x3 - x2) * (y2 * y2 - y1 * y1 + x2 * x2 - x1 * x1));
   const float den = o2::gpu::CAMath::Hypot(d * x1 - a, d * y1 - b);
+  if (den < o2::its::constants::Tolerance) {
+    return 0.f;
+  }
   return -d / den;
 }
 
 GPUhdi() float computeCurvatureCentreX(float x1, float y1, float x2, float y2, float x3, float y3)
 {
+  // in case the triangle is degenerate we return set the centre to infinity.
   float dx21 = x2 - x1, dx32 = x3 - x2;
-  if (dx21 == 0.f || dx32 == 0.f) { // add small offset
+  if (o2::gpu::CAMath::Abs(dx21) < o2::its::constants::Tolerance ||
+      o2::gpu::CAMath::Abs(dx32) < o2::its::constants::Tolerance) { // add small offset
     x2 += 1e-4;
     dx21 = x2 - x1;
     dx32 = x3 - x2;
   }
-  float k1 = (y2 - y1) / dx21, k2 = (y3 - y2) / dx32;
-  return (k1 != k2) ? 0.5f * (k1 * k2 * (y1 - y3) + k2 * (x1 + x2) - k1 * (x2 + x3)) / (k2 - k1) : 1e5f;
+  const float k1 = (y2 - y1) / dx21, k2 = (y3 - y2) / dx32;
+  if (o2::gpu::CAMath::Abs(k2 - k1) < o2::its::constants::Tolerance) {
+    return o2::constants::math::VeryBig;
+  }
+  return 0.5f * (k1 * k2 * (y1 - y3) + k2 * (x1 + x2) - k1 * (x2 + x3)) / (k2 - k1);
 }
 
 GPUhdi() float computeTanDipAngle(float x1, float y1, float x2, float y2, float z1, float z2)
 {
-  return (z1 - z2) / o2::gpu::CAMath::Hypot(x1 - x2, y1 - y2);
+  // in case the points vertically align we go to pos/neg inifinity.
+  const float d = o2::gpu::CAMath::Hypot(x1 - x2, y1 - y2);
+  if (o2::gpu::CAMath::Abs(d) < o2::its::constants::Tolerance) {
+    return ((z1 > z2) ? -1.f : 1.f) * o2::constants::math::VeryBig;
+  }
+  return (z1 - z2) / d;
 }
 
 GPUhdi() float smallestAngleDifference(float a, float b)

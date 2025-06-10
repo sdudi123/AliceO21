@@ -25,6 +25,7 @@ constexpr float GB = 1024.f * 1024.f * 1024.f;
 constexpr bool DoTimeBenchmarks = true;
 constexpr bool SaveTimeBenchmarks = false;
 
+constexpr float Tolerance{1e-12}; // numerical tolerance
 constexpr int ClustersPerCell{3};
 constexpr int UnusedIndex{-1};
 constexpr float Resolution{0.0005f};
