@@ -45,15 +45,9 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
 {
   LogFunc evalLog = [](const std::string&) {};
 
-  double total{0};
   mTraits->updateTrackingParameters(mTrkParams);
-  int maxNvertices{-1};
-  if (mTrkParams[0].PerPrimaryVertexProcessing) {
-    for (int iROF{0}; iROF < mTimeFrame->getNrof(); ++iROF) {
-      maxNvertices = std::max(maxNvertices, (int)mTimeFrame->getPrimaryVertices(iROF).size());
-    }
-  }
 
+  double total{0};
   int iteration{0}, iROFs{0}, iVertex{0};
   auto handleException = [&](const auto& err) {
     LOGP(error, "Too much memory used during {} in iteration {} in ROF span {}-{} iVtx={}: {:.2f} GB. Current limit is {:.2f} GB, check the detector status and/or the selections.",
@@ -79,12 +73,12 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
       double timeTracklets{0.}, timeCells{0.}, timeNeighbours{0.}, timeRoads{0.};
       int nTracklets{0}, nCells{0}, nNeighbours{0}, nTracks{-static_cast<int>(mTimeFrame->getNumberOfTracks())};
       int nROFsIterations = mTrkParams[iteration].nROFsPerIterations > 0 ? mTimeFrame->getNrof() / mTrkParams[iteration].nROFsPerIterations + bool(mTimeFrame->getNrof() % mTrkParams[iteration].nROFsPerIterations) : 1;
-      iVertex = std::min(maxNvertices, 0);
       logger(std::format("==== ITS {} Tracking iteration {} summary ====", mTraits->getName(), iteration));
 
       total += evaluateTask(&Tracker::initialiseTimeFrame, StateNames[mCurState = TFInit], iteration, logger, iteration);
-      do {
-        for (iROFs = 0; iROFs < nROFsIterations; ++iROFs) {
+      for (iROFs = 0; iROFs < nROFsIterations; ++iROFs) {
+        iVertex = (!mTrkParams[0].PerPrimaryVertexProcessing) ? -1 : 0;
+        do {
           timeTracklets += evaluateTask(&Tracker::computeTracklets, StateNames[mCurState = Trackleting], iteration, evalLog, iteration, iROFs, iVertex);
           nTracklets += mTraits->getTFNumberOfTracklets();
           float trackletsPerCluster = mTraits->getTFNumberOfClusters() > 0 ? float(mTraits->getTFNumberOfTracklets()) / float(mTraits->getTFNumberOfClusters()) : 0.f;
@@ -104,8 +98,8 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
           timeNeighbours += evaluateTask(&Tracker::findCellsNeighbours, StateNames[mCurState = Neighbouring], iteration, evalLog, iteration);
           nNeighbours += mTimeFrame->getNumberOfNeighbours();
           timeRoads += evaluateTask(&Tracker::findRoads, StateNames[mCurState = Roading], iteration, evalLog, iteration);
-        }
-      } while (++iVertex < maxNvertices);
+        } while (iVertex >= 0 && ++iVertex < mTimeFrame->getPrimaryVerticesNum(iROFs));
+      }
       logger(std::format(" - Tracklet finding: {} tracklets found in {:.2f} ms", nTracklets, timeTracklets));
       logger(std::format(" - Cell finding: {} cells found in {:.2f} ms", nCells, timeCells));
       logger(std::format(" - Neighbours finding: {} neighbours found in {:.2f} ms", nNeighbours, timeNeighbours));
