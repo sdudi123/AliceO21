@@ -22,7 +22,7 @@ using namespace o2::gpu;
 using namespace o2::gpu::tpccf;
 
 template <>
-GPUdii() void GPUTPCCFDeconvolution::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, bool overwriteCharge)
+GPUdii() void GPUTPCCFDeconvolution::Thread<0>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, uint8_t overwriteCharge)
 {
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
@@ -34,7 +34,7 @@ GPUdii() void GPUTPCCFDeconvolution::deconvolutionImpl(int32_t nBlocks, int32_t 
                                                        CfArray2D<PackedCharge>& chargeMap,
                                                        const CfChargePos* positions,
                                                        const uint32_t digitnum,
-                                                       bool overwriteCharge)
+                                                       uint8_t overwriteCharge)
 {
   SizeT idx = get_global_id(0);
 
