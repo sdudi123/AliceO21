@@ -91,7 +91,6 @@ void Tracker::clustersToTracks(const LogFunc& logger, const LogFunc& error)
         }
 
         do {
-          // LOGP(info, "iVtx={} -> {} / {}", iVertex, vertOrder[iVertex], vertOrder.size());
           timeTracklets += evaluateTask(&Tracker::computeTracklets, StateNames[mCurState = Trackleting], iteration, evalLog, iteration, iROFs, vertOrder[iVertex]);
           nTracklets += mTraits->getTFNumberOfTracklets();
           float trackletsPerCluster = mTraits->getTFNumberOfClusters() > 0 ? float(mTraits->getTFNumberOfTracklets()) / float(mTraits->getTFNumberOfClusters()) : 0.f;
