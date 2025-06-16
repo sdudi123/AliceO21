@@ -12,6 +12,7 @@
 #include <DetectorsBase/Detector.h>
 #include <DetectorsBase/MaterialManager.h>
 #include <Alice3DetectorsPassive/Magnet.h>
+#include <Alice3DetectorsPassive/PassiveBaseParam.h>
 #include <TGeoCompositeShape.h>
 #include <TGeoManager.h>
 #include <TGeoMatrix.h>
@@ -54,10 +55,23 @@ void Alice3Magnet::createMaterials()
   // | Support cylinder |           20            |  8.896   | 0.225  |
   // | Al-strip         |            1            |  8.896   | 0.011  |
   // | NbTi/Cu          |            3            |  1.598   | 0.188  |
-  // | Insulation       |           11            | 17.64    | 0.062  |
+  // | Insulation       |           11            |  17.64   | 0.062  |
   // | Al-stabiliser    |           33            |  8.896   | 0.371  |
   // | Inner cryostat   |           10            |  8.896   | 0.112  |
   // | Outer cryostat   |           30            |  8.896   | 0.337  |
+  // +------------------+-------------------------+----------+--------+
+  // Update: 2025-06-16
+  // +------------------+-------------------------+----------+--------+
+  // |  layer           | effective thickness [mm]|  X0 [cm] | X0 [%] |
+  // +------------------+-------------------------+----------+--------+
+  // | Support cylinder |           20            | 8.896 | 0.225     |
+  // | Al-strip         |            1            | 8.896 | 0.011     |
+  // | NbTi/Cu          |            3            | 1.598 | 0.188     |
+  // | Insulation       |           11            | 17.64 | 0.062     |
+  // | Cu-stabiliser    |           22            | 1.436 | 1.532     |
+  // | Inner cryostat   |           10            | 8.896 | 0.112     |
+  // | Outer cryostat   |           30            | 8.896 | 0.337     |
+  // | total            |                         |       | 2.468     |
   // +------------------+-------------------------+----------+--------+
   // Geometry will be oversimplified in two wrapping cylindrical Al layers (symmetric for the time being) with a Copper layer in between.
 
@@ -90,6 +104,14 @@ void Alice3Magnet::ConstructGeometry()
 {
   createMaterials();
 
+  // Passive Base configuration parameters
+  auto& passiveBaseParam = Alice3PassiveBaseParam::Instance();
+  const bool doCopperStabilizer = (passiveBaseParam.mGeometry == o2::passive::MagnetGeometry::CopperStabilizer);
+  if (doCopperStabilizer) {
+    mRestMaterialThickness -= 3.3; // cm Remove the Aluminium stabiliser
+    mRestMaterialThickness += 2.2; // cm Add the Copper stabiliser
+  }
+
   TGeoManager* geoManager = gGeoManager;
   TGeoVolume* barrel = geoManager->GetVolume("barrel");
   if (!barrel) {
@@ -117,7 +139,7 @@ void Alice3Magnet::ConstructGeometry()
   TGeoVolume* innerWrapVol = new TGeoVolume("innerWrap", innerLayer, kMedAl);
   TGeoVolume* innerVacuumVol = new TGeoVolume("innerVacuum", innerVacuum, kMedVac);
   TGeoVolume* coilsVol = new TGeoVolume("coils", coilsLayer, kMedCu);
-  TGeoVolume* restMaterialVol = new TGeoVolume("restMaterial", restMaterial, kMedAl);
+  TGeoVolume* restMaterialVol = new TGeoVolume("restMaterial", restMaterial, doCopperStabilizer ? kMedCu : kMedAl);
   TGeoVolume* outerVacuumVol = new TGeoVolume("outerVacuum", outerVacuum, kMedVac);
   TGeoVolume* outerWrapVol = new TGeoVolume("outerWrap", outerLayer, kMedAl);
 
