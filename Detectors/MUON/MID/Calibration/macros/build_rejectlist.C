@@ -334,7 +334,7 @@ RejectListStruct load_from_json(const o2::ccdb::CcdbApi& ccdbApi, const char* fi
   int64_t startTSms = 0;
   int64_t endTSms = 0;
 
-  //run numbers from the json
+  // run numbers from the json
   int startRun = doc["startRun"].GetInt();
   int endRun = doc["endRun"].GetInt();
 
