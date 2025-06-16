@@ -24,7 +24,7 @@ namespace passive
 // ** Parameters for Passive base configuration
 // **
 
-enum MagnetGeometry : int {
+enum MagnetLayout : int {
   AluminiumStabilizer = 0,
   CopperStabilizer = 1
 };
@@ -32,9 +32,9 @@ enum MagnetGeometry : int {
 struct Alice3PassiveBaseParam : public o2::conf::ConfigurableParamHelper<Alice3PassiveBaseParam> {
   // Geometry Builder parameters
 
-  int mGeometry = MagnetGeometry::AluminiumStabilizer;
+  int mLayout = MagnetLayout::AluminiumStabilizer;
 
-  O2ParamDef(Alice3PassiveBaseParam, "PassiveBase");
+  O2ParamDef(Alice3PassiveBaseParam, "Alice3PassiveBase");
 };
 
 } // namespace passive

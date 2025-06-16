@@ -60,7 +60,7 @@ void Alice3Magnet::createMaterials()
   // | Inner cryostat   |           10            |  8.896   | 0.112  |
   // | Outer cryostat   |           30            |  8.896   | 0.337  |
   // +------------------+-------------------------+----------+--------+
-  // Update: 2025-06-16
+  // Update: 2025-06-16 enabledby setting Alice3PassiveBase.mLayout=1
   // +------------------+-------------------------+----------+--------+
   // |  layer           | effective thickness [mm]|  X0 [cm] | X0 [%] |
   // +------------------+-------------------------+----------+--------+
@@ -106,10 +106,11 @@ void Alice3Magnet::ConstructGeometry()
 
   // Passive Base configuration parameters
   auto& passiveBaseParam = Alice3PassiveBaseParam::Instance();
-  const bool doCopperStabilizer = (passiveBaseParam.mGeometry == o2::passive::MagnetGeometry::CopperStabilizer);
+  const bool doCopperStabilizer = (passiveBaseParam.mLayout == o2::passive::MagnetLayout::CopperStabilizer);
   if (doCopperStabilizer) {
     mRestMaterialThickness -= 3.3; // cm Remove the Aluminium stabiliser
     mRestMaterialThickness += 2.2; // cm Add the Copper stabiliser
+    LOG(debug) << "Alice 3 magnet: using Copper Stabilizer with thickness " << mRestMaterialThickness << " cm";
   }
 
   TGeoManager* geoManager = gGeoManager;
@@ -124,16 +125,16 @@ void Alice3Magnet::ConstructGeometry()
   auto kMedVac = matmgr.getTGeoMedium("ALICE3_MAGNET_VACUUM");
 
   // inner wrap
-  LOGP(debug, "Alice 3 magnet: creating inner wrap with inner radius {} and thickness {}", mInnerWrapInnerRadius, mInnerWrapThickness);
+  LOGP(debug, "Alice 3 magnet: creating inner wrap with inner radius {} cm and thickness {} cm", mInnerWrapInnerRadius, mInnerWrapThickness);
   TGeoTube* innerLayer = new TGeoTube(mInnerWrapInnerRadius, mInnerWrapInnerRadius + mInnerWrapThickness, mZLength / 2);
   TGeoTube* innerVacuum = new TGeoTube(mInnerWrapInnerRadius + mInnerWrapThickness, mCoilInnerRadius, mZLength / 2);
   // coils layer
-  LOGP(debug, "Alice 3 magnet: creating coils layer with inner radius {} and thickness {}", mCoilInnerRadius, mCoilThickness);
+  LOGP(debug, "Alice 3 magnet: creating coils layer with inner radius {} cm and thickness {} cm", mCoilInnerRadius, mCoilThickness);
   TGeoTube* coilsLayer = new TGeoTube(mCoilInnerRadius, mCoilInnerRadius + mCoilThickness, mZLength / 2);
   TGeoTube* restMaterial = new TGeoTube(mRestMaterialRadius, mRestMaterialRadius + mRestMaterialThickness, mZLength / 2);
   TGeoTube* outerVacuum = new TGeoTube(mRestMaterialRadius + mRestMaterialThickness, mOuterWrapInnerRadius, mZLength / 2);
   // outer wrap
-  LOGP(debug, "Alice 3 magnet: creating outer wrap with inner radius {} and thickness {}", mOuterWrapInnerRadius, mOuterWrapThickness);
+  LOGP(debug, "Alice 3 magnet: creating outer wrap with inner radius {} cm and thickness {} cm", mOuterWrapInnerRadius, mOuterWrapThickness);
   TGeoTube* outerLayer = new TGeoTube(mOuterWrapInnerRadius, mOuterWrapInnerRadius + mOuterWrapThickness, mZLength / 2);
 
   TGeoVolume* innerWrapVol = new TGeoVolume("innerWrap", innerLayer, kMedAl);
