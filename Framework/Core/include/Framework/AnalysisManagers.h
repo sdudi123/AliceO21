@@ -588,7 +588,7 @@ bool registerCache(T& preslice, Cache&, Cache& bsksU)
 template <is_preslice_group T>
 bool registerCache(T& presliceGroup, Cache& bsks, Cache& bsksU)
 {
-  homogeneous_apply_refs<true>([&bsks, &bsksU](auto& preslice){ return registerCache(preslice, bsks, bsksU); }, presliceGroup);
+  homogeneous_apply_refs<true>([&bsks, &bsksU](auto& preslice) { return registerCache(preslice, bsks, bsksU); }, presliceGroup);
   return true;
 }
 
@@ -628,7 +628,7 @@ static bool updateSliceInfo(T& preslice, ArrowTableSlicingCache& cache)
 template <is_preslice_group T>
 static bool updateSliceInfo(T& presliceGroup, ArrowTableSlicingCache& cache)
 {
-  homogeneous_apply_refs<true>([&cache](auto& preslice){ return updateSliceInfo(preslice, cache); }, presliceGroup);
+  homogeneous_apply_refs<true>([&cache](auto& preslice) { return updateSliceInfo(preslice, cache); }, presliceGroup);
   return true;
 }
 
