@@ -21,17 +21,17 @@ namespace o2::framework
 using ListVector = std::vector<std::vector<int64_t>>;
 
 struct SliceInfoPtr {
-  gsl::span<int const> values;
-  gsl::span<int64_t const> counts;
+  std::span<int const> values;
+  std::span<int64_t const> counts;
 
   std::pair<int64_t, int64_t> getSliceFor(int value) const;
 };
 
 struct SliceInfoUnsortedPtr {
-  gsl::span<int const> values;
+  std::span<int const> values;
   ListVector const* groups;
 
-  gsl::span<int64_t const> getSliceFor(int value) const;
+  std::span<int64_t const> getSliceFor(int value) const;
 };
 
 struct Entry {
