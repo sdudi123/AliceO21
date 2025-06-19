@@ -126,7 +126,7 @@ struct WritingCursor {
   using cursor_t = decltype(std::declval<TableBuilder>().cursor<persistent_table_t>());
 
   template <typename... Ts>
-  void operator()(Ts... args)
+  void operator()(Ts&&... args)
   {
     static_assert(sizeof...(Ts) == framework::pack_size(typename persistent_table_t::persistent_columns_t{}), "Argument number mismatch");
     ++mCount;
@@ -175,7 +175,7 @@ struct WritingCursor {
   }
 
   template <typename A>
-  static decltype(auto) extract(A const& arg)
+  static decltype(auto) extract(A&& arg)
   {
     return arg;
   }
