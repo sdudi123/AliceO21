@@ -224,7 +224,7 @@ struct BuilderUtils {
 
 template <typename T>
 struct BuilderMaker {
-  using FillType = T const&;
+  using FillType = T;
   using STLValueType = T;
   using ArrowType = typename detail::ConversionTraits<T>::ArrowType;
   using BuilderType = typename arrow::TypeTraits<ArrowType>::BuilderType;

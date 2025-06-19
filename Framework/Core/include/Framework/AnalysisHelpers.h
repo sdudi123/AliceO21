@@ -171,14 +171,14 @@ struct WritingCursor {
 
  private:
   template <is_enumerated_iterator A>
-  static decltype(auto) extract(A const& arg)
+  static inline decltype(auto) extract(A const& arg)
   {
     return arg.globalIndex();
   }
 
   template <typename A>
     requires(!is_enumerated_iterator<A>)
-  static decltype(auto) extract(A&& arg)
+  static inline decltype(auto) extract(A&& arg)
   {
     return arg;
   }
