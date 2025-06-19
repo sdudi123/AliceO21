@@ -49,14 +49,37 @@ void ChipSimResponse::computeCentreFromData()
     qVec.push_back(p.second);
   }
 
-  float intQ = 0.f, intZQ = 0.f;
+  struct BinInfo { float z0, z1, q0, q1, dq; };
+  std::vector<BinInfo> bins;
+  float totQ = 0.f;
   for (size_t i = 0; i + 1 < zVec.size(); ++i) {
     float z0 = zVec[i], z1 = zVec[i + 1];
     float q0 = qVec[i], q1 = qVec[i + 1];
     float dz = z1 - z0;
-    intQ += 0.5f * (q0 + q1) * dz;
-    intZQ += 0.5f * (z0 * q0 + z1 * q1) * dz;
+    float dq = 0.5f * (q0 + q1) * dz;
+    bins.push_back({z0, z1, q0, q1, dq});
+    totQ += dq;
   }
+  if (totQ <= 0.f) { mRespCentreDep = 0.f; return; }
 
-  mRespCentreDep = (intQ > 0.f) ? intZQ / intQ : 0.f;
+  float halfQ = 0.5f * totQ;
+  float cumQ = 0.f;
+  for (const auto& b : bins) {
+    if (cumQ + b.dq < halfQ) { cumQ += b.dq; continue; }
+    float qSlope = (b.q1 - b.q0) / (b.z1 - b.z0);
+    float dz = b.z1 - b.z0;
+    float A = qSlope * 0.5f;
+    float B = b.q0;
+    float C = cumQ - halfQ;
+    float disc = B * B - 4.f * A * C;
+    float x;
+    if (disc >= 0.f && std::abs(A) > 1.e-12f)
+      x = (-B + std::sqrt(disc)) / (2.f * A);
+    else
+      x = (halfQ - cumQ) / b.q0;
+    x = std::clamp(x, 0.f, dz);
+    mRespCentreDep = b.z0 + x;
+    return;
+  }
+  mRespCentreDep = mDptMax;
 }
