@@ -74,11 +74,14 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
 
   mTaskArena->execute([&] {
     for (int rof0{startROF}; rof0 < endROF; ++rof0) {
-      gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : mTimeFrame->getPrimaryVertices(rof0);
-      const int startVtx{iVertex >= 0 ? iVertex : 0};
-      const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
       int minRof = o2::gpu::CAMath::Max(startROF, rof0 - mTrkParams[iteration].DeltaROF);
       int maxRof = o2::gpu::CAMath::Min(endROF - 1, rof0 + mTrkParams[iteration].DeltaROF);
+      gsl::span<const Vertex> primaryVertices = mTrkParams[iteration].UseDiamond ? diamondSpan : mTimeFrame->getPrimaryVertices(minRof, maxRof);
+      if (primaryVertices.empty()) {
+        continue;
+      }
+      const int startVtx{iVertex >= 0 ? iVertex : 0};
+      const int endVtx{iVertex >= 0 ? o2::gpu::CAMath::Min(iVertex + 1, static_cast<int>(primaryVertices.size())) : static_cast<int>(primaryVertices.size())};
 
       tbb::parallel_for(
         tbb::blocked_range<int>(0, mTrkParams[iteration].TrackletsPerRoad()),
@@ -127,6 +130,9 @@ void TrackerTraits<nLayers>::computeLayerTracklets(const int iteration, int iROF
                 }
 
                 for (int rof1{minRof}; rof1 <= maxRof; ++rof1) {
+                  if (!mTimeFrame->mMultiplicityCutMask[rof1]) {
+                    continue;
+                  }
                   auto layer1 = mTimeFrame->getClustersOnLayer(rof1, iLayer + 1);
                   if (layer1.empty()) {
                     continue;

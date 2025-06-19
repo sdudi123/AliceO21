@@ -397,7 +397,8 @@ inline gsl::span<const Vertex> TimeFrame<nLayers>::getPrimaryVertices(int romin,
   if (mPrimaryVertices.empty()) {
     return {};
   }
-  return {&mPrimaryVertices[mROFramesPV[romin]], static_cast<gsl::span<const Vertex>::size_type>(mROFramesPV[romax + 1] - mROFramesPV[romin])};
+  const int stop_idx = romax >= mNrof - 1 ? mNrof : romax + 1;
+  return {&mPrimaryVertices[mROFramesPV[romin]], static_cast<gsl::span<const Vertex>::size_type>(mROFramesPV[stop_idx] - mROFramesPV[romin])};
 }
 
 template <int nLayers>
