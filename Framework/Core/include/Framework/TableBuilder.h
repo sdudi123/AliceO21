@@ -157,7 +157,7 @@ struct BuilderUtils {
 
   /// Appender for the vector case.
   template <typename HolderType, typename T>
-  static arrow::Status append(HolderType& holder, std::vector<T> const& data)
+  static arrow::Status append(HolderType& holder, std::span<T> data)
   {
     using ArrowType = typename detail::ConversionTraits<T>::ArrowType;
     using ValueBuilderType = typename arrow::TypeTraits<ArrowType>::BuilderType;
@@ -170,7 +170,7 @@ struct BuilderUtils {
   }
 
   template <typename HolderType, typename T>
-  static void unsafeAppend(HolderType& holder, std::vector<T> const& value)
+  static void unsafeAppend(HolderType& holder, std::span<T> value)
   {
     auto status = append(holder, value);
     if (!status.ok()) {
@@ -224,7 +224,7 @@ struct BuilderUtils {
 
 template <typename T>
 struct BuilderMaker {
-  using FillType = T;
+  using FillType = T const&;
   using STLValueType = T;
   using ArrowType = typename detail::ConversionTraits<T>::ArrowType;
   using BuilderType = typename arrow::TypeTraits<ArrowType>::BuilderType;
@@ -276,7 +276,7 @@ struct BuilderMaker<bool> {
 
 template <typename ITERATOR>
 struct BuilderMaker<std::pair<ITERATOR, ITERATOR>> {
-  using FillType = std::pair<ITERATOR, ITERATOR>;
+  using FillType = std::pair<ITERATOR, ITERATOR> const&;
   using STLValueType = typename ITERATOR::value_type;
   using ArrowType = arrow::ListType;
   using ValueType = typename detail::ConversionTraits<typename ITERATOR::value_type>::ArrowType;
@@ -361,7 +361,7 @@ struct BuilderMaker<std::array<T, N>> {
 
 template <typename T>
 struct BuilderMaker<std::vector<T>> {
-  using FillType = std::vector<T>;
+  using FillType = std::span<T>;
   using BuilderType = arrow::ListBuilder;
   using ArrowType = arrow::ListType;
   using ElementType = typename detail::ConversionTraits<T>::ArrowType;
@@ -647,7 +647,7 @@ class TableBuilder
   {
     auto persister = persistTuple(framework::pack<ARG0, ARGS...>{}, columnNames);
     // Callback used to fill the builders
-    return [persister = persister](unsigned int slot, typename BuilderMaker<ARG0>::FillType const& arg, typename BuilderMaker<ARGS>::FillType... args) -> void {
+    return [persister = persister](unsigned int slot, typename BuilderMaker<ARG0>::FillType arg, typename BuilderMaker<ARGS>::FillType... args) -> void {
       persister(slot, std::forward_as_tuple(arg, args...));
     };
   }
