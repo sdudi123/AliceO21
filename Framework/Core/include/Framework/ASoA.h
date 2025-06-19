@@ -560,21 +560,21 @@ class ColumnIterator : ChunkingPolicy
     mLast = mCurrent + array->length() + (mFirstIndex >> SCALE_FACTOR);
   }
 
-  decltype(auto) operator*() const
+  auto operator*() const
     requires std::same_as<bool, std::decay_t<T>>
   {
     checkSkipChunk();
     return (*(mCurrent - (mOffset >> SCALE_FACTOR) + ((*mCurrentPos + mOffset) >> SCALE_FACTOR)) & (1 << ((*mCurrentPos + mOffset) & 0x7))) != 0;
   }
 
-  decltype(auto) operator*() const
+  auto operator*() const
     requires((!std::same_as<bool, std::decay_t<T>>) && std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
   {
     checkSkipChunk();
     auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
     auto offset = list->value_offset(*mCurrentPos - mFirstIndex);
     auto length = list->value_length(*mCurrentPos - mFirstIndex);
-    return gsl::span{mCurrent + mFirstIndex + offset, mCurrent + mFirstIndex + (offset + length)};
+    return std::span<unwrap_t<T> const>{mCurrent + mFirstIndex + offset, mCurrent + mFirstIndex + (offset + length)};
   }
 
   decltype(auto) operator*() const
@@ -840,7 +840,7 @@ struct FilteredIndexPolicy : IndexPolicyBase {
   // which happens below which will properly setup the first index
   // by remapping the filtered index 0 to whatever unfiltered index
   // it belongs to.
-  FilteredIndexPolicy(gsl::span<int64_t const> selection, int64_t rows, uint64_t offset = 0)
+  FilteredIndexPolicy(std::span<int64_t const> selection, int64_t rows, uint64_t offset = 0)
     : IndexPolicyBase{-1, offset},
       mSelectedRows(selection),
       mMaxSelection(selection.size()),
@@ -849,7 +849,7 @@ struct FilteredIndexPolicy : IndexPolicyBase {
     this->setCursor(0);
   }
 
-  void resetSelection(gsl::span<int64_t const> selection)
+  void resetSelection(std::span<int64_t const> selection)
   {
     mSelectedRows = selection;
     mMaxSelection = selection.size();
@@ -933,7 +933,7 @@ struct FilteredIndexPolicy : IndexPolicyBase {
   {
     this->mRowIndex = O2_BUILTIN_LIKELY(mSelectionRow < mMaxSelection) ? mSelectedRows[mSelectionRow] : -1;
   }
-  gsl::span<int64_t const> mSelectedRows;
+  std::span<int64_t const> mSelectedRows;
   int64_t mSelectionRow = 0;
   int64_t mMaxSelection = 0;
   int64_t nRows = 0;
@@ -1417,7 +1417,7 @@ struct PreslicePolicyGeneral : public PreslicePolicyBase {
   void updateSliceInfo(SliceInfoUnsortedPtr&& si);
 
   SliceInfoUnsortedPtr sliceInfo;
-  gsl::span<const int64_t> getSliceFor(int value) const;
+  std::span<const int64_t> getSliceFor(int value) const;
 };
 
 template <typename T, typename Policy, bool OPT = false>
@@ -1442,7 +1442,7 @@ struct PresliceBase : public Policy {
     return Policy::getSliceFor(value, input, offset);
   }
 
-  gsl::span<const int64_t> getSliceFor(int value) const
+  std::span<const int64_t> getSliceFor(int value) const
   {
     if constexpr (OPT) {
       if (Policy::isMissing()) {
@@ -1520,7 +1520,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
 }
 
 template <soa::is_filtered_table T>
-auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
+auto doSliceByHelper(T const* table, std::span<const int64_t> const& selection)
 {
   auto t = soa::Filtered<typename T::base_t>({table->asArrowTable()}, selection);
   table->copyIndexBindings(t);
@@ -1531,7 +1531,7 @@ auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
 
 template <soa::is_table T>
   requires(!soa::is_filtered_table<T>)
-auto doSliceByHelper(T const* table, gsl::span<const int64_t> const& selection)
+auto doSliceByHelper(T const* table, std::span<const int64_t> const& selection)
 {
   auto t = soa::Filtered<T>({table->asArrowTable()}, selection);
   table->copyIndexBindings(t);
@@ -1552,7 +1552,7 @@ auto doSliceBy(T const* table, o2::framework::PresliceBase<C, Policy, OPT> const
   return doSliceByHelper(table, selection);
 }
 
-SelectionVector sliceSelection(gsl::span<int64_t const> const& mSelectedRows, int64_t nrows, uint64_t offset);
+SelectionVector sliceSelection(std::span<int64_t const> const& mSelectedRows, int64_t nrows, uint64_t offset);
 
 template <soa::is_filtered_table T>
 auto prepareFilteredSlice(T const* table, std::shared_ptr<arrow::Table> slice, uint64_t offset)
@@ -1982,7 +1982,7 @@ class Table
     return RowViewSentinel{mEnd};
   }
 
-  filtered_iterator filtered_begin(gsl::span<int64_t const> selection)
+  filtered_iterator filtered_begin(std::span<int64_t const> selection)
   {
     // Note that the FilteredIndexPolicy will never outlive the selection which
     // is held by the table, so we are safe passing the bare pointer. If it does it
@@ -2561,12 +2561,12 @@ consteval auto getIndexTargets()
     _Name_##Ids(_Name_##Ids const& other) = default;                                                     \
     _Name_##Ids& operator=(_Name_##Ids const& other) = default;                                          \
                                                                                                          \
-    gsl::span<const _Type_> inline getIds() const                                                        \
+    std::span<const _Type_> inline getIds() const                                                        \
     {                                                                                                    \
       return _Getter_##Ids();                                                                            \
     }                                                                                                    \
                                                                                                          \
-    gsl::span<const _Type_> _Getter_##Ids() const                                                        \
+    std::span<const _Type_> _Getter_##Ids() const                                                        \
     {                                                                                                    \
       return *mColumnIterator;                                                                           \
     }                                                                                                    \
@@ -2918,12 +2918,12 @@ consteval auto getIndexTargets()
     _Name_##Ids() = default;                                                                             \
     _Name_##Ids(_Name_##Ids const& other) = default;                                                     \
     _Name_##Ids& operator=(_Name_##Ids const& other) = default;                                          \
-    gsl::span<const _Type_> inline getIds() const                                                        \
+    std::span<const _Type_> inline getIds() const                                                        \
     {                                                                                                    \
       return _Getter_##Ids();                                                                            \
     }                                                                                                    \
                                                                                                          \
-    gsl::span<const _Type_> _Getter_##Ids() const                                                        \
+    std::span<const _Type_> _Getter_##Ids() const                                                        \
     {                                                                                                    \
       return *mColumnIterator;                                                                           \
     }                                                                                                    \
@@ -3373,7 +3373,7 @@ class FilteredBase : public T
       mSelectedRowsCache{std::move(selection)},
       mCached{true}
   {
-    mSelectedRows = gsl::span{mSelectedRowsCache};
+    mSelectedRows = std::span{mSelectedRowsCache};
     if (this->tableSize() != 0) {
       mFilteredBegin = table_t::filtered_begin(mSelectedRows);
     }
@@ -3381,7 +3381,7 @@ class FilteredBase : public T
     mFilteredBegin.bindInternalIndices(this);
   }
 
-  FilteredBase(std::vector<std::shared_ptr<arrow::Table>>&& tables, gsl::span<int64_t const> const& selection, uint64_t offset = 0)
+  FilteredBase(std::vector<std::shared_ptr<arrow::Table>>&& tables, std::span<int64_t const> const& selection, uint64_t offset = 0)
     : T{std::move(tables), offset},
       mSelectedRows{selection}
   {
@@ -3460,12 +3460,12 @@ class FilteredBase : public T
   static inline auto getSpan(gandiva::Selection const& sel)
   {
     if (sel == nullptr) {
-      return gsl::span<int64_t const>{};
+      return std::span<int64_t const>{};
     }
     auto array = std::static_pointer_cast<arrow::Int64Array>(sel->ToArray());
     auto start = array->raw_values();
     auto stop = start + array->length();
-    return gsl::span{start, stop};
+    return std::span{start, stop};
   }
 
   /// Bind the columns which refer to other tables
@@ -3564,7 +3564,7 @@ class FilteredBase : public T
     resetRanges();
   }
 
-  void sumWithSelection(gsl::span<int64_t const> const& selection)
+  void sumWithSelection(std::span<int64_t const> const& selection)
   {
     mCached = true;
     SelectionVector rowsUnion;
@@ -3574,7 +3574,7 @@ class FilteredBase : public T
     resetRanges();
   }
 
-  void intersectWithSelection(gsl::span<int64_t const> const& selection)
+  void intersectWithSelection(std::span<int64_t const> const& selection)
   {
     mCached = true;
     SelectionVector intersection;
@@ -3593,7 +3593,7 @@ class FilteredBase : public T
   void resetRanges()
   {
     if (mCached) {
-      mSelectedRows = gsl::span{mSelectedRowsCache};
+      mSelectedRows = std::span{mSelectedRowsCache};
     }
     mFilteredEnd.reset(new RowViewSentinel{static_cast<int64_t>(mSelectedRows.size())});
     if (tableSize() == 0) {
@@ -3603,7 +3603,7 @@ class FilteredBase : public T
     }
   }
 
-  gsl::span<int64_t const> mSelectedRows;
+  std::span<int64_t const> mSelectedRows;
   SelectionVector mSelectedRowsCache;
   bool mCached = false;
   iterator mFilteredBegin;
@@ -3639,7 +3639,7 @@ class Filtered : public FilteredBase<T>
   Filtered(std::vector<std::shared_ptr<arrow::Table>>&& tables, SelectionVector&& selection, uint64_t offset = 0)
     : FilteredBase<T>(std::move(tables), std::forward<SelectionVector>(selection), offset) {}
 
-  Filtered(std::vector<std::shared_ptr<arrow::Table>>&& tables, gsl::span<int64_t const> const& selection, uint64_t offset = 0)
+  Filtered(std::vector<std::shared_ptr<arrow::Table>>&& tables, std::span<int64_t const> const& selection, uint64_t offset = 0)
     : FilteredBase<T>(std::move(tables), selection, offset) {}
 
   Filtered<T> operator+(SelectionVector const& selection)
@@ -3649,7 +3649,7 @@ class Filtered : public FilteredBase<T>
     return copy;
   }
 
-  Filtered<T> operator+(gsl::span<int64_t const> const& selection)
+  Filtered<T> operator+(std::span<int64_t const> const& selection)
   {
     Filtered<T> copy(*this);
     copy.sumWithSelection(selection);
@@ -3667,7 +3667,7 @@ class Filtered : public FilteredBase<T>
     return *this;
   }
 
-  Filtered<T> operator+=(gsl::span<int64_t const> const& selection)
+  Filtered<T> operator+=(std::span<int64_t const> const& selection)
   {
     this->sumWithSelection(selection);
     return *this;
@@ -3685,7 +3685,7 @@ class Filtered : public FilteredBase<T>
     return copy;
   }
 
-  Filtered<T> operator*(gsl::span<int64_t const> const& selection)
+  Filtered<T> operator*(std::span<int64_t const> const& selection)
   {
     Filtered<T> copy(*this);
     copy.intersectWithSelection(selection);
@@ -3703,7 +3703,7 @@ class Filtered : public FilteredBase<T>
     return *this;
   }
 
-  Filtered<T> operator*=(gsl::span<int64_t const> const& selection)
+  Filtered<T> operator*=(std::span<int64_t const> const& selection)
   {
     this->intersectWithSelection(selection);
     return *this;
@@ -3811,7 +3811,7 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     }
   }
 
-  Filtered(std::vector<Filtered<T>>&& tables, gsl::span<int64_t const> const& selection, uint64_t offset = 0)
+  Filtered(std::vector<Filtered<T>>&& tables, std::span<int64_t const> const& selection, uint64_t offset = 0)
     : FilteredBase<typename T::table_t>(std::move(extractTablesFromFiltered(tables)), selection, offset)
   {
     for (auto& table : tables) {
@@ -3826,7 +3826,7 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     return copy;
   }
 
-  Filtered<Filtered<T>> operator+(gsl::span<int64_t const> const& selection)
+  Filtered<Filtered<T>> operator+(std::span<int64_t const> const& selection)
   {
     Filtered<Filtered<T>> copy(*this);
     copy.sumWithSelection(selection);
@@ -3844,7 +3844,7 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     return *this;
   }
 
-  Filtered<Filtered<T>> operator+=(gsl::span<int64_t const> const& selection)
+  Filtered<Filtered<T>> operator+=(std::span<int64_t const> const& selection)
   {
     this->sumWithSelection(selection);
     return *this;
@@ -3862,7 +3862,7 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     return copy;
   }
 
-  Filtered<Filtered<T>> operator*(gsl::span<int64_t const> const& selection)
+  Filtered<Filtered<T>> operator*(std::span<int64_t const> const& selection)
   {
     Filtered<Filtered<T>> copy(*this);
     copy.intersectionWithSelection(selection);
@@ -3880,7 +3880,7 @@ class Filtered<Filtered<T>> : public FilteredBase<typename T::table_t>
     return *this;
   }
 
-  Filtered<Filtered<T>> operator*=(gsl::span<int64_t const> const& selection)
+  Filtered<Filtered<T>> operator*=(std::span<int64_t const> const& selection)
   {
     this->intersectWithSelection(selection);
     return *this;
@@ -3989,7 +3989,7 @@ struct SmallGroupsBase : public Filtered<T> {
   SmallGroupsBase(std::vector<std::shared_ptr<arrow::Table>>&& tables, SelectionVector&& selection, uint64_t offset = 0)
     : Filtered<T>(std::move(tables), std::forward<SelectionVector>(selection), offset) {}
 
-  SmallGroupsBase(std::vector<std::shared_ptr<arrow::Table>>&& tables, gsl::span<int64_t const> const& selection, uint64_t offset = 0)
+  SmallGroupsBase(std::vector<std::shared_ptr<arrow::Table>>&& tables, std::span<int64_t const> const& selection, uint64_t offset = 0)
     : Filtered<T>(std::move(tables), selection, offset) {}
 };
 
