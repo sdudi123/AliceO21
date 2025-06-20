@@ -30,75 +30,58 @@
 //Some GPU configuration settings, must be included first
 #include "GPUCommonDefSettings.h"
 
-#if (!defined(__OPENCL__) || defined(__OPENCLCPP__)) && (!(defined(__CINT__) || defined(__ROOTCINT__)) || defined(__CLING__)) && defined(__cplusplus) && __cplusplus >= 201103L
-  #define GPUCA_NOCOMPAT // C++11 + No old ROOT5 + No old OpenCL
-  #ifndef __OPENCL__
-    #define GPUCA_NOCOMPAT_ALLOPENCL // + No OpenCL at all
-  #endif
-  #ifndef __CINT__
-    #define GPUCA_NOCOMPAT_ALLCINT // + No ROOT CINT at all
-  #endif
-#endif
-
-#if !(defined(__CINT__) || defined(__ROOTCINT__) || defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT)) // No GPU code for ROOT
+#if !(defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT)) // No GPU code for ROOT
   #if defined(__CUDACC__) || defined(__OPENCL__) || defined(__HIPCC__) || defined(__OPENCL_HOST__)
     #define GPUCA_GPUCODE // Compiled by GPU compiler
   #endif
 
-  #if defined(__CUDA_ARCH__) || defined(__OPENCL__) || defined(__HIP_DEVICE_COMPILE__)
-    #define GPUCA_GPUCODE_DEVICE // Executed on device
+  #if defined(GPUCA_GPUCODE)
+    #if defined(__CUDA_ARCH__) || defined(__OPENCL__) || defined(__HIP_DEVICE_COMPILE__)
+      #define GPUCA_GPUCODE_DEVICE // Executed on device
+    #endif
+    #if defined(__CUDACC__)
+      #define GPUCA_GPUTYPE CUDA
+    #elif defined(__HIPCC__)
+      #define GPUCA_GPUTYPE HIP
+    #elif defined(__OPENCL__) || defined(__OPENCL_HOST__)
+      #define GPUCA_GPUTYPE OCL
+    #endif
   #endif
 #endif
-
-// Definitions for C++11 features not supported by CINT / OpenCL
-#ifdef GPUCA_NOCOMPAT
-  #define CON_DELETE = delete
-  #define CON_DEFAULT = default
-  #define GPUCA_CPP11_INIT(...) __VA_ARGS__
-  #if defined(__cplusplus) && __cplusplus >= 201703L
-    #define CONSTEXPR constexpr
-  #else
-    #define CONSTEXPR
-  #endif
-#else
-  #define CON_DELETE
-  #define CON_DEFAULT
-  #define CONSTEXPR
-  #define GPUCA_CPP11_INIT(...)
-#endif
-#if defined(__ROOT__) && !defined(GPUCA_NOCOMPAT)
-  #define VOLATILE // ROOT5 has a problem with volatile in CINT
-#else
-  #define VOLATILE volatile
+#ifndef GPUCA_GPUTYPE
+  #define GPUCA_GPUTYPE CPU
 #endif
 
-// Set AliRoot / O2 namespace
-#if defined(GPUCA_STANDALONE) || (defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)) || defined(GPUCA_ALIROOT_LIB) || defined (GPUCA_GPUCODE)
-  #define GPUCA_ALIGPUCODE
-#endif
-#ifdef GPUCA_ALIROOT_LIB
-  #define GPUCA_NAMESPACE AliGPU
-#else
-  #define GPUCA_NAMESPACE o2
+#if defined(GPUCA_STANDALONE) || (defined(GPUCA_O2_LIB) && !defined(GPUCA_O2_INTERFACE)) || defined (GPUCA_GPUCODE)
+  #define GPUCA_ALIGPUCODE // Part of GPUTracking library but not of interface
 #endif
 
-#if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && !defined(__OPENCLCPP__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY)) || (defined(__OPENCLCPP__) && defined(GPUCA_OPENCLCPP_NO_CONSTANT_MEMORY))
+#if (defined(__CUDACC__) && defined(GPUCA_CUDA_NO_CONSTANT_MEMORY)) || (defined(__HIPCC__) && defined(GPUCA_HIP_NO_CONSTANT_MEMORY)) || (defined(__OPENCL__) && defined(GPUCA_OPENCL_NO_CONSTANT_MEMORY))
   #define GPUCA_NO_CONSTANT_MEMORY
-#elif defined(__CUDACC__) || defined(__HIPCC__)
+#elif (defined(__CUDACC__) || defined(__HIPCC__)) && !defined(GPUCA_GPUCODE_HOSTONLY)
   #define GPUCA_HAS_GLOBAL_SYMBOL_CONSTANT_MEM
 #endif
-#if !defined(GPUCA_HAVE_O2HEADERS) && (defined(GPUCA_O2_LIB) || (!defined(GPUCA_ALIROOT_LIB) && !defined(GPUCA_STANDALONE)))
-  #define GPUCA_HAVE_O2HEADERS
-#endif
 
-#if defined(GPUCA_HAVE_O2HEADERS) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && defined(DEBUG_STREAMER)
-#define GPUCA_DEBUG_STREAMER_CHECK(...) __VA_ARGS__
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && defined(DEBUG_STREAMER)
+  #define GPUCA_DEBUG_STREAMER_CHECK(...) __VA_ARGS__
 #else
-#define GPUCA_DEBUG_STREAMER_CHECK(...)
+  #define GPUCA_DEBUG_STREAMER_CHECK(...)
 #endif
 
-#ifndef GPUCA_RTC_SPECIAL_CODE
-#define GPUCA_RTC_SPECIAL_CODE(...)
+#ifndef GPUCA_RTC_SPECIAL_CODE // By default, we ignore special RTC code
+  #define GPUCA_RTC_SPECIAL_CODE(...)
+#endif
+
+#ifndef GPUCA_RTC_CONSTEXPR
+  #define GPUCA_RTC_CONSTEXPR
+#endif
+
+#ifndef GPUCA_DETERMINISTIC_CODE
+  #ifdef GPUCA_DETERMINISTIC_MODE
+    #define GPUCA_DETERMINISTIC_CODE(det, indet) det // In deterministic mode, take deterministic code path
+  #else
+    #define GPUCA_DETERMINISTIC_CODE(det, indet) indet // otherwise the fast default code path
+  #endif
 #endif
 
 // API Definitions for GPU Compilation

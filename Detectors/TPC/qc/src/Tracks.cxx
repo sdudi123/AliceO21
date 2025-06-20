@@ -13,6 +13,7 @@
 
 #include <cmath>
 #include <memory>
+#include <array>
 
 // root includes
 #include "TFile.h"
@@ -21,7 +22,6 @@
 // o2 includes
 #include "DataFormatsTPC/TrackTPC.h"
 #include "DataFormatsTPC/dEdxInfo.h"
-#include "GPUCommonArray.h"
 #include "DetectorsBase/Propagator.h"
 #include "TPCQC/Tracks.h"
 #include "TPCQC/Helpers.h"
@@ -172,14 +172,16 @@ bool Tracks::processTrack(const o2::tpc::TrackTPC& track)
       sampleProb = randomGenerator.Uniform(1);
     }
 
+    bool isDcaCalculated = false;
+    float dcaValue = -999;
+
     if (sampleProb > (Double_t)(1. - mSamplingFractionDCAr)) {
 
       if (propagator->getMatLUT() && propagator->hasMagFieldSet()) {
         // ---| fill DCA histos |---
-        o2::gpu::gpustd::array<float, 2> dca;
-        const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
+        std::array<float, 2> dca;
         o2::track::TrackPar propTrack(track);
-        if (propagator->propagateToDCABxByBz(refPoint, propTrack, 2.f, o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca)) {
+        if (propagator->propagateToDCABxByBz(mPositionOfPV, propTrack, 2.f, o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca)) {
           const auto phi = o2::math_utils::to02PiGen(track.getPhi());
           dcaHistPT->Fill(pt, dca[0]);
           dcaHist->Fill(phi, dca[0]);
@@ -190,6 +192,8 @@ bool Tracks::processTrack(const o2::tpc::TrackTPC& track)
             dcaHistEta_pTmin->Fill(eta, dca[0]);
             dcaHistNCluster_pTmin->Fill(nCls, dca[0]);
           }
+          dcaValue = dca[0];
+          isDcaCalculated = true;
         }
       } else {
         static bool reported = false;
@@ -205,6 +209,46 @@ bool Tracks::processTrack(const o2::tpc::TrackTPC& track)
           reported = true;
         }
       }
+    }
+
+    if (mUseCutMaxAbsDCArOnHistos && !isDcaCalculated) {
+      // In this case the DCAr selection should be applied but is not available for the track, hence we simply return and report back
+      // For ease we just report back for every histogram that the propagator was not initialized
+      static bool reported = false;
+      if (!reported) {
+        LOGP(error, "o2::base::Propagator not properly initialized, MatLUT ({}) and / or Field ({}) missing, will not fill apply DCAr selection on histograms", (void*)propagator->getMatLUT(), propagator->hasMagFieldSet());
+        mMapHist["hPhiAside"]->SetTitle("hPhiAside o2::base::Propagator not properly initialized");
+        mMapHist["hPhiCside"]->SetTitle("hPhiCside o2::base::Propagator not properly initialized");
+        mMapHist["hPhiBothSides"]->SetTitle("hPhiBothSides o2::base::Propagator not properly initialized");
+        mMapHist["hPt"]->SetTitle("hPt o2::base::Propagator not properly initialized");
+        mMapHist["hSign"]->SetTitle("hSign o2::base::Propagator not properly initialized");
+        mMapHist["hQOverPt"]->SetTitle("hQOverPt o2::base::Propagator not properly initialized");
+        mMapHist["hEtaNeg"]->SetTitle("hEtaNeg o2::base::Propagator not properly initialized");
+        mMapHist["hPhiAsideNeg"]->SetTitle("hPhiAsideNeg o2::base::Propagator not properly initialized");
+        mMapHist["hPhiCsideNeg"]->SetTitle("hPhiCsideNeg o2::base::Propagator not properly initialized");
+        mMapHist["hEtaPos"]->SetTitle("hEtaPos o2::base::Propagator not properly initialized");
+        mMapHist["hPtPos"]->SetTitle("hPtPos o2::base::Propagator not properly initialized");
+        mMapHist["hPhiAsidePos"]->SetTitle("hPhiAsidePos o2::base::Propagator not properly initialized");
+        mMapHist["hPhiCsidePos"]->SetTitle("hPhiCsidePos o2::base::Propagator not properly initialized");
+        mMapHist["h2DNClustersEta"]->SetTitle("h2DNClustersEta o2::base::Propagator not properly initialized");
+        mMapHist["h2DNClustersPhiAside"]->SetTitle("h2DNClustersPhiAside o2::base::Propagator not properly initialized");
+        mMapHist["h2DQOverPtPhiAside"]->SetTitle("h2DQOverPtPhiAside o2::base::Propagator not properly initialized");
+        mMapHist["h2DNClustersPhiCside"]->SetTitle("h2DNClustersPhiCside o2::base::Propagator not properly initialized");
+        mMapHist["h2DQOverPtPhiCside"]->SetTitle("h2DQOverPtPhiCside o2::base::Propagator not properly initialized");
+        mMapHist["h2DNClustersPt"]->SetTitle("h2DNClustersPt o2::base::Propagator not properly initialized");
+        mMapHist["h2DEtaPhi"]->SetTitle("h2DEtaPhi o2::base::Propagator not properly initialized");
+        mMapHist["h2DEtaPhiNeg"]->SetTitle("h2DEtaPhiNeg o2::base::Propagator not properly initialized");
+        mMapHist["hEtaVsPtNeg"]->SetTitle("hEtaVsPtNeg o2::base::Propagator not properly initialized");
+        mMapHist["hPhiVsPtNeg"]->SetTitle("hPhiVsPtNeg o2::base::Propagator not properly initialized");
+        mMapHist["h2DEtaPhiPos"]->SetTitle("h2DEtaPhiPos o2::base::Propagator not properly initialized");
+        mMapHist["hEtaVsPtPos"]->SetTitle("hEtaVsPtPos o2::base::Propagator not properly initialized");
+        mMapHist["hPhiVsPtPos"]->SetTitle("hPhiVsPtPos o2::base::Propagator not properly initialized");
+      }
+      return true;
+    }
+
+    if (mUseCutMaxAbsDCArOnHistos && (std::abs(dcaValue) > mCutMaxAbsDCAr)) {
+      return true;
     }
 
     if (hasASideOnly == 1) {

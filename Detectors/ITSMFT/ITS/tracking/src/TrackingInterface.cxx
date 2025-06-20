@@ -16,48 +16,80 @@
 #include "ITSReconstruction/FastMultEst.h"
 
 #include "ITStracking/TrackingInterface.h"
+#include <memory>
 
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "DataFormatsITSMFT/PhysTrigger.h"
 #include "DataFormatsTRD/TriggerRecord.h"
 #include "CommonDataFormat/IRFrame.h"
 #include "DetectorsBase/GRPGeomHelper.h"
+#include "ITStracking/BoundedAllocator.h"
 #include "ITStracking/TrackingConfigParam.h"
+#include "Framework/DeviceSpec.h"
 
-namespace o2
-{
-using namespace framework;
-namespace its
-{
+using namespace o2::framework;
+using namespace o2::its;
+
 void ITSTrackingInterface::initialise()
 {
   mRunVertexer = true;
   mCosmicsProcessing = false;
   std::vector<VertexingParameters> vertParams;
   std::vector<TrackingParameters> trackParams;
+  const auto& vertConf = o2::its::VertexerParamConfig::Instance();
+  const auto& trackConf = o2::its::TrackerParamConfig::Instance();
+  float bFactor = std::abs(o2::base::Propagator::Instance()->getNominalBz()) / 5.0066791;
+  float bFactorTracklets = bFactor < 0.01 ? 1. : bFactor; // for tracklets only
   if (mMode == TrackingMode::Unset) {
-    mMode = (TrackingMode)(o2::its::TrackerParamConfig::Instance().trackingMode);
+    mMode = (TrackingMode)(trackConf.trackingMode);
     LOGP(info, "Tracking mode not set, trying to fetch it from configurable params to: {}", asString(mMode));
   }
   if (mMode == TrackingMode::Async) {
-    trackParams.resize(o2::its::TrackerParamConfig::Instance().doUPCIteration ? 4 : 3);
+    trackParams.resize(trackConf.doUPCIteration ? 4 : 3);
     vertParams.resize(2); // The number of actual iterations will be set as a configKeyVal to allow for pp/PbPb choice
     trackParams[1].TrackletMinPt = 0.2f;
     trackParams[1].CellDeltaTanLambdaSigma *= 2.;
     trackParams[2].TrackletMinPt = 0.1f;
     trackParams[2].CellDeltaTanLambdaSigma *= 4.;
+
+    trackParams[0].MinPt[0] = 1.f / 12; // 7cl
+
+    trackParams[1].MinPt[0] = 1.f / 12; // 7cl
+
     trackParams[2].MinTrackLength = 4;
+    trackParams[2].MinPt[0] = 1.f / 12; // 7cl
+    trackParams[2].MinPt[1] = 1.f / 5;  // 6cl
+    trackParams[2].MinPt[2] = 1.f / 1;  // 5cl
+    trackParams[2].MinPt[3] = 1.f / 6;  // 4cl
+
+    trackParams[2].StartLayerMask = (1 << 6) + (1 << 3);
     if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
+      trackParams[3].MinTrackLength = 4;
       trackParams[3].TrackletMinPt = 0.1f;
       trackParams[3].CellDeltaTanLambdaSigma *= 4.;
-      trackParams[3].MinTrackLength = 4;
       trackParams[3].DeltaROF = 0; // UPC specific setting
     }
-    for (auto& param : trackParams) {
+    for (size_t ip = 0; ip < trackParams.size(); ip++) {
+      auto& param = trackParams[ip];
       param.ZBins = 64;
       param.PhiBins = 32;
       param.CellsPerClusterLimit = 1.e3f;
       param.TrackletsPerClusterLimit = 1.e3f;
+      // check if something was overridden via configurable params
+      if (ip < trackConf.MaxIter) {
+        if (trackConf.startLayerMask[ip] > 0) {
+          trackParams[2].StartLayerMask = trackConf.startLayerMask[ip];
+        }
+        if (trackConf.minTrackLgtIter[ip] > 0) {
+          param.MinTrackLength = trackConf.minTrackLgtIter[ip];
+        }
+        for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+          int lslot0 = (trackConf.MaxTrackLength - ilg), lslot = lslot0 + ip * (trackConf.MaxTrackLength - trackConf.MinTrackLength + 1);
+          if (trackConf.minPtIterLgt[lslot] > 0.) {
+            param.MinPt[lslot0] = trackConf.minPtIterLgt[lslot];
+          }
+        }
+      }
     }
     LOGP(info, "Initializing tracker in async. phase reconstruction with {} passes for tracking and {}/{} for vertexing", trackParams.size(), o2::its::VertexerParamConfig::Instance().nIterations, vertParams.size());
     vertParams[1].phiCut = 0.015f;
@@ -90,14 +122,34 @@ void ITSTrackingInterface::initialise()
     throw std::runtime_error(fmt::format("Unsupported ITS tracking mode {:s} ", asString(mMode)));
   }
 
+  // TODO this imposes the same memory limits on each iteration
+  for (auto& p : vertParams) {
+    p.PrintMemory = vertConf.printMemory;
+    p.MaxMemory = vertConf.maxMemory;
+    p.DropTFUponFailure = vertConf.dropTFUponFailure;
+  }
+  for (auto& p : trackParams) {
+    p.PrintMemory = trackConf.printMemory;
+    p.MaxMemory = trackConf.maxMemory;
+    p.DropTFUponFailure = trackConf.dropTFUponFailure;
+  }
+
   for (auto& params : trackParams) {
     params.CorrType = o2::base::PropagatorImpl<float>::MatCorrType::USEMatCorrLUT;
+  }
+  // adjust pT settings to actual mag. field
+  for (size_t ip = 0; ip < trackParams.size(); ip++) {
+    auto& param = trackParams[ip];
+    param.TrackletMinPt *= bFactorTracklets;
+    for (int ilg = trackConf.MaxTrackLength; ilg >= trackConf.MinTrackLength; ilg--) {
+      int lslot = trackConf.MaxTrackLength - ilg;
+      param.MinPt[lslot] *= bFactor;
+    }
   }
   mTracker->setParameters(trackParams);
   mVertexer->setParameters(vertParams);
 }
 
-template <bool isGPU>
 void ITSTrackingInterface::run(framework::ProcessingContext& pc)
 {
   auto compClusters = pc.inputs().get<gsl::span<o2::itsmft::CompClusterExt>>("compClusters");
@@ -169,12 +221,12 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   loadROF(trackROFspan, compClusters, pattIt, labels);
   pattIt = patterns.begin();
   std::vector<int> savedROF;
-  auto logger = [&](std::string s) { LOG(info) << s; };
-  auto fatalLogger = [&](std::string s) { LOG(fatal) << s; };
-  auto errorLogger = [&](std::string s) { LOG(error) << s; };
+  auto logger = [&](const std::string& s) { LOG(info) << s; };
+  auto fatalLogger = [&](const std::string& s) { LOG(fatal) << s; };
+  auto errorLogger = [&](const std::string& s) { LOG(error) << s; };
 
   FastMultEst multEst; // mult estimator
-  std::vector<bool> processingMask, processUPCMask;
+  std::vector<uint8_t> processingMask, processUPCMask;
   int cutVertexMult{0}, cutUPCVertex{0}, cutRandomMult = int(trackROFvec.size()) - multEst.selectROFs(trackROFvec, compClusters, physTriggers, processingMask);
   processUPCMask.resize(processingMask.size(), false);
   mTimeFrame->setMultiplicityCutMask(processingMask);
@@ -182,11 +234,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
   if (mRunVertexer) {
     vertROFvec.reserve(trackROFvec.size());
     // Run seeding vertexer
-    if constexpr (isGPU) {
-      vertexerElapsedTime = mVertexer->clustersToVerticesHybrid(logger);
-    } else {
-      vertexerElapsedTime = mVertexer->clustersToVertices(logger);
-    }
+    vertexerElapsedTime = mVertexer->clustersToVertices(logger);
   } else { // cosmics
     mTimeFrame->resetRofPV();
   }
@@ -202,7 +250,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         vMCRecInfo = mTimeFrame->getPrimaryVerticesMCRecInfo(iRof);
       }
       if (o2::its::TrackerParamConfig::Instance().doUPCIteration) {
-        if (vtxSpan.size()) {
+        if (!vtxSpan.empty()) {
           if (vtxSpan[0].isFlagSet(Vertex::UPCMode) == 1) { // at least one vertex in this ROF and it is from second vertex iteration
             LOGP(debug, "ROF {} rejected as vertices are from the UPC iteration", iRof);
             processUPCMask[iRof] = true;
@@ -218,7 +266,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         vtxROF.setFlag(o2::itsmft::ROFRecord::VtxStdMode);
       }
       vtxROF.setNEntries(vtxSpan.size());
-      bool selROF = vtxSpan.size() == 0;
+      bool selROF = vtxSpan.empty();
       for (auto iV{0}; iV < vtxSpan.size(); ++iV) {
         auto& v = vtxSpan[iV];
         if (multEstConf.isVtxMultCutRequested() && !multEstConf.isPassingVtxMultCut(v.getNContributors())) {
@@ -237,7 +285,7 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
         cutVertexMult++;
       }
     } else { // cosmics
-      vtxVecLoc.emplace_back(Vertex());
+      vtxVecLoc.emplace_back();
       vtxVecLoc.back().setNContributors(1);
       vtxROF.setNEntries(vtxVecLoc.size());
       for (auto& v : vtxVecLoc) {
@@ -268,18 +316,10 @@ void ITSTrackingInterface::run(framework::ProcessingContext& pc)
     mTimeFrame->setMultiplicityCutMask(processingMask);
     mTimeFrame->setROFMask(processUPCMask);
     // Run CA tracker
-    if constexpr (isGPU) {
-      if (mMode == o2::its::TrackingMode::Async) {
-        mTracker->clustersToTracksHybrid(logger, fatalLogger);
-      } else {
-        mTracker->clustersToTracksHybrid(logger, errorLogger);
-      }
+    if (mMode == o2::its::TrackingMode::Async && o2::its::TrackerParamConfig::Instance().fataliseUponFailure) {
+      mTracker->clustersToTracks(logger, fatalLogger);
     } else {
-      if (mMode == o2::its::TrackingMode::Async) {
-        mTracker->clustersToTracks(logger, fatalLogger);
-      } else {
-        mTracker->clustersToTracks(logger, errorLogger);
-      }
+      mTracker->clustersToTracks(logger, errorLogger);
     }
     size_t totTracks{mTimeFrame->getNumberOfTracks()}, totClusIDs{mTimeFrame->getNumberOfUsedClusters()};
     allTracks.reserve(totTracks);
@@ -334,6 +374,9 @@ void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContex
 {
   o2::base::GRPGeomHelper::instance().checkUpdates(pc);
   static bool initOnceDone = false;
+  if (mOverrideBeamEstimation) {
+    pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
+  }
   if (!initOnceDone) { // this params need to be queried only once
     initOnceDone = true;
     pc.inputs().get<o2::itsmft::TopologyDictionary*>("itscldict"); // just to trigger the finaliseCCDB
@@ -343,7 +386,18 @@ void ITSTrackingInterface::updateTimeDependentParams(framework::ProcessingContex
     }
     GeometryTGeo* geom = GeometryTGeo::Instance();
     geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot, o2::math_utils::TransformType::T2G));
+    initialise();
     getConfiguration(pc);
+
+    if (pc.services().get<const o2::framework::DeviceSpec>().inputTimesliceId == 0) { // print settings only for the 1st pipeling
+      o2::its::VertexerParamConfig::Instance().printKeyValues();
+      o2::its::TrackerParamConfig::Instance().printKeyValues();
+      const auto& trParams = mTracker->getParameters();
+      for (size_t it = 0; it < trParams.size(); it++) {
+        const auto& par = trParams[it];
+        LOGP(info, "recoIter#{} : {}", it, par.asString());
+      }
+    }
   }
 }
 
@@ -351,9 +405,6 @@ void ITSTrackingInterface::getConfiguration(framework::ProcessingContext& pc)
 {
   mVertexer->getGlobalConfiguration();
   mTracker->getGlobalConfiguration();
-  if (mOverrideBeamEstimation) {
-    pc.inputs().get<o2::dataformats::MeanVertexObject*>("meanvtx");
-  }
 }
 
 void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
@@ -385,15 +436,31 @@ void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
   }
 }
 
+void ITSTrackingInterface::printSummary() const
+{
+  mMemoryPool->print();
+  mTracker->printSummary();
+}
+
 void ITSTrackingInterface::setTraitsFromProvider(VertexerTraits* vertexerTraits,
-                                                 TrackerTraits* trackerTraits,
-                                                 TimeFrame* frame)
+                                                 TrackerTraits7* trackerTraits,
+                                                 TimeFrame7* frame)
 {
   mVertexer = std::make_unique<Vertexer>(vertexerTraits);
   mTracker = std::make_unique<Tracker>(trackerTraits);
   mTimeFrame = frame;
   mVertexer->adoptTimeFrame(*mTimeFrame);
   mTracker->adoptTimeFrame(*mTimeFrame);
+
+  // set common memory resource
+  if (!mMemoryPool) {
+    mMemoryPool = std::make_shared<BoundedMemoryResource>();
+  }
+  vertexerTraits->setMemoryPool(mMemoryPool);
+  trackerTraits->setMemoryPool(mMemoryPool);
+  mTimeFrame->setMemoryPool(mMemoryPool);
+  mTracker->setMemoryPool(mMemoryPool);
+  mVertexer->setMemoryPool(mMemoryPool);
 }
 
 void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
@@ -403,8 +470,3 @@ void ITSTrackingInterface::loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
 {
   mTimeFrame->loadROFrameData(trackROFspan, clusters, pattIt, mDict, mcLabels);
 }
-
-template void ITSTrackingInterface::run<true>(framework::ProcessingContext& pc);
-template void ITSTrackingInterface::run<false>(framework::ProcessingContext& pc);
-} // namespace its
-} // namespace o2

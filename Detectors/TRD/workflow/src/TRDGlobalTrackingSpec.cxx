@@ -51,6 +51,8 @@
 #include "GPUTRDTrackletWord.h"
 #include "GPUTRDInterfaces.h"
 #include "GPUTRDGeometry.h"
+#include "GPUConstantMem.h"
+#include "GPUTRDTrackerKernels.h"
 
 #ifdef ENABLE_UPGRADES
 #include "ITS3Reconstruction/IOUtils.h"
@@ -615,7 +617,6 @@ bool TRDGlobalTracking::refitITSTPCTRDTrack(TrackTRD& trk, float timeTRD, o2::gl
     LOG(debug) << "TRD refit outwards failed";
     return false;
   }
-
   // refit ITS-TPC-TRD track inwards to innermost ITS cluster
   // here we also calculate the LT integral for matching to TOF
   float chi2In = 0.f;
@@ -629,9 +630,15 @@ bool TRDGlobalTracking::refitITSTPCTRDTrack(TrackTRD& trk, float timeTRD, o2::gl
     LOG(debug) << "TPC refit inwards failed";
     return false;
   }
+  // if for some reason the track was overshoot over the inner field cage, bring it back w/o material correction and LTintegral update
+  if (trk.getX() < o2::constants::geom::XTPCInnerRef &&
+      !propagator->PropagateToXBxByBz(trk, o2::constants::geom::XTPCInnerRef, o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, o2::base::Propagator::MatCorrType::USEMatCorrNONE)) {
+    LOG(debug) << "BACK-Propagationto inner boundary failed";
+    return false;
+  }
   auto posEnd = trk.getXYZGlo();
   auto lInt = propagator->estimateLTIncrement(trk, posStart, posEnd);
-  trk.getLTIntegralOut().addStep(lInt, trk.getP2Inv());
+  trk.getLTIntegralOut().addStep(lInt, trk.getQ2P2());
   // trk.getLTIntegralOut().addX2X0(lInt * mTPCmeanX0Inv); // do we need to account for the material budget here? probably
 
   const auto& trackTune = TrackTuneParams::Instance();
@@ -718,10 +725,15 @@ bool TRDGlobalTracking::refitTPCTRDTrack(TrackTRD& trk, float timeTRD, o2::globa
   if (pileUpOn) { // account pileup time uncertainty in Z errors
     trk.updateCov(timeZErr, o2::track::CovLabels::kSigZ2);
   }
-
+  // if for some reason the track was overshoot over the inner field cage, bring it back w/o material correction and LTintegral update
+  if (trk.getX() < o2::constants::geom::XTPCInnerRef &&
+      !propagator->PropagateToXBxByBz(trk, o2::constants::geom::XTPCInnerRef, o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, o2::base::Propagator::MatCorrType::USEMatCorrNONE)) {
+    LOG(debug) << "BACK-Propagationto inner boundary failed";
+    return false;
+  }
   auto posEnd = trk.getXYZGlo();
   auto lInt = propagator->estimateLTIncrement(trk, posStart, posEnd);
-  trk.getLTIntegralOut().addStep(lInt, trk.getP2Inv());
+  trk.getLTIntegralOut().addStep(lInt, trk.getQ2P2());
   // trk.getLTIntegralOut().addX2X0(lInt * mTPCmeanX0Inv); // do we need to account for the material budget here? probably?
 
   if (!propagator->PropagateToXBxByBz(trk, o2::constants::geom::XTPCInnerRef, o2::base::Propagator::MAX_SIN_PHI, o2::base::Propagator::MAX_STEP, matCorr, &trk.getLTIntegralOut())) {

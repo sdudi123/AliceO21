@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUChainTracking.h
+/// \file GPUChainTrackingDefs.h
 /// \author David Rohr
 
 #ifndef GPUCHAINTRACKINGDEFS_H
@@ -18,9 +18,7 @@
 #include <mutex>
 #include <condition_variable>
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUChainTrackingFinalContext {
   GPUReconstruction* rec = nullptr;
@@ -28,7 +26,6 @@ struct GPUChainTrackingFinalContext {
   std::condition_variable cond;
   bool ready = false;
 };
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

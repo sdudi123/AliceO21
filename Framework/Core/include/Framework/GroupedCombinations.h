@@ -48,7 +48,12 @@ expressions::BindingNode getMatchingIndexNode()
 }
 
 template <typename T1, typename GroupingPolicy, typename BP, typename G, typename... As>
+  requires(sizeof...(As) > 0)
 struct GroupedCombinationsGenerator {
+  using grouping_policy_t = GroupingPolicy;
+  using g_t = G;
+  using associated_pack_t = framework::pack<As...>;
+
   using GroupedIteratorType = pack_to_tuple_t<interleaved_pack_t<repeated_type_pack_t<typename G::iterator, sizeof...(As)>, pack<As...>>>;
 
   struct GroupedIterator : public GroupingPolicy {
@@ -70,7 +75,7 @@ struct GroupedCombinationsGenerator {
         mIndexColumns{getMatchingIndexNode<G, As>()...},
         cache{cache_}
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});
@@ -88,12 +93,12 @@ struct GroupedCombinationsGenerator {
     template <typename... T2s>
     void setTables(const G& grouping, const std::tuple<T2s...>& associated)
     {
-      if constexpr (soa::is_soa_filtered_v<std::decay_t<G>>) {
+      if constexpr (soa::is_filtered_table<std::decay_t<G>>) {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()}, grouping.getSelectedRows());
       } else {
         mGrouping = std::make_shared<G>(std::vector{grouping.asArrowTable()});
       }
-      mAssociated = std::make_shared<std::tuple<As...>>(std::make_tuple(std::get<has_type_at<As>(pack<T2s...>{})>(associated)...));
+      mAssociated = std::make_shared<std::tuple<As...>>(std::make_tuple(std::get<has_type_at_v<As>(pack<T2s...>{})>(associated)...));
       setMultipleGroupingTables<sizeof...(As)>(grouping);
       if (!this->mIsEnd) {
         setCurrentGroupedCombination();
@@ -228,6 +233,14 @@ struct GroupedCombinationsGenerator {
  private:
   iterator mBegin;
   iterator mEnd;
+};
+
+template <typename T>
+concept is_combinations_generator = requires(T t, typename T::g_t const& g, pack_to_tuple_t<typename T::associated_pack_t>& a) {
+  typename T::GroupedIterator;
+  t.setTables(g, a);
+  { t.begin() } -> std::same_as<typename T::iterator>;
+  { t.end() } -> std::same_as<typename T::iterator>;
 };
 
 // Aliases for 2-particle correlations

@@ -96,7 +96,7 @@ class RawReaderSpecs : public o2f::Task
 
 //___________________________________________________________
 RawReaderSpecs::RawReaderSpecs(const ReaderInp& rinp)
-  : mLoop(rinp.loop < 0 ? INT_MAX : (rinp.loop < 1 ? 1 : rinp.loop)), mDelayUSec(rinp.delay_us), mMinTFID(rinp.minTF), mMaxTFID(rinp.maxTF), mRunNumber(rinp.runNumber), mPartPerSP(rinp.partPerSP), mSup0xccdb(rinp.sup0xccdb), mReader(std::make_unique<o2::raw::RawFileReader>(rinp.inifile, 0, rinp.bufferSize, rinp.onlyDet)), mRawChannelName(rinp.rawChannelConfig), mPreferCalcTF(rinp.preferCalcTF), mMinSHM(rinp.minSHM)
+  : mLoop(rinp.loop < 0 ? INT_MAX : (rinp.loop < 1 ? 1 : rinp.loop)), mDelayUSec(rinp.delay_us), mMinTFID(rinp.minTF), mMaxTFID(rinp.maxTF), mPartPerSP(rinp.partPerSP), mSup0xccdb(rinp.sup0xccdb), mReader(std::make_unique<o2::raw::RawFileReader>(rinp.inifile, 0, rinp.bufferSize, rinp.onlyDet)), mRawChannelName(rinp.rawChannelConfig), mPreferCalcTF(rinp.preferCalcTF), mMinSHM(rinp.minSHM)
 {
   mReader->setCheckErrors(rinp.errMap);
   mReader->setMaxTFToRead(rinp.maxTF);
@@ -149,6 +149,7 @@ void RawReaderSpecs::init(o2f::InitContext& ic)
   mTimer.Start();
   mTimer.Stop();
   mVerbosity = ic.options().get<int>("verbosity-level");
+  mRunNumber = ic.options().get<int>("run-number");
   mReader->setVerbosity(mVerbosity);
   mReader->init();
   if (mMaxTFID >= mReader->getNTimeFrames()) {
@@ -347,7 +348,12 @@ void RawReaderSpecs::run(o2f::ProcessingContext& ctx)
       if (!mRawChannelName.empty()) { // send endOfStream message to raw channel
         o2f::SourceInfoHeader exitHdr;
         exitHdr.state = o2f::InputChannelState::Completed;
-        const auto exitStack = o2::header::Stack(o2h::DataHeader(o2h::gDataDescriptionInfo, o2h::gDataOriginAny, 0, 0), o2f::DataProcessingHeader(), exitHdr);
+        o2h::DataHeader dh = o2h::DataHeader(o2h::gDataDescriptionInfo, o2h::gDataOriginAny, 0, 0);
+        try {
+          dh.runNumber = strtoul(device->fConfig->GetProperty<std::string>("runNumber", "").c_str(), nullptr, 10);
+        } catch (...) {
+        }
+        const auto exitStack = o2::header::Stack(dh, o2f::DataProcessingHeader(), exitHdr);
         auto fmqFactory = device->GetChannel(mRawChannelName, 0).Transport();
         auto hdEOSMessage = fmqFactory->CreateMessage(exitStack.size(), fair::mq::Alignment{64});
         auto plEOSMessage = fmqFactory->CreateMessage(0, fair::mq::Alignment{64});
@@ -413,6 +419,8 @@ o2f::DataProcessorSpec getReaderSpec(ReaderInp rinp)
 
   spec.algorithm = o2f::adaptFromTask<RawReaderSpecs>(rinp);
   spec.options.emplace_back(o2f::ConfigParamSpec{"verbosity-level", o2f::VariantType::Int, 0, {"verbosity level"}});
+  spec.options.emplace_back(o2f::ConfigParamSpec{"run-number", o2f::VariantType::Int, 0, {"impose run number"}});
+
   return spec;
 }
 

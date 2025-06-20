@@ -20,6 +20,7 @@
 #include "ITSSimulation/V3Layer.h"
 #include "ITSSimulation/V3Services.h"
 #include "ITSSimulation/V3Cage.h"
+#include "ITSSimulation/ITSSimParam.h"
 
 #include "DetectorsBase/Stack.h"
 #include "SimulationDataFormat/TrackReference.h"
@@ -41,6 +42,7 @@
 #include "TVirtualMC.h"      // for gMC, TVirtualMC
 #include "TVirtualMCStack.h" // for TVirtualMCStack
 #include "TFile.h"           // for TVirtualMCStack
+#include "TGeoParallelWorld.h"
 
 #include <cstdio> // for NULL, snprintf
 #include <cmath>
@@ -188,7 +190,7 @@ Detector::Detector(Bool_t active, TString name)
     } else {
       mLayerName[j].Form("%s%d", GeometryTGeo::getITSSensorPattern(), j); // See V3Layer
     }
-    LOGP(info, "{}: mLayerName={}", j, mLayerName[j].Data());
+    LOGP(debug, "{}: mLayerName={}", j, mLayerName[j].Data());
   }
 
   if (mNumberLayers > 0) { // if not, we'll Fatal-ize in CreateGeometry
@@ -721,8 +723,8 @@ void Detector::defineLayer(Int_t nlay, Double_t phi0, Double_t r, Int_t nstav, I
   // Return:
   //   none.
 
-  LOG(info) << "L# " << nlay << " Phi:" << phi0 << " R:" << r << " Nst:" << nstav << " Nunit:" << nunit
-            << " Lthick:" << lthick << " Dthick:" << dthick << " DetID:" << dettypeID << " B:" << buildLevel;
+  LOG(debug) << "L# " << nlay << " Phi:" << phi0 << " R:" << r << " Nst:" << nstav << " Nunit:" << nunit
+             << " Lthick:" << lthick << " Dthick:" << dthick << " DetID:" << dettypeID << " B:" << buildLevel;
 
   if (nlay >= mNumberLayers || nlay < 0) {
     LOG(error) << "Wrong layer number " << nlay;
@@ -1305,6 +1307,53 @@ void Detector::defineSensitiveVolumes()
     }
     v = geoManager->GetVolume(volumeName.Data());
     AddSensitiveVolume(v);
+  }
+}
+
+void Detector::fillParallelWorld() const
+{
+  TGeoParallelWorld* pw = gGeoManager->GetParallelWorld();
+  if (pw == nullptr) {
+    LOG(error) << "Parallel world was not created";
+    return;
+  }
+  auto& param = ITSSimParam::Instance();
+
+  for (int iL{0}; iL < mNumberLayers; ++iL) {
+    auto const layer = mGeometry[iL];
+    int nhbarrels = layer->getNumberOfHalfBarrelsPerParent();
+    int nstaves = layer->getNumberOfStavesPerParent();
+    int nhstaves = layer->getNumberOfHalfStavesPerParent();
+    int nmodules = layer->getNumberOfModulesPerParent();
+    int nchips = layer->getNumberOfChipsPerParent();
+
+    for (int iHB{0}; iHB < nhbarrels; ++iHB) {
+      for (int iS{0}; iS < nstaves; ++iS) {
+        for (int iHS{nhstaves > 0 ? 0 : -1}; iHS < nhstaves; ++iHS) {
+          for (int iM{nmodules > 0 ? 0 : -1}; iM < nmodules; ++iM) {
+            for (int iC{0}; iC < nchips; ++iC) {
+              TString sname = GeometryTGeo::composeSymNameChip(iL, iHB, iS, iHS, iM, iC);
+              TGeoPNEntry* pne = gGeoManager->GetAlignableEntry(sname);
+              auto path = pne->GetTitle();
+
+              if (param.addMetalToPW) {
+                TString metalPath = Form("%s/MetalStack_1", path);
+                gGeoManager->MakePhysicalNode(metalPath);
+                pw->AddNode(metalPath);
+              }
+              if (param.addSensorToPW) {
+                TString sensorPath = Form("%s/ITSUSensor%d_1", path, iL);
+                gGeoManager->MakePhysicalNode(sensorPath);
+                pw->AddNode(sensorPath);
+              }
+              if (param.addChipToPW) {
+                pw->AddNode(path);
+              }
+            }
+          }
+        }
+      }
+    }
   }
 }
 

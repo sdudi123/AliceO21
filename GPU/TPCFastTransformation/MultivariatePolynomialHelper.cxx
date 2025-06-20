@@ -20,7 +20,7 @@
 #include <algorithm>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
 void MultivariatePolynomialHelper<0, 0, false>::print() const
@@ -73,8 +73,7 @@ std::vector<std::string> MultivariatePolynomialHelper<0, 0, false>::getTerms() c
 TLinearFitter MultivariatePolynomialHelper<0, 0, false>::getTLinearFitter() const
 {
   const std::string formula = getTLinearFitterFormula();
-  TLinearFitter fitter(int32_t(mDim), formula.data(), "");
-  return fitter;
+  return TLinearFitter(int32_t(mDim), formula.data(), "");
 }
 
 std::vector<float> MultivariatePolynomialHelper<0, 0, false>::fit(TLinearFitter& fitter, std::vector<double>& x, std::vector<double>& y, std::vector<double>& error, const bool clearPoints)
@@ -156,14 +155,12 @@ Type MultivariatePolynomialHelper<0, 0, false>::combination_with_repetiton(const
           }
           val += term;
         } else {
-#if !defined(GPUCA_ALIROOT_LIB)
           std::string term{};
           for (size_t i = 1; i <= degree; ++i) {
             term += fmt::format("x[{}] * ", pos[i]);
           }
           term += fmt::format("par[{}]", indexPar++);
           val.emplace_back(term);
-#endif
         }
       }
 

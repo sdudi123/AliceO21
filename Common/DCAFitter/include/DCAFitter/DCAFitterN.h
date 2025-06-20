@@ -26,34 +26,32 @@ namespace o2
 {
 namespace vertexing
 {
+
 ///__________________________________________________________________________________
 ///< Inverse cov matrix (augmented by a dummy X error) of the point defined by the track
 struct TrackCovI {
   float sxx, syy, syz, szz;
 
-  GPUd() TrackCovI(const o2::track::TrackParCov& trc, float xerrFactor = 1.) { set(trc, xerrFactor); }
-
   GPUdDefault() TrackCovI() = default;
 
-  GPUd() void set(const o2::track::TrackParCov& trc, float xerrFactor = 1)
+  GPUd() bool set(const o2::track::TrackParCov& trc, float xerrFactor = 1.f)
   {
     // we assign Y error to X for DCA calculation
     // (otherwise for quazi-collinear tracks the X will not be constrained)
     float cyy = trc.getSigmaY2(), czz = trc.getSigmaZ2(), cyz = trc.getSigmaZY(), cxx = cyy * xerrFactor;
     float detYZ = cyy * czz - cyz * cyz;
-    if (detYZ > 0.) {
-      auto detYZI = 1. / detYZ;
-      sxx = 1. / cxx;
-      syy = czz * detYZI;
-      syz = -cyz * detYZI;
-      szz = cyy * detYZI;
-    } else {
-#ifndef GPUCA_GPUCODE
-      throw std::runtime_error("invalid track covariance");
-#else
-      printf("invalid track covariance\n");
-#endif
+    bool res = true;
+    if (detYZ <= 0.) {
+      cyz = o2::gpu::GPUCommonMath::Sqrt(cyy * czz) * (cyz > 0 ? 0.98f : -0.98f);
+      detYZ = cyy * czz - cyz * cyz;
+      res = false;
     }
+    auto detYZI = 1. / detYZ;
+    sxx = 1. / cxx;
+    syy = czz * detYZI;
+    syz = -cyz * detYZI;
+    szz = cyy * detYZI;
+    return res;
   }
 };
 
@@ -70,6 +68,26 @@ struct TrackDeriv {
     dzdx = trc.getTgl() * cspI;   // = tgl/csp
     d2ydx2 = crv2c * cspI * cspI; // = crv/csp^3
     d2zdx2 = crv2c * dzdx * dydx; // = crv*tgl*snp/csp^3
+  }
+};
+
+///__________________________________________________________________________
+///< Log log-throttling helper
+struct LogLogThrottler {
+  size_t evCount{0};
+  size_t nextLog{1};
+  GPUdi() bool needToLog()
+  {
+    if (++evCount > nextLog) {
+      nextLog *= 2;
+      return true;
+    }
+    return false;
+  }
+  GPUdi() void clear()
+  {
+    evCount = 0;
+    nextLog = 1;
   }
 };
 
@@ -92,13 +110,42 @@ class DCAFitterN
   using MatSymND = o2::math_utils::SMatrix<double, N, N, o2::math_utils::MatRepSym<double, N>>;
   using MatStdND = o2::math_utils::SMatrix<double, N, N, o2::math_utils::MatRepStd<double, N>>;
   using TrackCoefVtx = MatStd3D;
-  using ArrTrack = o2::gpu::gpustd::array<Track, N>;         // container for prongs (tracks) at single vertex cand.
-  using ArrTrackCovI = o2::gpu::gpustd::array<TrackCovI, N>; // container for inv.cov.matrices at single vertex cand.
-  using ArrTrCoef = o2::gpu::gpustd::array<TrackCoefVtx, N>; // container of TrackCoefVtx coefficients at single vertex cand.
-  using ArrTrDer = o2::gpu::gpustd::array<TrackDeriv, N>;    // container of Track 1st and 2nd derivative over their X param
-  using ArrTrPos = o2::gpu::gpustd::array<Vec3D, N>;         // container of Track positions
+  using ArrTrack = std::array<Track, N>;         // container for prongs (tracks) at single vertex cand.
+  using ArrTrackCovI = std::array<TrackCovI, N>; // container for inv.cov.matrices at single vertex cand.
+  using ArrTrCoef = std::array<TrackCoefVtx, N>; // container of TrackCoefVtx coefficients at single vertex cand.
+  using ArrTrDer = std::array<TrackDeriv, N>;    // container of Track 1st and 2nd derivative over their X param
+  using ArrTrPos = std::array<Vec3D, N>;         // container of Track positions
 
  public:
+  enum BadCovPolicy : uint8_t { // if encountering non-positive defined cov. matrix, the choice is:
+    Discard = 0,                // stop evaluation
+    Override = 1,               // override correlation coef. to have cov.matrix pos.def and continue
+    OverrideAndFlag = 2         // override correlation coef. to have cov.matrix pos.def, set mPropFailed flag of corresponding candidate to true and continue (up to the user to check the flag)
+  };
+
+  enum FitStatus : uint8_t { // fit status of crossing hypothesis
+    None,                    // no status set (should not be possible!)
+
+    /* Good Conditions */
+    Converged, // fit converged
+    MaxIter,   // max iterations reached before fit convergence
+
+    /* Error Conditions */
+    NoCrossing,      // no reasaonable crossing was found
+    RejRadius,       // radius of crossing was not acceptable
+    RejTrackX,       // one candidate track x was below the mimimum required radius
+    RejTrackRoughZ,  // rejected by rough cut on tracks Z difference
+    RejChi2Max,      // rejected by maximum chi2 cut
+    FailProp,        // propagation of at least prong to PCA failed
+    FailInvCov,      // inversion of cov.-matrix failed
+    FailInvWeight,   // inversion of Ti weight matrix failed
+    FailInv2ndDeriv, // inversion of 2nd derivatives failed
+    FailCorrTracks,  // correction of tracks to updated x failed
+    FailCloserAlt,   // alternative PCA is closer
+    //
+    NStatusesDefined
+  };
+
   static constexpr int getNProngs() { return N; }
 
   DCAFitterN() = default;
@@ -113,7 +160,7 @@ class DCAFitterN
   GPUd() const auto getPCACandidatePos(int cand = 0) const
   {
     const auto& vd = mPCA[mOrder[cand]];
-    return o2::gpu::gpustd::array<float, 3>{static_cast<float>(vd[0]), static_cast<float>(vd[1]), static_cast<float>(vd[2])};
+    return std::array<float, 3>{static_cast<float>(vd[0]), static_cast<float>(vd[1]), static_cast<float>(vd[2])};
   }
 
   ///< return position of quality-ordered candidate in the internal structures
@@ -129,7 +176,7 @@ class DCAFitterN
   ///< check if propagation of tracks to candidate vertex was done
   GPUd() bool isPropagateTracksToVertexDone(int cand = 0) const { return mTrPropDone[mOrder[cand]]; }
 
-  ///< check if propagation of tracks to candidate vertex was done
+  ///< check if propagation of tracks to candidate vertex failed
   bool isPropagationFailure(int cand = 0) const { return mPropFailed[mOrder[cand]]; }
 
   ///< track param propagated to V0 candidate (no check for the candidate validity)
@@ -168,13 +215,15 @@ class DCAFitterN
 
   GPUd() MatSym3D calcPCACovMatrix(int cand = 0) const;
 
-  o2::gpu::gpustd::array<float, 6> calcPCACovMatrixFlat(int cand = 0) const
+  std::array<float, 6> calcPCACovMatrixFlat(int cand = 0) const
   {
     auto m = calcPCACovMatrix(cand);
     return {static_cast<float>(m(0, 0)), static_cast<float>(m(1, 0)), static_cast<float>(m(1, 1)), static_cast<float>(m(2, 0)), static_cast<float>(m(2, 1)), static_cast<float>(m(2, 2))};
   }
 
   const Track* getOrigTrackPtr(int i) const { return mOrigTrPtr[i]; }
+
+  GPUdi() FitStatus getFitStatus(int cand = 0) const noexcept { return mFitStatus[mOrder[cand]]; }
 
   ///< return number of iterations during minimization (no check for its validity)
   GPUdi() int getNIterations(int cand = 0) const { return mNIters[mOrder[cand]]; }
@@ -290,6 +339,12 @@ class DCAFitterN
   {
     mCurHyp = 0;
     mAllowAltPreference = true;
+    mOrder.fill(0);
+    mPropFailed.fill(false);
+    mTrPropDone.fill(false);
+    mNIters.fill(0);
+    mChi2.fill(-1);
+    mFitStatus.fill(FitStatus::None);
   }
 
   GPUdi() static void setTrackPos(Vec3D& pnt, const Track& tr)
@@ -299,36 +354,51 @@ class DCAFitterN
     pnt[2] = tr.getZ();
   }
 
+  GPUdi() void clearLogThrottlers()
+  {
+    mLoggerBadCov.clear();
+    mLoggerBadInv.clear();
+    mLoggerBadProp.clear();
+  }
+
+  void setBadCovPolicy(BadCovPolicy v) { mBadCovPolicy = v; }
+  BadCovPolicy getBadCovPolicy() const { return mBadCovPolicy; }
+
  private:
   // vectors of 1st derivatives of track local residuals over X parameters
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> mDResidDx;
+  std::array<std::array<Vec3D, N>, N> mDResidDx;
   // vectors of 1nd derivatives of track local residuals over X parameters
   // (cross-derivatives DR/(dx_j*dx_k) = 0 for j!=k, therefore the hessian is diagonal)
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> mD2ResidDx2;
+  std::array<std::array<Vec3D, N>, N> mD2ResidDx2;
   VecND mDChi2Dx;      // 1st derivatives of chi2 over tracks X params
   MatSymND mD2Chi2Dx2; // 2nd derivatives of chi2 over tracks X params (symmetric matrix)
   MatSymND mCosDif;    // matrix with cos(alp_j-alp_i) for j<i
   MatSymND mSinDif;    // matrix with sin(alp_j-alp_i) for j<i
-  o2::gpu::gpustd::array<const Track*, N> mOrigTrPtr;
-  o2::gpu::gpustd::array<TrackAuxPar, N> mTrAux; // Aux track info for each track at each cand. vertex
-  CrossInfo mCrossings;                          // info on track crossing
+  std::array<const Track*, N> mOrigTrPtr;
+  std::array<TrackAuxPar, N> mTrAux; // Aux track info for each track at each cand. vertex
+  CrossInfo mCrossings;              // info on track crossing
 
-  o2::gpu::gpustd::array<ArrTrackCovI, MAXHYP> mTrcEInv; // errors for each track at each cand. vertex
-  o2::gpu::gpustd::array<ArrTrack, MAXHYP> mCandTr;      // tracks at each cond. vertex (Note: Errors are at seed XY point)
-  o2::gpu::gpustd::array<ArrTrCoef, MAXHYP> mTrCFVT;     // TrackCoefVtx for each track at each cand. vertex
-  o2::gpu::gpustd::array<ArrTrDer, MAXHYP> mTrDer;       // Track derivativse
-  o2::gpu::gpustd::array<ArrTrPos, MAXHYP> mTrPos;       // Track positions
-  o2::gpu::gpustd::array<ArrTrPos, MAXHYP> mTrRes;       // Track residuals
-  o2::gpu::gpustd::array<Vec3D, MAXHYP> mPCA;            // PCA for each vertex candidate
-  o2::gpu::gpustd::array<float, MAXHYP> mChi2 = {0};     // Chi2 at PCA candidate
-  o2::gpu::gpustd::array<int, MAXHYP> mNIters;           // number of iterations for each seed
-  o2::gpu::gpustd::array<bool, MAXHYP> mTrPropDone{};    // Flag that the tracks are fully propagated to PCA
-  o2::gpu::gpustd::array<bool, MAXHYP> mPropFailed{};    // Flag that some propagation failed for this PCA candidate
-  MatSym3D mWeightInv;                                   // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
-  o2::gpu::gpustd::array<int, MAXHYP> mOrder{0};
+  std::array<ArrTrackCovI, MAXHYP> mTrcEInv; // errors for each track at each cand. vertex
+  std::array<ArrTrack, MAXHYP> mCandTr;      // tracks at each cond. vertex (Note: Errors are at seed XY point)
+  std::array<ArrTrCoef, MAXHYP> mTrCFVT;     // TrackCoefVtx for each track at each cand. vertex
+  std::array<ArrTrDer, MAXHYP> mTrDer;       // Track derivativse
+  std::array<ArrTrPos, MAXHYP> mTrPos;       // Track positions
+  std::array<ArrTrPos, MAXHYP> mTrRes;       // Track residuals
+  std::array<Vec3D, MAXHYP> mPCA;            // PCA for each vertex candidate
+  std::array<float, MAXHYP> mChi2 = {0};     // Chi2 at PCA candidate
+  std::array<int, MAXHYP> mNIters;           // number of iterations for each seed
+  std::array<bool, MAXHYP> mTrPropDone{};    // Flag that the tracks are fully propagated to PCA
+  std::array<bool, MAXHYP> mPropFailed{};    // Flag that some propagation failed for this PCA candidate
+  LogLogThrottler mLoggerBadCov{};
+  LogLogThrottler mLoggerBadInv{};
+  LogLogThrottler mLoggerBadProp{};
+  MatSym3D mWeightInv; // inverse weight of single track, [sum{M^T E M}]^-1 in EQ.T
+  std::array<int, MAXHYP> mOrder{0};
   int mCurHyp = 0;
   int mCrossIDCur = 0;
   int mCrossIDAlt = -1;
+  BadCovPolicy mBadCovPolicy{BadCovPolicy::Discard};                                              // what to do in case of non-pos-def. cov. matrix, see BadCovPolicy enum
+  std::array<FitStatus, MAXHYP> mFitStatus{};                                                     // fit status of each hypothesis fit
   bool mAllowAltPreference = true;                                                                // if the fit converges to alternative PCA seed, abandon the current one
   bool mUseAbsDCA = false;                                                                        // use abs. distance minimization rather than chi2
   bool mWeightedFinalPCA = false;                                                                 // recalculate PCA as a cov-matrix weighted mean, even if absDCA method was used
@@ -351,7 +421,7 @@ class DCAFitterN
   float mMaxStep = 2.0;                                                                           // Max step for propagation with Propagator
   int mFitterID = 0;                                                                              // locat fitter ID (mostly for debugging)
   size_t mCallID = 0;
-  ClassDefNV(DCAFitterN, 2);
+  ClassDefNV(DCAFitterN, 3);
 };
 
 ///_________________________________________________________________________
@@ -368,10 +438,8 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
     mTrAux[i].set(*mOrigTrPtr[i], mBz);
   }
   if (!mCrossings.set(mTrAux[0], *mOrigTrPtr[0], mTrAux[1], *mOrigTrPtr[1], mMaxDXYIni, mIsCollinear)) { // even for N>2 it should be enough to test just 1 loop
-    return 0;                                                                                            // no crossing
-  }
-  for (int ih = 0; ih < MAXHYP; ih++) {
-    mPropFailed[ih] = false;
+    mFitStatus[mCurHyp] = FitStatus::NoCrossing;
+    return 0;
   }
   if (mUseAbsDCA) {
     calcRMatrices(); // needed for fast residuals derivatives calculation in case of abs. distance minimization
@@ -389,13 +457,11 @@ GPUd() int DCAFitterN<N, Args...>::process(const Tr&... args)
   for (int ic = 0; ic < mCrossings.nDCA; ic++) {
     // check if radius is acceptable
     if (mCrossings.xDCA[ic] * mCrossings.xDCA[ic] + mCrossings.yDCA[ic] * mCrossings.yDCA[ic] > mMaxR2) {
+      mFitStatus[mCurHyp] = FitStatus::RejRadius;
       continue;
     }
     mCrossIDCur = ic;
     mCrossIDAlt = (mCrossings.nDCA == 2 && mAllowAltPreference) ? 1 - ic : -1; // works for max 2 crossings
-    mNIters[mCurHyp] = 0;
-    mTrPropDone[mCurHyp] = false;
-    mChi2[mCurHyp] = -1.;
     mPCA[mCurHyp][0] = mCrossings.xDCA[ic];
     mPCA[mCurHyp][1] = mCrossings.yDCA[ic];
 
@@ -429,6 +495,7 @@ GPUd() bool DCAFitterN<N, Args...>::calcPCACoefs()
 {
   //< calculate Ti matrices for global vertex decomposition to V = sum_{0<i<N} Ti pi, see EQ.T in the ref
   if (!calcInverseWeight()) {
+    mFitStatus[mCurHyp] = FitStatus::FailInvWeight;
     return false;
   }
   for (int i = N; i--;) { // build Mi*Ei matrix
@@ -592,7 +659,7 @@ template <int N, typename... Args>
 GPUd() void DCAFitterN<N, Args...>::calcChi2Derivatives()
 {
   //< calculate 1st and 2nd derivatives of wighted DCA (chi2) over track parameters X, see EQ.Chi2 in the ref
-  o2::gpu::gpustd::array<o2::gpu::gpustd::array<Vec3D, N>, N> covIDrDx; // tempory vectors of covI_j * dres_j/dx_i
+  std::array<std::array<Vec3D, N>, N> covIDrDx; // tempory vectors of covI_j * dres_j/dx_i
 
   // chi2 1st derivative
   for (int i = N; i--;) {
@@ -677,7 +744,23 @@ GPUd() bool DCAFitterN<N, Args...>::recalculatePCAWithErrors(int cand)
   mCurHyp = mOrder[cand];
   if (mUseAbsDCA) {
     for (int i = N; i--;) {
-      mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor); // prepare inverse cov.matrices at starting point
+      if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor)) { // prepare inverse cov.matrices at starting point
+        if (mLoggerBadCov.needToLog()) {
+#ifndef GPUCA_GPUCODE
+          printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
+#else
+          printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
+                 mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+#endif
+        }
+        mFitStatus[mCurHyp] = FitStatus::FailInvCov;
+        if (mBadCovPolicy == Discard) {
+          return false;
+        } else if (mBadCovPolicy == OverrideAndFlag) {
+          mPropFailed[mCurHyp] = true;
+        } // otherwise, just use overridden errors w/o flagging
+      }
     }
     if (!calcPCACoefs()) {
       mCurHyp = saveCurHyp;
@@ -880,14 +963,35 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
   for (int i = N; i--;) {
     mCandTr[mCurHyp][i] = *mOrigTrPtr[i];
     auto x = mTrAux[i].c * mPCA[mCurHyp][0] + mTrAux[i].s * mPCA[mCurHyp][1]; // X of PCA in the track frame
-    if (x < mMinXSeed || !propagateToX(mCandTr[mCurHyp][i], x)) {
+    if (x < mMinXSeed) {
+      mFitStatus[mCurHyp] = FitStatus::RejTrackX;
       return false;
     }
-    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);      // prepare positions
-    mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor); // prepare inverse cov.matrices at starting point
+    if (!propagateToX(mCandTr[mCurHyp][i], x)) {
+      return false;
+    }
+    setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]);             // prepare positions
+    if (!mTrcEInv[mCurHyp][i].set(mCandTr[mCurHyp][i], XerrFactor)) { // prepare inverse cov.matrices at starting point
+      if (mLoggerBadCov.needToLog()) {
+#ifndef GPUCA_GPUCODE
+        printf("fitter %d: error (%ld muted): overrode invalid track covariance from %s\n",
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].asString().c_str());
+#else
+        printf("fitter %d: error (%ld muted): overrode invalid track covariance cyy:%e czz:%e cyz:%e\n",
+               mFitterID, mLoggerBadCov.evCount, mCandTr[mCurHyp][i].getSigmaY2(), mCandTr[mCurHyp][i].getSigmaZ2(), mCandTr[mCurHyp][i].getSigmaZY());
+#endif
+      }
+      mFitStatus[mCurHyp] = FitStatus::FailInvCov;
+      if (mBadCovPolicy == Discard) {
+        return false;
+      } else if (mBadCovPolicy == OverrideAndFlag) {
+        mPropFailed[mCurHyp] = true;
+      } // otherwise, just use overridden errors w/o flagging
+    }
   }
 
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
+    mFitStatus[mCurHyp] = FitStatus::RejTrackRoughZ;
     return false;
   }
 
@@ -904,19 +1008,20 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
-#ifndef GPUCA_GPUCODE_DEVICE
-      LOG(error) << "InversionFailed";
-#else
-      printf("InversionFailed\n");
-#endif
+      if (mLoggerBadInv.needToLog()) {
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
+      }
+      mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
     if (!correctTracks(dx)) {
+      mFitStatus[mCurHyp] = FitStatus::FailCorrTracks;
       return false;
     }
     calcPCA(); // updated PCA
     if (mCrossIDAlt >= 0 && closerToAlternative()) {
+      mFitStatus[mCurHyp] = FitStatus::FailCloserAlt;
       mAllowAltPreference = false;
       return false;
     }
@@ -924,13 +1029,21 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2()
     chi2Upd = calcChi2(); // updated chi2
     if (getAbsMax(dx) < mMinParamChange || chi2Upd > chi2 * mMinRelChi2Change) {
       chi2 = chi2Upd;
+      mFitStatus[mCurHyp] = FitStatus::Converged;
       break; // converged
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
-  return mChi2[mCurHyp] < mMaxChi2;
+  if (mChi2[mCurHyp] >= mMaxChi2) {
+    mFitStatus[mCurHyp] = FitStatus::RejChi2Max;
+    return false;
+  }
+  return true;
 }
 
 //___________________________________________________________________
@@ -942,12 +1055,17 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
   for (int i = N; i--;) {
     mCandTr[mCurHyp][i] = *mOrigTrPtr[i];
     auto x = mTrAux[i].c * mPCA[mCurHyp][0] + mTrAux[i].s * mPCA[mCurHyp][1]; // X of PCA in the track frame
-    if (x < mMinXSeed || !propagateParamToX(mCandTr[mCurHyp][i], x)) {
+    if (x < mMinXSeed) {
+      mFitStatus[mCurHyp] = FitStatus::RejTrackX;
+      return false;
+    }
+    if (!propagateParamToX(mCandTr[mCurHyp][i], x)) {
       return false;
     }
     setTrackPos(mTrPos[mCurHyp][i], mCandTr[mCurHyp][i]); // prepare positions
   }
   if (mMaxDZIni > 0 && !roughDZCut()) { // apply rough cut on tracks Z difference
+    mFitStatus[mCurHyp] = FitStatus::RejTrackRoughZ;
     return false;
   }
 
@@ -961,19 +1079,20 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
 
     // do Newton-Rapson iteration with corrections = - dchi2/d{x0..xN} * [ d^2chi2/d{x0..xN}^2 ]^-1
     if (!mD2Chi2Dx2.Invert()) {
-#ifndef GPUCA_GPUCODE_DEVICE
-      LOG(error) << "InversionFailed";
-#else
-      printf("InversionFailed\n");
-#endif
+      if (mLoggerBadInv.needToLog()) {
+        printf("fitter %d: error (%ld muted): Inversion failed\n", mFitterID, mLoggerBadCov.evCount);
+      }
+      mFitStatus[mCurHyp] = FitStatus::FailInv2ndDeriv;
       return false;
     }
     VecND dx = mD2Chi2Dx2 * mDChi2Dx;
     if (!correctTracks(dx)) {
+      mFitStatus[mCurHyp] = FitStatus::FailCorrTracks;
       return false;
     }
     calcPCANoErr(); // updated PCA
     if (mCrossIDAlt >= 0 && closerToAlternative()) {
+      mFitStatus[mCurHyp] = FitStatus::FailCloserAlt;
       mAllowAltPreference = false;
       return false;
     }
@@ -981,13 +1100,21 @@ GPUd() bool DCAFitterN<N, Args...>::minimizeChi2NoErr()
     chi2Upd = calcChi2NoErr(); // updated chi2
     if (getAbsMax(dx) < mMinParamChange || chi2Upd > chi2 * mMinRelChi2Change) {
       chi2 = chi2Upd;
+      mFitStatus[mCurHyp] = FitStatus::Converged;
       break; // converged
     }
     chi2 = chi2Upd;
   } while (++mNIters[mCurHyp] < mMaxIter);
+  if (mNIters[mCurHyp] == mMaxIter) {
+    mFitStatus[mCurHyp] = FitStatus::MaxIter;
+  }
   //
   mChi2[mCurHyp] = chi2 * NInv;
-  return mChi2[mCurHyp] < mMaxChi2;
+  if (mChi2[mCurHyp] >= mMaxChi2) {
+    mFitStatus[mCurHyp] = FitStatus::RejChi2Max;
+    return false;
+  }
+  return true;
 }
 
 //___________________________________________________________________
@@ -1022,10 +1149,16 @@ template <int N, typename... Args>
 GPUd() void DCAFitterN<N, Args...>::print() const
 {
 #ifndef GPUCA_GPUCODE_DEVICE
-  LOG(info) << N << "-prong vertex fitter in " << (mUseAbsDCA ? "abs." : "weighted") << " distance minimization mode";
-  LOG(info) << "Bz: " << mBz << " MaxIter: " << mMaxIter << " MaxChi2: " << mMaxChi2;
+  LOG(info) << N << "-prong vertex fitter in " << (mUseAbsDCA ? "abs." : "weighted") << " distance minimization mode, collinear tracks mode: " << (mIsCollinear ? "ON" : "OFF");
+  LOG(info) << "Bz: " << mBz << " MaxIter: " << mMaxIter << " MaxChi2: " << mMaxChi2 << " MatCorrType: " << int(mMatCorr);
   LOG(info) << "Stopping condition: Max.param change < " << mMinParamChange << " Rel.Chi2 change > " << mMinRelChi2Change;
   LOG(info) << "Discard candidates for : Rvtx > " << getMaxR() << " DZ between tracks > " << mMaxDZIni;
+  LOG(info) << "PropagateToPCA:" << mPropagateToPCA << " WeightedFinalPCA:" << mWeightedFinalPCA << " UsePropagator:" << mUsePropagator << " RefitWithMatCorr:" << mRefitWithMatCorr;
+  std::string rep{};
+  for (int i = 0; i < mCrossings.nDCA; i++) {
+    rep += fmt::format("seed{}:{}/{} ", i, mTrPropDone[i], mPropFailed[i]);
+  }
+  LOG(info) << "Last call: NCand:" << mCurHyp << " from " << mCrossings.nDCA << " seeds, prop.done/failed: " << rep;
 #else
   if (mUseAbsDCA) {
     printf("%d-prong vertex fitter in abs. distance minimization mode\n", N);
@@ -1044,13 +1177,13 @@ GPUd() o2::track::TrackParCov DCAFitterN<N, Args...>::createParentTrackParCov(in
 {
   const auto& trP = getTrack(0, cand);
   const auto& trN = getTrack(1, cand);
-  o2::gpu::gpustd::array<float, 21> covV = {0.};
-  o2::gpu::gpustd::array<float, 3> pvecV = {0.};
+  std::array<float, 21> covV = {0.};
+  std::array<float, 3> pvecV = {0.};
   int q = 0;
   for (int it = 0; it < N; it++) {
     const auto& trc = getTrack(it, cand);
-    o2::gpu::gpustd::array<float, 3> pvecT = {0.};
-    o2::gpu::gpustd::array<float, 21> covT = {0.};
+    std::array<float, 3> pvecT = {0.};
+    std::array<float, 21> covT = {0.};
     trc.getPxPyPzGlo(pvecT);
     trc.getCovXYZPxPyPzGlo(covT);
     constexpr int MomInd[6] = {9, 13, 14, 18, 19, 20}; // cov matrix elements for momentum component
@@ -1079,18 +1212,18 @@ GPUd() o2::track::TrackPar DCAFitterN<N, Args...>::createParentTrackPar(int cand
   const auto& trP = getTrack(0, cand);
   const auto& trN = getTrack(1, cand);
   const auto& wvtx = getPCACandidate(cand);
-  o2::gpu::gpustd::array<float, 3> pvecV = {0.};
+  std::array<float, 3> pvecV = {0.};
   int q = 0;
   for (int it = 0; it < N; it++) {
     const auto& trc = getTrack(it, cand);
-    o2::gpu::gpustd::array<float, 3> pvecT = {0.};
+    std::array<float, 3> pvecT = {0.};
     trc.getPxPyPzGlo(pvecT);
     for (int i = 0; i < 3; i++) {
       pvecV[i] += pvecT[i];
     }
     q += trc.getCharge();
   }
-  const o2::gpu::gpustd::array<float, 3> vertex = {(float)wvtx[0], (float)wvtx[1], (float)wvtx[2]};
+  const std::array<float, 3> vertex = {(float)wvtx[0], (float)wvtx[1], (float)wvtx[2]};
   return o2::track::TrackPar(vertex, pvecV, q, sectorAlpha);
 }
 
@@ -1107,7 +1240,15 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateParamToX(o2::track::TrackPar& t, f
     res = t.propagateParamTo(x, mBz);
   }
   if (!res) {
+    mFitStatus[mCurHyp] = FitStatus::FailProp;
     mPropFailed[mCurHyp] = true;
+    if (mLoggerBadProp.needToLog()) {
+#ifndef GPUCA_GPUCODE
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
+#else
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
+#endif
+    }
   }
   return res;
 }
@@ -1125,7 +1266,15 @@ GPUdi() bool DCAFitterN<N, Args...>::propagateToX(o2::track::TrackParCov& t, flo
     res = t.propagateTo(x, mBz);
   }
   if (!res) {
+    mFitStatus[mCurHyp] = FitStatus::FailProp;
     mPropFailed[mCurHyp] = true;
+    if (mLoggerBadProp.needToLog()) {
+#ifndef GPUCA_GPUCODE
+      printf("fitter %d: error (%ld muted): propagation failed for %s\n", mFitterID, mLoggerBadProp.evCount, t.asString().c_str());
+#else
+      printf("fitter %d: error (%ld muted): propagation failed\n", mFitterID, mLoggerBadProp.evCount);
+#endif
+    }
   }
   return res;
 }

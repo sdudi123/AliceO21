@@ -348,6 +348,11 @@ class CcdbApi //: public DatabaseInterface
   TObject* retrieveFromTFile(std::string const& path, std::map<std::string, std::string> const& metadata, long timestamp,
                              std::map<std::string, std::string>* headers, std::string const& etag,
                              const std::string& createdNotAfter, const std::string& createdNotBefore) const;
+  void loadFileToMemory(std::vector<char>& dest, std::string const& path,
+                        std::map<std::string, std::string> const& metadata, long timestamp,
+                        std::map<std::string, std::string>* headers, std::string const& etag,
+                        const std::string& createdNotAfter, const std::string& createdNotBefore, bool considerSnapshot = true) const;
+
 #if !defined(__CINT__) && !defined(__MAKECINT__) && !defined(__ROOTCLING__) && !defined(__CLING__)
   typedef struct RequestContext {
     o2::pmr::vector<char>& dest;
@@ -383,7 +388,7 @@ class CcdbApi //: public DatabaseInterface
   static bool removeSemaphore(std::string const& name, bool remove = false);
   static void removeLeakingSemaphores(std::string const& basedir, bool remove = false);
 
-  void loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders = nullptr) const;
+  void loadFileToMemory(o2::pmr::vector<char>& dest, const std::string& path, std::map<std::string, std::string>* localHeaders = nullptr, bool fetchLocalMetaData = true) const;
   void loadFileToMemory(o2::pmr::vector<char>& dest, std::string const& path,
                         std::map<std::string, std::string> const& metadata, long timestamp,
                         std::map<std::string, std::string>* headers, std::string const& etag,

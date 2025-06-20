@@ -22,37 +22,20 @@
 struct GPUTRDTrackDataRecord;
 class AliHLTExternalTrackParam;
 
-namespace o2
-{
-namespace tpc
+namespace o2::tpc
 {
 class TrackTPC;
-} // namespace tpc
-namespace dataformats
+} // namespace o2::tpc
+namespace o2::dataformats
 {
 class TrackTPCITS;
 class GlobalTrackID;
-} // namespace dataformats
-} // namespace o2
+} // namespace o2::dataformats
 
 //_____________________________________________________________________________
-#if (defined(__CINT__) || defined(__ROOTCINT__)) && !defined(__CLING__)
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
-{
-template <typename T>
-class GPUTRDTrack_t;
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
-#else
-#if (!defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)) || defined(GPUCA_HAVE_O2HEADERS)
 #include "GPUTRDInterfaceO2Track.h"
-#endif
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 template <typename T>
@@ -108,10 +91,6 @@ class GPUTRDTrack_t : public T
   GPUd() bool getIsFindable(int32_t iLayer) const { return (mFlags >> iLayer) & 0x1; }
   GPUd() int32_t getNmissingConsecLayers(int32_t iLayer) const;
   GPUd() int32_t getIsPenaltyAdded(int32_t iLayer) const { return getIsFindable(iLayer) && getTrackletIndex(iLayer) < 0; }
-  // for AliRoot compatibility. To be removed once HLT/global/AliHLTGlobalEsdConverterComponent.cxx does not require them anymore
-  GPUd() int32_t GetTPCtrackId() const { return mRefGlobalTrackId; }
-  GPUd() bool GetIsStopped() const { return getIsStopped(); }
-  GPUd() int32_t GetNtracklets() const { return getNtracklets(); }
 
   // setters
   GPUd() void setRefGlobalTrackIdRaw(uint32_t id) { mRefGlobalTrackId = id; }
@@ -127,14 +106,10 @@ class GPUTRDTrack_t : public T
   GPUd() void setHasNeighbor() { mIsCrossingNeighbor |= (1U << 6); }
   GPUd() void setHasPadrowCrossing() { mIsCrossingNeighbor |= (1U << 7); }
 
-  // conversion to / from HLT track structure (only for AliRoot)
-  GPUd() void ConvertTo(GPUTRDTrackDataRecord& t) const;
-  GPUd() void ConvertFrom(const GPUTRDTrackDataRecord& t);
-
  protected:
-  float mChi2;                       // total chi2.
-  float mSignal{-1.f};               // electron Likelihood for track
-  uint32_t mRefGlobalTrackId;        // raw GlobalTrackID of the seeding track (either ITS-TPC or TPC)
+  float mChi2;                          // total chi2.
+  float mSignal{-1.f};                  // electron Likelihood for track
+  uint32_t mRefGlobalTrackId;           // raw GlobalTrackID of the seeding track (either ITS-TPC or TPC)
   int32_t mAttachedTracklets[kNLayers]; // indices of the tracklets attached to this track; -1 means no tracklet in that layer
   int16_t mCollisionId;                 // the collision ID of the tracklets attached to this track; is used to retrieve the BC information for this track after the tracking is done
   uint8_t mFlags;                       // bits 0 to 5 indicate whether track is findable in layer 0 to 5, bit 6 indicates an ambiguous track and bit 7 flags if the track is stopped in the TRD
@@ -142,14 +117,11 @@ class GPUTRDTrack_t : public T
 
  private:
   GPUd() void initialize();
-#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_STANDALONE)
   ClassDefNV(GPUTRDTrack_t, 4);
 #endif
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
-
-#endif // !((defined(__CINT__) || defined(__ROOTCINT__)) && !defined(__CLING__))
+} // namespace o2::gpu
 
 #endif // GPUTRDTRACK_H

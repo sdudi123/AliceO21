@@ -19,7 +19,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 #include "GPUTPCClusterFinder.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include "PackedCharge.h"
 
 namespace o2::tpc
@@ -27,10 +27,10 @@ namespace o2::tpc
 class Digit;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
-struct ChargePos;
+struct CfChargePos;
 
 class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
 {
@@ -41,15 +41,13 @@ class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
     findFragmentStart,
   };
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep()
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
@@ -57,14 +55,14 @@ class GPUTPCCFChargeMapFiller : public GPUKernelTemplate
   template <int32_t iKernel = defaultKernel, typename... Args>
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& clusterer, Args... args);
 
-  static GPUd() void fillIndexMapImpl(int32_t, int32_t, int32_t, int32_t, const CfFragment&, const tpc::Digit*, Array2D<uint32_t>&, size_t);
+  static GPUd() void fillIndexMapImpl(int32_t, int32_t, int32_t, int32_t, const CfFragment&, const tpc::Digit*, CfArray2D<uint32_t>&, size_t);
 
-  static GPUd() void fillFromDigitsImpl(int32_t, int32_t, int32_t, int32_t, processorType&, const CfFragment&, size_t, const tpc::Digit*, ChargePos*, Array2D<PackedCharge>&);
+  static GPUd() void fillFromDigitsImpl(int32_t, int32_t, int32_t, int32_t, processorType&, const CfFragment&, size_t, const tpc::Digit*, CfChargePos*, CfArray2D<PackedCharge>&);
 
  private:
   static GPUd() size_t findTransition(int32_t, const tpc::Digit*, size_t, size_t);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

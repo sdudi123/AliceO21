@@ -30,18 +30,21 @@
 #include "GPUDisplayFrontendWayland.h"
 #endif
 
+#include "GPULogging.h"
+#include <cstring>
+
 #ifdef GPUCA_BUILD_EVENT_DISPLAY_QT
 #include "GPUDisplayGUIWrapper.h"
 #else
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplayGUIWrapper
 {
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUDisplayFrontend::~GPUDisplayFrontend() = default;
 

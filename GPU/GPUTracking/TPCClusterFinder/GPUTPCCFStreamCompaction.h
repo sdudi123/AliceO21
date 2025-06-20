@@ -20,7 +20,7 @@
 #include "GPUConstantMem.h"
 #include "GPUTPCClusterFinder.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCCFStreamCompaction : public GPUKernelTemplate
@@ -35,18 +35,23 @@ class GPUTPCCFStreamCompaction : public GPUKernelTemplate
     compactDigits = 4,
   };
 
-  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<int32_t, GPUCA_THREAD_COUNT_SCAN> {
+#if defined(GPUCA_GPUCODE) && !defined(GPUCA_GPUCODE_NO_LAUNCH_BOUNDS)
+  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<int32_t, GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE> {
   };
+  static_assert(GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCFStreamCompaction_scanStart));
+  static_assert(GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCFStreamCompaction_scanUp));
+  static_assert(GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCFStreamCompaction_scanTop));
+  static_assert(GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCFStreamCompaction_scanDown));
+  static_assert(GPUCA_PAR_CF_SCAN_WORKGROUP_SIZE == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCFStreamCompaction_compactDigits));
+#endif
 
-#ifdef GPUCA_HAVE_O2HEADERS
   typedef GPUTPCClusterFinder processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors)
   {
     return processors.tpcClusterer;
   }
-#endif
 
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep()
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep()
   {
     return GPUDataTypes::RecoStep::TPCClusterFinding;
   }
@@ -58,6 +63,6 @@ class GPUTPCCFStreamCompaction : public GPUKernelTemplate
   static GPUd() int32_t CompactionElems(processorType& clusterer, int32_t stage);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

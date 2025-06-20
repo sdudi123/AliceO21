@@ -27,14 +27,15 @@ class ctpCCDBManager
   int saveRunScalersToCCDB(CTPRunScalers& scalers, long timeStart, long timeStop);
   int saveRunScalersToQCDB(CTPRunScalers& scalers, long timeStart, long timeStop);
   int saveRunConfigToCCDB(CTPConfiguration* cfg, long timeStart);
+  int saveSoxOrbit(uint32_t runNumber, uint32_t soxOrbit, long timeStart);
+  int saveOrbitReset(long timeStamp);
+  int saveCtpCfg(uint32_t runNumber, long timeStamp);
   static CTPConfiguration getConfigFromCCDB(long timestamp, std::string run, bool& ok);
   static CTPConfiguration getConfigFromCCDB(long timestamp, std::string run);
   CTPRunScalers getScalersFromCCDB(long timestamp, std::string, bool& ok);
-  void setCCDBPathConfig(std::string path) { mCCDBPathCTPConfig = path; };
-  void setCCDBPathScalers(std::string path) { mCCDBPathCTPScalers = path; };
-  void setQCDBPathScalers(std::string path) { mQCDBPathCTPScalers = path; };
   static void setCCDBHost(std::string host) { mCCDBHost = host; };
   static void setQCDBHost(std::string host) { mQCDBHost = host; };
+  void setCtpCfgDir(std::string& ctpcfgdir) { mCtpCfgDir = ctpcfgdir; };
 
  protected:
   /// Database constants
@@ -42,10 +43,15 @@ class ctpCCDBManager
   // std::string mQCDBHost = "http://ali-qcdb.cern.ch:8083";
   static std::string mCCDBHost;
   static std::string mQCDBHost;
-  std::string mCCDBPathCTPScalers = "CTP/Calib/Scalers";
-  std::string mCCDBPathCTPConfig = "CTP/Config/Config";
-  std::string mQCDBPathCTPScalers = "qc/CTP/Scalers";
-  ClassDefNV(ctpCCDBManager, 1);
+  const std::string mCCDBPathCTPScalers = "CTP/Calib/Scalers";
+  // std::string mCCDBPathCTPConfig = "CTP/Config/Config";  - in Configuration.h
+  const std::string mQCDBPathCTPScalers = "qc/CTP/Scalers";
+  const std::string mCCDBPathSoxOrbit = "CTP/Calib/FirstRunOrbit";
+  const std::string mCCDBPathOrbitReset = "CTP/Calib/OrbitReset";
+  const std::string mCCDBPathCtpCfg = "CTP/Config/CtpCfg";
+  std::string mCtpCfgDir;
+
+  ClassDefNV(ctpCCDBManager, 2);
 };
 } // namespace ctp
 } // namespace o2

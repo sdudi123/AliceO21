@@ -49,9 +49,9 @@ class CalibdEdxCorrection
   }
   CalibdEdxCorrection(std::string_view fileName) { loadFromFile(fileName); }
 #else
-  CalibdEdxCorrection() CON_DEFAULT;
+  CalibdEdxCorrection() = default;
 #endif
-  ~CalibdEdxCorrection() CON_DEFAULT;
+  ~CalibdEdxCorrection() = default;
 
   GPUd() float getCorrection(const StackID& stack, ChargeType charge, float tgl = 0, float snp = 0) const
   {
@@ -91,8 +91,8 @@ class CalibdEdxCorrection
 
   void clear();
 
-  void writeToFile(std::string_view fileName, std::string_view objName = "CalibdEdxCorrection") const;
-  void loadFromFile(std::string_view fileName, std::string_view objName = "CalibdEdxCorrection");
+  void writeToFile(std::string_view fileName, std::string_view objName = "ccdb_object") const;
+  void loadFromFile(std::string_view fileName, std::string_view objName = "ccdb_object");
 
   /// \param outFileName name of the output file
   void dumpToTree(const char* outFileName = "calib_dedx.root") const;

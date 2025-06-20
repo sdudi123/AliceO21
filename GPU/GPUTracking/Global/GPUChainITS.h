@@ -27,7 +27,7 @@ class TrackITSExt;
 class GPUFrameworkExternalAllocator;
 } // namespace o2::its
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUChainITS : public GPUChain
 {
@@ -43,19 +43,19 @@ class GPUChainITS : public GPUChain
   int32_t RunChain() override;
   void MemorySize(size_t& gpuMem, size_t& pageLockedHostMem) override;
 
-  o2::its::TrackerTraits* GetITSTrackerTraits();
+  o2::its::TrackerTraits<7>* GetITSTrackerTraits();
   o2::its::VertexerTraits* GetITSVertexerTraits();
-  o2::its::TimeFrame* GetITSTimeframe();
+  o2::its::TimeFrame<7>* GetITSTimeframe();
 
  protected:
   GPUChainITS(GPUReconstruction* rec, uint32_t maxTracks = GPUCA_MAX_ITS_FIT_TRACKS);
-  std::unique_ptr<o2::its::TrackerTraits> mITSTrackerTraits;
+  std::unique_ptr<o2::its::TrackerTraits<7>> mITSTrackerTraits;
   std::unique_ptr<o2::its::VertexerTraits> mITSVertexerTraits;
-  std::unique_ptr<o2::its::TimeFrame> mITSTimeFrame;
+  std::unique_ptr<o2::its::TimeFrame<7>> mITSTimeFrame;
   std::unique_ptr<o2::its::GPUFrameworkExternalAllocator> mFrameworkAllocator;
 
   uint32_t mMaxTracks;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

@@ -33,9 +33,9 @@
 #include "GPUCommonMath.h"
 #include <iostream>
 
-templateClassImp(GPUCA_NAMESPACE::gpu::Spline1DHelper);
+templateClassImp(o2::gpu::Spline1DHelper);
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <typename DataT>
 Spline1DHelper<DataT>::Spline1DHelper() : mError(), mSpline()
@@ -502,7 +502,6 @@ void Spline1DHelper<DataT>::setSpline(const Spline1DContainer<DataT>& spline)
   mSpline.setXrange(spline.getXmin(), spline.getXmax());
 }
 
-#ifndef GPUCA_ALIROOT_LIB
 template <typename DataT>
 int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
 {
@@ -607,7 +606,7 @@ int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
     Spline1D<DataT, Ndim> spline2(spline1);
     spline1.approximateFunction(0., TMath::Pi(), F, nAuxiliaryPoints);
 
-    //if (itry == 0)
+    // if (itry == 0)
     {
       TFile outf("testSpline1D.root", "recreate");
       if (outf.IsZombie()) {
@@ -732,9 +731,9 @@ int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
       }
     } // draw
   }
-  //delete canv;
-  //delete nt;
-  //delete knots;
+  // delete canv;
+  // delete nt;
+  // delete knots;
 
   statDf1 = sqrt(statDf1 / statN);
   statDf2 = sqrt(statDf2 / statN);
@@ -754,7 +753,6 @@ int32_t Spline1DHelper<DataT>::test(const bool draw, const bool drawDataPoints)
   }
   return 0;
 }
-#endif
 
-template class GPUCA_NAMESPACE::gpu::Spline1DHelper<float>;
-template class GPUCA_NAMESPACE::gpu::Spline1DHelper<double>;
+template class o2::gpu::Spline1DHelper<float>;
+template class o2::gpu::Spline1DHelper<double>;

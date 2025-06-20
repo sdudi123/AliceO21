@@ -421,7 +421,7 @@ void TPCRefitterSpec::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
 bool TPCRefitterSpec::getDCAs(const o2::track::TrackPar& track, float& dcar, float& dcaz)
 {
   auto propagator = o2::base::Propagator::Instance();
-  o2::gpu::gpustd::array<float, 2> dca;
+  std::array<float, 2> dca;
   const o2::math_utils::Point3D<float> refPoint{0, 0, 0};
   o2::track::TrackPar propTrack(track);
   const auto ok = propagator->propagateToDCABxByBz(refPoint, propTrack, 2., o2::base::Propagator::MatCorrType::USEMatCorrLUT, &dca);
@@ -509,7 +509,7 @@ bool TPCRefitterSpec::processTPCTrack(o2::tpc::TrackTPC tr, o2::MCCompLabel lbl,
       unsigned int absoluteIndex = mTPCClusterIdxStruct->clusterOffset[sector][row] + clusterIndex;
       cl = &mTPCClusterIdxStruct->clusters[sector][row][clusterIndex];
       uint8_t clflags = cl->getFlags();
-      if (mTPCRefitterShMap[absoluteIndex] & GPUCA_NAMESPACE::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+      if (mTPCRefitterShMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
         clflags |= 0x10;
       }
       clData.clSector.emplace_back(sector);
@@ -635,6 +635,11 @@ bool TPCRefitterSpec::processTPCTrack(o2::tpc::TrackTPC tr, o2::MCCompLabel lbl,
                   << "dcaz=" << dcaz
                   << "dcarRef=" << dcarRef
                   << "dcazRef=" << dcazRef;
+    }
+
+    if (mUseMC) {
+      (*streamer) << "tpc"
+                  << "mcLabel=" << lbl;
     }
 
     (*streamer) << "tpc"

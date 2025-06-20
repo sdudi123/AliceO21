@@ -44,6 +44,7 @@
 #include "Framework/DeviceConfig.h"
 #include "Framework/DefaultsHelpers.h"
 #include "Framework/Signpost.h"
+#include "Framework/DriverConfig.h"
 
 #include "TextDriverClient.h"
 #include "WSDriverClient.h"
@@ -76,10 +77,6 @@ using o2::monitoring::MonitoringFactory;
 using Metric = o2::monitoring::Metric;
 using Key = o2::monitoring::tags::Key;
 using Value = o2::monitoring::tags::Value;
-
-// This is to allow C++20 aggregate initialisation
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wpedantic"
 
 O2_DECLARE_DYNAMIC_LOG(data_processor_context);
 O2_DECLARE_DYNAMIC_LOG(stream_context);
@@ -583,7 +580,7 @@ auto decongestionCallbackOrdered = [](AsyncTask& task, size_t id) -> void {
     if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
       O2_SIGNPOST_EVENT_EMIT_WARN(async_queue, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
     } else {
-      O2_SIGNPOST_EVENT_EMIT_ERROR(async_queue, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+      O2_SIGNPOST_EVENT_EMIT_CRITICAL(async_queue, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
     }
     timesliceIndex.rescan();
   }
@@ -654,7 +651,7 @@ o2::framework::ServiceSpec
           if (state.transitionHandling != TransitionHandlingState::NoTransition && DefaultsHelpers::onlineDeploymentMode()) {
             O2_SIGNPOST_EVENT_EMIT_WARN(data_processor_context, cid, "oldest_possible_timeslice", "Stop transition requested. Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
           } else {
-            O2_SIGNPOST_EVENT_EMIT_ERROR(data_processor_context, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
+            O2_SIGNPOST_EVENT_EMIT_CRITICAL(data_processor_context, cid, "oldest_possible_timeslice", "Some Lifetime::Timeframe data got dropped starting at %" PRIi64, oldNextTimeslice);
           }
           timesliceIndex.rescan();
         }
@@ -769,7 +766,7 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
   auto& spec = registry.get<DeviceSpec const>();
 
   // FIXME: Ugly, but we do it only every 5 seconds...
-  if (spec.name == "readout-proxy") {
+  if (stats.hasAvailSHMMetric) {
     auto device = registry.get<RawDeviceService>().device();
     long freeMemory = -1;
     try {
@@ -804,6 +801,9 @@ auto sendRelayerMetrics(ServiceRegistryRef registry, DataProcessingStats& stats)
 
 auto flushStates(ServiceRegistryRef registry, DataProcessingStates& states) -> void
 {
+  if (!registry.get<DriverConfig const>().driverHasGUI) {
+    return;
+  }
   states.flushChangedStates([&states, registry](std::string const& spec, int64_t timestamp, std::string_view value) mutable -> void {
     auto& client = registry.get<ControlService>();
     client.push(spec, value, timestamp);
@@ -891,6 +891,11 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
       if (!DefaultsHelpers::onlineDeploymentMode() && DefaultsHelpers::deploymentMode() != DeploymentMode::FST) {
         arrowAndResourceLimitingMetrics = true;
       }
+
+      int64_t consumedTimeframesPublishInterval = 0;
+      if (DefaultsHelpers::deploymentMode() == DeploymentMode::OnlineECS) {
+        consumedTimeframesPublishInterval = 5000;
+      }
       // Input proxies should not report cpu_usage_fraction,
       // because of the rate limiting which biases the measurement.
       auto& spec = services.get<DeviceSpec const>();
@@ -950,7 +955,7 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
         MetricSpec{.name = "consumed-timeframes",
                    .metricId = (int)ProcessingStatsId::CONSUMED_TIMEFRAMES,
                    .kind = Kind::UInt64,
-                   .minPublishInterval = 0,
+                   .minPublishInterval = consumedTimeframesPublishInterval,
                    .maxRefreshLatency = quickRefreshInterval,
                    .sendInitialValue = true},
         MetricSpec{.name = "min_input_latency_ms",
@@ -1105,6 +1110,13 @@ o2::framework::ServiceSpec CommonServices::dataProcessingStats()
                    .sendInitialValue = true}};
 
       for (auto& metric : metrics) {
+        if (metric.metricId == (int)ProcessingStatsId::AVAILABLE_MANAGED_SHM_BASE + (runningWorkflow.shmSegmentId % 512)) {
+          if (spec.name.compare("readout-proxy") == 0) {
+            stats->hasAvailSHMMetric = true;
+          } else {
+            continue;
+          }
+        }
         stats->registerMetric(metric);
       }
 
@@ -1321,4 +1333,3 @@ std::vector<ServiceSpec> CommonServices::arrowServices()
 }
 
 } // namespace o2::framework
-#pragma GCC diagnostic pop

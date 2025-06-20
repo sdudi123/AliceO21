@@ -24,7 +24,7 @@ template <class T>
 class CalDet;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 struct TPCPadBitMap {
@@ -102,9 +102,9 @@ struct TPCPadBitMap {
   };
 
   uint16_t mPadOffsetPerRow[GPUCA_ROW_COUNT];
-  SectorBitMap mBitMap[GPUCA_NSLICES];
+  SectorBitMap mBitMap[GPUCA_NSECTORS];
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

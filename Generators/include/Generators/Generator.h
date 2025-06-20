@@ -73,19 +73,28 @@ class Generator : public FairGenerator
   /** methods to override **/
   virtual Bool_t generateEvent() = 0;   // generates event (in structure internal to generator)
   virtual Bool_t importParticles() = 0; // fills the mParticles vector (transfer from generator state)
+  virtual void updateHeader(o2::dataformats::MCEventHeader* eventHeader) {};
+  Bool_t triggerEvent();
 
   /** setters **/
   void setMomentumUnit(double val) { mMomentumUnit = val; };
+  double getMomentumUnit() const { return mMomentumUnit; }
   void setEnergyUnit(double val) { mEnergyUnit = val; };
+  double getEnergyUnit() const { return mEnergyUnit; }
   void setPositionUnit(double val) { mPositionUnit = val; };
+  double getPositionUnit() const { return mPositionUnit; }
   void setTimeUnit(double val) { mTimeUnit = val; };
+  double getTimeUnit() const { return mTimeUnit; }
   void setBoost(Double_t val) { mBoost = val; };
   void setTriggerMode(ETriggerMode_t val) { mTriggerMode = val; };
   void addTrigger(Trigger trigger) { mTriggers.push_back(trigger); };
   void addDeepTrigger(DeepTrigger trigger) { mDeepTriggers.push_back(trigger); };
+  // setter for global number of events
+  static void setTotalNEvents(unsigned int& n) { gTotalNEvents = n; }
 
   /** getters **/
   const std::vector<TParticle>& getParticles() const { return mParticles; }; //!
+  static unsigned int getTotalNEvents() { return gTotalNEvents; };
 
   /** other **/
   void clearParticles() { mParticles.clear(); };
@@ -102,13 +111,9 @@ class Generator : public FairGenerator
   /** operator= **/
   Generator& operator=(const Generator&);
 
-  /** methods that can be overridded **/
-  virtual void updateHeader(o2::dataformats::MCEventHeader* eventHeader){};
-
   /** internal methods **/
   Bool_t addTracks(FairPrimaryGenerator* primGen);
   Bool_t boostEvent();
-  Bool_t triggerEvent();
 
   /** to handle cocktail constituents **/
   void addSubGenerator(int subGeneratorId, std::string const& subGeneratorDescription);
@@ -141,6 +146,11 @@ class Generator : public FairGenerator
   /** lorentz boost data members **/
   Double_t mBoost;
 
+  // a unique generator instance counter
+  // this can be used to make sure no two generator instances have the same seed etc.
+  static std::atomic<int> InstanceCounter;
+  int mThisInstanceID = 0;
+
  private:
   void updateSubGeneratorInformation(o2::dataformats::MCEventHeader* header) const;
 
@@ -148,6 +158,9 @@ class Generator : public FairGenerator
   std::unordered_map<int, std::string> mSubGeneratorsIdToDesc;
   // the current ID of the sub-generator used in the current event (if applicable)
   int mSubGeneratorId = -1;
+
+  // global static information about (upper limit of) number of events to be generated
+  static unsigned int gTotalNEvents;
 
   ClassDefOverride(Generator, 2);
 

@@ -18,6 +18,7 @@
 #include <regex>
 #include "CommonUtils/StringUtils.h"
 #include <fairlogger/Logger.h>
+
 using namespace o2::ctp;
 ///
 /// Active run to keep cfg and saclers of active runs
@@ -57,7 +58,7 @@ int CTPActiveRun::send2BK(std::unique_ptr<BkpClient>& BKClient, size_t ts, bool 
     std::string clsname = cfg.getClassNameFromHWIndex(cls.first);
     // clsname = std::to_string(runOri) + "_" + clsname;
     try {
-      BKClient->triggerCounters()->createOrUpdateForRun(runNumber, clsname, ts, cntsbk[0], cntsbk[1], cntsbk[2], cntsbk[3], cntsbk[4], cntsbk[5]);
+      BKClient->ctpTriggerCounters()->createOrUpdateForRun(runNumber, clsname, ts, cntsbk[0], cntsbk[1], cntsbk[2], cntsbk[3], cntsbk[4], cntsbk[5]);
     } catch (std::runtime_error& error) {
       std::cerr << "An error occurred: " << error.what() << std::endl;
       return 1;
@@ -86,6 +87,7 @@ void CTPRunManager::init()
   LOG(info) << "QCDB writing every:" << mQCWritePeriod << " 10 secs";
   LOG(info) << "CCDB host:" << mCCDBHost;
   LOG(info) << "CTP vNew cfg:" << mNew;
+  LOG(info) << "ctp.cfg dir:" << mCtpCfgDir;
   LOG(info) << "CTPRunManager initialised.";
 }
 int CTPRunManager::loadRun(const std::string& cfg)
@@ -105,7 +107,7 @@ int CTPRunManager::loadRun(const std::string& cfg)
       timeStamp = (tt * 1000.);
       LOG(info) << "Timestamp file:" << timeStamp;
       cfgmod = cfg.substr(pos, cfg.size());
-      LOG(info) << "ctpcfg: using ctp time";
+      LOG(info) << "ctpconfig: using ctp time";
     }
   }
   CTPActiveRun* activerun = new CTPActiveRun;
@@ -121,11 +123,23 @@ int CTPRunManager::loadRun(const std::string& cfg)
   //
   mRunsLoaded[runnumber] = activerun;
   saveRunConfigToCCDB(&activerun->cfg, timeStamp);
-
+  if (mCtpCfgDir != "none") {
+    saveCtpCfg(runnumber, timeStamp);
+  }
   return 0;
 }
-int CTPRunManager::startRun(const std::string& cfg)
+int CTPRunManager::setRunConfigBK(uint32_t runNumber, const std::string& cfg)
 {
+  std::cout << "Printing run:" << runNumber << " cfg:" << cfg << std::endl;
+  if (mBKClient) {
+    try {
+      mBKClient->run()->setRawCtpTriggerConfiguration(runNumber, cfg);
+    } catch (std::runtime_error& error) {
+      std::cerr << "An error occurred: " << error.what() << std::endl;
+      return 1;
+    }
+    LOG(info) << "Run BK:" << runNumber << " CFG:" << cfg;
+  }
   return 0;
 }
 int CTPRunManager::stopRun(uint32_t irun, long timeStamp)
@@ -221,6 +235,50 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     loadRun(message);
     return 0;
   }
+  if (topic.find("soxorbit") != std::string::npos) {
+    std::vector<std::string> tokens = o2::utils::Str::tokenize(message, ' ');
+    int ret = 0;
+    if (tokens.size() == 3) {
+      long timestamp = std::stol(tokens[0]);
+      uint32_t runnumber = std::stoul(tokens[1]);
+      uint32_t orbit = std::stoul(tokens[2]);
+      ret = saveSoxOrbit(runnumber, orbit, timestamp);
+      std::string logmessage;
+      if (ret) {
+        logmessage = "Failed to update CCDB with SOX orbit.";
+      } else {
+        logmessage = "CCDB updated with SOX orbit.";
+      }
+      LOG(important) << logmessage << " run:" << runnumber << " sox orbit:" << orbit << " ts:" << timestamp;
+    } else {
+      LOG(error) << "Topic soxorbit dize !=3: " << message << " token size:" << tokens.size();
+      ret = 1;
+    }
+    return ret;
+  }
+  if (topic.find("orbitreset") != std::string::npos) {
+    std::vector<std::string> tokens = o2::utils::Str::tokenize(message, ' ');
+    int ret = 0;
+    if (tokens.size() == 1) {
+      long timestamp = std::stol(tokens[0]);
+      ret = saveOrbitReset(timestamp);
+      std::string logmessage;
+      if (ret) {
+        logmessage = "Failed to update CCDB with orbitreset. ";
+      } else {
+        logmessage = "CCDB updated with orbitreset. ";
+      }
+      LOG(important) << logmessage << timestamp;
+    } else {
+      LOG(error) << "Topic orbit reset != 2: " << message << " token size:" << tokens.size();
+      ret = 1;
+    }
+    return ret;
+  }
+  if (topic.find("rocnts") != std::string::npos) {
+    return 0;
+  }
+  static int nerror = 0;
   if (topic.find("sox") != std::string::npos) {
     // get config
     size_t irun = message.find("run");
@@ -230,17 +288,15 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
     }
     LOG(info) << "SOX received, Run keyword position:" << irun;
     std::string cfg = message.substr(irun, message.size() - irun);
-    startRun(cfg);
     firstcounters = message.substr(0, irun);
-  }
-  if (topic.find("eox") != std::string::npos) {
+  } else if (topic.find("eox") != std::string::npos) {
     LOG(info) << "EOX received";
     mEOX = 1;
-  }
-  static int nerror = 0;
-  if (topic == "rocnts") {
-    if (nerror < 1) {
-      LOG(warning) << "Skipping topic rocnts";
+  } else if (topic.find("cnts") != std::string::npos) {
+    // just continue
+  } else {
+    if (nerror < 10) {
+      LOG(warning) << "Skipping topic:" << topic;
       nerror++;
     }
     return 0;
@@ -293,6 +349,7 @@ int CTPRunManager::processMessage(std::string& topic, const std::string& message
         mActiveRunNumbers[i] = mCounters[i];
         mActiveRuns[i] = run->second;
         mRunsLoaded.erase(run);
+        setRunConfigBK(mActiveRuns[i]->cfg.getRunNumber(), mActiveRuns[i]->cfg.getConfigString());
         addScalers(i, tt, 1);
         saveRunScalersToQCDB(mActiveRuns[i]->scalers, tt * 1000, tt * 1000);
       } else {

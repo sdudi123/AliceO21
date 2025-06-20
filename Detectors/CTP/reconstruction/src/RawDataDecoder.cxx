@@ -79,17 +79,17 @@ int RawDataDecoder::addCTPDigit(uint32_t linkCRU, uint32_t orbit, gbtword80_t& d
         if (mErrorIR < mErrorMax) {
           LOG(error) << "Two CTP IRs with the same timestamp:" << ir.bc << " " << ir.orbit << " pld:" << pld << " dig:" << digits[ir];
         }
-        ret = 2;
+        ret = 4;
         mErrorIR++;
         mStickyError = true;
       }
     } else {
       LOG(error) << "Two digits with the same timestamp:" << ir.bc << " " << ir.orbit;
-      ret = 2;
+      ret = 8;
     }
   } else if (linkCRU == o2::ctp::GBTLinkIDClassRec) {
     int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
-    int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1 - 1;
+    int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
     LOG(debug) << "tcr ir ori:" << ir;
     if ((ir.orbit <= mTFOrbit) && ((int32_t)ir.bc < offset)) {
       // LOG(warning) << "Loosing tclass:" << ir;
@@ -113,11 +113,11 @@ int RawDataDecoder::addCTPDigit(uint32_t linkCRU, uint32_t orbit, gbtword80_t& d
           mStickyError = true;
         }
         mErrorTCR++;
-        ret = 3;
+        ret = 16;
       }
     } else {
       LOG(error) << "Two digits with the same timestamp:" << ir.bc << " " << ir.orbit;
-      ret = 3;
+      ret = 32;
     }
   } else {
     LOG(error) << "Unxpected  CTP CRU link:" << linkCRU;
@@ -293,7 +293,18 @@ int RawDataDecoder::decodeRaw(o2::framework::InputRecord& inputs, std::vector<o2
     // std::cout << "last lumi:" << nhb  << std::endl;
   }
   if (mDoDigits & mDecodeInps) {
-    shiftInputs(digitsMap, digits, mTFOrbit);
+    uint64_t trgclassmask = 0xffffffffffffffff;
+    uint64_t trgclassmaskNOTRGDet = 0xffffffffffffffff;
+    if (mCTPConfig.getRunNumber() != 0) {
+      trgclassmask = mCTPConfig.getTriggerClassMaskWInputs(); // classes triggered by internal ctp generators not here
+      trgclassmaskNOTRGDet = mCTPConfig.getTriggerClassMaskWInputsNoTrgDets();
+      // mCTPConfig.printStream(std::cout);
+    }
+    // std::cout << "trgclassmask:" << std::hex << trgclassmask << std::dec << std::endl;
+    mLostDueToShiftInps += shiftInputs(digitsMap, digits, mTFOrbit);
+    if (mCheckConsistency) {
+      ret = checkReadoutConsistentncy(digits, trgclassmask, trgclassmaskNOTRGDet);
+    }
   }
   if (mDoDigits && !mDecodeInps) {
     for (auto const& dig : digitsMap) {
@@ -513,20 +524,18 @@ int RawDataDecoder::shiftNew(const o2::InteractionRecord& irin, uint32_t TFOrbit
       digmap[ir] = digit;
     }
   } else {
-    LOG(info) << "LOST:" << irin << " shift:" << shift;
+    // LOG(info) << "LOST:" << irin << " shift:" << shift;
+    return 1;
+    ;
   }
   return 0;
 }
 //
 
-int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit)
+int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digitsMap, o2::pmr::vector<CTPDigit>& digits, uint32_t TFOrbit, uint64_t trgclassmask)
 {
   // int nClasswoInp = 0; // counting classes without input which should never happen
-  int nLM = 0;
-  int nL0 = 0;
-  int nL1 = 0;
-  int nTwI = 0;
-  int nTwoI = 0;
+  int lost = 0;
   std::map<o2::InteractionRecord, CTPDigit> digitsMapShifted;
   auto L0shift = o2::ctp::TriggerOffsetsParam::Instance().LM_L0;
   auto L1shift = L0shift + o2::ctp::TriggerOffsetsParam::Instance().L0_L1;
@@ -545,7 +554,7 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
     if (lut == 0 || lut == 1) { // no inps or LM
       digitsMapShifted[dig.first] = dig.second;
     } else if (lut == 2) { // L0
-      shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
       if (dig.second.CTPClassMask.count()) {
         // LOG(error) << "Adding class mask without input ?";
         //  This is not needed as it can happen; Full checj done below - see next LOG(error)
@@ -553,30 +562,30 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
         digitsMapShifted[dig.first] = digi;
       }
     } else if (lut == 4) { // L1
-      shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
       if (dig.second.CTPClassMask.count()) {
         CTPDigit digi = {dig.first, 0, dig.second.CTPClassMask};
         digitsMapShifted[dig.first] = digi;
       }
     } else if (lut == 6) { // L0 and L1
-      shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
-      shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
       if (dig.second.CTPClassMask.count()) {
         CTPDigit digi = {dig.first, 0, dig.second.CTPClassMask};
         digitsMapShifted[dig.first] = digi;
       }
     } else if (lut == 3) { // LM and L0
-      shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
       CTPDigit digi = {dig.first, inpmask & (~L0MASKInputs), dig.second.CTPClassMask};
       // if LM level do not need to add class as LM is not shifted;
       digitsMapShifted[dig.first] = digi;
     } else if (lut == 5) { // LM and L1
-      shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
       CTPDigit digi = {dig.first, inpmask & (~L1MASKInputs), dig.second.CTPClassMask};
       digitsMapShifted[dig.first] = digi;
     } else if (lut == 7) { // LM and L0 and L1
-      shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
-      shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L0shift, 0, digitsMapShifted);
+      lost += shiftNew(dig.first, TFOrbit, inpmask, L1shift, 1, digitsMapShifted);
       CTPDigit digi = {dig.first, inpmaskLM, dig.second.CTPClassMask};
       digitsMapShifted[dig.first] = digi;
     } else {
@@ -584,29 +593,78 @@ int RawDataDecoder::shiftInputs(std::map<o2::InteractionRecord, CTPDigit>& digit
     }
   }
   for (auto const& dig : digitsMapShifted) {
-    auto d = dig.second;
-    if ((d.CTPInputMask & LMMASKInputs).count()) {
-      nLM++;
-    }
-    if ((d.CTPInputMask & L0MASKInputs).count()) {
-      nL0++;
-    }
-    if ((d.CTPInputMask & L1MASKInputs).count()) {
-      nL1++;
-    }
-    if (d.CTPClassMask.count()) {
-      if (d.CTPInputMask.count()) {
-        nTwI++;
-      } else {
-        nTwoI++;
-      }
-    }
     digits.push_back(dig.second);
   }
-  if (nTwoI) { // Trigger class wo Input
-    LOG(error) << "LM:" << nLM << " L0:" << nL0 << " L1:" << nL1 << " TwI:" << nTwI << " Trigger classes wo input:" << nTwoI;
+  return lost;
+}
+//
+int RawDataDecoder::checkReadoutConsistentncy(o2::pmr::vector<CTPDigit>& digits, uint64_t trgclassmask, uint64_t trgclassmaskNoTrgDet)
+{
+  LOG(debug) << "Checking readout";
+  int ret = 0;
+  static int nerror = 0;
+  for (auto const& digit : digits) {
+    // if class mask => inps
+    for (int i = 0; i < digit.CTPClassMask.size(); i++) {
+      bool trgcls = trgclassmask & (1ull << i);
+      if (digit.CTPClassMask[i] & trgcls) {
+        const CTPClass* cls = mCTPConfig.getCTPClassFromHWIndex(i);
+        if (cls == nullptr) {
+          if (nerror < mErrorMax) {
+            LOG(error) << "Class mask index not found in CTP config:" << i;
+            nerror++;
+          }
+          ret = 128;
+          continue;
+        }
+        mClassCountersA[i]++;
+        if (cls->descriptor == nullptr) {
+          continue;
+        }
+        uint64_t clsinpmask = cls->descriptor->getInputsMask();
+        uint64_t diginpmask = digit.CTPInputMask.to_ullong();
+        if (!((clsinpmask & diginpmask) == clsinpmask)) {
+          if (nerror < mErrorMax) {
+            LOG(error) << "Cls=>Inps: CTP class:" << cls->name << " inpmask:" << clsinpmask << " not compatible with inputs mask:" << diginpmask;
+            nerror++;
+          }
+          mClassErrorsA[i]++;
+          ret = 128;
+        }
+      }
+    }
+    // if inps => class mask
+    for (auto const& cls : mCTPConfig.getCTPClasses()) {
+      // cls.printStream(std::cout);
+      if (cls.descriptor == nullptr) {
+        continue;
+      }
+      uint64_t clsinpmask = cls.descriptor->getInputsMask(); // class definition
+      uint64_t diginpmask = digit.CTPInputMask.to_ullong();
+      uint64_t digclsmask = digit.CTPClassMask.to_ullong();
+      if ((clsinpmask & diginpmask) == clsinpmask) {
+        if (cls.classMask & trgclassmask) {
+          mClassCountersB[cls.getIndex()]++;
+          if ((cls.classMask & digclsmask) == 0) {
+            int32_t BCShiftCorrection = -o2::ctp::TriggerOffsetsParam::Instance().customOffset[o2::detectors::DetID::CTP];
+            int32_t offset = BCShiftCorrection + o2::ctp::TriggerOffsetsParam::Instance().LM_L0 + o2::ctp::TriggerOffsetsParam::Instance().L0_L1_classes - 1;
+            offset = o2::constants::lhc::LHCMaxBunches - offset;
+            if (digit.intRecord.bc < offset) {
+              if ((nerror < mErrorMax) && (cls.classMask & ~trgclassmaskNoTrgDet)) {
+                LOG(info) << "Inp=>Cls: CTP class:" << cls.name << " inpmask:" << clsinpmask << " cls mask:" << cls.classMask << " not found in digit:" << digit;
+                nerror++;
+              }
+              mClassErrorsB[cls.getIndex()]++;
+              ret = 256;
+            } else {
+              mLostDueToShiftCC++;
+            }
+          }
+        }
+      }
+    }
   }
-  return 0;
+  return ret;
 }
 //
 int RawDataDecoder::setLumiInp(int lumiinp, std::string inp)

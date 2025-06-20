@@ -24,7 +24,7 @@
 #include <list>
 #include <functional>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -57,7 +57,7 @@ class IrregularSpline2D3DCalibrator
   IrregularSpline2D3DCalibrator();
 
   /// Destructor
-  ~IrregularSpline2D3DCalibrator() CON_DEFAULT;
+  ~IrregularSpline2D3DCalibrator() = default;
 
   /// set size of the raster grid
   void setRasterSize(int32_t nKnotsU, int32_t nKnotsV);
@@ -142,6 +142,6 @@ class IrregularSpline2D3DCalibrator
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

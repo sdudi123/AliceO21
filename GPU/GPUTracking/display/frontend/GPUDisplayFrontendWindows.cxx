@@ -24,7 +24,7 @@
 #include <winbase.h>
 #include <windowsx.h>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 HDC hDC = nullptr;                                    // Private GDI Device Context
 HGLRC hRC = nullptr;                                  // Permanent Rendering Context
@@ -80,12 +80,12 @@ void KillGLWindow() // Properly Kill The Window
 
 BOOL CreateGLWindow(char* title, int32_t width, int32_t height, int32_t bits, bool fullscreenflag)
 {
-  GLuint PixelFormat;               // Holds The Results After Searching For A Match
-  WNDCLASS wc;                      // Windows Class Structure
-  DWORD dwExStyle;                  // Window Extended Style
-  DWORD dwStyle;                    // Window Style
-  RECT WindowRect;                  // Grabs Rectangle Upper Left / Lower Right Values
-  WindowRect.left = (int64_t)0;     // Set Left Value To 0
+  GLuint PixelFormat;                  // Holds The Results After Searching For A Match
+  WNDCLASS wc;                         // Windows Class Structure
+  DWORD dwExStyle;                     // Window Extended Style
+  DWORD dwStyle;                       // Window Style
+  RECT WindowRect;                     // Grabs Rectangle Upper Left / Lower Right Values
+  WindowRect.left = (int64_t)0;        // Set Left Value To 0
   WindowRect.right = (int64_t)width;   // Set Right Value To Requested Width
   WindowRect.top = (int64_t)0;         // Set Top Value To 0
   WindowRect.bottom = (int64_t)height; // Set Bottom Value To Requested Height

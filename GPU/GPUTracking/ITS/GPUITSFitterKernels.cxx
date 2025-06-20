@@ -22,11 +22,11 @@
 #include "ITStracking/Cell.h"
 #include "CommonConstants/MathConstants.h"
 
-#ifdef CA_DEBUG
+#if defined(CA_DEBUG) && !defined(GPUCA_GPUCODE_DEVICE)
 #include <cstdio>
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2;
 using namespace o2::its;
 
@@ -63,7 +63,6 @@ GPUdii() void GPUITSFitterKernels::Thread<0>(int32_t nBlocks, int32_t nThreads, 
   GPUTPCGMPropagator prop;
   prop.SetPolynomialField(&processors.param.polynomialField);
   prop.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
-  prop.SetToyMCEventsFlag(0);
   prop.SetFitInProjections(1);
   float bz = -5.f; // FIXME
 

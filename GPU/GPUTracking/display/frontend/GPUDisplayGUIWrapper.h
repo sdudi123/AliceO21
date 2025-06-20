@@ -18,9 +18,12 @@
 #include "GPUCommonDef.h"
 #include <memory>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
+{
+namespace internal
 {
 struct GPUDisplayGUIWrapperObjects;
+} // namespace internal
 
 class GPUDisplayGUIWrapper
 {
@@ -35,9 +38,9 @@ class GPUDisplayGUIWrapper
   int32_t focus();
 
  private:
-  std::unique_ptr<GPUDisplayGUIWrapperObjects> mO;
+  std::unique_ptr<internal::GPUDisplayGUIWrapperObjects> mO;
 
   void guiThread();
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 #endif // GPUDISPLAYGUIWRAPPER_H

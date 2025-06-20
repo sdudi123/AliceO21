@@ -12,16 +12,15 @@
 /// \file GPUReconstructionCUDAExternalProvider.cu
 /// \author David Rohr
 
+#include "GPUReconstructionCUDAIncludesSystem.h"
 #include "GPUReconstructionCUDADef.h"
-#include "GPUReconstructionCUDAIncludes.h"
 
 #include "GPUReconstructionCUDA.h"
 #include "GPUReconstructionCUDAInternals.h"
-#include "CUDAThrustHelpers.h"
 
 #include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 #include "GPUConstantMem.h"
 
@@ -33,11 +32,12 @@ using namespace GPUCA_NAMESPACE::gpu;
 #include "TrackParametrizationWithError.cxx"
 #include "Propagator.cxx"
 #include "TrackLTIntegral.cxx"
+#include "GPUReconstructionCUDAHelpers.inc"
 
 #ifndef GPUCA_NO_CONSTANT_MEMORY
 static GPUReconstructionDeviceBase::deviceConstantMemRegistration registerConstSymbol([]() {
   void* retVal = nullptr;
-  if (cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer) != cudaSuccess) {
+  if (GPUChkErrS(cudaGetSymbolAddress(&retVal, gGPUConstantMemBuffer))) {
     throw std::runtime_error("Could not obtain GPU constant memory symbol");
   }
   return retVal;

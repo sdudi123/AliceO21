@@ -16,7 +16,7 @@
 #define O2_GPU_MC_LABEL_ACCUMULATOR_H
 
 #include "clusterFinderDefs.h"
-#include "Array2D.h"
+#include "CfArray2D.h"
 #include <bitset>
 #include <vector>
 
@@ -32,7 +32,7 @@ using ConstMCLabelContainerView = o2::dataformats::ConstMCTruthContainerView<o2:
 } // namespace dataformats
 } // namespace o2
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCClusterFinder;
@@ -44,14 +44,14 @@ class MCLabelAccumulator
  public:
   MCLabelAccumulator(GPUTPCClusterFinder&);
 
-  void collect(const ChargePos&, tpccf::Charge);
+  void collect(const CfChargePos&, tpccf::Charge);
 
   bool engaged() const { return mLabels != nullptr && mOutput != nullptr; }
 
   void commit(tpccf::Row, uint32_t, uint32_t);
 
  private:
-  Array2D<const uint32_t> mIndexMap;
+  CfArray2D<const uint32_t> mIndexMap;
   const o2::dataformats::ConstMCLabelContainerView* mLabels = nullptr;
   GPUTPCClusterMCInterimArray* mOutput = nullptr;
 
@@ -59,6 +59,6 @@ class MCLabelAccumulator
   std::vector<o2::MCCompLabel> mClusterLabels;
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

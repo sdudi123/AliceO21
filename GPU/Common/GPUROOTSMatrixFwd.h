@@ -35,9 +35,7 @@ class MatRepStd;
 } // namespace Math
 } // namespace ROOT
 
-namespace o2
-{
-namespace math_utils
+namespace o2::math_utils
 {
 
 namespace detail
@@ -52,7 +50,7 @@ template <class T, uint32_t D1, uint32_t D2>
 class MatRepStdGPU;
 } // namespace detail
 
-#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_GPUCODE)
+#if !defined(GPUCA_STANDALONE) && !defined(GPUCA_GPUCODE) && !defined(GPUCOMMONRTYPES_H_ACTIVE)
 template <typename T, uint32_t N>
 using SVector = ROOT::Math::SVector<T, N>;
 template <class T, uint32_t D1, uint32_t D2, class R>
@@ -72,7 +70,6 @@ template <class T, uint32_t D1, uint32_t D2 = D1>
 using MatRepStd = detail::MatRepStdGPU<T, D1, D2>;
 #endif
 
-} // namespace math_utils
-} // namespace o2
+} // namespace o2::math_utils
 
 #endif

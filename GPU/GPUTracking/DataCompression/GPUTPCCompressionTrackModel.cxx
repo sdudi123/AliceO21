@@ -16,7 +16,7 @@
 #include "GPUConstantMem.h"
 #include "GPUParam.inc"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 // ATTENTION! This track model is used for the data compression.
 // Changes to the propagation and fit will prevent the decompression of data
@@ -27,7 +27,6 @@ GPUd() void GPUTPCCompressionTrackModel::Init(float x, float y, float z, float a
 {
   mProp.SetMaterialTPC();
   mProp.SetMaxSinPhi(GPUCA_MAX_SIN_PHI);
-  mProp.SetToyMCEventsFlag(false);
   mProp.SetSeedingErrors(true); // Larger errors for seeds, better since we don't start with good hypothesis
   mProp.SetFitInProjections(true);
   mProp.SetPropagateBzOnly(true);
@@ -66,7 +65,7 @@ GPUd() int32_t GPUTPCCompressionTrackModel::Mirror()
   return 0;
 }
 
-#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SLICETRACKER)
+#elif defined(GPUCA_COMPRESSION_TRACK_MODEL_SECTORTRACKER)
 
 #include "GPUTPCTrackLinearisation.h"
 #include "GPUTPCTracker.h"
@@ -889,7 +888,6 @@ GPUd() float GPUTPCCompressionTrackModel::approximateBetheBloch(float beta2)
 
 GPUd() void GPUTPCCompressionTrackModel::getClusterErrors2(int32_t iRow, float z, float sinPhi, float DzDs, float& ErrY2, float& ErrZ2) const
 {
-  // Only O2 geometry considered at the moment. Is AliRoot geometry support needed?
   int32_t rowType = iRow < 97 ? (iRow < 63 ? 0 : 1) : (iRow < 127 ? 2 : 3);
   if (rowType > 2) {
     rowType = 2; // TODO: Add type 3

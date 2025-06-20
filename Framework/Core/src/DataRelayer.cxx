@@ -17,6 +17,7 @@
 #include "Framework/DataDescriptorMatcher.h"
 #include "Framework/DataSpecUtils.h"
 #include "Framework/DataProcessingHeader.h"
+#include "Framework/DataProcessingContext.h"
 #include "Framework/DataRef.h"
 #include "Framework/InputRecord.h"
 #include "Framework/InputSpan.h"
@@ -43,10 +44,13 @@
 #include <Monitoring/Monitoring.h>
 
 #include <fairmq/Channel.h>
+#include <functional>
+#if __has_include(<fairmq/shmem/Message.h>)
+#include <fairmq/shmem/Message.h>
+#endif
 #include <fmt/format.h>
 #include <fmt/ostream.h>
 #include <gsl/span>
-#include <numeric>
 #include <string>
 
 using namespace o2::framework::data_matcher;
@@ -55,6 +59,8 @@ using DataProcessingHeader = o2::framework::DataProcessingHeader;
 using Verbosity = o2::monitoring::Verbosity;
 
 O2_DECLARE_DYNAMIC_LOG(data_relayer);
+// Stream which keeps track of the calibration lifetime logic
+O2_DECLARE_DYNAMIC_LOG(calibration);
 
 namespace o2::framework
 {
@@ -207,7 +213,15 @@ DataRelayer::ActivityStats DataRelayer::processDanglingInputs(std::vector<Expira
       auto nPartsGetter = [&partial](size_t idx) {
         return partial[idx].size();
       };
-      InputSpan span{getter, nPartsGetter, static_cast<size_t>(partial.size())};
+#if __has_include(<fairmq/shmem/Message.h>)
+      auto refCountGetter = [&partial](size_t idx) -> int {
+        auto& header = static_cast<const fair::mq::shmem::Message&>(*partial[idx].header(0));
+        return header.GetRefCount();
+      };
+#else
+      std::function<int(size_t)> refCountGetter = nullptr;
+#endif
+      InputSpan span{getter, nPartsGetter, refCountGetter, static_cast<size_t>(partial.size())};
       // Setup the input span
 
       if (expirator.checker(services, timestamp.value, span) == false) {
@@ -404,8 +418,8 @@ void DataRelayer::pruneCache(TimesliceSlot slot, OnDropCallback onDrop)
 
 bool isCalibrationData(std::unique_ptr<fair::mq::Message>& first)
 {
-  auto* dh = o2::header::get<DataHeader*>(first->GetData());
-  return dh->flagsDerivedHeader & DataProcessingHeader::KEEP_AT_EOS_FLAG;
+  auto* dph = o2::header::get<DataProcessingHeader*>(first->GetData());
+  return static_cast<o2::header::BaseHeader const&>(*dph).flagsDerivedHeader & DataProcessingHeader::KEEP_AT_EOS_FLAG;
 }
 
 DataRelayer::RelayChoice
@@ -480,6 +494,13 @@ DataRelayer::RelayChoice
       // We are in calibration mode and the data does not have the calibration bit set.
       // We do not store it.
       if (services.get<DeviceState>().allowedProcessing == DeviceState::ProcessingType::CalibrationOnly && !isCalibrationData(messages[mi])) {
+        O2_SIGNPOST_ID_FROM_POINTER(cid, calibration, &services.get<DataProcessorContext>());
+        O2_SIGNPOST_EVENT_EMIT(calibration, cid, "calibration",
+                               "Dropping incoming %zu messages because they are data processing.", nPayloads);
+        // Actually dropping messages.
+        for (size_t i = mi; i < mi + nPayloads + 1; i++) {
+          auto discard = std::move(messages[i]);
+        }
         mi += nPayloads;
         continue;
       }
@@ -746,7 +767,15 @@ void DataRelayer::getReadyToProcess(std::vector<DataRelayer::RecordAction>& comp
     auto nPartsGetter = [&partial](size_t idx) {
       return partial[idx].size();
     };
-    InputSpan span{getter, nPartsGetter, static_cast<size_t>(partial.size())};
+#if __has_include(<fairmq/shmem/Message.h>)
+    auto refCountGetter = [&partial](size_t idx) -> int {
+      auto& header = static_cast<const fair::mq::shmem::Message&>(*partial[idx].header(0));
+      return header.GetRefCount();
+    };
+#else
+    std::function<int(size_t)> refCountGetter = nullptr;
+#endif
+    InputSpan span{getter, nPartsGetter, refCountGetter, static_cast<size_t>(partial.size())};
     CompletionPolicy::CompletionOp action = mCompletionPolicy.callbackFull(span, mInputs, mContext);
 
     auto& variables = mTimesliceIndex.getVariablesForSlot(slot);
@@ -1005,6 +1034,9 @@ uint64_t DataRelayer::getCreationTimeForSlot(TimesliceSlot slot)
 
 void DataRelayer::sendContextState()
 {
+  if (!mContext.get<DriverConfig const>().driverHasGUI) {
+    return;
+  }
   std::scoped_lock<O2_LOCKABLE(std::recursive_mutex)> lock(mMutex);
   auto& states = mContext.get<DataProcessingStates>();
   for (size_t ci = 0; ci < mTimesliceIndex.size(); ++ci) {

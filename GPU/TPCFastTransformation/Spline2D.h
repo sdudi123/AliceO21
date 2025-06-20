@@ -22,14 +22,14 @@
 #include "FlatObject.h"
 #include "GPUCommonDef.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC) && defined(__cplusplus) && __cplusplus >= 201703L
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -92,11 +92,11 @@ class Spline2D
   }
 #else
   /// Disable constructors for the GPU implementation
-  Spline2D() CON_DELETE;
-  Spline2D(const Spline2D&) CON_DELETE;
+  Spline2D() = delete;
+  Spline2D(const Spline2D&) = delete;
 #endif
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB)
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE)
   /// read a class object from the file
   static Spline2D* readFromFile(TFile& inpf, const char* name)
   {
@@ -104,12 +104,10 @@ class Spline2D
   }
 #endif
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(Spline2D, 0);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

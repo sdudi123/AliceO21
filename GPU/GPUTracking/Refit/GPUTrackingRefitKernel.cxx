@@ -12,11 +12,11 @@
 /// \file GPUTrackingRefitKernel.cxx
 /// \author David Rohr
 
+#include "GPUROOTDump.h"
 #include "GPUTrackingRefitKernel.h"
 #include "GPUTrackingRefit.h"
-#include "GPUROOTDump.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 template <int32_t I>
 GPUdii() void GPUTrackingRefitKernel::Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors)

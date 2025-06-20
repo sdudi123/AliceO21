@@ -12,13 +12,11 @@
 #define O2_FRAMEWORK_EXPRESSIONS_H_
 
 #include "Framework/BasicOps.h"
-#include "Framework/CompilerBuiltins.h"
 #include "Framework/Pack.h"
 #include "Framework/Configurable.h"
 #include "Framework/Variant.h"
 #include "Framework/InitContext.h"
 #include "Framework/ConfigParamRegistry.h"
-#include "Framework/RuntimeError.h"
 #include <arrow/type_fwd.h>
 #include <gandiva/gandiva_aliases.h>
 #include <arrow/type.h>
@@ -41,6 +39,7 @@ class Projector;
 #include <string>
 #include <memory>
 #include <set>
+#include <stack>
 namespace gandiva
 {
 using Selection = std::shared_ptr<gandiva::SelectionVector>;
@@ -68,6 +67,7 @@ struct ExpressionInfo {
 
 namespace o2::framework::expressions
 {
+void unknownParameterUsed(const char* name);
 const char* stringType(atype::type t);
 
 template <typename... T>
@@ -81,33 +81,28 @@ using LiteralValue = LiteralStorage<int, bool, float, double, uint8_t, int64_t, 
 template <typename T>
 constexpr auto selectArrowType()
 {
-  if constexpr (std::is_same_v<T, int>) {
-    return atype::INT32;
-  } else if constexpr (std::is_same_v<T, bool>) {
-    return atype::BOOL;
-  } else if constexpr (std::is_same_v<T, float>) {
-    return atype::FLOAT;
-  } else if constexpr (std::is_same_v<T, double>) {
-    return atype::DOUBLE;
-  } else if constexpr (std::is_same_v<T, uint8_t>) {
-    return atype::UINT8;
-  } else if constexpr (std::is_same_v<T, int8_t>) {
-    return atype::INT8;
-  } else if constexpr (std::is_same_v<T, uint16_t>) {
-    return atype::UINT16;
-  } else if constexpr (std::is_same_v<T, int16_t>) {
-    return atype::INT16;
-  } else if constexpr (std::is_same_v<T, int64_t>) {
-    return atype::INT64;
-  } else if constexpr (std::is_same_v<T, uint32_t>) {
-    return atype::UINT32;
-  } else if constexpr (std::is_same_v<T, uint64_t>) {
-    return atype::UINT64;
-  } else {
-    return atype::NA;
-  }
-  O2_BUILTIN_UNREACHABLE();
+  return atype::NA;
 }
+
+#define SELECT_ARROW_TYPE(_Ctype_, _Atype_) \
+  template <typename T>                     \
+    requires std::same_as<T, _Ctype_>       \
+  constexpr auto selectArrowType()          \
+  {                                         \
+    return atype::_Atype_;                  \
+  }
+
+SELECT_ARROW_TYPE(bool, BOOL);
+SELECT_ARROW_TYPE(float, FLOAT);
+SELECT_ARROW_TYPE(double, DOUBLE);
+SELECT_ARROW_TYPE(uint8_t, UINT8);
+SELECT_ARROW_TYPE(int8_t, INT8);
+SELECT_ARROW_TYPE(uint16_t, UINT16);
+SELECT_ARROW_TYPE(int16_t, INT16);
+SELECT_ARROW_TYPE(uint32_t, UINT32);
+SELECT_ARROW_TYPE(int32_t, INT32);
+SELECT_ARROW_TYPE(uint64_t, UINT64);
+SELECT_ARROW_TYPE(int64_t, INT64);
 
 std::shared_ptr<arrow::DataType> concreteArrowType(atype::type type);
 std::string upcastTo(atype::type f);
@@ -118,6 +113,8 @@ struct LiteralNode {
   LiteralNode(T v) : value{v}, type{selectArrowType<T>()}
   {
   }
+
+  LiteralNode(LiteralNode const& other) = default;
 
   using var_t = LiteralValue::stored_type;
   var_t value;
@@ -137,20 +134,27 @@ struct BindingNode {
 /// An expression tree node corresponding to binary or unary operation
 struct OpNode {
   OpNode(BasicOp op_) : op{op_} {}
+  OpNode(OpNode const& other) = default;
   BasicOp op;
 };
 
 /// A placeholder node for simple type configurable
 struct PlaceholderNode : LiteralNode {
   template <typename T>
+    requires(variant_trait_v<typename std::decay<T>::type> != VariantType::Unknown)
   PlaceholderNode(Configurable<T> const& v) : LiteralNode{v.value}, name{v.name}
   {
-    if constexpr (variant_trait_v<typename std::decay<T>::type> != VariantType::Unknown) {
-      retrieve = [](InitContext& context, char const* name) { return LiteralNode::var_t{context.options().get<T>(name)}; };
-    } else {
-      runtime_error("Unknown parameter used in expression.");
-    }
+    retrieve = [](InitContext& context, char const* name) { return LiteralNode::var_t{context.options().get<T>(name)}; };
   }
+
+  template <typename T, typename AT>
+    requires((std::convertible_to<T, AT>) && (variant_trait_v<typename std::decay<T>::type> != VariantType::Unknown))
+  PlaceholderNode(Configurable<T> const& v, AT*) : LiteralNode{static_cast<AT>(v.value)}, name{v.name}
+  {
+    retrieve = [](InitContext& context, char const* name) { return LiteralNode::var_t{static_cast<AT>(context.options().get<T>(name))}; };
+  }
+
+  PlaceholderNode(PlaceholderNode const& other) = default;
 
   void reset(InitContext& context)
   {
@@ -161,9 +165,50 @@ struct PlaceholderNode : LiteralNode {
   LiteralNode::var_t (*retrieve)(InitContext&, char const*);
 };
 
+template <typename AT, typename T>
+PlaceholderNode as(Configurable<T> const& v)
+{
+  return PlaceholderNode(v, (AT*)nullptr);
+}
+
+/// A placeholder node for parameters taken from an array
+struct ParameterNode : LiteralNode {
+  ParameterNode(int index_ = -1)
+    : LiteralNode((float)0),
+      index{index_}
+  {
+  }
+
+  ParameterNode(ParameterNode const&) = default;
+
+  template <typename T>
+  void reset(T value_, int index_ = -1)
+  {
+    (*static_cast<LiteralNode*>(this)) = LiteralNode(value_);
+    if (index_ > 0) {
+      index = index_;
+    }
+  }
+
+  int index;
+};
+
 /// A conditional node
 struct ConditionalNode {
 };
+
+/// concepts
+template <typename T>
+concept is_literal_like = std::same_as<T, LiteralNode> || std::same_as<T, PlaceholderNode> || std::same_as<T, ParameterNode>;
+
+template <typename T>
+concept is_binding = std::same_as<T, BindingNode>;
+
+template <typename T>
+concept is_operation = std::same_as<T, OpNode>;
+
+template <typename T>
+concept is_conditional = std::same_as<T, ConditionalNode>;
 
 /// A generic tree node
 struct Node {
@@ -180,6 +225,10 @@ struct Node {
   }
 
   Node(BindingNode const& n) : self{n}, left{nullptr}, right{nullptr}, condition{nullptr}
+  {
+  }
+
+  Node(ParameterNode&& p) : self{std::forward<ParameterNode>(p)}, left{nullptr}, right{nullptr}, condition{nullptr}
   {
   }
 
@@ -201,15 +250,69 @@ struct Node {
       right{nullptr},
       condition{nullptr} {}
 
+  Node(Node const& other)
+    : self{other.self},
+      index{other.index}
+  {
+    if (other.left != nullptr) {
+      left = std::make_unique<Node>(*other.left);
+    }
+    if (other.right != nullptr) {
+      right = std::make_unique<Node>(*other.right);
+    }
+    if (other.condition != nullptr) {
+      condition = std::make_unique<Node>(*other.condition);
+    }
+  }
+
   /// variant with possible nodes
-  using self_t = std::variant<LiteralNode, BindingNode, OpNode, PlaceholderNode, ConditionalNode>;
+  using self_t = std::variant<LiteralNode, BindingNode, OpNode, PlaceholderNode, ConditionalNode, ParameterNode>;
   self_t self;
   size_t index = 0;
   /// pointers to children
-  std::unique_ptr<Node> left;
-  std::unique_ptr<Node> right;
-  std::unique_ptr<Node> condition;
+  std::unique_ptr<Node> left = nullptr;
+  std::unique_ptr<Node> right = nullptr;
+  std::unique_ptr<Node> condition = nullptr;
 };
+
+/// helper struct used to parse trees
+struct NodeRecord {
+  /// pointer to the actual tree node
+  Node* node_ptr = nullptr;
+  size_t index = 0;
+  explicit NodeRecord(Node* node_, size_t index_) : node_ptr(node_), index{index_} {}
+  bool operator!=(NodeRecord const& rhs)
+  {
+    return this->node_ptr != rhs.node_ptr;
+  }
+};
+
+/// Tree-walker helper
+template <typename L>
+void walk(Node* head, L&& pred)
+{
+  std::stack<NodeRecord> path;
+  path.emplace(head, 0);
+  while (!path.empty()) {
+    auto& top = path.top();
+    pred(top.node_ptr);
+
+    auto* leftp = top.node_ptr->left.get();
+    auto* rightp = top.node_ptr->right.get();
+    auto* condp = top.node_ptr->condition.get();
+    path.pop();
+
+    if (leftp != nullptr) {
+      path.emplace(leftp, 0);
+    }
+    if (rightp != nullptr) {
+      path.emplace(rightp, 0);
+    }
+    if (condp != nullptr) {
+      path.emplace(condp, 0);
+    }
+  }
+}
 
 /// overloaded operators to build the tree from an expression
 
@@ -407,8 +510,54 @@ inline Node ifnode(Node&& condition_, Configurable<L1> const& then_, Configurabl
   return Node{ConditionalNode{}, PlaceholderNode{then_}, PlaceholderNode{else_}, std::forward<Node>(condition_)};
 }
 
+/// Parameters
+inline Node par(int index)
+{
+  return Node{ParameterNode{index}};
+}
+
+/// binned functional
+template <typename T>
+inline Node binned(std::vector<T> const& binning, std::vector<T> const& parameters, Node&& binned, Node&& pexp, Node&& out)
+{
+  int bins = binning.size() - 1;
+  const auto binned_copy = binned;
+  const auto out_copy = out;
+  auto root = ifnode(Node{binned_copy} < binning[0], Node{out_copy}, LiteralNode{-1});
+  auto* current = &root;
+  for (auto i = 0; i < bins; ++i) {
+    current->right = std::make_unique<Node>(ifnode(Node{binned_copy} < binning[i + 1], updateParameters(pexp, bins, parameters, i), LiteralNode{-1}));
+    current = current->right.get();
+  }
+  current->right = std::make_unique<Node>(out);
+  return root;
+}
+
+template <typename T>
+inline Node updateParameters(Node const& pexp, int bins, std::vector<T> const& parameters, int bin)
+{
+  Node result{pexp};
+  walk(&result, [&bins, &parameters, &bin](Node* node) {
+    if (node->self.index() == 5) {
+      auto* n = std::get_if<5>(&node->self);
+      n->reset(parameters[n->index * bins + bin]);
+    }
+  });
+  return result;
+}
+
+/// clamping functional
+template <typename T>
+inline Node clamp(Node&& expr, T low, T hi)
+{
+  auto copy = expr;
+  return ifnode(Node{copy} < LiteralNode{low}, LiteralNode{low}, ifnode(Node{copy} > LiteralNode{hi}, LiteralNode{hi}, Node{copy}));
+}
+
 /// A struct, containing the root of the expression tree
 struct Filter {
+  Filter() = default;
+
   Filter(Node&& node_) : node{std::make_unique<Node>(std::forward<Node>(node_))}
   {
     (void)designateSubtrees(node.get());
@@ -418,10 +567,20 @@ struct Filter {
   {
     (void)designateSubtrees(node.get());
   }
-  std::unique_ptr<Node> node;
+
+  Filter& operator=(Filter&& other) noexcept
+  {
+    node = std::move(other.node);
+    return *this;
+  }
+
+  std::unique_ptr<Node> node = nullptr;
 
   size_t designateSubtrees(Node* node, size_t index = 0);
 };
+
+template <typename T>
+concept is_filter = std::same_as<T, Filter>;
 
 using Projector = Filter;
 
@@ -463,12 +622,6 @@ gandiva::ConditionPtr makeCondition(gandiva::NodePtr node);
 gandiva::ExpressionPtr makeExpression(gandiva::NodePtr node, gandiva::FieldPtr result);
 /// Update placeholder nodes from context
 void updatePlaceholders(Filter& filter, InitContext& context);
-
-template <typename... C>
-std::vector<expressions::Projector> makeProjectors(framework::pack<C...>)
-{
-  return {C::Projector()...};
-}
 
 std::shared_ptr<gandiva::Projector> createProjectorHelper(size_t nColumns, expressions::Projector* projectors,
                                                           std::shared_ptr<arrow::Schema> schema,

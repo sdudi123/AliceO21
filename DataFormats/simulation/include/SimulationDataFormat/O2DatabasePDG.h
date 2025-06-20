@@ -235,62 +235,38 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   //Hyper nuclei and exotica
   ionCode = 1010010030;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("HyperTriton", "HyperTriton", 2.99131, kFALSE,
+    db->AddParticle("HyperTriton", "HyperTriton", 2.991134, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
 
   ionCode = -1010010030;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperTriton", "AntiHyperTriton", 2.99131, kFALSE,
+    db->AddParticle("AntiHyperTriton", "AntiHyperTriton", 2.991134, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
 
   //hyper hydrogen 4 ground state
   ionCode = 1010010040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhydrog4", "Hyperhydrog4", 3.9226, kFALSE,
+    db->AddParticle("Hyperhydrog4", "Hyperhydrog4", 3.922434, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
   //anti hyper hydrogen 4 ground state
   ionCode = -1010010040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhydrog4", "AntiHyperhydrog4", 3.9226, kFALSE,
-                    2.5e-15, 3, "Ion", ionCode);
-  }
-  //hyper hydrogen 4 excited state
-  ionCode = 1010010041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhydrog4*", "Hyperhydrog4*", 3.9237, kFALSE,
-                    2.5e-15, 3, "Ion", ionCode);
-  }
-  //anti hyper hydrogen 4 excited state
-  ionCode = -1010010041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhydrog4*", "AntiHyperhydrog4*", 3.9237, kFALSE,
+    db->AddParticle("AntiHyperhydrog4", "AntiHyperhydrog4", 3.922434, kFALSE,
                     2.5e-15, 3, "Ion", ionCode);
   }
   //hyper helium 4 ground state
   ionCode = 1010020040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium4", "Hyperhelium4", 3.9217, kFALSE,
+    db->AddParticle("Hyperhelium4", "Hyperhelium4", 3.921728, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
   //anti hyper helium 4 ground state
   ionCode = -1010020040;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium4", "AntiHyperhelium4", 3.9217, kFALSE,
-                    2.5e-15, 6, "Ion", ionCode);
-  }
-  //hyper helium 4 excited state
-  ionCode = 1010020041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium4*", "Hyperhelium4*", 3.9231, kFALSE,
-                    2.5e-15, 6, "Ion", ionCode);
-  }
-  //anti hyper helium 4 excited state
-  ionCode = -1010020041;
-  if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium4*", "AntiHyperhelium4*", 3.9231, kFALSE,
+    db->AddParticle("AntiHyperhelium4", "AntiHyperhelium4", 3.921728, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
@@ -309,13 +285,13 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
 
   ionCode = 1010020050;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("Hyperhelium5", "Hyperhelium5", 4.841, kFALSE,
+    db->AddParticle("Hyperhelium5", "Hyperhelium5", 4.839961, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
   ionCode = -1010020050;
   if (!db->GetParticle(ionCode)) {
-    db->AddParticle("AntiHyperhelium5", "AntiHyperhelium5", 4.841, kFALSE,
+    db->AddParticle("AntiHyperhelium5", "AntiHyperhelium5", 4.839961, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
@@ -328,6 +304,33 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   ionCode = -1020010040;
   if (!db->GetParticle(ionCode)) {
     db->AddParticle("DoubleAntiHyperhydrogen4", "DoubleAntiHyperhydrogen4", 4.106, kFALSE,
+                    2.5e-15, 6, "Ion", ionCode);
+  }
+
+  // 4-Xi-He
+  ionCode = 1120020040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("4XiHe", "4XiHe", 4.128, kFALSE, 4.04e-15, 3, "Ion", ionCode);
+    db->AddAntiParticle("Anti4XiHe", -ionCode);
+  }
+
+  // 4-Xi-H
+  ionCode = 1120010040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("4XiH", "4XiH", 4.128, kFALSE, 4.04e-15, 3, "Ion", ionCode);
+    db->AddAntiParticle("Anti4XiH", -ionCode);
+  }
+
+  // hyper helium 4 sigma
+  ionCode = 1110020040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Hyperhelium4sigma", "Hyperhelium4sigma", 3.995, kFALSE,
+                    2.5e-15, 6, "Ion", ionCode);
+  }
+  // anti-hyper helium 4 sigma
+  ionCode = -1110020040;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("AntiHyperhelium4sigma", "AntiHyperhelium4sigma", 3.995, kFALSE,
                     2.5e-15, 6, "Ion", ionCode);
   }
 
@@ -487,6 +490,14 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
   }
 
   // glueball hunting
+  ionCode = 225;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("f2_1270", "f2_1270", 1.2754, kFALSE, 0.1858, 0, "Resonance", ionCode);
+  }
+  ionCode = 115;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("a2_1320", "a2_1320", 1.3182, kFALSE, 0.1078, 0, "Resonance", ionCode);
+  }
   ionCode = 10221;
   if (!db->GetParticle(ionCode)) {
     db->AddParticle("f0_1370", "f0_1370", 1.37, kFALSE, 0.200, 0, "Resonance", ionCode);
@@ -629,10 +640,47 @@ inline void O2DatabasePDG::addALICEParticles(TDatabasePDG* db)
     db->AddParticle("Anti-Theta_c_3100", "Anti-Theta_c_3100", 3.099, kFALSE,
                     83.e-6, 0, "Resonance", ionCode); // same width as D*+ (83 keV)
   }
-  if (!db->GetParticle(-ionCode)) {
-    db->AddParticle("Theta_c_3100", "Theta_c_3100", 3.099, kFALSE,
-                    83.e-6, 0, "Resonance", -ionCode); // same width as D*+ (83 keV)
+  db->AddAntiParticle("Theta_c_3100", -ionCode);
+
+  // Charm resonances not present in PYTHIA (consistent with https://github.com/AliceO2Group/O2DPG/blob/master/MC/config/PWGHF/pythia8/generator/pythia8_charmhadronic_with_decays_DResoTrigger.cfg)
+  // Mesons
+  ionCode = 30433;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s1_Plus_2700", "D*_s1_Plus_2700", 2.714, false, 0.122, 3, "Resonance", ionCode);
   }
+  db->AddAntiParticle("D*_s1_Minus_2700", -ionCode);
+  ionCode = 40433;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s1_Plus_2860", "D*_s1_Plus_2860", 2.859, false, 0.160, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("D*_s1_Minus_2860", -ionCode);
+  ionCode = 437;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("D*_s3_Plus_2860", "D*_s3_Plus_2860", 2.860, false, 0.053, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("D*_s3_Minus_2860", -ionCode);
+
+  // Baryons
+  ionCode = 4325;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_Plus_3055", "Xi_c_Plus_3055", 3.0559, false, 0.0078, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Xi_c_Minus_3055", -ionCode);
+  ionCode = 4326;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_Plus_3080", "Xi_c_Plus_3080", 3.0772, false, 0.0036, 3, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Xi_c_Minus_3080", -ionCode);
+  ionCode = 4315;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_0_3055", "Xi_c_0_3055", 3.0590, false, 0.0064, 0, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Anti-Xi_c_0_3055", -ionCode);
+  ionCode = 4316;
+  if (!db->GetParticle(ionCode)) {
+    db->AddParticle("Xi_c_0_3080", "Xi_c_0_3080", 3.0799, false, 0.0056, 0, "Resonance", ionCode);
+  }
+  db->AddAntiParticle("Anti-Xi_c_0_3080", -ionCode);
 
   // d*(2380) - dibaryon resonance
 

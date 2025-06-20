@@ -22,12 +22,12 @@ namespace o2::tpc
 struct ClusterNative;
 } // namespace o2::tpc
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUTPCCompressionKernels : public GPUKernelTemplate
 {
  public:
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCCompression; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCCompression; }
 
   enum K : int32_t {
     step0attached = 0,
@@ -72,15 +72,19 @@ class GPUTPCCompressionGatherKernels : public GPUKernelTemplate
   using Vec64 = uint64_t;
   using Vec128 = uint4;
 
-  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<uint32_t, GPUCA_GET_THREAD_COUNT(GPUCA_LB_COMPRESSION_GATHER)> {
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered32));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered64));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_buffered128));
+  static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered) == GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_multiBlock));
+  struct GPUSharedMemory : public GPUKernelTemplate::GPUSharedMemoryScan64<uint32_t, GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)> {
     union {
-      uint32_t warpOffset[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)];
-      Vec32 buf32[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-      Vec64 buf64[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-      Vec128 buf128[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
+      uint32_t warpOffset[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)];
+      Vec32 buf32[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+      Vec64 buf64[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+      Vec128 buf128[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
       struct {
-        uint32_t sizes[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
-        uint32_t srcOffsets[GPUCA_GET_WARP_COUNT(GPUCA_LB_COMPRESSION_GATHER)][GPUCA_WARP_SIZE];
+        uint32_t sizes[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
+        uint32_t srcOffsets[GPUCA_GET_WARP_COUNT(GPUCA_LB_GPUTPCCompressionGatherKernels_unbuffered)][GPUCA_WARP_SIZE];
       } unbuffered;
     };
 
@@ -124,6 +128,6 @@ class GPUTPCCompressionGatherKernels : public GPUKernelTemplate
   GPUdii() static void gatherMulti(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& GPUrestrict() processors);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

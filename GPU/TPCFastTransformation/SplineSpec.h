@@ -22,14 +22,14 @@
 #include "GPUCommonDef.h"
 #include "SplineUtil.h"
 
-#if !defined(__CINT__) && !defined(__ROOTCINT__) && !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC) && defined(__cplusplus) && __cplusplus >= 201703L
+#if !defined(__ROOTCLING__) && !defined(GPUCA_GPUCODE) && !defined(GPUCA_NO_VC)
 #include <Vc/Vc>
 #include <Vc/SimdArray>
 #endif
 
 class TFile;
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -58,13 +58,13 @@ class SplineContainer : public FlatObject
   /// _____________  C++ constructors / destructors __________________________
 
   /// Default constructor
-  SplineContainer() CON_DEFAULT;
+  SplineContainer() = default;
 
   /// Disable all other constructors
-  SplineContainer(const SplineContainer&) CON_DELETE;
+  SplineContainer(const SplineContainer&) = delete;
 
   /// Destructor
-  ~SplineContainer() CON_DEFAULT;
+  ~SplineContainer() = default;
 
   /// _______________  Construction interface  ________________________
 
@@ -150,7 +150,7 @@ class SplineContainer : public FlatObject
 
   ///_______________  Test tools  _______________
 
-#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) && !defined(GPUCA_ALIROOT_LIB) // code invisible on GPU and in the standalone compilation
+#if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
   /// Test the class functionality
   static int32_t test(const bool draw = 0, const bool drawDataPoints = 1);
 #endif
@@ -189,9 +189,7 @@ class SplineContainer : public FlatObject
   Spline1D<DataT>* mGrid; //! (transient!!) mXdim grids
   DataT* mParameters;     //! (transient!!) F-dependent parameters of the spline
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(SplineContainer, 1);
-#endif
 };
 
 template <typename DataT>
@@ -301,7 +299,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
 
     DataT iParameters[(1 << (2 * maxXdim)) * maxYdim]; // Array for all parameters
 
-    //get the indices of the "most left" Knot:
+    // get the indices of the "most left" Knot:
 
     int32_t indices[maxXdim]; // indices of the 'most left' knot
     for (int32_t i = 0; i < nXdim; i++) {
@@ -311,7 +309,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
     int32_t indicestmp[maxXdim];
     for (int32_t i = 0; i < nKnotParametersPerY; i++) { // for every necessary Knot
       for (int32_t k = 0; k < nXdim; k++) {
-        indicestmp[k] = indices[k] + (i / (1 << k)) % 2; //get the knot-indices in every dimension (mirrored order binary counting)
+        indicestmp[k] = indices[k] + (i / (1 << k)) % 2; // get the knot-indices in every dimension (mirrored order binary counting)
       }
       int32_t index = TBase::getKnotIndex(indicestmp); // get index of the current Knot
 
@@ -319,7 +317,7 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
         iParameters[i * nKnotParameters + j] = Parameters[index * nKnotParameters + j];
       }
     }
-    //now start with the interpolation loop:
+    // now start with the interpolation loop:
 
     constexpr auto maxInterpolations = (1 << (2 * maxXdim - 2)) * maxYdim;
 
@@ -331,10 +329,10 @@ class SplineSpec<DataT, XdimT, YdimT, 0> : public SplineContainer<DataT>
     int32_t nInterpolations = (1 << (2 * nXdim - 2)) * nYdim;
     int32_t nKnots = 1 << (nXdim);
 
-    for (int32_t d = 0; d < nXdim; d++) {        // for every dimension
-      DataT* pointer[4] = {S0, D0, S1, D1};      // pointers for interpolation arrays S0, D0, S1, D1 point to Arraystart
-      for (int32_t i = 0; i < nKnots; i++) {     // for every knot
-        for (int32_t j = 0; j < nKnots; j++) {   // for every parametertype
+    for (int32_t d = 0; d < nXdim; d++) {            // for every dimension
+      DataT* pointer[4] = {S0, D0, S1, D1};          // pointers for interpolation arrays S0, D0, S1, D1 point to Arraystart
+      for (int32_t i = 0; i < nKnots; i++) {         // for every knot
+        for (int32_t j = 0; j < nKnots; j++) {       // for every parametertype
           int32_t pointernr = 2 * (i % 2) + (j % 2); // to which array should it be delivered
           for (int32_t k = 0; k < nYdim; k++) {
             pointer[pointernr][0] = iParameters[(i * nKnots + j) * nYdim + k];
@@ -550,6 +548,6 @@ class SplineSpec<DataT, XdimT, 1, 3>
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

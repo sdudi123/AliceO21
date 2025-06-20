@@ -25,10 +25,13 @@
 #define ALICEO2_SMATRIX_GPU_H
 
 #include "GPUCommonDef.h"
-#include "GPUCommonArray.h"
 #include "GPUCommonMath.h"
 #include "GPUCommonAlgorithm.h"
 #include "GPUCommonLogger.h"
+#ifndef GPUCA_GPUCODE_DEVICE
+#include <type_traits>
+#include <array>
+#endif
 
 namespace o2::math_utils::detail
 {
@@ -280,14 +283,14 @@ struct make_indices : make_indices_impl<0, indices<>, N> {
 };
 
 template <int I0, class F, int... I>
-constexpr auto do_make(F f, indices<I...>) -> gpu::gpustd::array<int, sizeof...(I)>
+constexpr auto do_make(F f, indices<I...>) -> std::array<int, sizeof...(I)>
 {
-  gpu::gpustd::array<int, sizeof...(I)> retarr = {f(I0 + I)...};
+  std::array<int, sizeof...(I)> retarr = {f(I0 + I)...};
   return retarr;
 }
 
 template <int N, int I0 = 0, class F>
-constexpr auto make(F f) -> gpu::gpustd::array<int, N>
+constexpr auto make(F f) -> std::array<int, N>
 {
   return do_make<I0>(f, typename make_indices<N>::type());
 }
@@ -446,6 +449,8 @@ class SMatrixGPU
   GPUdi() SMatrixGPU(SMatrixNoInit) {}
   GPUd() SMatrixGPU(SMatrixIdentity);
   GPUd() SMatrixGPU(const SMatrixGPU<T, D1, D2, R>& rhs);
+  template <class R2>
+  GPUd() SMatrixGPU(const SMatrixGPU<T, D1, D2, R2>& rhs);
   template <class A, class R2>
   GPUd() SMatrixGPU(const Expr<A, T, D1, D2, R2>& rhs);
   template <class M>
@@ -465,6 +470,9 @@ class SMatrixGPU
   GPUd() iterator end();
   GPUd() const T& operator()(unsigned int i, unsigned int j) const;
   GPUd() T& operator()(unsigned int i, unsigned int j);
+
+  template <typename Y, typename X>
+  GPUd() friend X& operator<<(Y& y, const SMatrixGPU&);
 
   class SMatrixRowGPU
   {
@@ -497,6 +505,11 @@ class SMatrixGPU
   GPUd() SMatrixRowGPU operator[](unsigned int i) { return SMatrixRowGPU(*this, i); }
   template <class R2>
   GPUd() SMatrixGPU<T, D1, D2, R>& operator+=(const SMatrixGPU<T, D1, D2, R2>& rhs);
+  GPUd() SMatrixGPU<T, D1, D2, R>& operator*=(const T& rhs);
+  template <class R2>
+  GPUd() SMatrixGPU<T, D1, D2, R>& operator*=(const SMatrixGPU<T, D1, D2, R2>& rhs);
+  template <class A, class R2>
+  GPUd() SMatrixGPU<T, D1, D2, R>& operator*=(const Expr<A, T, D1, D2, R2>& rhs);
 
   GPUd() bool Invert();
   GPUd() bool IsInUse(const T* p) const;
@@ -504,6 +517,15 @@ class SMatrixGPU
  public:
   R mRep;
 };
+
+#ifndef __OPENCL__ // TODO: current C++ for OpenCL 2021 is at C++17, so no concepts. But we don't need this trick for OpenCL anyway, so we can just hide it.
+template <class T, unsigned int D1, unsigned int D2, class R, typename Y, typename X = Y>
+  requires(sizeof(typename X::traits_type::pos_type) != 0) // do not provide a template to fair::Logger, etc... (pos_type is a member type of all std::ostream classes)
+GPUd() X& operator<<(Y& y, const SMatrixGPU<T, D1, D2, R>&)
+{
+  return y;
+}
+#endif
 
 template <class T, unsigned int D1, unsigned int D2, class R>
 GPUdi() SMatrixGPU<T, D1, D2, R>::SMatrixGPU(SMatrixIdentity)
@@ -526,6 +548,13 @@ template <class T, unsigned int D1, unsigned int D2, class R>
 GPUdi() SMatrixGPU<T, D1, D2, R>::SMatrixGPU(const SMatrixGPU<T, D1, D2, R>& rhs)
 {
   mRep = rhs.mRep;
+}
+
+template <class T, unsigned int D1, unsigned int D2, class R>
+template <class R2>
+GPUd() SMatrixGPU<T, D1, D2, R>::SMatrixGPU(const SMatrixGPU<T, D1, D2, R2>& rhs)
+{
+  operator=(rhs);
 }
 
 template <class T, unsigned int D1, unsigned int D2, class R>
@@ -1385,6 +1414,29 @@ GPUdi() SMatrixGPU<T, D1, D2, R>& SMatrixGPU<T, D1, D2, R>::operator+=(const SMa
 {
   mRep += rhs.mRep;
   return *this;
+}
+
+template <class T, unsigned int D1, unsigned int D2, class R>
+GPUdi() SMatrixGPU<T, D1, D2, R>& SMatrixGPU<T, D1, D2, R>::operator*=(const T & rhs)
+{
+  for (unsigned int i = 0; i < R::kSize; ++i) {
+    mRep.Array()[i] *= rhs;
+  }
+  return *this;
+}
+
+template <class T, unsigned int D1, unsigned int D2, class R>
+template <class R2>
+GPUdi() SMatrixGPU<T, D1, D2, R>& SMatrixGPU<T, D1, D2, R>::operator*=(const SMatrixGPU<T, D1, D2, R2>& rhs)
+{
+  return operator=(*this* rhs);
+}
+
+template <class T, unsigned int D1, unsigned int D2, class R>
+template <class A, class R2>
+GPUdi() SMatrixGPU<T, D1, D2, R>& SMatrixGPU<T, D1, D2, R>::operator*=(const Expr<A, T, D1, D2, R2>& rhs)
+{
+  return operator=(*this* rhs);
 }
 
 template <class T, unsigned int D1, unsigned int D2, class R>

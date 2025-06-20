@@ -84,10 +84,13 @@ void TableBuilder::setLabel(const char* label)
   mSchema = mSchema->WithMetadata(std::make_shared<arrow::KeyValueMetadata>(std::vector{std::string{"label"}}, std::vector{std::string{label}}));
 }
 
-std::shared_ptr<arrow::Table> spawnerHelper(std::shared_ptr<arrow::Table>& fullTable, std::shared_ptr<arrow::Schema> newSchema, size_t nColumns,
-                                            expressions::Projector* projectors, std::vector<std::shared_ptr<arrow::Field>> const& fields, const char* name)
+std::shared_ptr<arrow::Table> spawnerHelper(std::shared_ptr<arrow::Table> const& fullTable, std::shared_ptr<arrow::Schema> newSchema, size_t nColumns,
+                                            expressions::Projector* projectors, const char* name,
+                                            std::shared_ptr<gandiva::Projector>& projector)
 {
-  auto mergedProjectors = framework::expressions::createProjectorHelper(nColumns, projectors, fullTable->schema(), fields);
+  if (projector == nullptr) {
+    projector = framework::expressions::createProjectorHelper(nColumns, projectors, fullTable->schema(), newSchema->fields());
+  }
 
   arrow::TableBatchReader reader(*fullTable);
   std::shared_ptr<arrow::RecordBatch> batch;
@@ -105,7 +108,7 @@ std::shared_ptr<arrow::Table> spawnerHelper(std::shared_ptr<arrow::Table>& fullT
       break;
     }
     try {
-      s = mergedProjectors->Evaluate(*batch, arrow::default_memory_pool(), &v);
+      s = projector->Evaluate(*batch, arrow::default_memory_pool(), &v);
       if (!s.ok()) {
         throw runtime_error_f("Cannot apply projector to source table of %s: %s", name, s.ToString().c_str());
       }
@@ -128,3 +131,9 @@ std::shared_ptr<arrow::Table> spawnerHelper(std::shared_ptr<arrow::Table>& fullT
 }
 
 } // namespace o2::framework
+
+template class arrow::NumericBuilder<arrow::UInt8Type>;
+template class arrow::NumericBuilder<arrow::UInt32Type>;
+template class arrow::NumericBuilder<arrow::FloatType>;
+template class arrow::NumericBuilder<arrow::Int32Type>;
+template class arrow::NumericBuilder<arrow::Int8Type>;

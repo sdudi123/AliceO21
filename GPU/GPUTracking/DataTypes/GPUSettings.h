@@ -17,14 +17,13 @@
 
 #include "GPUCommonDef.h"
 #include "GPUDataTypes.h"
+#include "GPUTPCGMMergedTrackHit.h"
 #ifndef GPUCA_GPUCODE_DEVICE
 #include <vector>
 #include <string>
 #endif
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 class GPUDisplayFrontendInterface;
 class GPUReconstruction;
@@ -45,21 +44,19 @@ class GPUSettings
                               RejectionStrategyA = 1,
                               RejectionStrategyB = 2 };
 
-#if !defined(__OPENCL__) || defined(__OPENCLCPP__)
-  static CONSTEXPR const uint32_t TPC_MAX_TF_TIME_BIN = ((256 * 3564 + 2 * 8 - 2) / 8);
-#endif
+  static constexpr const uint32_t TPC_MAX_TF_TIME_BIN = ((256 * 3564 + 2 * 8 - 2) / 8);
 };
 
-#ifdef GPUCA_NOCOMPAT
 // Settings describing the global run parameters
 struct GPUSettingsGRP {
   // All new members must be sizeof(int32_t) resp. sizeof(float) for alignment reasons!, default value for newly added members for old data will be 0.
   float solenoidBzNominalGPU = -5.00668f; // solenoid field strength
   int32_t constBz = 0;                    // for test-MC events with constant Bz
-  int32_t homemadeEvents = 0;             // Toy-MC events
-  int32_t continuousMaxTimeBin = 0;       // 0 for triggered events, -1 for default TF length
+  int32_t removed0 = 0;                   // Obsolete parameter, dummy value needed to support reading old dumps
+  int32_t grpContinuousMaxTimeBin = -2;   // 0 for triggered events, -1 for automatic setting, -2 invalid default
   int32_t needsClusterer = 0;             // Set to true if the data requires the clusterizer
   int32_t doCompClusterDecode = 0;        // Set to true if the data contains compressed TPC clusters
+  int32_t tpcCutTimeBin = 0;              // Cut TPC clusters and digits >= this cut
 };
 
 // Parameters of the current time frame
@@ -76,14 +73,12 @@ struct GPUSettingsTF {
 
 // Settings defining the setup of the GPUReconstruction processing (basically selecting the device / class instance)
 struct GPUSettingsDeviceBackend {
-  uint32_t deviceType = GPUDataTypes::DeviceType::CPU;     // Device type, shall use GPUDataTypes::DEVICE_TYPE constants, e.g. CPU / CUDA
-  uint8_t forceDeviceType = 1;                             // Fail if device initialization fails, otherwise falls back to CPU
-  GPUReconstruction* master = nullptr;                     // GPUReconstruction master object
+  uint32_t deviceType = GPUDataTypes::DeviceType::CPU; // Device type, shall use GPUDataTypes::DEVICE_TYPE constants, e.g. CPU / CUDA
+  uint8_t forceDeviceType = 1;                         // Fail if device initialization fails, otherwise falls back to CPU
+  GPUReconstruction* master = nullptr;                 // GPUReconstruction master object
 };
-#endif
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #ifdef GPUCA_GPUCODE_DEVICE
 #define QCONFIG_GPU

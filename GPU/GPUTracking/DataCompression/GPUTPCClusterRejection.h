@@ -17,9 +17,7 @@
 
 #include "GPUTPCGMMergerTypes.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 struct GPUTPCClusterRejection {
   template <bool C, class T = void, class S = void>
@@ -67,7 +65,6 @@ struct GPUTPCClusterRejection {
     return GetProtectionStatus<false>(attach, physics, protect);
   }
 };
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

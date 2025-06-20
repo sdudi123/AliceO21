@@ -125,10 +125,10 @@ class CTPRunScalers
   void printLMBRateVsT() const; // prints LMB interaction rate vs time for debugging
   // returns the pair of global (levelled) interaction rate, as well as interpolated
   // rate in Hz at a certain orbit number within the run
-  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type) const;
+  std::pair<double, double> getRate(uint32_t orbit, int classindex, int type, bool qc = 0) const;
 
   /// same with absolute  timestamp (not orbit) as argument
-  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type) const;
+  std::pair<double, double> getRateGivenT(double timestamp, int classindex, int type, bool qc = 0) const;
 
   /// retrieves integral for class
   std::array<uint64_t, 7> getIntegralForClass(int i) const
@@ -143,6 +143,10 @@ class CTPRunScalers
       mScalerRecordO2[mScalerRecordO2.size() - 1].scalers[i].l1After - mScalerRecordO2[0].scalers[i].l1After,
     };
   }
+  /// retrieves integral - same interface as getRate, no pileup correction
+  uint64_t getLumiNoPuCorr(int classindex, int type) const;
+  /// retrieves vector of counters - same interface as getRate, needed for
+  std::vector<std::pair<double_t, double_t>> getRatesForIndex(int classindex, int type) const;
   /// retrieves time boundaries of this scaler object from O2 scalers
   std::pair<unsigned long, unsigned long> getTimeLimit() const
   {

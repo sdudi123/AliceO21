@@ -9,6 +9,9 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
+#ifndef GPUCA_NO_VC
+#include "Rtypes.h"
+#endif
 #include "CalibdEdxTrackTopologyPol.h"
 
 #include <cstddef>
@@ -20,6 +23,7 @@
 using namespace o2::tpc;
 
 #if !defined(GPUCA_GPUCODE) && !defined(GPUCA_STANDALONE) // code invisible on GPU and in the standalone compilation
+#include "NDPiecewisePolynomials.inc"
 void CalibdEdxTrackTopologyPol::dumpToTree(const uint32_t nSamplingPoints[/* Dim */], const char* outName) const
 {
   for (uint32_t i = 0; i < FFits; i++) {

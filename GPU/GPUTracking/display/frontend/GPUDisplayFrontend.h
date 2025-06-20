@@ -19,7 +19,7 @@
 #include "GPUDisplayInterface.h"
 #include <memory>
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUReconstruction;
 class GPUDisplay;
@@ -138,14 +138,14 @@ class GPUDisplayFrontend : public GPUDisplayFrontendInterface
 
   std::unique_ptr<GPUDisplayGUIWrapper> mGUI;
 
-  void HandleKey(uint8_t key);               // Callback for handling key presses
-  int32_t DrawGLScene();                     // Callback to draw the GL scene
-  void HandleSendKey();                      // Optional callback to handle key press from external source (e.g. stdin by default)
+  void HandleKey(uint8_t key);                     // Callback for handling key presses
+  int32_t DrawGLScene();                           // Callback to draw the GL scene
+  void HandleSendKey();                            // Optional callback to handle key press from external source (e.g. stdin by default)
   void ResizeScene(int32_t width, int32_t height); // Callback when GL window is resized
   int32_t InitDisplay(bool initFailure = false);   // Callback to initialize the GL Display (to be called in StartDisplay)
-  void ExitDisplay();                        // Callback to clean up the GL Display
+  void ExitDisplay();                              // Callback to clean up the GL Display
   int32_t& drawTextFontSize();
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

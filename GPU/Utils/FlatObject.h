@@ -28,9 +28,9 @@
 #include "GPUCommonRtypes.h"
 #include "GPUCommonLogger.h"
 
-//#define GPUCA_GPUCODE // uncomment to test "GPU" mode
+// #define GPUCA_GPUCODE // uncomment to test "GPU" mode
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -179,12 +179,12 @@ class FlatObject
 
   /// Default constructor / destructor
 #ifndef GPUCA_GPUCODE
-  FlatObject() CON_DEFAULT; // No object derrived from FlatObject should be created on the GPU
+  FlatObject() = default; // No object derrived from FlatObject should be created on the GPU
   ~FlatObject();
-  FlatObject(const FlatObject&) CON_DELETE;
-  FlatObject& operator=(const FlatObject&) CON_DELETE;
+  FlatObject(const FlatObject&) = delete;
+  FlatObject& operator=(const FlatObject&) = delete;
 #else
-  FlatObject() CON_DELETE;
+  FlatObject() = delete;
 #endif
 
  protected:
@@ -319,14 +319,12 @@ class FlatObject
     InProgress = 0x2      ///< construction started: temporary  memory is reserved
   };
 
-  int32_t mFlatBufferSize = 0;                                        ///< size of the flat buffer
-  uint32_t mConstructionMask = ConstructionState::NotConstructed;     ///< mask for constructed object members, first two bytes are used by this class
-  char* mFlatBufferContainer = nullptr;                               //[mFlatBufferSize]  Optional container for the flat buffer
-  char* mFlatBufferPtr = nullptr;                                     //!  Pointer to the flat buffer
+  int32_t mFlatBufferSize = 0;                                    ///< size of the flat buffer
+  uint32_t mConstructionMask = ConstructionState::NotConstructed; ///< mask for constructed object members, first two bytes are used by this class
+  char* mFlatBufferContainer = nullptr;                           //[mFlatBufferSize]  Optional container for the flat buffer
+  char* mFlatBufferPtr = nullptr;                                 //!  Pointer to the flat buffer
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(FlatObject, 1);
-#endif
 };
 
 /// ========================================================================================================
@@ -571,9 +569,9 @@ inline void FlatObject::setFutureBufferAddress(char* futureFlatBufferPtr)
   mFlatBufferContainer = nullptr;
 }
 
-#endif //GPUCA_GPUCODE_DEVICE
+#endif // GPUCA_GPUCODE_DEVICE
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

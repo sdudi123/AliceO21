@@ -24,7 +24,7 @@
 #include "TString.h"
 #include "AliTPCTransform.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -43,13 +43,13 @@ class TPCFastTransformManager
   TPCFastTransformManager();
 
   /// Copy constructor: disabled
-  TPCFastTransformManager(const TPCFastTransformManager&) CON_DELETE;
+  TPCFastTransformManager(const TPCFastTransformManager&) = delete;
 
   /// Assignment operator: disabled
-  TPCFastTransformManager& operator=(const TPCFastTransformManager&) CON_DELETE;
+  TPCFastTransformManager& operator=(const TPCFastTransformManager&) = delete;
 
   /// Destructor
-  ~TPCFastTransformManager() CON_DEFAULT;
+  ~TPCFastTransformManager() = default;
 
   /// _______________  Main functionality  ________________________
 
@@ -81,6 +81,6 @@ inline int32_t TPCFastTransformManager::storeError(int32_t code, const char* msg
   return code;
 }
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

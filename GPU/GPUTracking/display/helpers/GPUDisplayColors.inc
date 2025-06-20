@@ -14,7 +14,7 @@
 
 #include "GPUDisplay.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 inline void GPUDisplay::ActivateColor()
 {
@@ -114,7 +114,7 @@ inline void GPUDisplay::SetColorTracks()
   }
   ActivateColor();
 }
-inline void GPUDisplay::SetColorGlobalTracks()
+inline void GPUDisplay::SetColorExtrapolatedTracks()
 {
   if (mCfgL.invertColors) {
     mDrawColor = {0.8, 0.2, 0, 1.f};

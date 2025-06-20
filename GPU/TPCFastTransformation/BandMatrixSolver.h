@@ -25,7 +25,7 @@
 #include <algorithm>
 #include <limits>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -113,9 +113,7 @@ class BandMatrixSolver
   std::vector<double> mA;
   std::vector<double> mB;
 
-#ifndef GPUCA_ALIROOT_LIB
   ClassDefNV(BandMatrixSolver, 0);
-#endif
 };
 
 template <>
@@ -133,7 +131,7 @@ inline void BandMatrixSolver<BandWidthT>::triangulateBlock(double AA[], double b
       A[0] = c; // store 1/a[0][0]
       double* rowi = A + BandWidthT - 1;
       for (int32_t i = 1; i < m; i++) { // row 0+i
-        double ai = c * A[i];       // A[0][i]
+        double ai = c * A[i];           // A[0][i]
         for (int32_t j = i; j < m; j++) {
           rowi[j] -= ai * A[j]; // A[i][j] -= A[0][j]/A[0][0]*A[i][0]
         }
@@ -260,6 +258,6 @@ inline void BandMatrixSolver<BandWidthT>::solveType1()
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

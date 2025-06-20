@@ -13,39 +13,34 @@
 #ifndef ITSTRACKINGGPU_TRACKERTRAITSGPU_H_
 #define ITSTRACKINGGPU_TRACKERTRAITSGPU_H_
 
-#include "ITStracking/Configuration.h"
-#include "ITStracking/Definitions.h"
 #include "ITStracking/TrackerTraits.h"
 #include "ITStrackingGPU/TimeFrameGPU.h"
 
-namespace o2
-{
-namespace its
+namespace o2::its
 {
 
 template <int nLayers = 7>
-class TrackerTraitsGPU : public TrackerTraits
+class TrackerTraitsGPU final : public TrackerTraits<nLayers>
 {
  public:
   TrackerTraitsGPU() = default;
   ~TrackerTraitsGPU() override = default;
 
-  // void computeLayerCells() final;
-  void adoptTimeFrame(TimeFrame* tf) override;
-  void initialiseTimeFrame(const int iteration) override;
+  void adoptTimeFrame(TimeFrame<nLayers>* tf) final;
+  void initialiseTimeFrame(const int iteration) final;
+
   void computeLayerTracklets(const int iteration, int, int) final;
-  void computeLayerCells(const int iteration) override;
-  void setBz(float) override;
-  void findCellsNeighbours(const int iteration) override;
-  void findRoads(const int iteration) override;
+  void computeLayerCells(const int iteration) final;
+  void findCellsNeighbours(const int iteration) final;
+  void findRoads(const int iteration) final;
 
-  // Methods to get CPU execution from traits
-  void initialiseTimeFrameHybrid(const int iteration) override { initialiseTimeFrame(iteration); };
-  void computeTrackletsHybrid(const int iteration, int, int) override;
-  void computeCellsHybrid(const int iteration) override;
-  void findCellsNeighboursHybrid(const int iteration) override;
+  bool supportsExtendTracks() const noexcept final { return false; }
+  bool supportsFindShortPrimaries() const noexcept final { return false; }
 
-  void extendTracks(const int iteration) override;
+  void setBz(float) final;
+
+  const char* getName() const noexcept final { return "GPU"; }
+  bool isGPU() const noexcept final { return true; }
 
   // TimeFrameGPU information forwarding
   int getTFNumberOfClusters() const override;
@@ -55,16 +50,8 @@ class TrackerTraitsGPU : public TrackerTraits
  private:
   IndexTableUtils* mDeviceIndexTableUtils;
   gpu::TimeFrameGPU<7>* mTimeFrameGPU;
-  gpu::StaticTrackingParameters<nLayers>* mStaticTrkPars;
 };
 
-template <int nLayers>
-inline void TrackerTraitsGPU<nLayers>::adoptTimeFrame(TimeFrame* tf)
-{
-  mTimeFrameGPU = static_cast<gpu::TimeFrameGPU<nLayers>*>(tf);
-  mTimeFrame = static_cast<TimeFrame*>(tf);
-}
-} // namespace its
-} // namespace o2
+} // namespace o2::its
 
 #endif

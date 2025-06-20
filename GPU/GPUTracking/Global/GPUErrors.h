@@ -17,9 +17,7 @@
 
 #include "GPUCommonDef.h"
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUErrors
@@ -35,7 +33,7 @@ class GPUErrors
   GPUd() bool hasError() { return *mErrors > 0; }
   void setMemory(GPUglobalref() uint32_t* m) { mErrors = m; }
   void clear();
-  void printErrors(bool silent = false);
+  bool printErrors(bool silent = false, uint64_t mask = 0);
   uint32_t getNErrors() const;
   const uint32_t* getErrorPtr() const;
   static uint32_t getMaxErrors();
@@ -44,7 +42,6 @@ class GPUErrors
   GPUglobalref() uint32_t* mErrors;
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

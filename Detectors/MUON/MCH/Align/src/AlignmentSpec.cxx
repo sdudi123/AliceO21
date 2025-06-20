@@ -159,9 +159,6 @@ class AlignmentTask
     }
 
     doReAlign = ic.options().get<bool>("do-realign");
-    if (doReAlign) {
-      LOG(info) << "Re-alignment mode";
-    }
 
     if (mCCDBRequest) {
       LOG(info) << "Loading magnetic field and reference geometry from CCDB";
@@ -181,9 +178,9 @@ class AlignmentTask
         LOG(fatal) << "No GRP file";
       }
 
-      auto geoIdealFile = ic.options().get<string>("geo-file-ideal");
-      if (std::filesystem::exists(geoIdealFile)) {
-        base::GeometryManager::loadGeometry(geoIdealFile.c_str());
+      IdealGeoFileName = ic.options().get<string>("geo-file-ideal");
+      if (std::filesystem::exists(IdealGeoFileName)) {
+        base::GeometryManager::loadGeometry(IdealGeoFileName.c_str());
         transformation = geo::transformationFromTGeoManager(*gGeoManager);
         for (int i = 0; i < 156; i++) {
           int iDEN = GetDetElemId(i);
@@ -193,9 +190,9 @@ class AlignmentTask
         LOG(fatal) << "No ideal geometry";
       }
 
-      auto geoRefFile = ic.options().get<string>("geo-file-ref");
-      if (std::filesystem::exists(geoRefFile)) {
-        base::GeometryManager::loadGeometry(geoRefFile.c_str());
+      RefGeoFileName = ic.options().get<string>("geo-file-ref");
+      if (std::filesystem::exists(RefGeoFileName)) {
+        base::GeometryManager::loadGeometry(RefGeoFileName.c_str());
         transformation = geo::transformationFromTGeoManager(*gGeoManager);
         for (int i = 0; i < 156; i++) {
           int iDEN = GetDetElemId(i);
@@ -204,15 +201,41 @@ class AlignmentTask
       } else {
         LOG(fatal) << "No reference geometry";
       }
+
+      if (doReAlign) {
+        LOG(info) << "Re-alignment mode";
+        LOG(info) << "Loading re-alignment geometry";
+        NewGeoFileName = ic.options().get<string>("geo-file-new");
+        if (std::filesystem::exists(NewGeoFileName)) {
+          base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
+          transformation = geo::transformationFromTGeoManager(*gGeoManager);
+          for (int i = 0; i < 156; i++) {
+            int iDEN = GetDetElemId(i);
+            transformNew[iDEN] = transformation(iDEN);
+          }
+        } else {
+          LOG(fatal) << "No re-alignment geometry";
+        }
+      }
     }
 
     auto doEvaluation = ic.options().get<bool>("do-evaluation");
     mAlign.SetDoEvaluation(doEvaluation);
+
     // Variation range for parameters
-    mAlign.SetAllowedVariation(0, 2.0);
-    mAlign.SetAllowedVariation(1, 0.3);
-    mAlign.SetAllowedVariation(2, 0.002);
-    mAlign.SetAllowedVariation(3, 2.0);
+    auto AllowX = ic.options().get<float>("variation-x");
+    auto AllowY = ic.options().get<float>("variation-y");
+    auto AllowPhi = ic.options().get<float>("variation-phi");
+    auto AllowZ = ic.options().get<float>("variation-z");
+    mAlign.SetAllowedVariation(0, AllowX);
+    mAlign.SetAllowedVariation(1, AllowY);
+    mAlign.SetAllowedVariation(2, AllowPhi);
+    mAlign.SetAllowedVariation(3, AllowZ);
+
+    // Sigma XY
+    auto SigmaX = ic.options().get<float>("sigma-x");
+    auto SigmaY = ic.options().get<float>("sigma-y");
+    mAlign.SetSigmaXY(SigmaX, SigmaY);
 
     // Configuration for track fitter
     const auto& trackerParam = TrackerParam::Instance();
@@ -223,14 +246,28 @@ class AlignmentTask
     mImproveCutChi2 = 2. * trackerParam.sigmaCutForImprovement * trackerParam.sigmaCutForImprovement;
 
     // Fix chambers
-    auto input_fixchambers = ic.options().get<string>("fix-chamber");
-    std::stringstream string_chambers(input_fixchambers);
-    string_chambers >> std::ws;
-    while (string_chambers.good()) {
-      string substr;
-      std::getline(string_chambers, substr, ',');
-      LOG(info) << Form("%s%d", "Fixing chamber: ", std::stoi(substr));
-      mAlign.FixChamber(std::stoi(substr));
+    TString chambersString = ic.options().get<string>("fix-chamber");
+    std::unique_ptr<TObjArray> objArray(chambersString.Tokenize(","));
+    if (objArray->GetEntries() > 0) {
+      for (int iVar = 0; iVar < objArray->GetEntries(); ++iVar) {
+        LOG(info) << Form("%s%d", "Fixing chamber: ", std::stoi(objArray->At(iVar)->GetName()));
+        mAlign.FixChamber(std::stoi(objArray->At(iVar)->GetName()));
+      }
+    }
+
+    // Fix DEs
+    TString DEString = ic.options().get<string>("fix-de");
+    TString MaskDEString = ic.options().get<string>("mask-fix-de");
+    std::unique_ptr<TObjArray> objArrayDE(DEString.Tokenize(","));
+    std::unique_ptr<TObjArray> objArrayMask(MaskDEString.Tokenize(","));
+    if (objArrayDE->GetEntries() > 0) {
+      if (objArrayDE->GetEntries() != objArrayMask->GetEntries()) {
+        LOG(fatal) << "Inconsistent size of DEs and Masks!";
+      }
+      for (int iVar = 0; iVar < objArrayDE->GetEntries(); ++iVar) {
+        LOG(info) << Form("%s%d%s%d", "Fixing DE: ", std::stoi(objArrayDE->At(iVar)->GetName()), " with mask: ", std::stoi(objArrayMask->At(iVar)->GetName()));
+        mAlign.FixDetElem(std::stoi(objArrayDE->At(iVar)->GetName()), std::stoi(objArrayMask->At(iVar)->GetName()));
+      }
     }
 
     doMatched = ic.options().get<bool>("matched");
@@ -360,21 +397,6 @@ class AlignmentTask
       for (int i = 0; i < 156; i++) {
         int iDEN = GetDetElemId(i);
         transformIdeal[iDEN] = transformation(iDEN);
-      }
-    }
-
-    // Load new geometry if we need to do re-align
-    if (doReAlign) {
-      if (NewGeoFileName != "") {
-        LOG(info) << "Loading re-alignment geometry";
-        base::GeometryManager::loadGeometry(NewGeoFileName.c_str());
-        transformation = geo::transformationFromTGeoManager(*gGeoManager);
-        for (int i = 0; i < 156; i++) {
-          int iDEN = GetDetElemId(i);
-          transformNew[iDEN] = transformation(iDEN);
-        }
-      } else {
-        LOG(fatal) << "No re-alignment geometry";
       }
     }
 
@@ -851,6 +873,7 @@ class AlignmentTask
   const string mchFileName{"mchtracks.root"};
   const string muonFileName{"muontracks.root"};
   string outFileName{"Alignment"};
+  string IdealGeoFileName{""};
   string RefGeoFileName{""};
   string NewGeoFileName{""};
   bool doAlign{false};
@@ -894,6 +917,7 @@ o2::framework::DataProcessorSpec getAlignmentSpec(bool disableCCDB)
     outputSpecs,
     AlgorithmSpec{o2::framework::adaptFromTask<AlignmentTask>(ccdbRequest)},
     Options{{"geo-file-ref", VariantType::String, o2::base::NameConf::getAlignedGeomFileName(), {"Name of the reference geometry file"}},
+            {"geo-file-new", VariantType::String, "", {"Name of the new geometry file"}},
             {"geo-file-ideal", VariantType::String, o2::base::NameConf::getGeomFileName(), {"Name of the ideal geometry file"}},
             {"grp-file", VariantType::String, o2::base::NameConf::getGRPFileName(), {"Name of the grp file"}},
             {"do-align", VariantType::Bool, false, {"Switch for alignment, otherwise only residuals will be stored"}},
@@ -902,6 +926,14 @@ o2::framework::DataProcessorSpec getAlignmentSpec(bool disableCCDB)
             {"matched", VariantType::Bool, false, {"Switch for using MCH-MID matched tracks"}},
             {"fix-chamber", VariantType::String, "", {"Chamber fixing, ex 1,2,3"}},
             {"use-record", VariantType::Bool, false, {"Option for directly using record in alignment if provided"}},
+            {"variation-x", VariantType::Float, 2.0, {"Allowed variation for x axis in cm"}},
+            {"variation-y", VariantType::Float, 0.3, {"Allowed variation for y axis in cm"}},
+            {"variation-phi", VariantType::Float, 0.002, {"Allowed variation for phi axis in rad"}},
+            {"variation-z", VariantType::Float, 2.0, {"Allowed variation for z axis in cm"}},
+            {"sigma-x", VariantType::Float, 1000.0, {"Sigma cut along X"}},
+            {"sigma-y", VariantType::Float, 1000.0, {"Sigma cut along Y"}},
+            {"fix-de", VariantType::String, "", {"DE fixing, ex 101,1019"}},
+            {"mask-fix-de", VariantType::String, "", {"Mask for DE d.o.f fixing, ex 0,2,4"}},
             {"output", VariantType::String, "Alignment", {"Option for name of output file"}}}};
 }
 

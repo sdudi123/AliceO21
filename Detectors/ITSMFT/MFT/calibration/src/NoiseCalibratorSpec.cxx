@@ -59,7 +59,7 @@ void NoiseCalibratorSpec::init(InitContext& ic)
   mPathDcs = ic.options().get<std::string>("path-DCS");
   mOutputType = ic.options().get<std::string>("send-to-server");
   mNoiseMapForDcs.clear();
-  api.init("http://alice-ccdb.cern.ch");
+  api.init(o2::base::NameConf::getCCDBServer());
 }
 
 void NoiseCalibratorSpec::run(ProcessingContext& pc)
@@ -83,6 +83,8 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
         sendOutputCcdbDcs(pc.outputs());
+        LOG(info) << "Sending an object to Production-CCDBMerge";
+        sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
     }
@@ -105,6 +107,8 @@ void NoiseCalibratorSpec::run(ProcessingContext& pc)
       } else {
         LOG(info) << "Sending an object to Production-CCDB and DCS-CCDB";
         sendOutputCcdbDcs(pc.outputs());
+        LOG(info) << "Sending an object to Production-CCDBMerge";
+        sendOutputCcdbMerge(pc.outputs());
       }
       pc.services().get<ControlService>().readyToQuit(mStopMeOnly ? QuitRequest::Me : QuitRequest::All);
     }

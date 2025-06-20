@@ -9,7 +9,7 @@
 // granted to it by virtue of its status as an Intergovernmental Organization
 // or submit itself to any jurisdiction.
 
-/// \file GPUReconstruction.cxx
+/// \file GPUReconstructionLibrary.cxx
 /// \author David Rohr
 
 #ifdef _WIN32
@@ -22,23 +22,19 @@
 #include <unistd.h>
 #endif
 
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
-
 #include "GPUReconstruction.h"
 #include "GPUReconstructionAvailableBackends.h"
+#include "GPUSettings.h"
 
 #include "utils/qlibload.h"
 
 #include "GPULogging.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 GPUReconstruction* GPUReconstruction::CreateInstance(DeviceType type, bool forceType, GPUReconstruction* master)
 {
   GPUSettingsDeviceBackend cfg;
-  new (&cfg) GPUSettingsDeviceBackend;
   cfg.deviceType = type;
   cfg.forceDeviceType = forceType;
   cfg.master = master;
@@ -103,12 +99,8 @@ std::shared_ptr<GPUReconstruction::LibraryLoader>* GPUReconstruction::GetLibrary
     return &sLibHIP;
 #endif
   } else if (type == DeviceType::OCL) {
-#ifdef OPENCL1_ENABLED
+#ifdef OPENCL_ENABLED
     return &sLibOCL;
-#endif
-  } else if (type == DeviceType::OCL2) {
-#ifdef OPENCL2_ENABLED
-    return &sLibOCL2;
 #endif
   } else {
     GPUError("Error: Invalid device type %u", (uint32_t)type);
@@ -133,7 +125,6 @@ GPUReconstruction* GPUReconstruction::CreateInstance(const char* type, bool forc
 std::shared_ptr<GPUReconstruction::LibraryLoader> GPUReconstruction::sLibCUDA(new GPUReconstruction::LibraryLoader("lib" LIBRARY_PREFIX "GPUTrackingCUDA" LIBRARY_EXTENSION, "GPUReconstruction_Create_CUDA"));
 std::shared_ptr<GPUReconstruction::LibraryLoader> GPUReconstruction::sLibHIP(new GPUReconstruction::LibraryLoader("lib" LIBRARY_PREFIX "GPUTrackingHIP" LIBRARY_EXTENSION, "GPUReconstruction_Create_HIP"));
 std::shared_ptr<GPUReconstruction::LibraryLoader> GPUReconstruction::sLibOCL(new GPUReconstruction::LibraryLoader("lib" LIBRARY_PREFIX "GPUTrackingOCL" LIBRARY_EXTENSION, "GPUReconstruction_Create_OCL"));
-std::shared_ptr<GPUReconstruction::LibraryLoader> GPUReconstruction::sLibOCL2(new GPUReconstruction::LibraryLoader("lib" LIBRARY_PREFIX "GPUTrackingOCL2" LIBRARY_EXTENSION, "GPUReconstruction_Create_OCL2"));
 
 GPUReconstruction::LibraryLoader::LibraryLoader(const char* lib, const char* func) : mLibName(lib), mFuncName(func), mGPULib(nullptr), mGPUEntry(nullptr) {}
 
@@ -192,4 +183,9 @@ int32_t GPUReconstruction::LibraryLoader::CloseLibrary()
   mGPULib = nullptr;
   mGPUEntry = nullptr;
   return 0;
+}
+
+std::string GPUReconstruction::getBackendVersions()
+{
+  return GPUCA_M_STR(GPUCA_COMPILER_VERSIONS);
 }

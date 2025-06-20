@@ -19,7 +19,7 @@
 #include "GPUGeneralKernels.h"
 #include "GPUConstantMem.h"
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 
 class GPUTPCGMMerger;
@@ -29,10 +29,10 @@ class GPUTPCGlobalDebugSortKernels : public GPUKernelTemplate
   enum K { defaultKernel = 0,
            clearIds = 0,
            sectorTracks = 1,
-           globalTracks1 = 2,
-           globalTracks2 = 3,
+           extrapolatedTracks1 = 2,
+           extrapolatedTracks2 = 3,
            borderTracks = 4 };
-  GPUhdi() CONSTEXPR static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCMerging; }
+  GPUhdi() constexpr static GPUDataTypes::RecoStep GetRecoStep() { return GPUDataTypes::RecoStep::TPCMerging; }
   typedef GPUTPCGMMerger processorType;
   GPUhdi() static processorType* Processor(GPUConstantMem& processors) { return &processors.tpcMerger; }
 
@@ -40,6 +40,6 @@ class GPUTPCGlobalDebugSortKernels : public GPUKernelTemplate
   GPUd() static void Thread(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUsharedref() GPUSharedMemory& smem, processorType& tracker, int8_t parameter);
 };
 
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif // GPUTPCGLOBALDEBUGSORTKERNELS_H

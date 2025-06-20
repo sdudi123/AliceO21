@@ -19,22 +19,9 @@
 #include "GPUProcessor.h"
 #include "GPUCommonMath.h"
 #include "GPUParam.h"
-
-#ifdef GPUCA_HAVE_O2HEADERS
 #include "DataFormatsTPC/CompressedClusters.h"
-#else
-namespace o2::tpc
-{
-struct CompressedClustersPtrs {
-};
-struct CompressedClusters {
-};
-struct CompressedClustersFlat {
-};
-} // namespace o2::tpc
-#endif
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUTPCGMMerger;
 
@@ -70,6 +57,10 @@ class GPUTPCCompression : public GPUProcessor
   GPUd() static void truncateSignificantBitsChargeMax(uint16_t& charge, const GPUParam& param) { truncateSignificantBits(charge, param.rec.tpc.sigBitsCharge, P_MAX_QMAX); }
   GPUd() static void truncateSignificantBitsWidth(uint8_t& width, const GPUParam& param) { truncateSignificantBits(width, param.rec.tpc.sigBitsWidth, P_MAX_SIGMA); }
 
+#ifndef GPUCA_GPUCODE
+  void DumpCompressedClusters(std::ostream& out);
+#endif
+
  protected:
   struct memory {
     uint32_t nStoredTracks = 0;
@@ -77,7 +68,7 @@ class GPUTPCCompression : public GPUProcessor
     uint32_t nStoredUnattachedClusters = 0;
   };
 
-  constexpr static uint32_t NSLICES = GPUCA_NSLICES;
+  constexpr static uint32_t NSECTORS = GPUCA_NSECTORS;
 
   o2::tpc::CompressedClustersPtrs mPtrs;
   o2::tpc::CompressedClusters* mOutput = nullptr;
@@ -125,6 +116,6 @@ GPUdi() void GPUTPCCompression::truncateSignificantBits(T& v, uint32_t nBits, ui
     v = val;
   }
 }
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

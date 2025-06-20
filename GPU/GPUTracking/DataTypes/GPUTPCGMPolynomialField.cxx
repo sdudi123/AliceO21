@@ -13,9 +13,9 @@
 /// \author Sergey Gorbunov, David Rohr
 
 #include "GPUTPCGMPolynomialField.h"
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
-#if defined(GPUCA_ALIROOT_LIB) & !defined(GPUCA_GPUCODE)
+#if !defined(GPUCA_GPUCODE)
 
 #include "GPUCommonConstants.h"
 #include <iostream>
@@ -29,9 +29,7 @@ void GPUTPCGMPolynomialField::Print() const
   const double kCLight = gpu_common_constants::kCLight;
   typedef std::numeric_limits<float> flt;
   cout << std::scientific;
-#if __cplusplus >= 201103L
   cout << std::setprecision(flt::max_digits10 + 2);
-#endif
   cout << " nominal field " << mNominalBz << " [kG * (2.99792458E-4 GeV/c/kG/cm)]"
        << " == " << mNominalBz / kCLight << " [kG]" << endl;
 

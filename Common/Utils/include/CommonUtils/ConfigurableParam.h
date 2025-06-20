@@ -162,7 +162,7 @@ class ConfigurableParam
   virtual std::string getName() const = 0;
 
   // print the current keys and values to screen (optionally with provenance information)
-  virtual void printKeyValues(bool showprov = true, bool useLogger = false) const = 0;
+  virtual void printKeyValues(bool showprov = true, bool useLogger = false, bool withPadding = false, bool showHash = false) const = 0;
 
   // get a single size_t hash_value of this parameter (can be used as a checksum to see
   // if object changed or different)
@@ -321,17 +321,19 @@ class ConfigurableParam
 } // end namespace o2
 
 // a helper macro for boilerplate code in parameter classes
-#define O2ParamDef(classname, key)               \
- public:                                         \
-  classname(TRootIOCtor*) {}                     \
-  classname(classname const&) = delete;          \
-                                                 \
- private:                                        \
-  static constexpr char const* const sKey = key; \
-  static classname sInstance;                    \
-  classname() = default;                         \
-  template <typename T>                          \
-  friend class o2::conf::ConfigurableParamHelper;
+#define O2ParamDef(classname, key)                \
+ public:                                          \
+  classname(TRootIOCtor*) {}                      \
+  classname(classname const&) = delete;           \
+                                                  \
+ private:                                         \
+  static constexpr char const* const sKey = key;  \
+  static classname sInstance;                     \
+  classname() = default;                          \
+  template <typename T>                           \
+  friend class o2::conf::ConfigurableParamHelper; \
+  template <typename T, typename P>               \
+  friend class o2::conf::ConfigurableParamPromoter;
 
 // a helper macro to implement necessary symbols in source
 #define O2ParamImpl(classname) classname classname::sInstance;

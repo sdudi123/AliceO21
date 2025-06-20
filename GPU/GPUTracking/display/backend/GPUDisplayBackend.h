@@ -28,7 +28,7 @@
 
 union hmm_mat4;
 
-namespace GPUCA_NAMESPACE::gpu
+namespace o2::gpu
 {
 class GPUDisplay;
 class GPUDisplayFrontend;
@@ -113,7 +113,7 @@ class GPUDisplayBackend
   bool smoothFont();
 
   GPUDisplay* mDisplay = nullptr;
-  std::vector<int32_t> mIndirectSliceOffset;
+  std::vector<int32_t> mIndirectSectorOffset;
   vecpod<DrawArraysIndirectCommand> mCmdBuffer;
   bool mFreetypeInitialized = false;
   bool mFrontendCompatTextDraw = false;
@@ -131,6 +131,6 @@ class GPUDisplayBackend
 
   std::unique_ptr<GPUDisplayMagneticField> mMagneticFieldVisualization;
 };
-} // namespace GPUCA_NAMESPACE::gpu
+} // namespace o2::gpu
 
 #endif

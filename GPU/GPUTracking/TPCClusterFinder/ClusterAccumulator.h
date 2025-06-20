@@ -17,8 +17,9 @@
 
 #include "clusterFinderDefs.h"
 #include "PackedCharge.h"
+#include "CfArray2D.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 
 namespace tpc
@@ -29,9 +30,9 @@ struct ClusterNative;
 namespace gpu
 {
 
-struct ChargePos;
-class GPUTPCGeometry;
+struct CfChargePos;
 struct GPUParam;
+class GPUTPCGeometry;
 
 class ClusterAccumulator
 {
@@ -40,8 +41,19 @@ class ClusterAccumulator
   GPUd() tpccf::Charge updateInner(PackedCharge, tpccf::Delta2);
   GPUd() tpccf::Charge updateOuter(PackedCharge, tpccf::Delta2);
 
-  GPUd() void finalize(const ChargePos&, tpccf::Charge, tpccf::TPCTime, const GPUTPCGeometry&);
-  GPUd() bool toNative(const ChargePos&, tpccf::Charge, tpc::ClusterNative&, const GPUParam&) const;
+  GPUd() void setFull(float qtot, float padMean, float padSigma, float timeMean, float timeSigma, uint8_t splitInPad, uint8_t splitInTime)
+  {
+    mQtot = qtot;
+    mPadMean = padMean;
+    mPadSigma = padSigma;
+    mTimeMean = timeMean;
+    mTimeSigma = timeSigma;
+    mSplitInPad = splitInPad;
+    mSplitInTime = splitInTime;
+  }
+
+  GPUd() void finalize(const CfChargePos&, const tpccf::Charge, tpccf::TPCTime);
+  GPUd() bool toNative(const CfChargePos&, const tpccf::Charge, tpc::ClusterNative&, const GPUParam&, const CfArray2D<PackedCharge>&);
 
  private:
   float mQtot = 0;
@@ -56,6 +68,6 @@ class ClusterAccumulator
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

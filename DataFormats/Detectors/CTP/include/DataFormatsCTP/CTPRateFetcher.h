@@ -14,14 +14,16 @@
 
 #include <string>
 
-#include "CCDB/BasicCCDBManager.h"
 #include "DataFormatsParameters/GRPLHCIFData.h"
 #include "DataFormatsCTP/Configuration.h"
 #include "DataFormatsCTP/Scalers.h"
 
-namespace o2
+namespace o2::ccdb
 {
-namespace ctp
+class BasicCCDBManager;
+}
+
+namespace o2::ctp
 {
 
 class CTPRateFetcher
@@ -32,21 +34,29 @@ class CTPRateFetcher
   double fetchNoPuCorr(o2::ccdb::BasicCCDBManager* ccdb, uint64_t timeStamp, int runNumber, const std::string sourceName);
   void setupRun(int runNumber, o2::ccdb::BasicCCDBManager* ccdb, uint64_t timeStamp, bool initScalers);
   void updateScalers(ctp::CTPRunScalers& scalers);
+  int getRates(std::array<double, 3>& rates, o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName); // rates at start,stop and middle of the run
+  double getLumi(o2::ccdb::BasicCCDBManager* ccdb, int runNumber, const std::string sourceName, int puCorr = 0);             // total lumi for a run
+  double getLumiNoPuCorr(const std::string& classname, int type = 1);
+  double getLumiWPuCorr(const std::string& classname, int type = 1);
+  void setOrbit(bool orb) { mOrbit = orb; }               // use orbit instead of time
+  void setOutsideLimits(bool qc) { mOutsideLimits = qc; } // return first/last rate of time outside of run
 
  private:
   double fetchCTPratesInputs(uint64_t timeStamp, int input);
   double fetchCTPratesClasses(uint64_t timeStamp, const std::string& className, int inputType = 1);
   double fetchCTPratesInputsNoPuCorr(uint64_t timeStamp, int input);
   double fetchCTPratesClassesNoPuCorr(uint64_t timeStamp, const std::string& className, int inputType = 1);
-
+  double getLumi(const std::string& classname, int type = 1, int puCorr = 0);
   double pileUpCorrection(double rate);
   int mRunNumber = -1;
+  bool mOutsideLimits = 0;
+  bool mOrbit = 0;
   o2::ctp::CTPConfiguration mConfig{};
   o2::ctp::CTPRunScalers mScalers{};
   o2::parameters::GRPLHCIFData mLHCIFdata{};
   ClassDefNV(CTPRateFetcher, 1);
 };
-} // namespace ctp
-} // namespace o2
+} // namespace o2::ctp
+
 
 #endif // COMMON_CCDB_CTPRATEFETCHER_H_

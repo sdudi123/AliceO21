@@ -19,6 +19,7 @@
 #include "ITStracking/TrackerTraits.h"
 #include "ITStracking/Vertexer.h"
 #include "ITStracking/VertexerTraits.h"
+#include "ITStracking/BoundedAllocator.h"
 #include "DataFormatsParameters/GRPObject.h"
 #include "DataFormatsITSMFT/TopologyDictionary.h"
 #include "DataFormatsCalibration/MeanVertexObject.h"
@@ -31,15 +32,17 @@ namespace o2::its
 {
 class ITSTrackingInterface
 {
+  static constexpr int NLayers{7};
+  using TrackerTraits7 = TrackerTraits<NLayers>;
+  using TimeFrame7 = TimeFrame<NLayers>;
+
  public:
   ITSTrackingInterface(bool isMC,
                        int trgType,
                        const bool overrBeamEst)
     : mIsMC{isMC},
       mUseTriggers{trgType},
-      mOverrideBeamEstimation{overrBeamEst}
-  {
-  }
+      mOverrideBeamEstimation{overrBeamEst} {}
 
   void setClusterDictionary(const o2::itsmft::TopologyDictionary* d) { mDict = d; }
   void setMeanVertex(const o2::dataformats::MeanVertexObject* v)
@@ -54,14 +57,14 @@ class ITSTrackingInterface
   }
   // Task callbacks
   void initialise();
-  template <bool isGPU = false>
   void run(framework::ProcessingContext& pc);
+  void printSummary() const;
 
   virtual void updateTimeDependentParams(framework::ProcessingContext& pc);
   virtual void finaliseCCDB(framework::ConcreteDataMatcher& matcher, void* obj);
 
   // Custom
-  void setTraitsFromProvider(VertexerTraits*, TrackerTraits*, TimeFrame*);
+  void setTraitsFromProvider(VertexerTraits*, TrackerTraits7*, TimeFrame7*);
   void setTrackingMode(TrackingMode mode = TrackingMode::Unset)
   {
     if (mode == TrackingMode::Unset) {
@@ -70,7 +73,10 @@ class ITSTrackingInterface
     mMode = mode;
   }
 
-  TimeFrame* mTimeFrame = nullptr;
+  auto getTracker() const { return mTracker.get(); }
+  auto getVertexer() const { return mVertexer.get(); }
+
+  TimeFrame7* mTimeFrame = nullptr;
 
  protected:
   virtual void loadROF(gsl::span<itsmft::ROFRecord>& trackROFspan,
@@ -90,6 +96,7 @@ class ITSTrackingInterface
   std::unique_ptr<Tracker> mTracker = nullptr;
   std::unique_ptr<Vertexer> mVertexer = nullptr;
   const o2::dataformats::MeanVertexObject* mMeanVertex;
+  std::shared_ptr<BoundedMemoryResource> mMemoryPool;
 };
 
 } // namespace o2::its

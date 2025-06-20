@@ -49,8 +49,18 @@ void ITSTPCMatchingQCDevice::init(InitContext& /*ic*/)
   mMatchITSTPCQC->setPtCut(params.minPtCut);
   mMatchITSTPCQC->setMaxPtCut(params.maxPtCut);
   mMatchITSTPCQC->setEtaCut(params.etaCut);
+  mMatchITSTPCQC->setEtaNo0Cut(params.etaNo0Cut);
   mMatchITSTPCQC->setCutK0Mass(params.cutK0Mass);
   mMatchITSTPCQC->setMaxK0Eta(params.maxEtaK0);
+  mMatchITSTPCQC->setK0Scaling(params.K0Scaling);
+  mMatchITSTPCQC->setMinTPCOccpp(params.minTPCOccpp);
+  mMatchITSTPCQC->setMaxTPCOccpp(params.maxTPCOccpp);
+  mMatchITSTPCQC->setNBinsTPCOccpp(params.nBinsTPCOccpp);
+  mMatchITSTPCQC->setMinTPCOccPbPb(params.minTPCOccPbPb);
+  mMatchITSTPCQC->setMaxTPCOccPbPb(params.maxTPCOccPbPb);
+  mMatchITSTPCQC->setNBinsTPCOccPbPb(params.nBinsTPCOccPbPb);
+  mMatchITSTPCQC->setK0MaxDCA(params.maxK0DCA);
+  mMatchITSTPCQC->setK0MinCosPA(params.minK0CosPA);
   o2::base::GRPGeomHelper::instance().setRequest(mCCDBRequest);
   if (mUseMC) {
     mMatchITSTPCQC->setUseMC(mUseMC);
@@ -127,10 +137,11 @@ DataProcessorSpec getITSTPCMatchingQCDevice(bool useMC, bool doK0QC, std::string
   if (doK0QC) {
     dataRequest->requestPrimaryVertices(useMC);
     dataRequest->requestSecondaryVertices(useMC);
+    dataRequest->requestTPCClusters(false);
   }
   auto ccdbRequest = std::make_shared<o2::base::GRPGeomRequest>(false,                          // orbitResetTime
-                                                                false,                          // GRPECS=true
-                                                                false,                          // GRPLHCIF
+                                                                true,                           // GRPECS=true
+                                                                true,                           // GRPLHCIF
                                                                 true,                           // GRPMagField
                                                                 false,                          // askMatLUT
                                                                 o2::base::GRPGeomRequest::None, // geometry

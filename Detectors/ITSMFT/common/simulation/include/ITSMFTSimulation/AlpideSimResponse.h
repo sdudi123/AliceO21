@@ -38,7 +38,7 @@ class AlpideRespSimMat
   static int constexpr getNPix() { return NPix; }
 
   AlpideRespSimMat() = default;
-  ~AlpideRespSimMat() = default;
+  virtual ~AlpideRespSimMat() = default;
 
   void adopt(const AlpideRespSimMat& src, bool flipRow = false, bool flipCol = false)
   {
@@ -69,7 +69,7 @@ class AlpideRespSimMat
  private:
   std::array<float, MatSize> data;
 
-  ClassDefNV(AlpideRespSimMat, 1);
+  ClassDef(AlpideRespSimMat, 1);
 };
 
 /*
@@ -91,6 +91,7 @@ class AlpideSimResponse
   int getDepthBin(float pos) const;
   std::string composeDataName(int colBin, int rowBin);
 
+ protected:
   int mNBinCol = 0;                                   /// number of bins in X(col direction)
   int mNBinRow = 0;                                   /// number of bins in Y(row direction)
   int mNBinDpt = 0;                                   /// number of bins in Z(sensor dept)
@@ -113,7 +114,7 @@ class AlpideSimResponse
 
  public:
   AlpideSimResponse() = default;
-  ~AlpideSimResponse() = default;
+  virtual ~AlpideSimResponse() = default;
 
   void initData(int tableNumber, std::string dataPath, const bool quiet = true);
 
@@ -132,6 +133,8 @@ class AlpideSimResponse
   float getStepCol() const { return mStepInvCol ? 1. / mStepInvCol : 0.f; }
   float getStepRow() const { return mStepInvRow ? 1. / mStepInvRow : 0.f; }
   float getStepDepth() const { return mStepInvDpt ? 1. / mStepInvDpt : 0.f; }
+  void setColMax(float v) noexcept { mColMax = v; }
+  void setRowMax(float v) noexcept { mRowMax = v; }
   void setDataPath(const std::string pth) { mDataPath = pth; }
   void setGridColName(const std::string nm) { mGridColName = nm; }
   void setGridRowName(const std::string nm) { mGridRowName = nm; }
@@ -142,7 +145,7 @@ class AlpideSimResponse
   const std::string& getColRowDataFmt() const { return mColRowDataFmt; }
   void print() const;
 
-  ClassDefNV(AlpideSimResponse, 1);
+  ClassDef(AlpideSimResponse, 2);
 };
 
 //-----------------------------------------------------

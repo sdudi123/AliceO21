@@ -63,6 +63,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
     mIntervalsSACs = ic.options().get<int>("intervalsSACs");
     mLengthIDCScalerSeconds = ic.options().get<float>("tpcScalerLengthS");
     mDisableScaler = ic.options().get<bool>("disable-scaler");
+    mEnableFFTCCDB = ic.options().get<bool>("enable-fft-CCDB");
     resizeBuffer(mInputLanes);
   }
 
@@ -74,7 +75,12 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
       return;
     }
 
-    mCCDBBuffer[lane] = pc.inputs().get<std::vector<long>>("tsccdb");
+    const auto tsTmp = pc.inputs().get<std::vector<long>>("tsccdb");
+    if (tsTmp.front() == 0) {
+      LOGP(warning, "Received dummy data with empty timestamp");
+      return;
+    }
+    mCCDBBuffer[lane] = tsTmp;
     if (mProcessedTimeStamp > mCCDBBuffer[lane].front()) {
       LOGP(warning, "Already received data from a later time stamp {} then the currently received time stamp {}! (This might not be an issue)", mProcessedTimeStamp, mCCDBBuffer[lane].front());
     } else {
@@ -168,11 +174,13 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
           mIDCFourierTransform[side].calcFourierCoefficients(mIntervalsBuffer[mExpectedInputLane].size());
 
           if (!mProcessSACs) {
-            o2::ccdb::CcdbObjectInfo ccdbInfo(CDBTypeMap.at(((side == 0) ? CDBType::CalIDCFourierA : CDBType::CalIDCFourierC)), std::string{}, std::string{}, std::map<std::string, std::string>{}, mCCDBBuffer[mExpectedInputLane].front(), mCCDBBuffer[mExpectedInputLane].back());
-            auto imageFFT = o2::ccdb::CcdbApi::createObjectImage(&mIDCFourierTransform[side].getFourierCoefficients(), &ccdbInfo);
-            LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfo.getPath(), ccdbInfo.getFileName(), imageFFT->size(), ccdbInfo.getStartValidityTimestamp(), ccdbInfo.getEndValidityTimestamp());
-            pc.outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, getDataDescriptionCCDBFourier(), 0}, *imageFFT.get());
-            pc.outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, getDataDescriptionCCDBFourier(), 0}, ccdbInfo);
+            if (mEnableFFTCCDB) {
+              o2::ccdb::CcdbObjectInfo ccdbInfo(CDBTypeMap.at(((side == 0) ? CDBType::CalIDCFourierA : CDBType::CalIDCFourierC)), std::string{}, std::string{}, std::map<std::string, std::string>{}, mCCDBBuffer[mExpectedInputLane].front(), mCCDBBuffer[mExpectedInputLane].back());
+              auto imageFFT = o2::ccdb::CcdbApi::createObjectImage(&mIDCFourierTransform[side].getFourierCoefficients(), &ccdbInfo);
+              LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfo.getPath(), ccdbInfo.getFileName(), imageFFT->size(), ccdbInfo.getStartValidityTimestamp(), ccdbInfo.getEndValidityTimestamp());
+              pc.outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBPayload, getDataDescriptionCCDBFourier(), 0}, *imageFFT.get());
+              pc.outputs().snapshot(Output{o2::calibration::Utils::gDataOriginCDBWrapper, getDataDescriptionCCDBFourier(), 0}, ccdbInfo);
+            }
           } else {
             coeffSAC.mCoeff[side] = mIDCFourierTransform[side].getFourierCoefficients();
           }
@@ -187,7 +195,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
           }
         }
 
-        if (mProcessSACs) {
+        if (mProcessSACs && mEnableFFTCCDB) {
           o2::ccdb::CcdbObjectInfo ccdbInfo(CDBTypeMap.at(CDBType::CalSACFourier), std::string{}, std::string{}, std::map<std::string, std::string>{}, mCCDBBuffer[mExpectedInputLane].front(), mCCDBBuffer[mExpectedInputLane].back());
           auto imageFFT = o2::ccdb::CcdbApi::createObjectImage(&coeffSAC, &ccdbInfo);
           LOGP(info, "Sending object {} / {} of size {} bytes, valid for {} : {} ", ccdbInfo.getPath(), ccdbInfo.getFileName(), imageFFT->size(), ccdbInfo.getStartValidityTimestamp(), ccdbInfo.getEndValidityTimestamp());
@@ -228,6 +236,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
   long mIDCSCalerEndTSLast = 0;                                    ///< end time stamp of last TPC IDC scaler object to ensure no gapps
   o2::tpc::TPCScaler mScalerLast;                                  ///< buffer last scaler to easily add internal overlap for the beginning
   bool mDisableScaler{false};                                      ///< disable the creation of TPC IDC scalers
+  bool mEnableFFTCCDB{false};                                      ///< write FFT coefficients to CCDB
   int mRun{};
   const std::array<std::vector<InputSpec>, 2> mFilter = {std::vector<InputSpec>{{"idcone", ConcreteDataTypeMatcher{o2::header::gDataOriginTPC, TPCFactorizeIDCSpec::getDataDescriptionIDC1()}, Lifetime::Sporadic}},
                                                          std::vector<InputSpec>{{"sacone", ConcreteDataTypeMatcher{o2::header::gDataOriginTPC, TPCFactorizeSACSpec::getDataDescriptionSAC1()}, Lifetime::Sporadic}}}; ///< filter for looping over input data
@@ -248,6 +257,11 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
   void makeTPCScaler(DataAllocator& output, const bool eos)
   {
     LOGP(info, "Making TPC scalers");
+    if (mTPCScalerCont.idcs.empty()) {
+      LOGP(warning, "No IDCs received for TPC scaler creation");
+      return;
+    }
+
     // check if IDC scalers can be created - check length of continous received IDCs
     std::vector<std::pair<long, long>> times;
     times.reserve(mTPCScalerCont.idcs.size());
@@ -289,6 +303,7 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
     if (eos) {
       // in case of eos write out everything
       lastValidIdx = times.empty() ? -1 : times.size() - 1;
+      LOGP(info, "End of stream detected: Creating IDC scalers with {} IDC objects", lastValidIdx);
     }
 
     // create IDC scaler in case index is valid
@@ -342,7 +357,13 @@ class TPCFourierTransformAggregatorSpec : public o2::framework::Task
               const float deltaTime = times[i + 1].first - time.second;
               // if delta time is too large add dummy values
               if (deltaTime > (timesDuration / checkGapp)) {
-                const int nDummyValues = deltaTime / idcIntegrationTime + 0.5;
+                int nDummyValues = deltaTime / idcIntegrationTime + 0.5;
+                // restrict dummy values
+                const int nMaxDummyValues = checkGapp * timesDuration / idcIntegrationTime;
+                if (nDummyValues > nMaxDummyValues) {
+                  nDummyValues = nMaxDummyValues;
+                }
+
                 // add dummy to A
                 if (idc.idc1[0].size() > 0) {
                   float meanA = std::reduce(idc.idc1[0].begin(), idc.idc1[0].end()) / static_cast<float>(idc.idc1[0].size());
@@ -426,7 +447,8 @@ DataProcessorSpec getTPCFourierTransformAggregatorSpec(const unsigned int rangeI
     Options{{"intervalsSACs", VariantType::Int, 11, {"Number of integration intervals which will be sampled for the fourier coefficients"}},
             {"dump-coefficients-agg", VariantType::Bool, false, {"Dump fourier coefficients to file"}},
             {"tpcScalerLengthS", VariantType::Float, 300.f, {"Length of the TPC scalers in seconds"}},
-            {"disable-scaler", VariantType::Bool, false, {"Disable creation of IDC scaler"}}}};
+            {"disable-scaler", VariantType::Bool, false, {"Disable creation of IDC scaler"}},
+            {"enable-fft-CCDB", VariantType::Bool, false, {"Enable writing of FFT coefficients to CCDB"}}}};
 }
 
 } // namespace o2::tpc

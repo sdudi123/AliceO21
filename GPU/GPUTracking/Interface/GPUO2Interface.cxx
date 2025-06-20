@@ -15,6 +15,7 @@
 #include "GPUO2Interface.h"
 #include "GPUReconstruction.h"
 #include "GPUChainTracking.h"
+#include "GPUChainTrackingGetters.inc"
 #include "GPUChainITS.h"
 #include "GPUMemorySizeScalers.h"
 #include "GPUOutputControl.h"
@@ -23,6 +24,7 @@
 #include "GPUParam.inc"
 #include "GPUQA.h"
 #include "GPUOutputControl.h"
+#include "DetectorsBase/Propagator.h"
 #include <iostream>
 #include <fstream>
 #include <thread>
@@ -46,7 +48,7 @@ struct GPUO2Interface_Internals {
 };
 } // namespace o2::gpu
 
-GPUO2Interface::GPUO2Interface() : mInternals(new GPUO2Interface_Internals){};
+GPUO2Interface::GPUO2Interface() : mInternals(new GPUO2Interface_Internals) {};
 
 GPUO2Interface::~GPUO2Interface() { Deinitialize(); }
 
@@ -108,7 +110,7 @@ int32_t GPUO2Interface::Initialize(const GPUO2InterfaceConfiguration& config)
       return (1);
     }
     if (!mCtx[i].mRec->IsGPU() && mCtx[i].mRec->GetProcessingSettings().memoryAllocationStrategy == GPUMemoryResource::ALLOCATION_INDIVIDUAL) {
-      mCtx[i].mRec->MemoryScalers()->factor *= 2;
+      mCtx[i].mRec->MemoryScalers()->scalingFactor *= 2;
     }
   }
   if (mConfig->configProcessing.doublePipeline) {
@@ -249,7 +251,7 @@ void GPUO2Interface::setErrorCodeOutput(std::vector<std::array<uint32_t, 4>>* v)
   }
 }
 
-void GPUO2Interface::GetITSTraits(o2::its::TrackerTraits*& trackerTraits, o2::its::VertexerTraits*& vertexerTraits, o2::its::TimeFrame*& timeFrame)
+void GPUO2Interface::GetITSTraits(o2::its::TrackerTraits<7>*& trackerTraits, o2::its::VertexerTraits*& vertexerTraits, o2::its::TimeFrame<7>*& timeFrame)
 {
   trackerTraits = mChainITS->GetITSTrackerTraits();
   vertexerTraits = mChainITS->GetITSVertexerTraits();

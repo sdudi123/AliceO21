@@ -20,7 +20,7 @@
 #include "GPUCommonDef.h"
 #include <vector>
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -41,7 +41,7 @@ class ChebyshevFit1D
     reset(order, xMin, xMax);
   }
 
-  ~ChebyshevFit1D() CON_DEFAULT;
+  ~ChebyshevFit1D() = default;
 
   void reset(int32_t order, double xMin, double xMax);
 
@@ -106,6 +106,6 @@ inline double ChebyshevFit1D::eval(double x)
 }
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

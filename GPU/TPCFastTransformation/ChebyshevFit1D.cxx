@@ -20,7 +20,7 @@
 #include "GPUCommonLogger.h"
 #include <cmath>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 void ChebyshevFit1D::reset(int32_t order, double xMin, double xMax)
 {
@@ -71,7 +71,7 @@ void ChebyshevFit1D::fit()
       mA[i * mN + j] = mA[j * mN + i];
     }
   }
-  //print();
+  // print();
   {
     double* Ai = mA.data();
     for (int32_t i = 0; i < mN; i++, Ai += mN) {
@@ -88,7 +88,7 @@ void ChebyshevFit1D::fit()
         }
         mB[j] -= c * mB[i];
       }
-      //print();
+      // print();
     }
   }
   {

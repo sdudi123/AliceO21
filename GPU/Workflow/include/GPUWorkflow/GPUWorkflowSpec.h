@@ -58,6 +58,7 @@ class GeometryFlat;
 
 namespace its
 {
+template <int>
 class TimeFrame;
 class ITSTrackingInterface;
 } // namespace its
@@ -83,6 +84,7 @@ class GPUO2Interface;
 struct TPCPadGainCalib;
 struct TPCZSLinkMapping;
 struct GPUSettingsO2;
+struct GPUSettingsProcessingNNclusterizer;
 class GPUO2InterfaceQA;
 struct GPUTrackingInOutPointers;
 struct GPUTrackingInOutZS;
@@ -107,6 +109,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
     bool enableCTPLumi = false;
     int32_t enableDoublePipeline = 0;
     int32_t tpcDeadMapSources = -1;
+    bool tpcUseMCTimeGain = false; // use time gain calibration for MC (true) or from data (false)
     bool decompressTPC = false;
     bool decompressTPCFromROOT = false;
     bool caClusterer = false;
@@ -129,6 +132,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
     bool runITSTracking = false;
     bool itsOverrBeamEst = false;
     bool tpcTriggerHandling = false;
+    bool isITS3 = false;
   };
 
   GPURecoWorkflowSpec(CompletionPolicyData* policyData, Config const& specconfig, std::vector<int32_t> const& tpcsectors, uint64_t tpcSectorMask, std::shared_ptr<o2::base::GRPGeomRequest>& ggr, std::function<bool(o2::framework::DataProcessingHeader::StartTime)>** gPolicyOrder = nullptr);
@@ -211,7 +215,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   std::vector<int32_t> mTPCSectors;
   std::unique_ptr<o2::its::ITSTrackingInterface> mITSTrackingInterface;
   std::unique_ptr<gpurecoworkflow_internals::GPURecoWorkflowSpec_PipelineInternals> mPipeline;
-  o2::its::TimeFrame* mITSTimeFrame = nullptr;
+  o2::its::TimeFrame<7>* mITSTimeFrame = nullptr;
   std::vector<fair::mq::RegionInfo> mRegionInfos;
   const o2::itsmft::TopologyDictionary* mITSDict = nullptr;
   const o2::dataformats::MeanVertexObject* mMeanVertex;
@@ -223,6 +227,8 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   uint32_t mNextThreadIndex = 0;
   bool mUpdateGainMapCCDB = true;
   std::unique_ptr<o2::gpu::GPUSettingsTF> mTFSettings;
+  std::unique_ptr<o2::gpu::GPUSettingsProcessingNNclusterizer> mNNClusterizerSettings;
+
   Config mSpecConfig;
   std::shared_ptr<o2::base::GRPGeomRequest> mGGR;
   bool mGRPGeomUpdated = false;
@@ -232,6 +238,7 @@ class GPURecoWorkflowSpec : public o2::framework::Task
   bool mITSGeometryCreated = false;
   bool mTRDGeometryCreated = false;
   bool mPropagatorInstanceCreated = false;
+  int32_t mTPCCutAtTimeBin = -1;
 };
 
 } // end namespace gpu

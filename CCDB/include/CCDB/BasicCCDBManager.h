@@ -194,7 +194,7 @@ class CCDBManagerInstance
   /// On error it fatals (if fatal == true) or else returns the pair -1, -1.
   std::pair<int64_t, int64_t> getRunDuration(int runnumber, bool fatal = true);
   static std::pair<int64_t, int64_t> getRunDuration(o2::ccdb::CcdbApi const& api, int runnumber, bool fatal = true);
-
+  static std::pair<int64_t, int64_t> getRunDuration(const MD& headers);
   std::string getSummaryString() const;
 
   size_t getFetchedSize() const { return mFetchedSize; }
@@ -330,10 +330,10 @@ T* CCDBManagerInstance::getForRun(std::string const& path, int runNumber, bool s
 template <typename T>
 T* CCDBManagerInstance::getSpecificForRun(std::string const& path, int runNumber, MD metaData)
 {
-  auto [start, stop] = getRunDuration(runNumber);
+  auto [start, stop] = getRunDuration(runNumber, mFatalWhenNull);
   if (start < 0 || stop < 0) {
     if (mFatalWhenNull) {
-      reportFatal(std::string("Failed to get run duration for run ") + std::to_string(runNumber));
+      reportFatal(std::string("Failed to get run duration for run ") + std::to_string(runNumber) + std::string(" from CCDB"));
     }
     return nullptr;
   }

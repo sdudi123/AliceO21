@@ -23,7 +23,7 @@
 #include "GPUCommonDef.h"
 #include "TPCFastTransform.h"
 
-namespace GPUCA_NAMESPACE
+namespace o2
 {
 namespace gpu
 {
@@ -57,15 +57,15 @@ class CorrectionMapsHelper
     mCorrMap->InverseTransformYZtoNominalYZ(slice, row, y, z, ny, nz, mCorrMapRef, mCorrMapMShape, (mScaleInverse ? mLumiScale : 0), (mScaleInverse ? 1 : 0), mLumiScaleMode);
   }
 
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMap() const { return mCorrMap; }
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMapRef() const { return mCorrMapRef; }
-  GPUd() const GPUCA_NAMESPACE::gpu::TPCFastTransform* getCorrMapMShape() const { return mCorrMapMShape; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMap() const { return mCorrMap; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMapRef() const { return mCorrMapRef; }
+  GPUd() const o2::gpu::TPCFastTransform* getCorrMapMShape() const { return mCorrMapMShape; }
 
   bool getOwner() const { return mOwner; }
 
-  void setCorrMap(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
-  void setCorrMapRef(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
-  void setCorrMapMShape(GPUCA_NAMESPACE::gpu::TPCFastTransform* m);
+  void setCorrMap(o2::gpu::TPCFastTransform* m);
+  void setCorrMapRef(o2::gpu::TPCFastTransform* m);
+  void setCorrMapMShape(o2::gpu::TPCFastTransform* m);
   void reportScaling();
   void setInstLumiCTP(float v)
   {
@@ -90,10 +90,11 @@ class CorrectionMapsHelper
     }
   }
 
-  void setMeanLumiRef(float v)
+  void setMeanLumiRef(float v, bool report = false)
   {
-    if (v != mMeanLumi) {
+    if (v != mMeanLumiRef) {
       mMeanLumiRef = v;
+      updateLumiScale(report);
     }
   }
 
@@ -123,10 +124,10 @@ class CorrectionMapsHelper
   void setUpdatedMapMShape() { mUpdatedFlags |= UpdateFlags::MapMShapeBit; }
   void setUpdatedLumi() { mUpdatedFlags |= UpdateFlags::LumiBit; }
 
-#if !defined(GPUCA_GPUCODE_DEVICE) && defined(GPUCA_NOCOMPAT)
-  void setCorrMap(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
-  void setCorrMapRef(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
-  void setCorrMapMShape(std::unique_ptr<GPUCA_NAMESPACE::gpu::TPCFastTransform>&& m);
+#if !defined(GPUCA_GPUCODE_DEVICE)
+  void setCorrMap(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
+  void setCorrMapRef(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
+  void setCorrMapMShape(std::unique_ptr<o2::gpu::TPCFastTransform>&& m);
 #endif
   void setOwner(bool v);
   void acknowledgeUpdate() { mUpdatedFlags = 0; }
@@ -164,31 +165,29 @@ class CorrectionMapsHelper
                      MapRefBit = 0x2,
                      LumiBit = 0x4,
                      MapMShapeBit = 0x10 };
-  bool mOwner = false; // is content of pointers owned by the helper
+  bool mOwner = false;            // is content of pointers owned by the helper
   bool mLumiCTPAvailable = false; // is CTP Lumi available
   // these 2 are global options, must be set by the workflow global options
   int32_t mLumiScaleType = -1; // use CTP Lumi (1) or TPCScaler (2) for the correction scaling, 0 - no scaling
   int32_t mLumiScaleMode = -1; // scaling-mode of the correciton maps
   int32_t mUpdatedFlags = 0;
-  float mInstLumiCTP = 0.;                                         // instanteneous luminosity from CTP (a.u)
-  float mInstLumi = 0.;                                            // instanteneous luminosity (a.u) used for TPC corrections scaling
-  float mMeanLumi = 0.;                                            // mean luminosity of the map (a.u) used for TPC corrections scaling
-  float mMeanLumiRef = 0.;                                         // mean luminosity of the ref map (a.u) used for TPC corrections scaling reference
-  float mLumiScale = 0.;                                           // precalculated mInstLumi/mMeanLumi
-  float mMeanLumiOverride = -1.f;                                  // optional value to override mean lumi
-  float mMeanLumiRefOverride = -1.f;                               // optional value to override ref mean lumi
-  float mInstCTPLumiOverride = -1.f;                               // optional value to override inst lumi from CTP
-  bool mEnableMShape = false;                                      ///< use v shape correction
-  bool mScaleInverse{false};                                       // if set to false the inverse correction is already scaled and will not scaled again
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMap{nullptr};       // current transform
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMapRef{nullptr};    // reference transform
-  GPUCA_NAMESPACE::gpu::TPCFastTransform* mCorrMapMShape{nullptr}; // correction map for v-shape distortions on A-side
-#ifndef GPUCA_ALIROOT_LIB
+  float mInstLumiCTP = 0.;                            // instanteneous luminosity from CTP (a.u)
+  float mInstLumi = 0.;                               // instanteneous luminosity (a.u) used for TPC corrections scaling
+  float mMeanLumi = 0.;                               // mean luminosity of the map (a.u) used for TPC corrections scaling
+  float mMeanLumiRef = 0.;                            // mean luminosity of the ref map (a.u) used for TPC corrections scaling reference
+  float mLumiScale = 0.;                              // precalculated mInstLumi/mMeanLumi
+  float mMeanLumiOverride = -1.f;                     // optional value to override mean lumi
+  float mMeanLumiRefOverride = -1.f;                  // optional value to override ref mean lumi
+  float mInstCTPLumiOverride = -1.f;                  // optional value to override inst lumi from CTP
+  bool mEnableMShape = false;                         ///< use v shape correction
+  bool mScaleInverse{false};                          // if set to false the inverse correction is already scaled and will not scaled again
+  o2::gpu::TPCFastTransform* mCorrMap{nullptr};       // current transform
+  o2::gpu::TPCFastTransform* mCorrMapRef{nullptr};    // reference transform
+  o2::gpu::TPCFastTransform* mCorrMapMShape{nullptr}; // correction map for v-shape distortions on A-side
   ClassDefNV(CorrectionMapsHelper, 6);
-#endif
 };
 
 } // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2
 
 #endif

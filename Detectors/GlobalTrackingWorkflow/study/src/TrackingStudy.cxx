@@ -33,6 +33,7 @@
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "GlobalTrackingStudy/TrackingStudy.h"
 #include "GlobalTrackingStudy/TrackInfoExt.h"
+#include "GlobalTrackingStudy/TrackMCStudyTypes.h"
 #include "TPCBase/ParameterElectronics.h"
 #include "ReconstructionDataFormats/PrimaryVertex.h"
 #include "ReconstructionDataFormats/PrimaryVertexExt.h"
@@ -46,8 +47,10 @@
 #include "GPUO2Interface.h" // Needed for propper settings in GPUParam.h
 #include "GPUParam.h"
 #include "GPUParam.inc"
+#include "GPUTPCGeometry.h"
 #include "Steer/MCKinematicsReader.h"
 #include "MathUtils/fit.h"
+#include <TF1.h>
 
 namespace o2::trackstudy
 {
@@ -92,7 +95,8 @@ class TrackingStudySpec : public Task
   std::unique_ptr<o2::utils::TreeStreamRedirector> mDBGOut;
   std::unique_ptr<o2::utils::TreeStreamRedirector> mDBGOutVtx;
   std::unique_ptr<o2::gpu::GPUO2InterfaceRefit> mTPCRefitter; ///< TPC refitter used for TPC tracks refit during the reconstruction
-  std::vector<float> mTBinClOccAft, mTBinClOccBef;            ///< TPC occupancy histo: i-th entry is the integrated occupancy for ~1 orbit starting/preceding from the TB = i*mNTPCOccBinLength
+  std::vector<float> mMltHistTB, mTBinClOccAft, mTBinClOccBef, mTBinClOccWgh; ///< TPC occupancy histo: i-th entry is the integrated occupancy for ~1 orbit starting/preceding from the TB = i*mNTPCOccBinLength
+  std::unique_ptr<TF1> mOccWghFun;
   float mITSROFrameLengthMUS = 0.f;
   float mTPCTBinMUS = 0.f; // TPC bin in microseconds
   float mTPCTBinMUSInv = 0.f;
@@ -103,11 +107,13 @@ class TrackingStudySpec : public Task
   float mMinX = 46.;
   float mMaxEta = 0.8;
   float mMinPt = 0.1;
+  int mNOccBinsDrift = 10;
   int mMinTPCClusters = 60;
   int mNTPCOccBinLength = 0; ///< TPC occ. histo bin length in TBs
   int mNHBPerTF = 0;
   float mNTPCOccBinLengthInv;
   bool mStoreWithITSOnly = false;
+  bool mDoPairsCorr = false;
   std::string mDCAYFormula = "0.0105 + 0.0350 / pow(x, 1.1)";
   std::string mDCAZFormula = "0.0105 + 0.0350 / pow(x, 1.1)";
   GTrackID::mask_t mTracksSrc{};
@@ -136,6 +142,15 @@ void TrackingStudySpec::init(InitContext& ic)
   mMinTPCClusters = ic.options().get<int>("min-tpc-clusters");
   mDCAYFormula = ic.options().get<std::string>("dcay-vs-pt");
   mDCAZFormula = ic.options().get<std::string>("dcaz-vs-pt");
+  mDoPairsCorr = ic.options().get<bool>("pair-correlations");
+  mNOccBinsDrift = ic.options().get<int>("noccbins");
+  if (mNOccBinsDrift < 3) {
+    mNOccBinsDrift = 3;
+  }
+  auto str = ic.options().get<std::string>("occ-weight-fun");
+  if (!str.empty()) {
+    mOccWghFun = std::make_unique<TF1>("occFun", str.c_str(), -100., 100.);
+  }
 }
 
 void TrackingStudySpec::run(ProcessingContext& pc)
@@ -143,14 +158,16 @@ void TrackingStudySpec::run(ProcessingContext& pc)
   o2::globaltracking::RecoContainer recoData;
   recoData.collectData(pc, *mDataRequest.get()); // select tracks of needed type, with minimal cuts, the real selected will be done in the vertexer
   updateTimeDependentParams(pc);                 // Make sure this is called after recoData.collectData, which may load some conditions
-
-  mTPCRefitter = std::make_unique<o2::gpu::GPUO2InterfaceRefit>(&recoData.inputsTPCclusters->clusterIndex, &mTPCCorrMapsLoader, o2::base::Propagator::Instance()->getNominalBz(),
-                                                                recoData.getTPCTracksClusterRefs().data(), 0, recoData.clusterShMapTPC.data(), recoData.occupancyMapTPC.data(),
-                                                                recoData.occupancyMapTPC.size(), nullptr, o2::base::Propagator::Instance());
-  mTPCRefitter->setTrackReferenceX(900); // disable propagation after refit by setting reference to value > 500
-  mNTPCOccBinLength = mTPCRefitter->getParam()->rec.tpc.occupancyMapTimeBins;
-  mTBinClOccBef.clear();
-  mTBinClOccAft.clear();
+  if (recoData.inputsTPCclusters) {
+    mTPCRefitter = std::make_unique<o2::gpu::GPUO2InterfaceRefit>(&recoData.inputsTPCclusters->clusterIndex, &mTPCCorrMapsLoader, o2::base::Propagator::Instance()->getNominalBz(),
+                                                                  recoData.getTPCTracksClusterRefs().data(), 0, recoData.clusterShMapTPC.data(), recoData.occupancyMapTPC.data(),
+                                                                  recoData.occupancyMapTPC.size(), nullptr, o2::base::Propagator::Instance());
+    mTPCRefitter->setTrackReferenceX(900); // disable propagation after refit by setting reference to value > 500
+    mNTPCOccBinLength = mTPCRefitter->getParam()->rec.tpc.occupancyMapTimeBins;
+    mTBinClOccBef.clear();
+    mTBinClOccAft.clear();
+    mTBinClOccWgh.clear();
+  }
 
   // prepare TPC occupancy data
   if (mNTPCOccBinLength > 1 && recoData.occupancyMapTPC.size()) {
@@ -159,24 +176,24 @@ void TrackingStudySpec::run(ProcessingContext& pc)
     int nTPCOccBins = nTPCBins * mNTPCOccBinLengthInv, sumBins = std::max(1, int(o2::constants::lhc::LHCMaxBunches / 8 * mNTPCOccBinLengthInv));
     mTBinClOccAft.resize(nTPCOccBins);
     mTBinClOccBef.resize(nTPCOccBins);
-    std::vector<float> mltHistTB(nTPCOccBins);
     float sm = 0., tb = 0.5 * mNTPCOccBinLength;
+    mMltHistTB.resize(nTPCOccBins);
     for (int i = 0; i < nTPCOccBins; i++) {
-      mltHistTB[i] = mTPCRefitter->getParam()->GetUnscaledMult(tb);
+      mMltHistTB[i] = mTPCRefitter->getParam()->GetUnscaledMult(tb);
       tb += mNTPCOccBinLength;
     }
     for (int i = nTPCOccBins; i--;) {
-      sm += mltHistTB[i];
+      sm += mMltHistTB[i];
       if (i + sumBins < nTPCOccBins) {
-        sm -= mltHistTB[i + sumBins];
+        sm -= mMltHistTB[i + sumBins];
       }
       mTBinClOccAft[i] = sm;
     }
     sm = 0;
     for (int i = 0; i < nTPCOccBins; i++) {
-      sm += mltHistTB[i];
+      sm += mMltHistTB[i];
       if (i - sumBins > 0) {
-        sm -= mltHistTB[i - sumBins];
+        sm -= mMltHistTB[i - sumBins];
       }
       mTBinClOccBef[i] = sm;
     }
@@ -240,13 +257,132 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
   o2::dataformats::PrimaryVertexExt pveDummy;
   o2::dataformats::PrimaryVertexExt vtxDummy(mMeanVtx.getPos(), {}, {}, 0);
   std::vector<o2::dataformats::PrimaryVertexExt> pveVec(nv);
+  std::vector<float> tpcOccAftV, tpcOccBefV;
   pveVec.back() = vtxDummy;
   const auto& alpParams = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance();
   float tBiasITS = alpParams.roFrameBiasInBC * o2::constants::lhc::LHCBunchSpacingMUS;
   const o2::ft0::InteractionTag& ft0Params = o2::ft0::InteractionTag::Instance();
   std::vector<o2::dataformats::TrackInfoExt> trcExtVec;
-  auto vdrit = mTPCVDriftHelper.getVDriftObject().getVDrift();
+  std::vector<o2::trackstudy::TrackPairInfo> trcPairsVec;
+  auto vdrift = mTPCVDriftHelper.getVDriftObject().getVDrift();
+  float maxDriftTB = 250.f / vdrift / (o2::constants::lhc::LHCBunchSpacingMUS * 8);
+  int groupOcc = std::ceil(maxDriftTB / mNOccBinsDrift / mNTPCOccBinLength);
+
   bool tpcTrackOK = recoData.isTrackSourceLoaded(GTrackID::TPC);
+
+  auto fillTPCClInfo = [&recoData, this](const o2::tpc::TrackTPC& trc, o2::dataformats::TrackInfoExt& trExt, float timestampTB = -1e9) {
+    const auto clRefs = recoData.getTPCTracksClusterRefs();
+    const auto tpcClusAcc = recoData.getTPCClusters();
+    const auto shMap = recoData.clusterShMapTPC;
+    if (recoData.inputsTPCclusters) {
+      uint8_t clSect = 0, clRow = 0, clRowP = -1;
+      uint32_t clIdx = 0;
+      for (int ic = 0; ic < trc.getNClusterReferences(); ic++) {
+        trc.getClusterReference(clRefs, ic, clSect, clRow, clIdx);
+        if (clRow != clRowP) {
+          trExt.rowCountTPC++;
+          clRowP = clRow;
+        }
+        unsigned int absoluteIndex = tpcClusAcc.clusterOffset[clSect][clRow] + clIdx;
+        if (shMap[absoluteIndex] & o2::gpu::GPUTPCGMMergedTrackHit::flagShared) {
+          trExt.nClTPCShared++;
+        }
+      }
+      trc.getClusterReference(clRefs, trc.getNClusterReferences() - 1, clSect, clRow, clIdx);
+      trExt.rowMinTPC = clRow;
+      const auto& clus = tpcClusAcc.clusters[clSect][clRow][clIdx];
+      trExt.padFromEdge = uint8_t(clus.getPad());
+      int npads = o2::gpu::GPUTPCGeometry::NPads(clRow);
+      if (trExt.padFromEdge > npads / 2) {
+        trExt.padFromEdge = npads - 1 - trExt.padFromEdge;
+      }
+      this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos0[0], trExt.innerTPCPos0[1], trExt.innerTPCPos0[2], trc.getTime0()); // nominal time of the track
+      if (timestampTB > -1e8) {
+        this->mTPCCorrMapsLoader.Transform(clSect, clRow, clus.getPad(), clus.getTime(), trExt.innerTPCPos[0], trExt.innerTPCPos[1], trExt.innerTPCPos[2], timestampTB); // time assigned from the global track track
+      } else {
+        trExt.innerTPCPos = trExt.innerTPCPos0;
+      }
+      trc.getClusterReference(clRefs, 0, clSect, clRow, clIdx);
+      trExt.rowMaxTPC = clRow;
+    }
+  };
+
+  auto getTPCPairSharing = [&recoData, this](const o2::tpc::TrackTPC& trc0, const o2::tpc::TrackTPC& trc1) {
+    const auto clRefs = recoData.getTPCTracksClusterRefs();
+    uint8_t nsh = 0, nshRows = 0, lastSharedRow = -1;
+    if (recoData.inputsTPCclusters) {
+      uint8_t clSect0 = 0, clRow0 = 0, clSect1 = 0, clRow1 = 0;
+      uint32_t clIdx0 = 0, clIdx1 = 0;
+      int ic1Start = 0;
+      for (int ic0 = 0; ic0 < trc0.getNClusterReferences(); ic0++) { // outside -> inside
+        trc0.getClusterReference(clRefs, ic0, clSect0, clRow0, clIdx0);
+        for (int ic1 = ic1Start; ic1 < trc1.getNClusterReferences(); ic1++) { // outside -> inside
+          trc1.getClusterReference(clRefs, ic1, clSect1, clRow1, clIdx1);
+          if (clRow1 > clRow0) {
+            ic1Start = ic1 + 1;
+            continue; // catch up ic0
+          }
+          if (clRow1 == clRow0) {
+            if (clSect0 == clSect1 && clIdx0 == clIdx1) {
+              nsh++;
+              if (lastSharedRow != clRow0) {
+                lastSharedRow = clRow0;
+                nshRows++;
+              }
+              ic1Start = ic1 + 1;
+              break; // check next ic0
+            }
+          }
+        }
+      }
+    }
+    return std::make_pair(nsh, nshRows);
+  };
+
+  auto assignRecTrack = [&recoData, this](const o2::dataformats::TrackInfoExt& src, o2::trackstudy::RecTrack& dst) {
+    dst.track = src.track;
+    dst.gid = src.gid;
+    dst.ts.setTimeStamp(src.ttime);
+    dst.ts.setTimeStampError(src.ttimeE);
+    dst.nClITS = src.nClITS;
+    dst.nClTPC = src.nClTPC;
+    dst.pattITS = src.pattITS;
+    if (src.q2ptITS == 0. && dst.nClITS > 0) {
+      dst.pattITS |= 0x1 << 7;
+    }
+    dst.lowestPadRow = src.rowMinTPC;
+    if (this->mUseMC) {
+      auto gidSet = recoData.getSingleDetectorRefs(src.gid);
+      if (recoData.getTrackMCLabel(src.gid).isFake()) {
+        dst.flags |= RecTrack::FakeGLO;
+      }
+      auto msk = src.gid.getSourceDetectorsMask();
+      if (msk[DetID::ITS]) {
+        if (gidSet[GTrackID::ITS].isSourceSet()) { // has ITS track rather than AB tracklet
+          auto lblITS = recoData.getTrackMCLabel(gidSet[GTrackID::ITS]);
+          if (lblITS.isFake()) {
+            dst.flags |= RecTrack::FakeITS;
+          }
+        } else { // AB ITS tracklet
+          if (recoData.getTrackMCLabel(gidSet[GTrackID::ITSAB]).isFake()) {
+            dst.flags |= RecTrack::FakeITS;
+          }
+        }
+        if (msk[DetID::TPC]) { // has both ITS and TPC contribution
+          if (recoData.getTrackMCLabel(gidSet[GTrackID::ITSTPC]).isFake()) {
+            dst.flags |= RecTrack::FakeITSTPC;
+          }
+        }
+      }
+      if (msk[DetID::TPC]) {
+        if (recoData.getTrackMCLabel(gidSet[GTrackID::TPC]).isFake()) {
+          dst.flags |= RecTrack::FakeTPC;
+        }
+      }
+    }
+  };
+  tpcOccAftV.resize(mNOccBinsDrift);
+  tpcOccBefV.resize(mNOccBinsDrift);
 
   for (int iv = 0; iv < nv; iv++) {
     LOGP(debug, "processing PV {} of {}", iv, nv);
@@ -254,7 +390,6 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
     if (iv != nv - 1) {
       auto& pve = pveVec[iv];
       static_cast<o2::dataformats::PrimaryVertex&>(pve) = pvvec[iv];
-
       // find best matching FT0 signal
       float bestTimeDiff = 1000, bestTime = -999;
       int bestFTID = -1;
@@ -280,6 +415,7 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
       pve.VtxID = iv;
     }
     trcExtVec.clear();
+    trcPairsVec.clear();
     float q2ptITS, q2ptTPC, q2ptITSTPC, q2ptITSTPCTRD;
     for (int is = 0; is < GTrackID::NSources; is++) {
       DetID::mask_t dm = GTrackID::getSourceDetectorsMask(is);
@@ -311,7 +447,7 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           continue;
         }
         if (iv < nv - 1 && is == GTrackID::TPC && tpcTr && !tpcTr->hasBothSidesClusters()) { // for unconstrained TPC tracks correct track Z
-          float corz = vdrit * (tpcTr->getTime0() * mTPCTBinMUS - pvvec[iv].getTimeStamp().getTimeStamp());
+          float corz = vdrift * (tpcTr->getTime0() * mTPCTBinMUS - pvvec[iv].getTimeStamp().getTimeStamp());
           if (tpcTr->hasASideClustersOnly()) {
             corz = -corz; // A-side
           }
@@ -346,6 +482,35 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
           trcExt.dca = dca;
           trcExt.gid = vid;
           trcExt.xmin = xmin;
+          trcExt.dcaTPC.set(-999.f, -999.f);
+
+          if (tpcTr) {
+            float tsuse = trcExt.ttime / (8 * o2::constants::lhc::LHCBunchSpacingMUS);
+            if (tpcTr->hasASideClusters()) {
+              trcExt.setTPCA();
+            }
+            if (tpcTr->hasCSideClusters()) {
+              trcExt.setTPCC();
+            }
+            if (is == GTrackID::TPC) {
+              trcExt.dcaTPC = dca;
+              tsuse = -1e9;
+            } else {
+              o2::track::TrackParCov tmpTPC(*tpcTr);
+              if (iv < nv - 1 && is == GTrackID::TPC && tpcTr && !tpcTr->hasBothSidesClusters()) { // for unconstrained TPC tracks correct track Z
+                float corz = vdrift * (tpcTr->getTime0() * mTPCTBinMUS - pvvec[iv].getTimeStamp().getTimeStamp());
+                if (tpcTr->hasASideClustersOnly()) {
+                  corz = -corz; // A-side
+                }
+                tmpTPC.setZ(tmpTPC.getZ() + corz);
+              }
+              if (!prop->propagateToDCA(iv == nv - 1 ? vtxDummy : pvvec[iv], tmpTPC, prop->getNominalBz(), 2., o2::base::PropagatorF::MatCorrType::USEMatCorrLUT, &trcExt.dcaTPC)) {
+                trcExt.dcaTPC.set(-999.f, -999.f);
+              }
+            }
+            fillTPCClInfo(*tpcTr, trcExt, tsuse);
+            trcExt.chi2TPC = tpcTr->getChi2();
+          }
           auto gidRefs = recoData.getSingleDetectorRefs(vid);
           if (gidRefs[GTrackID::ITS].isIndexSet()) {
             const auto& itsTr = recoData.getITSTrack(gidRefs[GTrackID::ITS]);
@@ -388,11 +553,71 @@ void TrackingStudySpec::process(o2::globaltracking::RecoContainer& recoData)
       int tb = pveVec[iv].getTimeStamp().getTimeStamp() * mTPCTBinMUSInv * mNTPCOccBinLengthInv;
       tpcOccBef = tb < 0 ? mTBinClOccBef[0] : (tb >= mTBinClOccBef.size() ? mTBinClOccBef.back() : mTBinClOccBef[tb]);
       tpcOccAft = tb < 0 ? mTBinClOccAft[0] : (tb >= mTBinClOccAft.size() ? mTBinClOccAft.back() : mTBinClOccAft[tb]);
+      int tbc = pveVec[iv].getTimeStamp().getTimeStamp() * mTPCTBinMUSInv * mNTPCOccBinLengthInv - groupOcc / 2.;
+      for (int iob = 0; iob < mNOccBinsDrift; iob++) {
+        float sm = 0;
+        for (int ig = 0; ig < groupOcc; ig++) {
+          int ocb = tbc + ig + groupOcc * iob;
+          if (ocb < 0 || ocb >= (int)mMltHistTB.size()) {
+            sm = -1;
+            break;
+          }
+          sm += mMltHistTB[ocb];
+        }
+        tpcOccAftV[iob] = sm;
+        //
+        sm = 0;
+        for (int ig = 0; ig < groupOcc; ig++) {
+          int ocb = tbc + ig - groupOcc * iob;
+          if (ocb < 0 || ocb >= (int)mMltHistTB.size()) {
+            sm = -1;
+            break;
+          }
+          sm += mMltHistTB[ocb];
+        }
+        tpcOccBefV[iob] = sm;
+      }
     }
     (*mDBGOut) << "trpv"
                << "orbit=" << recoData.startIR.orbit << "tfID=" << TFCount
                << "tpcOccBef=" << tpcOccBef << "tpcOccAft=" << tpcOccAft
+               << "tpcOccBefV=" << tpcOccBefV << "tpcOccAftV=" << tpcOccAftV
                << "pve=" << pveVec[iv] << "trc=" << trcExtVec << "\n";
+
+    if (mDoPairsCorr) {
+      for (int it0 = 0; it0 < (int)trcExtVec.size(); it0++) {
+        const auto& tr0 = trcExtVec[it0];
+        if (tr0.nClTPC < 1) {
+          continue;
+        }
+        for (int it1 = it0 + 1; it1 < (int)trcExtVec.size(); it1++) {
+          const auto& tr1 = trcExtVec[it1];
+          if (tr1.nClTPC < 1) {
+            continue;
+          }
+
+          if (std::abs(tr0.track.getTgl() - tr1.track.getTgl()) > 0.25) {
+            continue;
+          }
+          auto dphi = tr0.track.getPhi() - tr1.track.getPhi();
+          if (dphi < -o2::constants::math::PI) {
+            dphi += o2::constants::math::TwoPI;
+          } else if (dphi > o2::constants::math::PI) {
+            dphi -= o2::constants::math::TwoPI;
+          }
+          if (std::abs(dphi) > 0.25) {
+            continue;
+          }
+          auto& pr = trcPairsVec.emplace_back();
+          assignRecTrack(tr0, pr.tr0);
+          assignRecTrack(tr1, pr.tr1);
+          auto shinfo = getTPCPairSharing(recoData.getTPCTrack(recoData.getTPCContributorGID(tr0.gid)), recoData.getTPCTrack(recoData.getTPCContributorGID(tr1.gid)));
+          pr.nshTPC = shinfo.first;
+          pr.nshTPCRow = shinfo.second;
+        }
+      }
+      (*mDBGOut) << "pairs" << "pr=" << trcPairsVec << "\n";
+    }
   }
 
   int nvtot = mMaxNeighbours < 0 ? -1 : (int)pveVec.size();
@@ -549,6 +774,9 @@ DataProcessorSpec getTrackingStudySpec(GTrackID::mask_t srcTracks, GTrackID::mas
     {"max-eta", VariantType::Float, 1.0f, {"Cut on track eta"}},
     {"min-pt", VariantType::Float, 0.1f, {"Cut on track pT"}},
     {"with-its-only", VariantType::Bool, false, {"Store tracks with ITS only"}},
+    {"pair-correlations", VariantType::Bool, false, {"Do pairs correlation"}},
+    {"occ-weight-fun", VariantType::String, "(x>=-40&&x<-5) ? (1./1225*pow(x+40,2)) : ((x>-5&&x<15) ? 1. : ((x>=15&&x<40) ? (-0.4/25*x+1.24 ) : ( (x>40&&x<100) ? -0.4/60*x+0.6+0.8/3 : 0)))", {"Occupancy weighting f-n vs time in musec"}},
+    {"noccbins", VariantType::Int, 10, {"Number of occupancy bins per full drift time"}},
     {"min-x-prop", VariantType::Float, 100.f, {"track should be propagated to this X at least"}},
   };
   o2::tpc::VDriftHelper::requestCCDBInputs(dataRequest->inputs);

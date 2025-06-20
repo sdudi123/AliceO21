@@ -13,26 +13,31 @@
 /// \author David Rohr
 
 #include "GPUDisplay.h"
+#include "GPUChainTracking.h"
+#include "GPULogging.h"
+#include "GPUParam.h"
 
-#ifdef WITH_OPENMP
-#include <omp.h>
-#endif
 #ifndef _WIN32
 #include "bitmapfile.h"
 #endif
 
-using namespace GPUCA_NAMESPACE::gpu;
+#include "oneapi/tbb.h"
+
+using namespace o2::gpu;
 
 int32_t GPUDisplay::getNumThreads()
 {
   if (mChain) {
-    return mChain->GetProcessingSettings().ompThreads;
+    return mChain->GetProcessingSettings().nHostThreads;
   } else {
-#ifdef WITH_OPENMP
-    return omp_get_max_threads();
-#else
-    return 1;
-#endif
+    return tbb::info::default_concurrency();
+  }
+}
+
+void GPUDisplay::updateOptions()
+{
+  if (mCfgH.splitCETracks == -1 && mParam) {
+    mCfgH.splitCETracks = mParam->continuousMaxTimeBin != 0;
   }
 }
 
@@ -45,7 +50,7 @@ void GPUDisplay::disableUnsupportedOptions()
     mCfgH.markFakeClusters = 0;
   }
   if (!mChain) {
-    mCfgL.excludeClusters = mCfgL.drawInitLinks = mCfgL.drawLinks = mCfgL.drawSeeds = mCfgL.drawTracklets = mCfgL.drawTracks = mCfgL.drawGlobalTracks = 0;
+    mCfgL.excludeClusters = mCfgL.drawInitLinks = mCfgL.drawLinks = mCfgL.drawSeeds = mCfgL.drawTracklets = mCfgL.drawTracks = mCfgL.drawExtrapolatedTracks = 0;
   }
   if (mConfig.showTPCTracksFromO2Format && mParam->par.earlyTpcTransform) {
     throw std::runtime_error("Cannot run GPU display with early Transform when input is O2 tracks");

@@ -17,24 +17,17 @@
 
 #include "GPUReconstructionCPU.h"
 #include <pthread.h>
-#include "GPUReconstructionHelpers.h"
 #include "GPUChain.h"
 #include <vector>
 
-namespace GPUCA_NAMESPACE
+namespace o2::gpu
 {
-namespace gpu
-{
-#if !(defined(__CINT__) || defined(__ROOTCINT__) || defined(__CLING__) || defined(__ROOTCLING__) || defined(G__ROOT))
-extern template class GPUReconstructionKernels<GPUReconstructionCPUBackend>;
-#endif
-
 class GPUReconstructionDeviceBase : public GPUReconstructionCPU
 {
  public:
   ~GPUReconstructionDeviceBase() override;
 
-  const GPUParam* DeviceParam() const { return &mDeviceConstantMem->param; }
+  const GPUParam* DeviceParam() const;
   struct deviceConstantMemRegistration {
     deviceConstantMemRegistration(void* (*reg)())
     {
@@ -49,11 +42,10 @@ class GPUReconstructionDeviceBase : public GPUReconstructionCPU
   virtual int32_t InitDevice_Runtime() = 0;
   int32_t ExitDevice() override;
   virtual int32_t ExitDevice_Runtime() = 0;
+  virtual int32_t GPUChkErrInternal(const int64_t error, const char* file, int32_t line) const override = 0;
   int32_t registerMemoryForGPU_internal(const void* ptr, size_t size) override;
   int32_t unregisterMemoryForGPU_internal(const void* ptr) override;
   void unregisterRemainingRegisteredMemory();
-
-  virtual const GPUTPCTracker* CPUTracker(int32_t iSlice) { return &processors()->tpcTrackers[iSlice]; }
 
   int32_t GPUDebug(const char* state = "UNKNOWN", int32_t stream = -1, bool force = false) override = 0;
   size_t TransferMemoryInternal(GPUMemoryResource* res, int32_t stream, deviceEvent* ev, deviceEvent* evList, int32_t nEvents, bool toGPU, const void* src, void* dst) override;
@@ -61,24 +53,10 @@ class GPUReconstructionDeviceBase : public GPUReconstructionCPU
   size_t GPUMemCpyAlways(bool onGpu, void* dst, const void* src, size_t size, int32_t stream, int32_t toGPU, deviceEvent* ev = nullptr, deviceEvent* evList = nullptr, int32_t nEvents = 1) override;
   size_t WriteToConstantMemory(size_t offset, const void* src, size_t size, int32_t stream = -1, deviceEvent* ev = nullptr) override = 0;
 
-  int32_t StartHelperThreads() override;
-  int32_t StopHelperThreads() override;
-  void RunHelperThreads(int32_t (GPUReconstructionHelpers::helperDelegateBase::*function)(int32_t, int32_t, GPUReconstructionHelpers::helperParam*), GPUReconstructionHelpers::helperDelegateBase* functionCls, int32_t count) override;
-  int32_t HelperError(int32_t iThread) const override { return mHelperParams[iThread].error; }
-  int32_t HelperDone(int32_t iThread) const override { return mHelperParams[iThread].done; }
-  void WaitForHelperThreads() override;
-  void ResetHelperThreads(int32_t helpers) override;
-  void ResetThisHelperThread(GPUReconstructionHelpers::helperParam* par);
-
   int32_t GetGlobalLock(void*& pLock);
   void ReleaseGlobalLock(void* sem);
 
-  static void* helperWrapper_static(void* arg);
-  void* helperWrapper(GPUReconstructionHelpers::helperParam* par);
-
-  int32_t mDeviceId = -1;                                         // Device ID used by backend
-  GPUReconstructionHelpers::helperParam* mHelperParams = nullptr; // Control Struct for helper threads
-  int32_t mNSlaveThreads = 0;                                     // Number of slave threads currently active
+  int32_t mDeviceId = -1; // Device ID used by backend
 
   struct DebugEvents {
     deviceEvent DebugStart, DebugStop; // Debug timer events
@@ -102,7 +80,6 @@ inline size_t GPUReconstructionDeviceBase::GPUMemCpyAlways(bool onGpu, void* dst
     return GPUReconstructionCPU::GPUMemCpyAlways(false, dst, src, size, stream, toGPU, ev, evList, nEvents);
   }
 }
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif

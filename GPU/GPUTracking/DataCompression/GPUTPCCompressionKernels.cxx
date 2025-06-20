@@ -18,11 +18,10 @@
 #include "GPUParam.h"
 #include "GPUCommonAlgorithm.h"
 #include "GPUTPCCompressionTrackModel.h"
-#include "GPUTPCGeometry.h"
 #include "GPUTPCClusterRejection.h"
 #include "GPUTPCCompressionKernels.inc"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 using namespace o2::tpc;
 
 template <>
@@ -44,7 +43,7 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
     bool rejectTrk = CAMath::Abs(trk.GetParam().GetQPt() * processors.param.qptB5Scaler) > processors.param.rec.tpc.rejectQPtB5 || trk.MergedLooper();
     uint32_t nClustersStored = 0;
     CompressedClustersPtrs& GPUrestrict() c = compressor.mPtrs;
-    uint8_t lastRow = 0, lastSlice = 0;
+    uint8_t lastRow = 0, lastSector = 0;
     GPUTPCCompressionTrackModel track;
     float zOffset = 0;
     for (int32_t k = trk.NClusters() - 1; k >= 0; k--) {
@@ -67,18 +66,19 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
       if (!(param.rec.tpc.compressionTypeMask & GPUSettings::CompressionTrackModel)) {
         continue; // No track model compression
       }
-      const ClusterNative& GPUrestrict() orgCl = clusters->clusters[hit.slice][hit.row][hit.num - clusters->clusterOffset[hit.slice][hit.row]];
-      float x = param.tpcGeometry.Row2X(hit.row);
-      float y = param.tpcGeometry.LinearPad2Y(hit.slice, hit.row, orgCl.getPad());
-      float z = param.tpcGeometry.LinearTime2Z(hit.slice, orgCl.getTime());
+      const ClusterNative& GPUrestrict() orgCl = clusters -> clusters[hit.sector][hit.row][hit.num - clusters->clusterOffset[hit.sector][hit.row]];
+      constexpr GPUTPCGeometry geo;
+      float x = geo.Row2X(hit.row);
+      float y = track.LinearPad2Y(hit.sector, orgCl.getPad(), geo.PadWidth(hit.row), geo.NPads(hit.row));
+      float z = geo.LinearTime2Z(hit.sector, orgCl.getTime());
       if (nClustersStored) {
-        if ((hit.slice < GPUCA_NSLICES) ^ (lastSlice < GPUCA_NSLICES)) {
+        if ((hit.sector < GPUCA_NSECTORS) ^ (lastSector < GPUCA_NSECTORS)) {
           break;
         }
         if (lastLeg != hit.leg && track.Mirror()) {
           break;
         }
-        if (track.Propagate(param.tpcGeometry.Row2X(hit.row), param.SliceParam[hit.slice].Alpha)) {
+        if (track.Propagate(geo.Row2X(hit.row), param.SectorParam[hit.sector].Alpha)) {
           break;
         }
       }
@@ -89,35 +89,35 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
       if (nClustersStored == 1) {
         uint8_t qpt = fabs(trk.GetParam().GetQPt()) < 20.f ? (trk.GetParam().GetQPt() * (127.f / 20.f) + 127.5f) : (trk.GetParam().GetQPt() > 0 ? 254 : 0);
         zOffset = z;
-        track.Init(x, y, z - zOffset, param.SliceParam[hit.slice].Alpha, qpt, param);
+        track.Init(x, y, z - zOffset, param.SectorParam[hit.sector].Alpha, qpt, param);
 
         myTrack = CAMath::AtomicAdd(&compressor.mMemory->nStoredTracks, 1u);
         compressor.mAttachedClusterFirstIndex[myTrack] = trk.FirstClusterRef();
         lastLeg = hit.leg;
         c.qPtA[myTrack] = qpt;
         c.rowA[myTrack] = hit.row;
-        c.sliceA[myTrack] = hit.slice;
+        c.sliceA[myTrack] = hit.sector;
         c.timeA[myTrack] = orgCl.getTimePacked();
         c.padA[myTrack] = orgCl.padPacked;
       } else {
         uint32_t row = hit.row;
-        uint32_t slice = hit.slice;
+        uint32_t sector = hit.sector;
 
         if (param.rec.tpc.compressionTypeMask & GPUSettings::CompressionDifferences) {
           if (lastRow > row) {
             row += GPUCA_ROW_COUNT;
           }
           row -= lastRow;
-          if (lastSlice > slice) {
-            slice += compressor.NSLICES;
+          if (lastSector > sector) {
+            sector += compressor.NSECTORS;
           }
-          slice -= lastSlice;
+          sector -= lastSector;
         }
         c.rowDiffA[cidx] = row;
-        c.sliceLegDiffA[cidx] = (hit.leg == lastLeg ? 0 : compressor.NSLICES) + slice;
-        float pad = CAMath::Max(0.f, CAMath::Min((float)param.tpcGeometry.NPads(GPUCA_ROW_COUNT - 1), param.tpcGeometry.LinearY2Pad(hit.slice, hit.row, track.Y())));
+        c.sliceLegDiffA[cidx] = (hit.leg == lastLeg ? 0 : compressor.NSECTORS) + sector;
+        float pad = CAMath::Max(0.f, CAMath::Min((float)geo.NPads(GPUCA_ROW_COUNT - 1), track.LinearY2Pad(hit.sector, track.Y(), geo.PadWidth(hit.row), geo.NPads(hit.row))));
         c.padResA[cidx] = orgCl.padPacked - orgCl.packPad(pad);
-        float time = CAMath::Max(0.f, param.tpcGeometry.LinearZ2Time(hit.slice, track.Z() + zOffset));
+        float time = CAMath::Max(0.f, geo.LinearZ2Time(hit.sector, track.Z() + zOffset));
         c.timeResA[cidx] = (orgCl.getTimePacked() - orgCl.packTime(time)) & 0xFFFFFF;
         lastLeg = hit.leg;
       }
@@ -138,7 +138,7 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
         break;
       }
       lastRow = hit.row;
-      lastSlice = hit.slice;
+      lastSector = hit.sector;
     }
     if (nClustersStored) {
       CAMath::AtomicAdd(&compressor.mMemory->nStoredAttachedClusters, nClustersStored);
@@ -148,19 +148,19 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step0at
 }
 
 template <>
-GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<0>::operator()(uint32_t a, uint32_t b) const
+GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<GPUSettings::SortTime>::operator()(uint32_t a, uint32_t b) const
 {
   return mClsPtr[a].getTimePacked() < mClsPtr[b].getTimePacked();
 }
 
 template <>
-GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<1>::operator()(uint32_t a, uint32_t b) const
+GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<GPUSettings::SortPad>::operator()(uint32_t a, uint32_t b) const
 {
   return mClsPtr[a].padPacked < mClsPtr[b].padPacked;
 }
 
 template <>
-GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<2>::operator()(uint32_t a, uint32_t b) const
+GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<GPUSettings::SortZTimePad>::operator()(uint32_t a, uint32_t b) const
 {
   if (mClsPtr[a].getTimePacked() >> 3 == mClsPtr[b].getTimePacked() >> 3) {
     return mClsPtr[a].padPacked < mClsPtr[b].padPacked;
@@ -169,12 +169,24 @@ GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<2>::opera
 }
 
 template <>
-GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<3>::operator()(uint32_t a, uint32_t b) const
+GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<GPUSettings::SortZPadTime>::operator()(uint32_t a, uint32_t b) const
 {
   if (mClsPtr[a].padPacked >> 3 == mClsPtr[b].padPacked >> 3) {
     return mClsPtr[a].getTimePacked() < mClsPtr[b].getTimePacked();
   }
   return mClsPtr[a].padPacked < mClsPtr[b].padPacked;
+}
+
+template <> // Deterministic comparison
+GPUd() bool GPUTPCCompressionKernels::GPUTPCCompressionKernels_Compare<4>::operator()(uint32_t a, uint32_t b) const
+{
+  if (mClsPtr[a].getTimePacked() != mClsPtr[b].getTimePacked()) {
+    return mClsPtr[a].getTimePacked() < mClsPtr[b].getTimePacked();
+  }
+  if (mClsPtr[a].padPacked != mClsPtr[b].padPacked) {
+    return mClsPtr[a].padPacked < mClsPtr[b].padPacked;
+  }
+  return mClsPtr[a].qTot < mClsPtr[b].qTot;
 }
 
 template <>
@@ -185,12 +197,12 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
   GPUTPCCompression& GPUrestrict() compressor = processors.tpcCompressor;
   GPUParam& GPUrestrict() param = processors.param;
   uint32_t* sortBuffer = smem.sortBuffer;
-  for (int32_t iSliceRow = iBlock; iSliceRow < GPUCA_NSLICES * GPUCA_ROW_COUNT; iSliceRow += nBlocks) {
-    const uint32_t iSlice = iSliceRow / GPUCA_ROW_COUNT;
-    const uint32_t iRow = iSliceRow % GPUCA_ROW_COUNT;
-    const uint32_t idOffset = clusters->clusterOffset[iSlice][iRow];
-    const uint32_t idOffsetOut = clusters->clusterOffset[iSlice][iRow] * compressor.mMaxClusterFactorBase1024 / 1024;
-    const uint32_t idOffsetOutMax = ((const uint32_t*)clusters->clusterOffset[iSlice])[iRow + 1] * compressor.mMaxClusterFactorBase1024 / 1024; // Array out of bounds access is ok, since it goes to the correct nClustersTotal
+  for (int32_t iSectorRow = iBlock; iSectorRow < GPUCA_NSECTORS * GPUCA_ROW_COUNT; iSectorRow += nBlocks) {
+    const uint32_t iSector = iSectorRow / GPUCA_ROW_COUNT;
+    const uint32_t iRow = iSectorRow % GPUCA_ROW_COUNT;
+    const uint32_t idOffset = clusters->clusterOffset[iSector][iRow];
+    const uint32_t idOffsetOut = clusters->clusterOffset[iSector][iRow] * compressor.mMaxClusterFactorBase1024 / 1024;                           // 32 bit enough for number of clusters per row * 1024
+    const uint32_t idOffsetOutMax = ((const uint32_t*)clusters->clusterOffset[iSector])[iRow + 1] * compressor.mMaxClusterFactorBase1024 / 1024; // Array out of bounds access is ok, since it goes to the correct nClustersTotal
     if (iThread == nThreads - 1) {
       smem.nCount = 0;
     }
@@ -199,12 +211,12 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
 
     CompressedClustersPtrs& GPUrestrict() c = compressor.mPtrs;
 
-    const uint32_t nn = GPUCommonMath::nextMultipleOf<GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionKernels_step1unattached)>(clusters->nClusters[iSlice][iRow]);
+    const uint32_t nn = CAMath::nextMultipleOf<GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionKernels_step1unattached)>(clusters->nClusters[iSector][iRow]);
     for (uint32_t i = iThread; i < nn + nThreads; i += nThreads) {
       const int32_t idx = idOffset + i;
-      int32_t cidx = 0;
+      int32_t storeCluster = 0;
       do {
-        if (i >= clusters->nClusters[iSlice][iRow]) {
+        if (i >= clusters->nClusters[iSector][iRow]) {
           break;
         }
         if (compressor.mClusterStatus[idx]) {
@@ -227,13 +239,13 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
             break;
           }
         }
-        cidx = 1;
+        storeCluster = 1;
       } while (false);
 
       GPUbarrier();
-      int32_t myIndex = work_group_scan_inclusive_add(cidx);
+      int32_t myIndex = work_group_scan_inclusive_add(storeCluster);
       int32_t storeLater = -1;
-      if (cidx) {
+      if (storeCluster) {
         if (smem.nCount + myIndex <= GPUCA_TPC_COMP_CHUNK_SIZE) {
           sortBuffer[smem.nCount + myIndex - 1] = i;
         } else {
@@ -253,29 +265,36 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
       uint32_t count = CAMath::Min(smem.nCount, (uint32_t)GPUCA_TPC_COMP_CHUNK_SIZE);
       if (idOffsetOut + totalCount + count > idOffsetOutMax) {
         if (iThread == nThreads - 1) {
-          compressor.raiseError(GPUErrors::ERROR_COMPRESSION_ROW_HIT_OVERFLOW, iSlice * 1000 + iRow, idOffsetOut + totalCount + count, idOffsetOutMax);
+          compressor.raiseError(GPUErrors::ERROR_COMPRESSION_ROW_HIT_OVERFLOW, iSector * 1000 + iRow, idOffsetOut + totalCount + count, idOffsetOutMax);
         }
         break;
       }
       if (param.rec.tpc.compressionTypeMask & GPUSettings::CompressionDifferences) {
+#ifdef GPUCA_GPUCODE
+        static_assert(GPUCA_GET_THREAD_COUNT(GPUCA_LB_GPUTPCCompressionKernels_step1unattached) * 2 <= GPUCA_TPC_COMP_CHUNK_SIZE);
+#endif
+#ifdef GPUCA_DETERMINISTIC_MODE // Not using GPUCA_DETERMINISTIC_CODE, which is enforced in TPC compression
+        CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZPadTime>(clusters->clusters[iSector][iRow]));
+#else  // GPUCA_DETERMINISTIC_MODE
         if (param.rec.tpc.compressionSortOrder == GPUSettings::SortZPadTime) {
-          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZPadTime>(clusters->clusters[iSlice][iRow]));
+          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZPadTime>(clusters->clusters[iSector][iRow]));
         } else if (param.rec.tpc.compressionSortOrder == GPUSettings::SortZTimePad) {
-          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZTimePad>(clusters->clusters[iSlice][iRow]));
+          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortZTimePad>(clusters->clusters[iSector][iRow]));
         } else if (param.rec.tpc.compressionSortOrder == GPUSettings::SortPad) {
-          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortPad>(clusters->clusters[iSlice][iRow]));
+          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortPad>(clusters->clusters[iSector][iRow]));
         } else if (param.rec.tpc.compressionSortOrder == GPUSettings::SortTime) {
-          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortTime>(clusters->clusters[iSlice][iRow]));
+          CAAlgo::sortInBlock(sortBuffer, sortBuffer + count, GPUTPCCompressionKernels_Compare<GPUSettings::SortTime>(clusters->clusters[iSector][iRow]));
         }
+#endif // GPUCA_DETERMINISTIC_MODE
         GPUbarrier();
       }
 
       for (uint32_t j = get_local_id(0); j < count; j += get_local_size(0)) {
         int32_t outidx = idOffsetOut + totalCount + j;
-        const ClusterNative& GPUrestrict() orgCl = clusters->clusters[iSlice][iRow][sortBuffer[j]];
+        const ClusterNative& GPUrestrict() orgCl = clusters -> clusters[iSector][iRow][sortBuffer[j]];
 
         int32_t preId = j != 0 ? (int32_t)sortBuffer[j - 1] : (totalCount != 0 ? (int32_t)smem.lastIndex : -1);
-        GPUTPCCompression_EncodeUnattached(param.rec.tpc.compressionTypeMask, orgCl, c.timeDiffU[outidx], c.padDiffU[outidx], preId == -1 ? nullptr : &clusters->clusters[iSlice][iRow][preId]);
+        GPUTPCCompression_EncodeUnattached(param.rec.tpc.compressionTypeMask, orgCl, c.timeDiffU[outidx], c.padDiffU[outidx], preId == -1 ? nullptr : &clusters->clusters[iSector][iRow][preId]);
 
         uint16_t qtot = orgCl.qTot, qmax = orgCl.qMax;
         uint8_t sigmapad = orgCl.sigmaPadPacked, sigmatime = orgCl.sigmaTimePacked;
@@ -304,7 +323,7 @@ GPUdii() void GPUTPCCompressionKernels::Thread<GPUTPCCompressionKernels::step1un
     }
 
     if (iThread == nThreads - 1) {
-      c.nSliceRowClusters[iSlice * GPUCA_ROW_COUNT + iRow] = totalCount;
+      c.nSliceRowClusters[iSector * GPUCA_ROW_COUNT + iRow] = totalCount;
       CAMath::AtomicAdd(&compressor.mMemory->nStoredUnattachedClusters, totalCount);
     }
     GPUbarrier();
@@ -332,7 +351,7 @@ GPUdi() GPUTPCCompressionGatherKernels::Vec128* GPUTPCCompressionGatherKernels::
 template <typename T, typename S>
 GPUdi() bool GPUTPCCompressionGatherKernels::isAlignedTo(const S* ptr)
 {
-  if CONSTEXPR (alignof(S) >= alignof(T)) {
+  if constexpr (alignof(S) >= alignof(T)) {
     static_cast<void>(ptr);
     return true;
   } else {
@@ -343,10 +362,10 @@ GPUdi() bool GPUTPCCompressionGatherKernels::isAlignedTo(const S* ptr)
 template <>
 GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpy<uint8_t>(uint8_t* GPUrestrict() dst, const uint8_t* GPUrestrict() src, uint32_t size, int32_t nThreads, int32_t iThread)
 {
-  CONSTEXPR const int32_t vec128Elems = CpyVector<uint8_t, Vec128>::Size;
-  CONSTEXPR const int32_t vec64Elems = CpyVector<uint8_t, Vec64>::Size;
-  CONSTEXPR const int32_t vec32Elems = CpyVector<uint8_t, Vec32>::Size;
-  CONSTEXPR const int32_t vec16Elems = CpyVector<uint8_t, Vec16>::Size;
+  constexpr const int32_t vec128Elems = CpyVector<uint8_t, Vec128>::Size;
+  constexpr const int32_t vec64Elems = CpyVector<uint8_t, Vec64>::Size;
+  constexpr const int32_t vec32Elems = CpyVector<uint8_t, Vec32>::Size;
+  constexpr const int32_t vec16Elems = CpyVector<uint8_t, Vec16>::Size;
 
   if (size >= uint32_t(nThreads * vec128Elems)) {
     compressorMemcpyVectorised<uint8_t, Vec128>(dst, src, size, nThreads, iThread);
@@ -364,9 +383,9 @@ GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpy<uint8_t>(uint8_t* 
 template <>
 GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpy<uint16_t>(uint16_t* GPUrestrict() dst, const uint16_t* GPUrestrict() src, uint32_t size, int32_t nThreads, int32_t iThread)
 {
-  CONSTEXPR const int32_t vec128Elems = CpyVector<uint16_t, Vec128>::Size;
-  CONSTEXPR const int32_t vec64Elems = CpyVector<uint16_t, Vec64>::Size;
-  CONSTEXPR const int32_t vec32Elems = CpyVector<uint16_t, Vec32>::Size;
+  constexpr const int32_t vec128Elems = CpyVector<uint16_t, Vec128>::Size;
+  constexpr const int32_t vec64Elems = CpyVector<uint16_t, Vec64>::Size;
+  constexpr const int32_t vec32Elems = CpyVector<uint16_t, Vec32>::Size;
 
   if (size >= uint32_t(nThreads * vec128Elems)) {
     compressorMemcpyVectorised<uint16_t, Vec128>(dst, src, size, nThreads, iThread);
@@ -382,8 +401,8 @@ GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpy<uint16_t>(uint16_t
 template <>
 GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpy<uint32_t>(uint32_t* GPUrestrict() dst, const uint32_t* GPUrestrict() src, uint32_t size, int32_t nThreads, int32_t iThread)
 {
-  CONSTEXPR const int32_t vec128Elems = CpyVector<uint32_t, Vec128>::Size;
-  CONSTEXPR const int32_t vec64Elems = CpyVector<uint32_t, Vec64>::Size;
+  constexpr const int32_t vec128Elems = CpyVector<uint32_t, Vec128>::Size;
+  constexpr const int32_t vec64Elems = CpyVector<uint32_t, Vec64>::Size;
 
   if (size >= uint32_t(nThreads * vec128Elems)) {
     compressorMemcpyVectorised<uint32_t, Vec128>(dst, src, size, nThreads, iThread);
@@ -446,8 +465,8 @@ GPUdi() void GPUTPCCompressionGatherKernels::compressorMemcpyBuffered(V* buf, T*
   V* GPUrestrict() dstAligned = nullptr;
 
   T* bufT = reinterpret_cast<T*>(buf);
-  CONSTEXPR const int32_t bufSize = GPUCA_WARP_SIZE;
-  CONSTEXPR const int32_t bufTSize = bufSize * sizeof(V) / sizeof(T);
+  constexpr const int32_t bufSize = GPUCA_WARP_SIZE;
+  constexpr const int32_t bufTSize = bufSize * sizeof(V) / sizeof(T);
 
   for (uint32_t i = 0; i < nEntries; i++) {
     uint32_t srcPos = 0;
@@ -530,7 +549,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::Thread<GPUTPCCompressionGatherKern
 
   if (iBlock == 0) {
 
-    uint32_t nRows = compressor.NSLICES * GPUCA_ROW_COUNT;
+    uint32_t nRows = compressor.NSECTORS * GPUCA_ROW_COUNT;
     uint32_t rowsPerWarp = (nRows + nWarps - 1) / nWarps;
     uint32_t rowStart = rowsPerWarp * iWarp;
     uint32_t rowEnd = CAMath::Min(nRows, rowStart + rowsPerWarp);
@@ -541,7 +560,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::Thread<GPUTPCCompressionGatherKern
 
     uint32_t rowsOffset = calculateWarpOffsets(smem, compressor.mPtrs.nSliceRowClusters, rowStart, rowEnd, nWarps, iWarp, nLanes, iLane);
 
-    compressorMemcpy(compressor.mOutput->nSliceRowClusters, compressor.mPtrs.nSliceRowClusters, compressor.NSLICES * GPUCA_ROW_COUNT, nThreads, iThread);
+    compressorMemcpy(compressor.mOutput->nSliceRowClusters, compressor.mPtrs.nSliceRowClusters, compressor.NSECTORS * GPUCA_ROW_COUNT, nThreads, iThread);
     compressorMemcpy(compressor.mOutput->nTrackClusters, compressor.mPtrs.nTrackClusters, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpy(compressor.mOutput->qPtA, compressor.mPtrs.qPtA, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpy(compressor.mOutput->rowA, compressor.mPtrs.rowA, compressor.mMemory->nStoredTracks, nThreads, iThread);
@@ -549,14 +568,14 @@ GPUdii() void GPUTPCCompressionGatherKernels::Thread<GPUTPCCompressionGatherKern
     compressorMemcpy(compressor.mOutput->timeA, compressor.mPtrs.timeA, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpy(compressor.mOutput->padA, compressor.mPtrs.padA, compressor.mMemory->nStoredTracks, nThreads, iThread);
 
-    uint32_t sliceStart = rowStart / GPUCA_ROW_COUNT;
-    uint32_t sliceEnd = rowEnd / GPUCA_ROW_COUNT;
+    uint32_t sectorStart = rowStart / GPUCA_ROW_COUNT;
+    uint32_t sectorEnd = rowEnd / GPUCA_ROW_COUNT;
 
-    uint32_t sliceRowStart = rowStart % GPUCA_ROW_COUNT;
-    uint32_t sliceRowEnd = rowEnd % GPUCA_ROW_COUNT;
+    uint32_t sectorRowStart = rowStart % GPUCA_ROW_COUNT;
+    uint32_t sectorRowEnd = rowEnd % GPUCA_ROW_COUNT;
 
-    for (uint32_t i = sliceStart; i <= sliceEnd && i < compressor.NSLICES; i++) {
-      for (uint32_t j = ((i == sliceStart) ? sliceRowStart : 0); j < ((i == sliceEnd) ? sliceRowEnd : GPUCA_ROW_COUNT); j++) {
+    for (uint32_t i = sectorStart; i <= sectorEnd && i < compressor.NSECTORS; i++) {
+      for (uint32_t j = ((i == sectorStart) ? sectorRowStart : 0); j < ((i == sectorEnd) ? sectorRowEnd : GPUCA_ROW_COUNT); j++) {
         uint32_t nClusters = compressor.mPtrs.nSliceRowClusters[i * GPUCA_ROW_COUNT + j];
         uint32_t clusterOffsetInCache = clusters->clusterOffset[i][j] * compressor.mMaxClusterFactorBase1024 / 1024;
         compressorMemcpy(compressor.mOutput->qTotU + rowsOffset, compressor.mPtrs.qTotU + clusterOffsetInCache, nClusters, nLanes, iLane);
@@ -636,7 +655,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherBuffered(int32_t nBlocks, in
   auto& input = compressor.mPtrs;
   auto* output = compressor.mOutput;
 
-  uint32_t nRows = compressor.NSLICES * GPUCA_ROW_COUNT;
+  uint32_t nRows = compressor.NSECTORS * GPUCA_ROW_COUNT;
   uint32_t rowsPerWarp = (nRows + nGlobalWarps - 1) / nGlobalWarps;
   uint32_t rowStart = rowsPerWarp * iGlobalWarp;
   uint32_t rowEnd = CAMath::Min(nRows, rowStart + rowsPerWarp);
@@ -661,7 +680,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherBuffered(int32_t nBlocks, in
   uint32_t tracksOffset = calculateWarpOffsets(smem, input.nTrackClusters, trackStart, trackEnd, nWarps, iWarp, nLanes, iLane);
 
   if (iBlock == 0) {
-    compressorMemcpyBasic(output->nSliceRowClusters, input.nSliceRowClusters, compressor.NSLICES * GPUCA_ROW_COUNT, nThreads, iThread);
+    compressorMemcpyBasic(output->nSliceRowClusters, input.nSliceRowClusters, compressor.NSECTORS * GPUCA_ROW_COUNT, nThreads, iThread);
     compressorMemcpyBasic(output->nTrackClusters, input.nTrackClusters, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpyBasic(output->qPtA, input.qPtA, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpyBasic(output->rowA, input.rowA, compressor.mMemory->nStoredTracks, nThreads, iThread);
@@ -671,17 +690,17 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherBuffered(int32_t nBlocks, in
   }
 
   const uint32_t* clusterOffsets = &clusters->clusterOffset[0][0] + rowStart;
-  const uint32_t* nSliceRowClusters = input.nSliceRowClusters + rowStart;
+  const uint32_t* nSectorRowClusters = input.nSliceRowClusters + rowStart;
 
   auto* buf = smem.getBuffer<V>(iWarp);
 
-  compressorMemcpyBuffered(buf, output->qTotU + rowsOffset, input.qTotU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->qMaxU + rowsOffset, input.qMaxU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->flagsU + rowsOffset, input.flagsU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->padDiffU + rowsOffset, input.padDiffU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->timeDiffU + rowsOffset, input.timeDiffU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->sigmaPadU + rowsOffset, input.sigmaPadU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-  compressorMemcpyBuffered(buf, output->sigmaTimeU + rowsOffset, input.sigmaTimeU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->qTotU + rowsOffset, input.qTotU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->qMaxU + rowsOffset, input.qMaxU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->flagsU + rowsOffset, input.flagsU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->padDiffU + rowsOffset, input.padDiffU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->timeDiffU + rowsOffset, input.timeDiffU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->sigmaPadU + rowsOffset, input.sigmaPadU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+  compressorMemcpyBuffered(buf, output->sigmaTimeU + rowsOffset, input.sigmaTimeU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
 
   const uint16_t* nTrackClustersPtr = input.nTrackClusters + trackStart;
   const uint32_t* aClsFstIdx = compressor.mAttachedClusterFirstIndex + trackStart;
@@ -714,7 +733,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherMulti(int32_t nBlocks, int32
   auto* buf = smem.getBuffer<Vec128>(iWarp);
 
   if (iBlock == 0) {
-    compressorMemcpyBasic(output->nSliceRowClusters, input.nSliceRowClusters, compressor.NSLICES * GPUCA_ROW_COUNT, nThreads, iThread);
+    compressorMemcpyBasic(output->nSliceRowClusters, input.nSliceRowClusters, compressor.NSECTORS * GPUCA_ROW_COUNT, nThreads, iThread);
     compressorMemcpyBasic(output->nTrackClusters, input.nTrackClusters, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpyBasic(output->qPtA, input.qPtA, compressor.mMemory->nStoredTracks, nThreads, iThread);
     compressorMemcpyBasic(output->rowA, input.rowA, compressor.mMemory->nStoredTracks, nThreads, iThread);
@@ -725,7 +744,7 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherMulti(int32_t nBlocks, int32
     const uint32_t nGlobalWarps = nWarps * (nBlocks - 1) / 2;
     const uint32_t iGlobalWarp = nWarps * (iBlock - 1) / 2 + iWarp;
 
-    const uint32_t nRows = compressor.NSLICES * GPUCA_ROW_COUNT;
+    const uint32_t nRows = compressor.NSECTORS * GPUCA_ROW_COUNT;
     uint32_t rowsPerWarp = (nRows + nGlobalWarps - 1) / nGlobalWarps;
     uint32_t rowStart = rowsPerWarp * iGlobalWarp;
     uint32_t rowEnd = CAMath::Min(nRows, rowStart + rowsPerWarp);
@@ -737,15 +756,15 @@ GPUdii() void GPUTPCCompressionGatherKernels::gatherMulti(int32_t nBlocks, int32
 
     const uint32_t rowsOffset = calculateWarpOffsets(smem, input.nSliceRowClusters, rowStart, rowEnd, nWarps, iWarp, nLanes, iLane);
     const uint32_t* clusterOffsets = &clusters->clusterOffset[0][0] + rowStart;
-    const uint32_t* nSliceRowClusters = input.nSliceRowClusters + rowStart;
+    const uint32_t* nSectorRowClusters = input.nSliceRowClusters + rowStart;
 
-    compressorMemcpyBuffered(buf, output->qTotU + rowsOffset, input.qTotU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->qMaxU + rowsOffset, input.qMaxU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->flagsU + rowsOffset, input.flagsU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->padDiffU + rowsOffset, input.padDiffU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->timeDiffU + rowsOffset, input.timeDiffU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->sigmaPadU + rowsOffset, input.sigmaPadU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
-    compressorMemcpyBuffered(buf, output->sigmaTimeU + rowsOffset, input.sigmaTimeU, nSliceRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->qTotU + rowsOffset, input.qTotU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->qMaxU + rowsOffset, input.qMaxU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->flagsU + rowsOffset, input.flagsU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->padDiffU + rowsOffset, input.padDiffU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->timeDiffU + rowsOffset, input.timeDiffU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->sigmaPadU + rowsOffset, input.sigmaPadU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
+    compressorMemcpyBuffered(buf, output->sigmaTimeU + rowsOffset, input.sigmaTimeU, nSectorRowClusters, clusterOffsets, rowsPerWarp, nLanes, iLane, 0, compressor.mMaxClusterFactorBase1024);
   } else {
     const uint32_t nGlobalWarps = nWarps * (nBlocks - 1) / 2;
     const uint32_t iGlobalWarp = nWarps * (iBlock / 2 - 1) + iWarp;

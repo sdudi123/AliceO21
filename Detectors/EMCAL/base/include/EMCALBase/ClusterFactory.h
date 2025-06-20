@@ -12,7 +12,6 @@
 #define ALICEO2_EMCAL_CLUSTERFACTORY_H_
 #include <array>
 #include <vector>
-#include <optional>
 #include <utility>
 #include <gsl/span>
 #include "Rtypes.h"
@@ -277,9 +276,10 @@ class ClusterFactory
   /// \brief Look to cell neighbourhood and reject if it seems exotic
   /// \param towerId: tower ID of cell with largest energy fraction in cluster
   /// \param ecell: energy of the cell with largest energy fraction in cluster
-  /// \param exoticTime time of the cell with largest energy fraction in cluster
+  /// \param exoticTime: time of the cell with largest energy fraction in cluster
+  /// \param fCross: exoticity parameter (1-E_cross/E_cell^max) will be caluclated for this check
   /// \return bool true if cell is found exotic
-  bool isExoticCell(short towerId, float ecell, float const exoticTime) const;
+  bool isExoticCell(short towerId, float ecell, float const exoticTime, float& fCross) const;
 
   /// \brief Calculate the energy in the cross around the energy of a given cell.
   /// \param absID: controlled cell absolute ID number
@@ -335,7 +335,7 @@ class ClusterFactory
   bool getUseWeightExotic() const { return mUseWeightExotic; }
   void setUseWeightExotic(float useWeightExotic) { mUseWeightExotic = useWeightExotic; }
 
-  void setContainer(gsl::span<const o2::emcal::Cluster> clusterContainer, gsl::span<const InputType> cellContainer, gsl::span<const int> indicesContainer, std::optional<gsl::span<const o2::emcal::CellLabel>> cellLabelContainer = std::nullopt)
+  void setContainer(gsl::span<const o2::emcal::Cluster> clusterContainer, gsl::span<const InputType> cellContainer, gsl::span<const int> indicesContainer, gsl::span<const o2::emcal::CellLabel> cellLabelContainer = {})
   {
     mClustersContainer = clusterContainer;
     mInputsContainer = cellContainer;
@@ -343,8 +343,8 @@ class ClusterFactory
     if (!getLookUpInit()) {
       setLookUpTable();
     }
-    if (cellLabelContainer) {
-      mCellLabelContainer = cellLabelContainer.value();
+    if (!cellLabelContainer.empty()) {
+      mCellLabelContainer = cellLabelContainer;
     }
   }
 

@@ -236,7 +236,7 @@ if [[ $AGGREGATOR_TASKS == BARREL_TF ]] || [[ $AGGREGATOR_TASKS == ALL ]]; then
   fi
   # ITS
   if [[ $CALIB_ITS_DEADMAP_TIME == 1 ]]; then
-     add_W o2-itsmft-deadmap-builder-workflow "--ccdb-url $CCDB_POPULATOR_UPLOAD_PATH ${CALIB_ITS_DEADMAP_TIME_OPT:-}"
+     add_W o2-itsmft-deadmap-builder-workflow "--ccdb-url $CCDB_POPULATOR_UPLOAD_PATH ${CALIB_ITS_DEADMAP_TIME_OPT:---no-group-its-lanes --skip-static-map}"
   fi
   # MFT
   if [[ $CALIB_MFT_DEADMAP_TIME == 1 ]]; then
@@ -295,10 +295,10 @@ fi
 
 # TPC IDCs and SAC
 crus="0-359"  # to be used with $AGGREGATOR_TASKS == TPC_IDCBOTH_SAC or ALL
-lanesFactorize=${O2_TPC_IDC_FACTORIZE_NLANES:-10}
-threadFactorize=${O2_TPC_IDC_FACTORIZE_NTHREADS:-8}
+lanesFactorize=${O2_TPC_IDC_FACTORIZE_NLANES:-12}
+threadFactorize=${O2_TPC_IDC_FACTORIZE_NTHREADS:-16}
 nTFs=$((1000 * 128 / ${NHBPERTF}))
-nTFs_SAC=$((1000 * 128 / ${NHBPERTF}))
+nTFs_SAC=$((10000 * 128 / ${NHBPERTF}))
 nBuffer=$((100 * 128 / ${NHBPERTF}))
 IDC_DELTA="--disable-IDCDelta true" # off by default
 # deltas are on by default; you need to request explicitly to switch them off;

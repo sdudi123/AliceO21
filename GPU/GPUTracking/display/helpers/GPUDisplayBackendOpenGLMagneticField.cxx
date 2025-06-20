@@ -31,8 +31,9 @@
 #include "backend/GPUDisplayBackendOpenGL.h"
 #include "shaders/GPUDisplayShaders.h"
 #include "GPUDisplay.h"
+#include "GPULogging.h"
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
 
 // Runtime minimum version defined in GPUDisplayFrontend.h, keep in sync!
 #define GPUCA_BUILD_EVENT_DISPLAY_OPENGL

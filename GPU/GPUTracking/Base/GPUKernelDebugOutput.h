@@ -19,9 +19,7 @@
 #include "GPUProcessor.h"
 #ifdef GPUCA_KERNEL_DEBUGGER_OUTPUT
 
-namespace GPUCA_NAMESPACE
-{
-namespace gpu
+namespace o2::gpu
 {
 
 class GPUKernelDebugOutput : public GPUProcessor
@@ -75,8 +73,7 @@ class GPUKernelDebugOutput : public GPUProcessor
   mutable int32_t* mDebugOutMemory;
 };
 
-} // namespace gpu
-} // namespace GPUCA_NAMESPACE
+} // namespace o2::gpu
 
 #endif
 #endif

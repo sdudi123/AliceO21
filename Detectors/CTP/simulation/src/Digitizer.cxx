@@ -43,6 +43,7 @@ std::vector<CTPDigit> Digitizer::process(const gsl::span<o2::ctp::CTPInputDigit>
   std::vector<CTPDigit> digits;
   for (auto const& hits : predigits) {
     std::bitset<CTP_NINPUTS> inpmaskcoll = 0;
+    auto currentIR = hits.first;
     for (auto const inp : hits.second) {
       switch (inp->detector) {
         case o2::detectors::DetID::FT0: {
@@ -81,16 +82,16 @@ std::vector<CTPDigit> Digitizer::process(const gsl::span<o2::ctp::CTPInputDigit>
             std::bitset<CTP_NINPUTS> emcMBaccept;
             emcMBaccept.set(CTP_NINPUTS - 1, 1);
             inpmaskcoll |= emcMBaccept;
-          } else {
-            for (auto const& ctpinp : det2ctpinp[o2::detectors::DetID::EMC]) {
-              uint64_t mask = inpmaskdebug & detInputName2Mask[ctpinp.name];
-              // uint64_t mask = (inp->inputsMask).to_ullong() & detInputName2Mask[ctpinp.name];
-              if (mask) {
-                inpmaskcoll |= std::bitset<CTP_NINPUTS>(ctpinp.inputMask);
-              }
+          } // else { // needs to be done always, remove else
+          for (auto const& ctpinp : det2ctpinp[o2::detectors::DetID::EMC]) {
+            uint64_t mask = inpmaskdebug & detInputName2Mask[ctpinp.name];
+            // uint64_t mask = (inp->inputsMask).to_ullong() & detInputName2Mask[ctpinp.name];
+            if (mask) {
+              inpmaskcoll |= std::bitset<CTP_NINPUTS>(ctpinp.inputMask);
             }
           }
-          LOG(info) << "EMC input mask:" << inpmaskcoll;
+          // }
+          // LOG(info) << "EMC input mask:" << inpmaskcoll << " with IR = " << currentIR.bc << ", orbit = " << currentIR.orbit;
           break;
         }
         case o2::detectors::DetID::PHS: {
@@ -132,7 +133,8 @@ std::vector<CTPDigit> Digitizer::process(const gsl::span<o2::ctp::CTPInputDigit>
       data.CTPInputMask = inpmaskcoll;
       data.CTPClassMask = classmask;
       digits.emplace_back(data);
-      LOG(info) << "Trigger-Event " << data.intRecord.bc << " " << data.intRecord.orbit << " Input mask:" << inpmaskcoll;
+      LOG(info) << "Trigger-Event " << data.intRecord.bc << " " << data.intRecord.orbit << " Input mask:" << inpmaskcoll << " with IR = " << data.intRecord.bc << ", orbit = " << data.intRecord.orbit;
+      // LOG(info) << "Trigger-Event " << data.intRecord.bc << " " << data.intRecord.orbit << " Class mask:" << data.CTPClassMask << " with IR = " << data.intRecord.bc << ", orbit = " << data.intRecord.orbit;
     }
   }
   return std::move(digits);
@@ -151,24 +153,23 @@ void Digitizer::calculateClassMask(const std::bitset<CTP_NINPUTS> ctpinpmask, st
       if (clustername == "emc") {
         tvxMBemc |= tcl.name.find("minbias_TVX_L0") != std::string::npos; // 2022
       }
-      if (tvxMBemc || (ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask()) {
-        // require real physics input in any case
-        if (tvxMBemc) {
-          // if the class is a min. bias class accept it only if the MB-accept bit is set in addition
-          // (fake trigger input)
-          if (ctpinpmask[CTP_NINPUTS - 1]) {
-            classmask |= tcl.classMask;
-            LOG(info) << "adding MBA:" << tcl.name;
-          }
-        } else {
-          // EMCAL rare triggers - physical trigger input
-          // class identification can be handled like in the case of the other
-          // classes as EMCAL trigger input is required
+      // require real physics input in any case
+      if (tvxMBemc) {
+        // if the class is a min. bias class accept it only if the MB-accept bit is set in addition
+        // (fake trigger input)
+        if (ctpinpmask[CTP_NINPUTS - 1]) {
           classmask |= tcl.classMask;
+          LOG(info) << "adding MBA:" << tcl.name;
         }
+      } else if ((ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask()) {
+        // EMCAL rare triggers - physical trigger input
+        // class identification can be handled like in the case of the other
+        // classes as EMCAL trigger input is required
+        LOG(info) << "adding EMCal rare trigger:" << tcl.name;
+        classmask |= tcl.classMask;
       }
     } else {
-      if ((ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask()) {
+      if (tcl.descriptor && ((ctpinpmask.to_ullong() & tcl.descriptor->getInputsMask()) == tcl.descriptor->getInputsMask())) {
         classmask |= tcl.classMask;
       }
     }

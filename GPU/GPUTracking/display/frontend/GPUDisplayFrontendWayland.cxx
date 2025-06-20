@@ -18,6 +18,7 @@
 #include "GPUDisplayGUIWrapper.h"
 #include "GPUDisplay.h"
 #include "GPULogging.h"
+#include "GPUParam.h"
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -37,7 +38,20 @@
 #include <xkbcommon/xkbcommon.h>
 #include <linux/input-event-codes.h>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
+
+namespace o2::gpu::internal
+{
+template <class T, class... Args>
+struct CCallWrapper {
+  std::function<T(Args...)> func;
+  static T callback(void* context, Args... args)
+  {
+    const CCallWrapper* funcwrap = reinterpret_cast<const CCallWrapper*>(context);
+    return funcwrap->func(std::forward<Args>(args)...);
+  }
+};
+} // namespace o2::gpu::internal
 
 GPUDisplayFrontendWayland::GPUDisplayFrontendWayland()
 {
@@ -48,16 +62,6 @@ GPUDisplayFrontendWayland::GPUDisplayFrontendWayland()
 void GPUDisplayFrontendWayland::OpenGLPrint(const char* s, float x, float y, float r, float g, float b, float a, bool fromBotton)
 {
 }
-
-template <class T, class... Args>
-struct CCallWrapper {
-  std::function<T(Args...)> func;
-  static T callback(void* context, Args... args)
-  {
-    const CCallWrapper* funcwrap = reinterpret_cast<const CCallWrapper*>(context);
-    return funcwrap->func(std::forward<Args>(args)...);
-  }
-};
 
 int32_t GPUDisplayFrontendWayland::GetKey(uint32_t key, uint32_t state)
 {
@@ -283,10 +287,10 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
       wl_keyboard_add_listener(mKeyboard, &keyboard_listener, this);
     }
   };
-  auto seat_capabilities_c = CCallWrapper<void, wl_seat*, uint32_t>{[seat_capabilities](wl_seat* seat, uint32_t capabilities) { seat_capabilities(seat, capabilities); }};
+  auto seat_capabilities_c = internal::CCallWrapper<void, wl_seat*, uint32_t>{[seat_capabilities](wl_seat* seat, uint32_t capabilities) { seat_capabilities(seat, capabilities); }};
 
   auto seat_name = [](void* data, struct wl_seat* seat, const char* name) {
-    if (((GPUDisplayFrontendWayland*)data)->mDisplay->param()->par.debugLevel >= 2) {
+    if (((GPUDisplayFrontendWayland*)data)->mDisplay->GetProcessingSettings().debugLevel >= 2) {
       GPUInfo("Wayland seat: %s", name);
     }
   };
@@ -296,7 +300,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
   };
 
   auto registry_global = [&](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) {
-    if (mDisplay->param()->par.debugLevel >= 3) {
+    if (mDisplay->GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Available interface %s", interface);
     }
     if (strcmp(interface, wl_output_interface.name) == 0) {
@@ -317,7 +321,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
     }
   };
 
-  auto registry_global_c = CCallWrapper<void, wl_registry*, uint32_t, const char*, uint32_t>{[registry_global](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) { registry_global(registry, name, interface, version); }};
+  auto registry_global_c = internal::CCallWrapper<void, wl_registry*, uint32_t, const char*, uint32_t>{[registry_global](wl_registry* registry, uint32_t name, const char* interface, uint32_t version) { registry_global(registry, name, interface, version); }};
   auto registry_global_remove = [](void* a, wl_registry* b, uint32_t c) {};
   const wl_registry_listener registry_listener = {.global = &registry_global_c.callback, .global_remove = registry_global_remove};
 
@@ -340,7 +344,7 @@ int32_t GPUDisplayFrontendWayland::FrontendMain()
 
   auto xdg_toplevel_handle_configure = [](void* data, xdg_toplevel* toplevel, int32_t width, int32_t height, wl_array* states) {
     GPUDisplayFrontendWayland* me = (GPUDisplayFrontendWayland*)data;
-    if (me->mDisplay->param()->par.debugLevel >= 3) {
+    if (me->mDisplay->GetProcessingSettings().debugLevel >= 3) {
       GPUInfo("Wayland surface resized to %d %d", width, height);
     }
     me->mWidthRequested = width;

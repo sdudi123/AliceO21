@@ -16,24 +16,34 @@
 #include "frontend/GPUDisplayFrontend.h"
 #include "GPUDisplayInterface.h"
 
+#include <cstring>
 #include <tuple>
 #include <stdexcept>
 
-using namespace GPUCA_NAMESPACE::gpu;
+using namespace o2::gpu;
+
+namespace o2::gpu
+{
 
 extern "C" void* GPUTrackingDisplayLoader(const char*, void*);
 
+namespace internal
+{
+namespace
+{
 template <class T, typename... Args>
 static inline T* createHelper(Args... args)
 {
   return new T(args...);
 }
+} // anonymous namespace
+} // namespace internal
 
 void* GPUTrackingDisplayLoader(const char* type, void* args)
 {
   if (strcmp(type, "display") == 0) {
-    auto x = (std::tuple<GPUDisplayFrontend*, GPUChainTracking*, GPUQA*, const GPUParam*, const GPUCalibObjectsConst*, const GPUSettingsDisplay*>*)args;
-    return std::apply([](auto&&... y) { return createHelper<GPUDisplay>(y...); }, *x);
+    auto x = (std::tuple<GPUDisplayFrontend*, GPUChainTracking*, GPUQA*, const GPUParam*, const GPUCalibObjectsConst*, const GPUSettingsDisplay*, const GPUSettingsProcessing*>*)args;
+    return std::apply([](auto&&... y) { return internal::createHelper<GPUDisplay>(y...); }, *x);
   } else if (strcmp(type, "frontend") == 0) {
     auto x = (std::tuple<const char*>*)args;
     return std::apply([](auto&&... y) { return GPUDisplayFrontend::getFrontend(y...); }, *x);
@@ -42,3 +52,5 @@ void* GPUTrackingDisplayLoader(const char* type, void* args)
   }
   return nullptr;
 }
+
+} // namespace o2::gpu
