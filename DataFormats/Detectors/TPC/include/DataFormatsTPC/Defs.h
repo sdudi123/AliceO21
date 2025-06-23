@@ -182,4 +182,23 @@ typename Enum<T>::Iterator end(Enum<T>)
 }
 } // namespace o2::tpc
 
+#ifdef __CLING__
+#include "DataFormatsTPC/VectorPadFlagsStreamer.h"
+
+struct VectorPadFlagsStreamerInit {
+  VectorPadFlagsStreamerInit()
+  {
+    auto cls = TClass::GetClass("std::vector<o2::tpc::PadFlags>");
+    if (cls) {
+      cls->AdoptStreamer(new VectorPadFlagsStreamer());
+    } else {
+      throw std::runtime_error("VectorPadFlagsStreamerInit: Class not found!");
+    }
+  }
+};
+
+static VectorPadFlagsStreamerInit _vectorPadFlagsStreamerInit;
+
+#endif // __CLING__
+
 #endif
