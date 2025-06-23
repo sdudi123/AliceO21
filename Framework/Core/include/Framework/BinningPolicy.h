@@ -14,6 +14,7 @@
 
 #include "Framework/ASoA.h"
 #include "Framework/HistogramSpec.h" // only for VARIABLE_WIDTH
+
 #include <cstddef>
 #include <cstdint>
 #include <tuple>
