@@ -1332,7 +1332,7 @@ DECLARE_SOA_COLUMN(One, one, int);
 DECLARE_SOA_COLUMN(Two, two, float);
 DECLARE_SOA_COLUMN(Three, three, double);
 DECLARE_SOA_COLUMN(Four, four, int[2]);
-DECLARE_SOA_DYNAMIC_COLUMN(Five, five, [](const int in[2]) -> float { return (float)in[0] / (float)in[1]; });
+DECLARE_SOA_DYNAMIC_COLUMN(Five, five, [](std::span<const int> in) -> float { return (float)in[0] / (float)in[1]; });
 } // namespace table
 
 DECLARE_SOA_TABLE(MixTest, "AOD", "MIXTST",

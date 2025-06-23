@@ -64,26 +64,31 @@ struct arrow_array_for<double> {
 };
 template <int N>
 struct arrow_array_for<float[N]> {
+  static constexpr size_t width = N;
   using type = arrow::FixedSizeListArray;
   using value_type = float;
 };
 template <int N>
 struct arrow_array_for<int[N]> {
+  static constexpr size_t width = N;
   using type = arrow::FixedSizeListArray;
   using value_type = int;
 };
 template <int N>
 struct arrow_array_for<short[N]> {
+  static constexpr size_t width = N;
   using type = arrow::FixedSizeListArray;
   using value_type = short;
 };
 template <int N>
 struct arrow_array_for<double[N]> {
+  static constexpr size_t width = N;
   using type = arrow::FixedSizeListArray;
   using value_type = double;
 };
 template <int N>
 struct arrow_array_for<int8_t[N]> {
+  static constexpr size_t width = N;
   using type = arrow::FixedSizeListArray;
   using value_type = int8_t;
 };

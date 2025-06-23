@@ -471,6 +471,12 @@ struct unwrap<std::vector<T>> {
   using type = T;
 };
 
+template <typename T, int N>
+struct unwrap<T[N]> {
+  using type = T[N];
+  using base_type = T;
+};
+
 template <>
 struct unwrap<bool> {
   using type = char;
@@ -560,15 +566,15 @@ class ColumnIterator : ChunkingPolicy
     mLast = mCurrent + array->length() + (mFirstIndex >> SCALE_FACTOR);
   }
 
-  decltype(auto) operator*() const
+  auto operator*() const
     requires std::same_as<bool, std::decay_t<T>>
   {
     checkSkipChunk();
     return (*(mCurrent - (mOffset >> SCALE_FACTOR) + ((*mCurrentPos + mOffset) >> SCALE_FACTOR)) & (1 << ((*mCurrentPos + mOffset) & 0x7))) != 0;
   }
 
-  decltype(auto) operator*() const
-    requires((!std::same_as<bool, std::decay_t<T>>) && std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  auto operator*() const
+    requires((!std::same_as<bool, std::decay_t<T>>) && std::same_as<arrow_array_for_t<T>, arrow::ListArray> && !std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>)
   {
     checkSkipChunk();
     auto list = std::static_pointer_cast<arrow::ListArray>(mColumn->chunk(mCurrentChunk));
@@ -577,8 +583,15 @@ class ColumnIterator : ChunkingPolicy
     return std::span{mCurrent + mFirstIndex + offset, mCurrent + mFirstIndex + (offset + length)};
   }
 
-  decltype(auto) operator*() const
-    requires((!std::same_as<bool, std::decay_t<T>>) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray>)
+  auto operator*() const
+    requires((!std::same_as<bool, std::decay_t<T>>) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray> && std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>)
+  {
+    checkSkipChunk();
+    return std::span{reinterpret_cast<const unwrap<T>::base_type*>(mCurrent + (*mCurrentPos >> SCALE_FACTOR)), arrow_array_for<T>::width};
+  }
+
+  auto operator*() const
+    requires((!std::same_as<bool, std::decay_t<T>>) && !std::same_as<arrow_array_for_t<T>, arrow::ListArray> && !std::same_as<arrow_array_for_t<T>, arrow::FixedSizeListArray>)
   {
     checkSkipChunk();
     return *(mCurrent + (*mCurrentPos >> SCALE_FACTOR));
