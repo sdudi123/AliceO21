@@ -79,18 +79,18 @@ Detector::Detector(bool active)
   mPlateBehindA= baseParam.plateBehindA;
   mFullContainer = baseParam.fullContainer;
 
-  mZmodA = baseParam.zmodA;
-  mZmodC = baseParam.zmodC;
+  mZA = baseParam.zmodA;
+  mZC = baseParam.zmodC;
 
   for (int i = 0; i <= mNumberOfRingsA + 1; i++) {
     float eta = mEtaMaxA - i * (mEtaMaxA - mEtaMinA) / mNumberOfRingsA;
-    float r = ringRadius(mZmodA, eta);
+    float r = ringSize(mZA, eta);
     mRingSizesA.emplace_back(r);
   }
 
   for (int i = 0; i <= mNumberOfRingsC + 1; i++) {
     float eta = mEtaMinC + i * (mEtaMaxC - mEtaMinC) / mNumberOfRingsC;
-    float r = ringRadius(mZmodC, eta);
+    float r = ringSize(mZC, eta);
     mRingSizesC.emplace_back(r);
   }
 }
@@ -304,8 +304,8 @@ void Detector::buildModules()
   TGeoVolumeAssembly* vFDA = buildModuleA();
   TGeoVolumeAssembly* vFDC = buildModuleC();
 
-  vCave->AddNode(vFDA, 1, new TGeoTranslation(0., 0., mZmodA));
-  vCave->AddNode(vFDC, 1, new TGeoTranslation(0., 0., mZmodC));
+  vCave->AddNode(vFDA, 1, new TGeoTranslation(0., 0., mZA));
+  vCave->AddNode(vFDC, 1, new TGeoTranslation(0., 0., mZC));
 }
 
 TGeoVolumeAssembly* Detector::buildModuleA()
@@ -443,7 +443,7 @@ unsigned int Detector::getChannelId(TVector3 vec)
   return ir * mNumberOfSectors + isect + noff;
 }
 
-float Detector::ringRadius(float z, float eta)
+float Detector::ringSize(float z, float eta)
 {
   return z * TMath::Tan(2 * TMath::ATan(TMath::Exp(-eta)));
 }
