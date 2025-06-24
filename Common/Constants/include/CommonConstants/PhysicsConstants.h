@@ -89,6 +89,7 @@ enum Pdg {
   kHyperHelium4 = 1010020040,
   kHyperHelium5 = 1010020050,
   kHyperHelium4Sigma = 1110020040
+  kLambda1520 = 102134
 };
 
 /// \brief Declarations of masses for additional particles
