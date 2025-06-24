@@ -85,13 +85,13 @@ Detector::Detector(bool active)
   for (int i = 0; i <= mNumberOfRingsA + 1; i++) {
     float eta = mEtaMaxA - i * (mEtaMaxA - mEtaMinA) / mNumberOfRingsA;
     float r = ringRadius(mZmodA, eta);
-    mRingRadiiA.emplace_back(r);
+    mRingSizesA.emplace_back(r);
   }
 
   for (int i = 0; i <= mNumberOfRingsC + 1; i++) {
     float eta = mEtaMinC + i * (mEtaMaxC - mEtaMinC) / mNumberOfRingsC;
     float r = ringRadius(mZmodC, eta);
-    mRingRadiiC.emplace_back(r);
+    mRingSizesC.emplace_back(r);
   }
 }
 
@@ -319,8 +319,8 @@ TGeoVolumeAssembly* Detector::buildModuleA()
   for (int ir = 0; ir < mNumberOfRingsA; ir++) {
     std::string rName = "fd_ring" + std::to_string(ir + 1);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
-    float rmin = mRingRadiiA[ir];
-    float rmax = mRingRadiiA[ir + 1];
+    float rmin = mRingSizesA[ir];
+    float rmax = mRingSizesA[ir + 1];
     LOG(info) << "ring" << ir << ": from " << rmin << " to " << rmax;
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * ir;
@@ -339,7 +339,7 @@ TGeoVolumeAssembly* Detector::buildModuleA()
   if (mPlateBehindA || mFullContainer) {
     LOG(info) << "adding container on A side";
     auto pmed = (TGeoMedium*)gGeoManager->GetMedium("FD_Aluminium");
-    auto pvol = new TGeoTube("pvol_fda", mRingRadiiA[0], mRingRadiiA[mNumberOfRingsA], mDzPlate);
+    auto pvol = new TGeoTube("pvol_fda", mRingSizesA[0], mRingSizesA[mNumberOfRingsA], mDzPlate);
     auto pnod1 = new TGeoVolume("pnod1_FDA", pvol, pmed);
     double dpz = 2. + mDzPlate / 2;
     mod->AddNode(pnod1, 1, new TGeoTranslation(0, 0, dpz));
@@ -363,8 +363,8 @@ TGeoVolumeAssembly* Detector::buildModuleC()
   for (int ir = 0; ir < mNumberOfRingsC; ir++) {
     std::string rName = "fd_ring" + std::to_string(ir + 1 + mNumberOfRingsA);
     TGeoVolumeAssembly* ring = new TGeoVolumeAssembly(rName.c_str());
-    float rmin = mRingRadiiC[ir];
-    float rmax = mRingRadiiC[ir + 1];
+    float rmin = mRingSizesC[ir];
+    float rmax = mRingSizesC[ir + 1];
     LOG(info) << "ring" << ir + mNumberOfRingsA << ": from " << rmin << " to " << rmax;
     for (int ic = 0; ic < mNumberOfSectors; ic++) {
       int cellId = ic + mNumberOfSectors * (ir + mNumberOfRingsA);
@@ -383,7 +383,7 @@ TGeoVolumeAssembly* Detector::buildModuleC()
   if (mFullContainer) {
     LOG(info) << "adding container on C side";
     auto pmed = (TGeoMedium*)gGeoManager->GetMedium("FD_Aluminium");
-    auto pvol = new TGeoTube("pvol_fdc", mRingRadiiC[0], mRingRadiiC[mNumberOfRingsC], mDzPlate);
+    auto pvol = new TGeoTube("pvol_fdc", mRingSizesC[0], mRingSizesC[mNumberOfRingsC], mDzPlate);
     auto pnod1 = new TGeoVolume("pnod1_FDC", pvol, pmed);
     auto pnod2 = new TGeoVolume("pnod2_FDC", pvol, pmed);
     double dpz = mDzScint / 2 + mDzPlate / 2;
@@ -427,7 +427,7 @@ unsigned int Detector::getChannelId(TVector3 vec)
 
   int isect = int(phi / (TMath::TwoPi() / mNumberOfSectors));
 
-  std::vector<float> rd = z > 0 ? mRingRadiiA : mRingRadiiC;
+  std::vector<float> rd = z > 0 ? mRingSizesA : mRingSizesC;
   int noff = z > 0 ? 0 : mNumberOfRingsA * mNumberOfSectors;
 
   int ir = 0;
