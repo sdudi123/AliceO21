@@ -108,7 +108,7 @@ class Detector : public o2::base::DetImpl<Detector>
   float mDzPlate;
 
   std::vector<float> mRingSizesA = {};
-  wstd::vector<float> mRingSizesC = {};
+  std::vector<float> mRingSizesC = {};
 
   float mEtaMaxA, mEtaMaxC;
   float mEtaMinA, mEtaMinC;
