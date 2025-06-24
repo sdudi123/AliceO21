@@ -86,6 +86,7 @@ class Detector : public o2::base::DetImpl<Detector>
 
   enum EMedia {
     Scintillator,
+    Aluminium
   };
 
  private:
@@ -104,6 +105,7 @@ class Detector : public o2::base::DetImpl<Detector>
   unsigned int mNumberOfRingsA;
   unsigned int mNumberOfRingsC;
   float mDzScint;
+  float mDzPlate;
 
   std::vector<float> mRingRadiiA = {};
   std::vector<float> mRingRadiiC = {};
@@ -112,7 +114,10 @@ class Detector : public o2::base::DetImpl<Detector>
   float mEtaMinA, mEtaMinC;
   float mZmodA, mZmodC;
 
+  bool mPlateBehindA, mFullContainer;
+
   void defineSensitiveVolumes();
+  void definePassiveVolumes();
 
   unsigned int getChannelId(TVector3 vec);
 

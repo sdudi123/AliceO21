@@ -26,7 +26,11 @@ struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
   float zmodC = -1850.0f;
   float dzscint = 4.0f;
 
-  bool withMG = false; // modified geometry
+  bool withMG = false; // modified geometry with 3 rings on A side
+
+  bool plateBehindA= true;
+  bool fullContainer = false;
+  float dzplate = 1.0f; //Aluminium plate width
 
   O2ParamDef(FDBaseParam, "FDBase");
 };

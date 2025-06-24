@@ -74,6 +74,10 @@ Detector::Detector(bool active)
   }
 
   mDzScint = baseParam.dzscint / 2;
+  mDzPlate = baseParam.dzplate;
+
+  mPlateBehindA= baseParam.plateBehindA;
+  mFullContainer = baseParam.fullContainer;
 
   mZmodA = baseParam.zmodA;
   mZmodC = baseParam.zmodC;
@@ -258,6 +262,11 @@ void Detector::createMaterials()
   float wScint[nScint] = {0.07085, 0.92915}; // based on EJ-204 datasheet: n_atoms/cm3
   const float dScint = 1.023;
 
+  // Aluminium
+  Float_t aAlu = 26.981;
+  Float_t zAlu = 13;
+  Float_t dAlu = 2.7;
+
   int matId = 0;                  // tmp material id number
   const int unsens = 0, sens = 1; // sensitive or unsensitive medium
                                   //
@@ -275,6 +284,11 @@ void Detector::createMaterials()
   o2::base::Detector::Mixture(++matId, "Scintillator", aScint, zScint, dScint, nScint, wScint);
   o2::base::Detector::Medium(Scintillator, "Scintillator", matId, unsens, fieldType, maxField,
                              tmaxfd, stemax, deemax, epsil, stmin);
+
+  o2::base::Detector::Material(++matId, "Aluminium", aAlu, zAlu, dAlu, 8.9, 999);
+  o2::base::Detector::Medium(Aluminium, "Aluminium", matId, unsens, fieldType, maxField,
+                             tmaxfd, stemax, deemax, epsil, stmin);
+
 }
 
 void Detector::buildModules()
@@ -290,8 +304,8 @@ void Detector::buildModules()
   TGeoVolumeAssembly* vFDA = buildModuleA();
   TGeoVolumeAssembly* vFDC = buildModuleC();
 
-  vCave->AddNode(vFDA, 1, new TGeoTranslation(0., 0., mZmodA /* - mDzScint/2.*/));
-  vCave->AddNode(vFDC, 1, new TGeoTranslation(0., 0., mZmodC /* + mDzScint/2.*/));
+  vCave->AddNode(vFDA, 1, new TGeoTranslation(0., 0., mZmodA));
+  vCave->AddNode(vFDC, 1, new TGeoTranslation(0., 0., mZmodC));
 }
 
 TGeoVolumeAssembly* Detector::buildModuleA()
@@ -321,6 +335,20 @@ TGeoVolumeAssembly* Detector::buildModuleA()
     mod->AddNode(ring, 1);
   }
 
+  // Aluminium plates on one or both sides of the A side module
+  if (mPlateBehindA || mFullContainer) {
+    LOG(info) << "adding container on A side";
+    auto pmed = (TGeoMedium*)gGeoManager->GetMedium("FD_Aluminium");
+    auto pvol = new TGeoTube("pvol_fda", mRingRadiiA[0], mRingRadiiA[mNumberOfRingsA], mDzPlate);
+    auto pnod1 = new TGeoVolume("pnod1_FDA", pvol, pmed);
+    double dpz = 2. + mDzPlate / 2;
+    mod->AddNode(pnod1, 1, new TGeoTranslation(0, 0, dpz));
+    
+    if (mFullContainer) {
+      auto pnod2 = new TGeoVolume("pnod2_FDA", pvol, pmed);
+      mod->AddNode(pnod2, 1, new TGeoTranslation(0, 0, -dpz));
+   }
+  }
   return mod;
 }
 
@@ -349,6 +377,19 @@ TGeoVolumeAssembly* Detector::buildModuleC()
       ring->AddNode(nod, cellId);
     }
     mod->AddNode(ring, 1);
+  }
+
+  // Aluminium plates on both sides of the C side module
+  if (mFullContainer) {
+    LOG(info) << "adding container on C side";
+    auto pmed = (TGeoMedium*)gGeoManager->GetMedium("FD_Aluminium");
+    auto pvol = new TGeoTube("pvol_fdc", mRingRadiiC[0], mRingRadiiC[mNumberOfRingsC], mDzPlate);
+    auto pnod1 = new TGeoVolume("pnod1_FDC", pvol, pmed);
+    auto pnod2 = new TGeoVolume("pnod2_FDC", pvol, pmed);
+    double dpz = mDzScint / 2 + mDzPlate / 2;
+
+    mod->AddNode(pnod1, 1, new TGeoTranslation(0, 0, dpz));
+    mod->AddNode(pnod2, 1, new TGeoTranslation(0, 0, - dpz));
   }
 
   return mod;
