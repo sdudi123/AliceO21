@@ -12,6 +12,7 @@
 #include "ITS3Reconstruction/IOUtils.h"
 #include "ITStracking/IOUtils.h"
 #include "ITStracking/TimeFrame.h"
+#include "ITStracking/BoundedAllocator.h"
 #include "DataFormatsITSMFT/CompCluster.h"
 #include "DataFormatsITSMFT/ROFRecord.h"
 #include "ITS3Reconstruction/TopologyDictionary.h"
@@ -56,20 +57,21 @@ void convertCompactClusters(gsl::span<const itsmft::CompClusterExt> clusters,
   }
 }
 
-int loadROFrameDataITS3(its::TimeFrame* tf,
+int loadROFrameDataITS3(its::TimeFrame<7>* tf,
                         gsl::span<o2::itsmft::ROFRecord> rofs,
                         gsl::span<const itsmft::CompClusterExt> clusters,
                         gsl::span<const unsigned char>::iterator& pattIt,
                         const its3::TopologyDictionary* dict,
                         const dataformats::MCTruthContainer<MCCompLabel>* mcLabels)
 {
+  tf->resetROFrameData();
+
   auto geom = its::GeometryTGeo::Instance();
   geom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
 
   tf->mNrof = 0;
 
-  std::vector<uint8_t> clusterSizeVec;
-  clusterSizeVec.reserve(clusters.size());
+  its::bounded_vector<uint8_t> clusterSizeVec(clusters.size(), tf->getMemoryPool().get());
 
   for (auto& rof : rofs) {
     for (int clusterId{rof.getFirstEntry()}; clusterId < rof.getFirstEntry() + rof.getNEntries(); ++clusterId) {

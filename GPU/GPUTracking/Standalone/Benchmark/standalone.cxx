@@ -223,6 +223,14 @@ int32_t ReadConfiguration(int argc, char** argv)
     configStandalone.rec.tpc.nWaysOuter = 1;
     configStandalone.rec.tpc.trackReferenceX = 83;
     configStandalone.proc.outputSharedClusterMap = 1;
+    configStandalone.proc.clearO2OutputFromGPU = 1;
+    configStandalone.QA.clusterRejectionHistograms = 1;
+    configStandalone.proc.tpcIncreasedMinClustersPerRow = 500000;
+    configStandalone.proc.ignoreNonFatalGPUErrors = 1;
+    // TODO: rundEdx=1
+    // GPU_proc.qcRunFraction=$TPC_TRACKING_QC_RUN_FRACTION;"
+    // [[ $CTFINPUT == 1 ]] && GPU_CONFIG_KEY+="GPU_proc.tpcInputWithClusterRejection=1;"
+    // double pipeline / rtc
   }
 
   if (configStandalone.outputcontrolmem) {
@@ -514,10 +522,9 @@ int32_t ReadEvent(int32_t n)
   if ((configStandalone.proc.runQA || configStandalone.eventDisplay) && !configStandalone.QA.noMC) {
     chainTracking->ForceInitQA();
     chainTracking->GetQA()->UpdateChain(chainTracking);
-    if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc." + std::to_string(n) + ".dump").c_str())) {
-      if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc.0.dump").c_str()) && configStandalone.proc.runQA) {
-        throw std::runtime_error("Error reading O2 MC dump");
-      }
+    if (chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc." + std::to_string(n) + ".dump").c_str()) &&
+        chainTracking->GetQA()->ReadO2MCData((eventsDir + "mc.0.dump").c_str()) && configStandalone.proc.runQA) {
+      throw std::runtime_error("Error reading O2 MC dump");
     }
   }
 #endif
@@ -809,6 +816,9 @@ int32_t main(int argc, char** argv)
       }
       nEvents = nEventsInDirectory;
     }
+    if (nEvents == 0 && !configStandalone.noEvents) {
+      printf("No event data found in event folder\n");
+    }
     if (configStandalone.TF.nMerge > 1) {
       nEvents /= configStandalone.TF.nMerge;
     }
@@ -893,7 +903,7 @@ int32_t main(int argc, char** argv)
       double pipelineWalltime = 1.;
       if (configStandalone.proc.doublePipeline) {
         HighResTimer timerPipeline;
-        if (RunBenchmark(rec, chainTracking, 1, iEvent, &nTracksTotal, &nClustersTotal) || RunBenchmark(recPipeline, chainTrackingPipeline, 2, iEvent, &nTracksTotal, &nClustersTotal)) {
+        if (configStandalone.proc.debugLevel < 2 && (RunBenchmark(rec, chainTracking, 1, iEvent, &nTracksTotal, &nClustersTotal) || RunBenchmark(recPipeline, chainTrackingPipeline, 2, iEvent, &nTracksTotal, &nClustersTotal))) {
           goto breakrun;
         }
         auto pipeline1 = std::async(std::launch::async, RunBenchmark, rec, chainTracking, configStandalone.runs, iEvent, &nTracksTotal, &nClustersTotal, 0, &timerPipeline);

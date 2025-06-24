@@ -35,6 +35,8 @@ And there are plenty of additional settings to enable/disable event display, qa,
 
 This will create the `ca` binary in `~/standalone`, which is basically the same as the `o2-gpu-standalone-benchmark`, but built outside of O2.
 
+As an exacmple you can also have a look at [build.sh](https://github.com/AliceO2Group/AliceO2/blob/dev/GPU/GPUTracking/Standalone/cmake/build.sh), which is used by the CI.
+
 # Running
 
 The following command lines will use `./ca`, in case you use the executable from the O2 build, please replace by `o2-gpu-standalone-benchmark`.
@@ -70,6 +72,8 @@ For a reaslistic benchmark using GPU 0 on the EPNs, please use:
 ```
 ROCR_VISIBLE_DEVICES=0 numactl --membind 0 --cpunodebind 0 ./ca -e o2-pbpb-100 --gpuType HIP --memSize 15000000000 --inputMemory 6000000000 --outputMemory 10000000000 --sync --runs 10 --RTCenable --setO2Settings --PROCdoublePipeline
 ```
+
+Note that on the MI50 nodes, we use only <16 GB of memory, since there is a performance regression when using the upper half of the 32 GB. In order to fit in the 16 GB, we have reduced the time frame length to 32 orbits from 2024 onwards.
 
 # Generating a dataset
 

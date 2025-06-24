@@ -352,7 +352,9 @@ void launchShutdownThread()
     }
     LOG(info) << "Shutdown timer expired ... force killing remaining children";
     for (auto p : gChildProcesses) {
-      killpg(p, SIGKILL);
+      if (p != 0 && killpg(p, 0) == 0) { // see if process still exists
+        killpg(p, SIGKILL);
+      }
     }
   };
   threads.push_back(std::thread(lambda));
@@ -439,6 +441,12 @@ int main(int argc, char* argv[])
   signal(SIGTERM, sighandler);
   // we enable the forked version of the code by default
   setenv("ALICE_SIMFORKINTERNAL", "ON", 1);
+
+  // force execution as own process group
+  if (setpgid(0, 0) == -1) {
+    perror("setpgid");
+    exit(1);
+  }
 
   TStopwatch timer;
   timer.Start();
@@ -703,7 +711,9 @@ int main(int argc, char* argv[])
           if (!shutdown_initiated) {
             shutdown_initiated = true;
             for (auto p : gChildProcesses) {
-              killpg(p, SIGTERM);
+              if (killpg(p, 0) == 0) {
+                killpg(p, SIGTERM);
+              }
             }
           }
         } else {
@@ -722,7 +732,12 @@ int main(int argc, char* argv[])
   int status, cpid;
   // wait just blocks and waits until any child returns; but we make sure to wait until merger is here
   bool errored = false;
-  while ((cpid = wait(&status)) != mergerpid) {
+  // wait at least until mergerpid is reaped
+  while ((cpid = wait(&status)) != -1) {
+    if (cpid == mergerpid) {
+      break; // Defer handling of mergerpid exit status until after the loop
+    }
+
     if (WEXITSTATUS(status) || WIFSIGNALED(status)) {
       if (!shutdown_initiated) {
         LOG(info) << "Process " << cpid << " EXITED WITH CODE " << WEXITSTATUS(status) << " SIGNALED "
@@ -733,7 +748,9 @@ int main(int argc, char* argv[])
         LOG(info) << "Problem detected (or child received termination signal) ... shutting down whole system ";
         for (auto p : gChildProcesses) {
           LOG(info) << "TERMINATING " << p;
-          killpg(p, SIGTERM); // <--- makes sure to shutdown "unknown" child pids via the group property
+          if (killpg(p, 0) == 0) {
+            killpg(p, SIGTERM); // <--- makes sure to shutdown "unknown" child pids via the group property
+          }
         }
         LOG(error) << "SHUTTING DOWN DUE TO SIGNALED EXIT IN COMPONENT " << cpid;
         o2::simpubsub::publishMessage(externalpublishchannel, o2::simpubsub::simStatusString("O2SIM", "STATE", "FAILURE"));
@@ -741,6 +758,26 @@ int main(int argc, char* argv[])
       }
     }
   }
+
+  // Handle mergerpid status separately
+  if (cpid == mergerpid) {
+    if (WIFEXITED(status)) {
+      // anything other than 128 is indicative of error
+      if (WEXITSTATUS(status) != 128) {
+        LOG(error) << "Merger process exited with abnormal code " << WEXITSTATUS(status);
+        errored = true;
+      }
+    } else if (WIFSIGNALED(status)) {
+      auto sig = WTERMSIG(status);
+      if (sig == SIGKILL || sig == SIGBUS || sig == SIGSEGV || sig == SIGABRT) {
+        LOG(error) << "Merger process terminated through abnormal signal " << WTERMSIG(status);
+        errored = true;
+      }
+    } else {
+      LOG(warning) << "Merger process exited with unexpected status.";
+    }
+  }
+
   // This marks the actual end of the computation (since results are available)
   LOG(info) << "Merger process " << mergerpid << " returned";
   LOG(info) << "Simulation process took " << timer.RealTime() << " s";
@@ -751,7 +788,9 @@ int main(int argc, char* argv[])
     for (auto p : gChildProcesses) {
       if (p != mergerpid) {
         LOG(info) << "SHUTTING DOWN CHILD PROCESS (normal thread)" << p;
-        killpg(p, SIGTERM);
+        if (killpg(p, 0) == 0) {
+          killpg(p, SIGTERM);
+        }
       }
     }
   }
