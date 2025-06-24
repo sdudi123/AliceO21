@@ -460,7 +460,6 @@ void ITSTrackingInterface::finaliseCCDB(ConcreteDataMatcher& matcher, void* obj)
 
 void ITSTrackingInterface::printSummary() const
 {
-  mMemoryPool->print();
   mTracker->printSummary();
 }
 
