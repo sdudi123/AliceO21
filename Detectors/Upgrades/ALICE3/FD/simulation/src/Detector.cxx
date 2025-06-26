@@ -76,7 +76,7 @@ Detector::Detector(bool active)
   mDzScint = baseParam.dzscint / 2;
   mDzPlate = baseParam.dzplate;
 
-  mPlateBehindA= baseParam.plateBehindA;
+  mPlateBehindA = baseParam.plateBehindA;
   mFullContainer = baseParam.fullContainer;
 
   mZA = baseParam.zmodA;
@@ -288,7 +288,6 @@ void Detector::createMaterials()
   o2::base::Detector::Material(++matId, "Aluminium", aAlu, zAlu, dAlu, 8.9, 999);
   o2::base::Detector::Medium(Aluminium, "Aluminium", matId, unsens, fieldType, maxField,
                              tmaxfd, stemax, deemax, epsil, stmin);
-
 }
 
 void Detector::buildModules()
@@ -343,11 +342,11 @@ TGeoVolumeAssembly* Detector::buildModuleA()
     auto pnod1 = new TGeoVolume("pnod1_FDA", pvol, pmed);
     double dpz = 2. + mDzPlate / 2;
     mod->AddNode(pnod1, 1, new TGeoTranslation(0, 0, dpz));
-    
+
     if (mFullContainer) {
       auto pnod2 = new TGeoVolume("pnod2_FDA", pvol, pmed);
       mod->AddNode(pnod2, 1, new TGeoTranslation(0, 0, -dpz));
-   }
+    }
   }
   return mod;
 }
@@ -389,7 +388,7 @@ TGeoVolumeAssembly* Detector::buildModuleC()
     double dpz = mDzScint / 2 + mDzPlate / 2;
 
     mod->AddNode(pnod1, 1, new TGeoTranslation(0, 0, dpz));
-    mod->AddNode(pnod2, 1, new TGeoTranslation(0, 0, - dpz));
+    mod->AddNode(pnod2, 1, new TGeoTranslation(0, 0, -dpz));
   }
 
   return mod;
