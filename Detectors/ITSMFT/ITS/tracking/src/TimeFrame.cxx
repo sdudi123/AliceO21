@@ -59,24 +59,19 @@ TimeFrame<nLayers>::~TimeFrame()
 }
 
 template <int nLayers>
-void TimeFrame<nLayers>::addPrimaryVertices(const bounded_vector<Vertex>& vertices)
+void TimeFrame<nLayers>::addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int iteration)
 {
   for (const auto& vertex : vertices) {
-    mPrimaryVertices.emplace_back(vertex);
-    if (!isBeamPositionOverridden) {
+    mPrimaryVertices.emplace_back(vertex); // put a copy in the present
+    mTotVertPerIteration[iteration]++;
+    if (!isBeamPositionOverridden) { // beam position is updated only at first occurrence of the vertex. A bit sketchy if we have past/future vertices, it should not impact too much.
       const float w = vertex.getNContributors();
       mBeamPos[0] = (mBeamPos[0] * mBeamPosWeight + vertex.getX() * w) / (mBeamPosWeight + w);
       mBeamPos[1] = (mBeamPos[1] * mBeamPosWeight + vertex.getY() * w) / (mBeamPosWeight + w);
       mBeamPosWeight += w;
     }
   }
-  mROFramesPV.push_back(mPrimaryVertices.size());
-}
-
-template <int nLayers>
-void TimeFrame<nLayers>::addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration)
-{
-  addPrimaryVertices(gsl::span<const Vertex>(vertices), rofId, iteration);
+  mROFramesPV.push_back(mPrimaryVertices.size()); // current rof must have number of vertices up to present
 }
 
 template <int nLayers>
@@ -117,34 +112,6 @@ void TimeFrame<nLayers>::addPrimaryVerticesContributorLabelsInROF(const bounded_
     n += pv.getNContributors();
   }
   mVerticesContributorLabels.insert(mVerticesContributorLabels.begin() + n, labels.begin(), labels.end());
-}
-
-template <int nLayers>
-void TimeFrame<nLayers>::addPrimaryVertices(const gsl::span<const Vertex>& vertices, const int rofId, const int iteration)
-{
-  bounded_vector<Vertex> futureVertices(mMemoryPool.get());
-  for (const auto& vertex : vertices) {
-    if (vertex.getTimeStamp().getTimeStamp() < rofId) { // put a copy in the past
-      insertPastVertex(vertex, iteration);
-    } else {
-      if (vertex.getTimeStamp().getTimeStamp() > rofId) { // or put a copy in the future
-        futureVertices.emplace_back(vertex);
-      }
-    }
-    mPrimaryVertices.emplace_back(vertex); // put a copy in the present
-    mTotVertPerIteration[iteration]++;
-    if (!isBeamPositionOverridden) { // beam position is updated only at first occurrence of the vertex. A bit sketchy if we have past/future vertices, it should not impact too much.
-      const float w = vertex.getNContributors();
-      mBeamPos[0] = (mBeamPos[0] * mBeamPosWeight + vertex.getX() * w) / (mBeamPosWeight + w);
-      mBeamPos[1] = (mBeamPos[1] * mBeamPosWeight + vertex.getY() * w) / (mBeamPosWeight + w);
-      mBeamPosWeight += w;
-    }
-  }
-  mROFramesPV.push_back(mPrimaryVertices.size()); // current rof must have number of vertices up to present
-  for (auto& vertex : futureVertices) {
-    mPrimaryVertices.emplace_back(vertex);
-    mTotVertPerIteration[iteration]++;
-  }
 }
 
 template <int nLayers>

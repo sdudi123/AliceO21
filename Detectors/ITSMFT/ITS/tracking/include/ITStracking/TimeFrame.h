@@ -77,11 +77,9 @@ struct TimeFrame {
   gsl::span<const std::array<float, 2>> getPrimaryVerticesXAlpha(int rofId) const;
   void fillPrimaryVerticesXandAlpha();
   int getPrimaryVerticesNum(int rofId = -1) const;
-  void addPrimaryVertices(const bounded_vector<Vertex>& vertices);
   void addPrimaryVerticesLabels(bounded_vector<std::pair<MCCompLabel, float>>& labels);
   void addPrimaryVerticesContributorLabels(bounded_vector<MCCompLabel>& labels);
-  void addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration);
-  void addPrimaryVertices(const gsl::span<const Vertex>& vertices, const int rofId, const int iteration);
+  void addPrimaryVertices(const bounded_vector<Vertex>& vertices, const int iteration);
   void addPrimaryVerticesInROF(const bounded_vector<Vertex>& vertices, const int rofId, const int iteration);
   void addPrimaryVerticesLabelsInROF(const bounded_vector<std::pair<MCCompLabel, float>>& labels, const int rofId);
   void addPrimaryVerticesContributorLabelsInROF(const bounded_vector<MCCompLabel>& labels, const int rofId);

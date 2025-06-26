@@ -520,7 +520,7 @@ void VertexerTraits::computeVertices(const int iteration)
       }
     }
     if (!iteration) {
-      mTimeFrame->addPrimaryVertices(vertices, rofId, iteration);
+      mTimeFrame->addPrimaryVertices(vertices, iteration);
       if (mTimeFrame->hasMCinformation()) {
         mTimeFrame->addPrimaryVerticesLabels(polls);
         if (mVrtParams[iteration].outputContLabels) {
@@ -625,7 +625,7 @@ void VertexerTraits::addTruthSeedingVertices()
     } else {
       mTimeFrame->getNoVertexROF()++;
     }
-    mTimeFrame->addPrimaryVertices(verts, iROF, 0);
+    mTimeFrame->addPrimaryVertices(verts, 0);
     mTimeFrame->addPrimaryVerticesLabels(polls);
   }
   LOGP(info, "Found {}/{} ROFs with {} vertices -> <NV>={:.2f}", vertices.size(), mTimeFrame->getNrof(), nVerts, (float)nVerts / (float)vertices.size());
