@@ -31,6 +31,7 @@ namespace o2::constants::physics
 /// \note Follow kCamelCase naming convention
 /// \link https://root.cern/doc/master/TPDGCode_8h.html
 enum Pdg {
+  kEta = 221,
   kB0 = 511,
   kB0Bar = -511,
   kBPlus = 521,
