@@ -326,6 +326,9 @@ void VertexerTraits::computeTrackletMatching(const int iteration)
           if (iteration && (int)mTimeFrame->getPrimaryVertices(pivotRofId).size() > mVrtParams[iteration].vertPerRofThreshold) {
             continue;
           }
+          if (mTimeFrame->getFoundTracklets(pivotRofId, 0).empty()) {
+            continue;
+          }
           mTimeFrame->getLines(pivotRofId).reserve(mTimeFrame->getNTrackletsCluster(pivotRofId, 0).size());
           bounded_vector<uint8_t> usedTracklets(mTimeFrame->getFoundTracklets(pivotRofId, 0).size(), false, mMemoryPool.get());
           short startROF{std::max((short)0, static_cast<short>(pivotRofId - mVrtParams[iteration].deltaRof))};

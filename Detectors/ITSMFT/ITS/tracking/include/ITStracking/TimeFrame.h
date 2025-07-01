@@ -593,7 +593,7 @@ inline gsl::span<int> TimeFrame<nLayers>::getExclusiveNTrackletsCluster(int rofI
 template <int nLayers>
 inline gsl::span<Tracklet> TimeFrame<nLayers>::getFoundTracklets(int rofId, int combId)
 {
-  if (rofId < 0 || rofId >= mNrof) {
+  if (rofId < 0 || rofId >= mNrof || mTracklets[combId].empty()) {
     return {};
   }
   auto startIdx{mNTrackletsPerROF[combId][rofId]};
