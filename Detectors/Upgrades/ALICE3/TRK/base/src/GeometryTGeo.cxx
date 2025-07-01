@@ -155,7 +155,7 @@ int GeometryTGeo::getLayer(int index) const
     while (index > mLastChipIndex[lay]) {
       lay++;
     }
-    return lay - mNumberOfPetalsVD; /// numeration of MLOT layesrs  starting from 1
+    return lay - mNumberOfPetalsVD; /// numeration of MLOT layesrs  starting from 0
   }
   return -1; /// -1 if not found
 }
@@ -203,6 +203,18 @@ int GeometryTGeo::getChipIndex(int subDetID, int petalcase, int disk, int lay, i
     }
   } else if (subDetID == 1) { // MLOT
     return getFirstChipIndex(lay, petalcase, subDetID) + stave;
+  }
+  return -1; // not found
+}
+
+//__________________________________________________________________________
+int GeometryTGeo::getChipIndex(int subDetID, int volume, int lay, int stave) const
+{
+  if (subDetID == 0) { // VD
+    return volume;     /// In the current configuration for VD, each volume is the sensor element = chip. // TODO: when the geometry naming scheme will be changed, change this method
+
+  } else if (subDetID == 1) { // MLOT
+    return getFirstChipIndex(lay, -1, subDetID) + stave;
   }
   return -1; // not found
 }
@@ -291,7 +303,7 @@ TGeoHMatrix* GeometryTGeo::extractMatrixSensor(int index) const
   auto path = getMatrixPath(index);
 
   static TGeoHMatrix matTmp;
-  gGeoManager->PushPath();
+  // gGeoManager->PushPath(); // Preserve the modeler state.
 
   // if (!gGeoManager->cd(path.Data())) {
   //   gGeoManager->PopPath();
@@ -440,7 +452,6 @@ int GeometryTGeo::extractNumberOfActivePartsVD() const
   if (vdV == nullptr) {
     LOG(fatal) << getName() << " volume " << getTRKVolPattern() << " is not in the geometry";
   }
-  LOG(info) << "Volume name: " << getTRKVolPattern();
 
   // Loop on all TRKV nodes, count Layer volumes by checking names
   TObjArray* nodes = vdV->GetNodes();
@@ -470,7 +481,6 @@ int GeometryTGeo::extractNumberOfDisksVD() const
   if (vdV == nullptr) {
     LOG(fatal) << getName() << " volume " << getTRKVolPattern() << " is not in the geometry";
   }
-  LOG(info) << "Volume name: " << getTRKVolPattern();
 
   // Loop on all TRKV nodes, count Layer volumes by checking names
   TObjArray* nodes = vdV->GetNodes();
@@ -500,7 +510,6 @@ int GeometryTGeo::extractNumberOfPetalsVD() const
   if (vdV == nullptr) {
     LOG(fatal) << getName() << " volume " << getTRKVolPattern() << " is not in the geometry";
   }
-  LOG(info) << "Volume name: " << getTRKVolPattern();
 
   // Loop on all TRKV nodes, count Layer volumes by checking names
   TObjArray* nodes = vdV->GetNodes();
@@ -530,7 +539,6 @@ int GeometryTGeo::extractNumberOfLayersVD() const
   if (vdV == nullptr) {
     LOG(fatal) << getName() << " volume " << getTRKVolPattern() << " is not in the geometry";
   }
-  LOG(info) << "Volume name: " << getTRKVolPattern();
 
   // Loop on all TRKV nodes, count Layer volumes by checking names
   TObjArray* nodes = vdV->GetNodes();
@@ -560,7 +568,6 @@ int GeometryTGeo::extractNumberOfChipsPerPetalVD() const
   if (vdV == nullptr) {
     LOG(fatal) << getName() << " volume " << getTRKVolPattern() << " is not in the geometry";
   }
-  LOG(info) << "Volume name: " << getTRKVolPattern();
 
   // Loop on all TRKV nodes, count Layer volumes by checking names
   TObjArray* nodes = vdV->GetNodes();

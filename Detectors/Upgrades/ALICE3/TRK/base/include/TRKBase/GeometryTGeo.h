@@ -80,13 +80,19 @@ class GeometryTGeo : public o2::detectors::DetMatrixCache
   int getDisk(int index) const;
 
   /// This routine computes the chip index number from the subDetID, petal, disk, layer, stave /// TODO: retrieve also from chip when chips will be available
-  /// in substave
   /// \param int subDetID The subdetector ID, 0 for VD, 1 for MLOT
   /// \param int petalcase The petal case number for VD, from 0 to 3
   /// \param int disk The disk number for VD, from 0 to 5
   /// \param int lay The layer number. Starting from 0 both for VD and MLOT
   /// \param int stave The stave number for MLOT. Starting from 0
   int getChipIndex(int subDetID, int petalcase, int disk, int lay, int stave) const;
+
+  /// This routine computes the chip index number from the subDetID, volume, layer, stave /// TODO: retrieve also from chip when chips will be available
+  /// \param int subDetID The subdetector ID, 0 for VD, 1 for MLOT
+  /// \param int volume is needed only with the current configuration for VD where each single element is a volume. // TODO: when the geometry naming scheme will be changed, change this method
+  /// \param int lay The layer number for the MLOT. In the current configuration for VD this is not needed. // TODO: when the geometry naming scheme will be changed, change this method
+  /// \param int stave The stave number in each layer for MLOT. Starting from 0.
+  int getChipIndex(int subDetID, int volume, int lay, int stave) const;
 
   /// This routine computes subDetID, petal, disk, layer, stave given the chip index number /// TODO: copute also from chip when chips will be available
   /// \param int index The chip index number, starting from 0
