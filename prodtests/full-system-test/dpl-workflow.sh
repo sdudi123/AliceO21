@@ -74,7 +74,7 @@ fi
 GPU_INPUT=zsraw
 GPU_OUTPUT=tracks,clusters
 GPU_CONFIG=
-GPU_CONFIG_KEY=
+# GPU_CONFIG_KEY=
 TOF_CONFIG=
 TOF_INPUT=raw
 TOF_OUTPUT=clusters
