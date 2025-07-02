@@ -452,7 +452,7 @@ bool Detector::ProcessHits(FairVolume* vol)
       fMC->CurrentVolOffID(2, stave);
     } /// if VD, for the moment the volume is the "chipID" so no need to retrieve other elments
 
-    int chipID = mGeometryTGeo->getChipIndex(subDetID, volume, layer, stave);
+    int chipID = mGeometryTGeo->getChipIndex(subDetID, volume, layer, stave, halfstave);
 
     Print(vol, volume, subDetID, layer, stave, halfstave, chipID);
 

@@ -74,6 +74,7 @@ void GeometryTGeo::Build(int loadTrans)
   mNumberOfDisksVD = extractNumberOfDisksVD();
 
   mNumberOfStaves.resize(mNumberOfLayersMLOT);
+  mNumberOfHalfStaves.resize(mNumberOfLayersMLOT);
   mLastChipIndex.resize(mNumberOfPetalsVD + mNumberOfLayersMLOT);
   mLastChipIndexVD.resize(mNumberOfPetalsVD);
   mLastChipIndexMLOT.resize(mNumberOfLayersMLOT); /// ML and OT are part of TRK as the same detector, without disks
@@ -85,6 +86,7 @@ void GeometryTGeo::Build(int loadTrans)
   for (int i = 0; i < mNumberOfLayersMLOT; i++) {
     std::cout << "Layer MLOT: " << i << std::endl;
     mNumberOfStaves[i] = extractNumberOfStavesMLOT(i);
+    mNumberOfHalfStaves[i] = extractNumberOfHalfStavesMLOT(i);
   }
 
   int numberOfChipsTotal = 0;
@@ -99,7 +101,7 @@ void GeometryTGeo::Build(int loadTrans)
 
   /// filling the information for the MLOT
   for (int i = 0; i < mNumberOfLayersMLOT; i++) {
-    mNumberOfChipsPerLayerMLOT[i] = extractNumberOfStavesMLOT(i); // for the moment, considering 1 stave = 1 chip. TODO: add the final segmentation in chips
+    mNumberOfChipsPerLayerMLOT[i] = extractNumberOfStavesMLOT(i) * extractNumberOfHalfStavesMLOT(i); // for the moment, considering 1 half stave = 1 chip. TODO: add the final segmentation in chips
     numberOfChipsTotal += mNumberOfChipsPerLayerMLOT[i];
     mLastChipIndex[i + mNumberOfPetalsVD] = numberOfChipsTotal - 1;
     mLastChipIndexMLOT[i] = numberOfChipsTotal - 1;
@@ -170,8 +172,26 @@ int GeometryTGeo::getStave(int index) const
     return -1;
   } else if (subDetID == 1) { /// MLOT
     int lay = getLayer(index);
-    index -= getFirstChipIndex(lay, petalcase, subDetID);
-    return index; /// ||||
+    index -= getFirstChipIndex(lay, petalcase, subDetID); // get the index of the sensing element in the layer
+    return index / mNumberOfHalfStaves[lay];
+  }
+  return -1; /// not found
+}
+
+//__________________________________________________________________________
+int GeometryTGeo::getHalfStave(int index) const
+{
+  int subDetID = getSubDetID(index);
+  int lay = getLayer(index);
+  int petalcase = getPetalCase(index);
+  int stave = getStave(index);
+
+  if (subDetID == 0) { /// VD
+    return -1;
+  } else if (subDetID == 1) { /// MLOT
+    int lay = getLayer(index);
+    index -= getFirstChipIndex(lay, petalcase, subDetID); // get the index of the sensing element in the layer
+    return index % 2;                                     /// 0 = half stave left, 1 = half stave right, as geometry is filled /// TODO: generalize once chips will be in place. Can it be working also with chips?
   }
   return -1; /// not found
 }
@@ -193,7 +213,7 @@ int GeometryTGeo::getDisk(int index) const
 }
 
 //__________________________________________________________________________
-int GeometryTGeo::getChipIndex(int subDetID, int petalcase, int disk, int lay, int stave) const
+int GeometryTGeo::getChipIndex(int subDetID, int petalcase, int disk, int lay, int stave, int halfstave) const
 {
   if (subDetID == 0) { // VD
     if (lay == -1) {   // disk
@@ -202,31 +222,32 @@ int GeometryTGeo::getChipIndex(int subDetID, int petalcase, int disk, int lay, i
       return getFirstChipIndex(lay, petalcase, subDetID) + lay;
     }
   } else if (subDetID == 1) { // MLOT
-    return getFirstChipIndex(lay, petalcase, subDetID) + stave;
+    return getFirstChipIndex(lay, petalcase, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
   }
   return -1; // not found
 }
 
 //__________________________________________________________________________
-int GeometryTGeo::getChipIndex(int subDetID, int volume, int lay, int stave) const
+int GeometryTGeo::getChipIndex(int subDetID, int volume, int lay, int stave, int halfstave) const
 {
   if (subDetID == 0) { // VD
     return volume;     /// In the current configuration for VD, each volume is the sensor element = chip. // TODO: when the geometry naming scheme will be changed, change this method
 
   } else if (subDetID == 1) { // MLOT
-    return getFirstChipIndex(lay, -1, subDetID) + stave;
+    return getFirstChipIndex(lay, -1, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
   }
   return -1; // not found
 }
 
 //__________________________________________________________________________
-bool GeometryTGeo::getChipID(int index, int& subDetID, int& petalcase, int& disk, int& lay, int& stave) const
+bool GeometryTGeo::getChipID(int index, int& subDetID, int& petalcase, int& disk, int& lay, int& stave, int& halfstave) const
 {
   subDetID = getSubDetID(index);
   petalcase = getPetalCase(index);
   disk = getDisk(index);
   lay = getLayer(index);
   stave = getStave(index);
+  halfstave = getHalfStave(index);
 
   return kTRUE;
 }
@@ -236,12 +257,12 @@ TString GeometryTGeo::getMatrixPath(int index) const
 {
 
   // int lay, hba, stav, sstav, mod, chipInMod;
-  int subDetID, petalcase, disk, lay, stave; //// TODO: add chips in a second step
-  getChipID(index, subDetID, petalcase, disk, lay, stave);
+  int subDetID, petalcase, disk, lay, stave, halfstave; //// TODO: add chips in a second step
+  getChipID(index, subDetID, petalcase, disk, lay, stave, halfstave);
 
-  int indexRetrieved = getChipIndex(subDetID, petalcase, disk, lay, stave);
+  int indexRetrieved = getChipIndex(subDetID, petalcase, disk, lay, stave, halfstave);
 
-  PrintChipID(index, subDetID, petalcase, disk, lay, stave, indexRetrieved);
+  PrintChipID(index, subDetID, petalcase, disk, lay, stave, halfstave, indexRetrieved);
 
   // TString path = Form("/cave_1/barrel_1/%s_2/", GeometryTGeo::getTRKVolPattern());
   TString path = "/cave_1/barrel_1/TRKV_2/TRKLayer0_1/TRKStave0_1/TRKChip0_1/TRKSensor0_1/"; /// dummy path, to be replaced
@@ -617,7 +638,35 @@ int GeometryTGeo::extractNumberOfStavesMLOT(int lay) const
 }
 
 //__________________________________________________________________________
-void GeometryTGeo::PrintChipID(int index, int subDetID, int petalcase, int disk, int lay, int stave, int indexRetrieved) const
+int GeometryTGeo::extractNumberOfHalfStavesMLOT(int lay) const
+{
+  int numberOfHalfStaves = 0;
+
+  std::string staveName = Form("%s%d", getTRKStavePattern(), lay);
+  TGeoVolume* staveV = gGeoManager->GetVolume(staveName.c_str());
+
+  if (staveV == nullptr) {
+    LOG(fatal) << getName() << " volume " << getTRKStavePattern() << " is not in the geometry";
+  }
+
+  // Loop on all layV nodes, count Layer volumes by checking names
+  TObjArray* nodes = staveV->GetNodes();
+  // std::cout << "Printing nodes for layer " << lay << std::endl;
+  // nodes->Print();
+  int nNodes = nodes->GetEntriesFast();
+
+  for (int j = 0; j < nNodes; j++) {
+    auto nd = dynamic_cast<TGeoNode*>(nodes->At(j)); /// layer node
+    const char* name = nd->GetName();
+    if (strstr(name, getTRKChipPattern()) != nullptr) {
+      numberOfHalfStaves++;
+    }
+  }
+  return numberOfHalfStaves;
+}
+
+//__________________________________________________________________________
+void GeometryTGeo::PrintChipID(int index, int subDetID, int petalcase, int disk, int lay, int stave, int halfstave, int indexRetrieved) const
 {
   std::cout << "\nindex = " << index << std::endl;
   std::cout << "subDetID = " << subDetID << std::endl;
@@ -626,7 +675,8 @@ void GeometryTGeo::PrintChipID(int index, int subDetID, int petalcase, int disk,
   std::cout << "disk = " << disk << std::endl;
   std::cout << "first chip index = " << getFirstChipIndex(lay, petalcase, subDetID) << std::endl;
   std::cout << "stave = " << stave << std::endl;
-  std::cout << "chck index Retrieved = " << indexRetrieved << std::endl;
+  std::cout << "halfstave = " << halfstave << std::endl;
+  std::cout << "check index Retrieved = " << indexRetrieved << std::endl;
 }
 
 //__________________________________________________________________________
@@ -648,11 +698,11 @@ void GeometryTGeo::Print(Option_t*) const
   for (int i = 0; i < mNumberOfPetalsVD; i++) {
     LOGF(info, "%d", mNumberOfChipsPerPetalVD[i]);
   }
-  LOGF(info, "Number of staves per layer MLOT: ");
+  LOGF(info, "Number of staves and half staves per layer MLOT: ");
   for (int i = 0; i < mNumberOfLayersMLOT; i++) {
     std::string mlot = "";
     mlot = (i < 5) ? "ML" : "OT";
-    LOGF(info, "Layer: %d, %s, %d staves", i, mlot.c_str(), mNumberOfStaves[i]);
+    LOGF(info, "Layer: %d, %s, %d staves, %d half staves", i, mlot.c_str(), mNumberOfStaves[i], mNumberOfStaves[i] * mNumberOfHalfStaves[i]);
   }
   LOGF(info, "Total number of chips: %d", getNumberOfChips());
 
