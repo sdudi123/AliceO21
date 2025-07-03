@@ -248,7 +248,7 @@ class NDPiecewisePolynomials : public FlatObject
   GPUd() uint32_t getTerms() const
   {
     if constexpr (TermDim == 0) {
-      return 0;
+      return 1;
     } else {
       return (mN[TermDim - 1] - 1) * getTerms<TermDim - 1>();
     }
