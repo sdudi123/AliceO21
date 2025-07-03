@@ -445,8 +445,7 @@ bool Detector::ProcessHits(FairVolume* vol)
     TLorentzVector positionStop;
     fMC->TrackPosition(positionStop);
     // Retrieve the indices with the volume path
-    // int subDetID, int petalcase, int disk, int lay, int stave
-    int petal(0), ll(0), stave(0), halfstave(0);
+    int stave(0), halfstave(0);
     if (subDetID == 1) {
       fMC->CurrentVolOffID(1, halfstave);
       fMC->CurrentVolOffID(2, stave);
@@ -482,11 +481,13 @@ void Detector::Print(FairVolume* vol, int volume, int subDetID, int layer, int s
   int currentVol(0);
   LOG(INFO) << "Current volume name: " << fMC->CurrentVolName() << " and ID " << fMC->CurrentVolID(currentVol);
   LOG(INFO) << "volume: " << volume << "/" << mNumberOfVolumes - 1;
-  if (subDetID == 1) {
+  if (subDetID == 1 and mGeometryTGeo->getNumberOfHalfStaves()[layer] == 2) { // staggered geometry
     LOG(INFO) << "off volume name 1 " << fMC->CurrentVolOffName(1) << "  halfstave: " << halfstave;
     LOG(INFO) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
     LOG(INFO) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
-
+  } else if (subDetID == 1 and mGeometryTGeo->getNumberOfHalfStaves()[layer] == 1) { // turbo geometry
+    LOG(INFO) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
+    LOG(INFO) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
   } else {
     LOG(INFO) << "SubDetector ID: " << subDetID << "  Chip ID: " << chipID;
   }

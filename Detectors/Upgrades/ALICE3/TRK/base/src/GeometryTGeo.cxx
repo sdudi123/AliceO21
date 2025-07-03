@@ -54,9 +54,9 @@ GeometryTGeo::GeometryTGeo(bool build, int loadTrans) : DetMatrixCache(detectors
 void GeometryTGeo::Build(int loadTrans)
 {
   ///// current geometry organization:
-  ///// total elements = 258 = x staves * 8 layers ML+OT + 4 petal cases * (3 layers + 6 disks)
+  ///// total elements = x staves (*2 half staves if staggered geometry) * 8 layers ML+OT + 4 petal cases * (3 layers + 6 disks)
   ///// indexing from 0 to 35: VD petals -> layers -> disks
-  ///// indexing from 36 to 257: MLOT staves
+  ///// indexing from 36 to y: MLOT staves
 
   if (isBuilt()) {
     LOGP(warning, "Already built");
@@ -107,7 +107,6 @@ void GeometryTGeo::Build(int loadTrans)
     mLastChipIndexMLOT[i] = numberOfChipsTotal - 1;
   }
 
-  // setSize(mNumberOfLayersMLOT + mNumberOfActivePartsVD); /// temporary, number of chips = number of layers and active parts
   setSize(numberOfChipsTotal); /// temporary, number of chips = number of staves and active parts
   fillMatrixCache(loadTrans);
 }
@@ -221,8 +220,12 @@ int GeometryTGeo::getChipIndex(int subDetID, int petalcase, int disk, int lay, i
     } else { // layer
       return getFirstChipIndex(lay, petalcase, subDetID) + lay;
     }
-  } else if (subDetID == 1) { // MLOT
-    return getFirstChipIndex(lay, petalcase, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
+  } else if (subDetID == 1) {            // MLOT
+    if (mNumberOfHalfStaves[lay] == 2) { // staggered geometry
+      return getFirstChipIndex(lay, petalcase, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
+    } else if (mNumberOfHalfStaves[lay] == 1) { // turbo geometry
+      return getFirstChipIndex(lay, petalcase, subDetID) + stave;
+    }
   }
   return -1; // not found
 }
@@ -233,8 +236,12 @@ int GeometryTGeo::getChipIndex(int subDetID, int volume, int lay, int stave, int
   if (subDetID == 0) { // VD
     return volume;     /// In the current configuration for VD, each volume is the sensor element = chip. // TODO: when the geometry naming scheme will be changed, change this method
 
-  } else if (subDetID == 1) { // MLOT
-    return getFirstChipIndex(lay, -1, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
+  } else if (subDetID == 1) {            // MLOT
+    if (mNumberOfHalfStaves[lay] == 2) { // staggered geometry
+      return getFirstChipIndex(lay, -1, subDetID) + stave * mNumberOfHalfStaves[lay] + halfstave;
+    } else if (mNumberOfHalfStaves[lay] == 1) { // turbo geometry
+      return getFirstChipIndex(lay, -1, subDetID) + stave;
+    }
   }
   return -1; // not found
 }
@@ -256,7 +263,6 @@ bool GeometryTGeo::getChipID(int index, int& subDetID, int& petalcase, int& disk
 TString GeometryTGeo::getMatrixPath(int index) const
 {
 
-  // int lay, hba, stav, sstav, mod, chipInMod;
   int subDetID, petalcase, disk, lay, stave, halfstave; //// TODO: add chips in a second step
   getChipID(index, subDetID, petalcase, disk, lay, stave, halfstave);
 
@@ -701,8 +707,8 @@ void GeometryTGeo::Print(Option_t*) const
   LOGF(info, "Number of staves and half staves per layer MLOT: ");
   for (int i = 0; i < mNumberOfLayersMLOT; i++) {
     std::string mlot = "";
-    mlot = (i < 5) ? "ML" : "OT";
-    LOGF(info, "Layer: %d, %s, %d staves, %d half staves", i, mlot.c_str(), mNumberOfStaves[i], mNumberOfStaves[i] * mNumberOfHalfStaves[i]);
+    mlot = (i < 4) ? "ML" : "OT";
+    LOGF(info, "Layer: %d, %s, %d staves, %d half staves per stave", i, mlot.c_str(), mNumberOfStaves[i], mNumberOfHalfStaves[i]);
   }
   LOGF(info, "Total number of chips: %d", getNumberOfChips());
 

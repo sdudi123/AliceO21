@@ -66,7 +66,8 @@ class GeometryTGeo : public o2::detectors::DetMatrixCache
   int extractVolumeCopy(const char* name, const char* prefix) const;
 
   int getNumberOfLayersMLOT() const { return mNumberOfLayersMLOT; }
-  int getNumberOffActivePartsVD() const { return mNumberOfActivePartsVD; }
+  int getNumberOfActivePartsVD() const { return mNumberOfActivePartsVD; }
+  std::vector<int> getNumberOfHalfStaves() const { return mNumberOfHalfStaves; }
 
   bool isOwner() const { return mOwner; }
   void setOwner(bool v) { mOwner = v; }
