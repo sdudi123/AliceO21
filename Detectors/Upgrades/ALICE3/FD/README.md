@@ -2,7 +2,7 @@
 \page refDetectorsUpgradesALICE3TRK Tracker
 /doxy -->
 
-# ALICE 3 FORVARD DETECTOR
+# ALICE 3 FORWARD DETECTOR
 
 This is top page for the FD detector documentation.
 
