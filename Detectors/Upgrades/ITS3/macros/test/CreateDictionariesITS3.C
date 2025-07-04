@@ -323,7 +323,7 @@ void CreateDictionariesITS3(bool saveDeltas = true,
                 if (saveDeltas) {
                   auto vectDiff = xyzLocE - xyzLocS;
                   auto theta = std::acos(vectDiff.Z() / std::hypot(vectDiff.X(), vectDiff.Y(), vectDiff.Z()));
-                  auto eta = -std::log(std::tan(theta/2));
+                  auto eta = -std::log(std::tan(theta / 2));
                   if (ib) {
                     LOGP(info, "Yhit flat start: {}, end: {}, middle: {}", xyzLocS.Y(), xyzLocE.Y(), xyzLocM.Y());
                   }
