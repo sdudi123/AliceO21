@@ -67,7 +67,7 @@ class GeometryTGeo : public o2::detectors::DetMatrixCache
 
   int getNumberOfLayersMLOT() const { return mNumberOfLayersMLOT; }
   int getNumberOfActivePartsVD() const { return mNumberOfActivePartsVD; }
-  std::vector<int> getNumberOfHalfStaves() const { return mNumberOfHalfStaves; }
+  int getNumberOfHalfStaves(int lay) const { return mNumberOfHalfStaves[lay]; }
 
   bool isOwner() const { return mOwner; }
   void setOwner(bool v) { mOwner = v; }

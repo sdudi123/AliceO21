@@ -479,19 +479,19 @@ o2::itsmft::Hit* Detector::addHit(int trackID, int detID, const TVector3& startP
 void Detector::Print(FairVolume* vol, int volume, int subDetID, int layer, int stave, int halfstave, int chipID) const
 {
   int currentVol(0);
-  LOG(INFO) << "Current volume name: " << fMC->CurrentVolName() << " and ID " << fMC->CurrentVolID(currentVol);
-  LOG(INFO) << "volume: " << volume << "/" << mNumberOfVolumes - 1;
-  if (subDetID == 1 and mGeometryTGeo->getNumberOfHalfStaves()[layer] == 2) { // staggered geometry
-    LOG(INFO) << "off volume name 1 " << fMC->CurrentVolOffName(1) << "  halfstave: " << halfstave;
-    LOG(INFO) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
-    LOG(INFO) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
-  } else if (subDetID == 1 and mGeometryTGeo->getNumberOfHalfStaves()[layer] == 1) { // turbo geometry
-    LOG(INFO) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
-    LOG(INFO) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
+  LOG(info) << "Current volume name: " << fMC->CurrentVolName() << " and ID " << fMC->CurrentVolID(currentVol);
+  LOG(info) << "volume: " << volume << "/" << mNumberOfVolumes - 1;
+  if (subDetID == 1 && mGeometryTGeo->getNumberOfHalfStaves(layer) == 2) { // staggered geometry
+    LOG(info) << "off volume name 1 " << fMC->CurrentVolOffName(1) << "  halfstave: " << halfstave;
+    LOG(info) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
+    LOG(info) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
+  } else if (subDetID == 1 && mGeometryTGeo->getNumberOfHalfStaves(layer) == 1) { // turbo geometry
+    LOG(info) << "off volume name 2  " << fMC->CurrentVolOffName(2) << "  stave: " << stave;
+    LOG(info) << "SubDetector ID: " << subDetID << "  Layer: " << layer << "  staveinLayer: " << stave << "  Chip ID: " << chipID;
   } else {
-    LOG(INFO) << "SubDetector ID: " << subDetID << "  Chip ID: " << chipID;
+    LOG(info) << "SubDetector ID: " << subDetID << "  Chip ID: " << chipID;
   }
-  LOG(INFO);
+  LOG(info);
 }
 
 } // namespace trk
