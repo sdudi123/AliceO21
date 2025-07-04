@@ -851,8 +851,13 @@ void DataProcessingDevice::initPollers()
         continue;
       }
 
-      if (channelName.rfind("from_", 0) != 0) {
-        LOGP(detail, "{} is not a DPL socket. Not polling.", channelName);
+      if (channelName.rfind("from_", 0) != 0 && channelName != "metric-feedback") {
+        LOGP(detail, "{} is not a DPL input socket. Not polling.", channelName);
+        continue;
+      }
+
+      if (channelName == "metric-feedback" && spec.name.rfind("internal-dpl-aod-reader", 0) != 0) {
+        LOGP(detail, "{} is not a DPL input socket. Not polling.", channelName);
         continue;
       }
 
