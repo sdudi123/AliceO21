@@ -240,7 +240,7 @@ void CheckClustersITS3(const std::string& clusfile = "o2clus_its.root",
         dlty = locH.Y() - y0;
         z0 = locHsta.Z();
         dltz = locH.Z() - z0;
-        r = (its3::constants::pixelarray::pixels::apts::responseYShift - y0) / dlty;
+        r = (o2::its3::constants::pixelarray::pixels::apts::responseYShift - y0) / dlty;
       } else {
         x0 = locHsta.X();
         dltx = locH.X() - x0;

@@ -288,7 +288,7 @@ void CreateDictionariesITS3(bool saveDeltas = true,
                   dlty = xyzLocE.Y() - y0;
                   z0 = xyzLocS.Z();
                   dltz = xyzLocE.Z() - z0;
-                  r = (its3::constants::pixelarray::pixels::apts::responseYShift - y0) / dlty;
+                  r = (o2::its3::constants::pixelarray::pixels::apts::responseYShift - y0) / dlty;
                 } else {
                   x0 = xyzLocS.X();
                   dltx = xyzLocE.X() - x0;
