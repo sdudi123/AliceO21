@@ -97,21 +97,22 @@ void trackleterKernelHost(
   }
 }
 
-void trackletSelectionKernelHost(
+static void trackletSelectionKernelHost(
   const gsl::span<const Cluster> clusters0, // 0
   const gsl::span<const Cluster> clusters1, // 1
   gsl::span<unsigned char> usedClusters0,   // Layer 0
   gsl::span<unsigned char> usedClusters2,   // Layer 2
   const gsl::span<const Tracklet>& tracklets01,
   const gsl::span<const Tracklet>& tracklets12,
-  bounded_vector<uint8_t>& usedTracklets,
+  bounded_vector<bool>& usedTracklets,
   const gsl::span<int> foundTracklets01,
   const gsl::span<int> foundTracklets12,
   bounded_vector<Line>& lines,
   const gsl::span<const o2::MCCompLabel>& trackletLabels,
   bounded_vector<o2::MCCompLabel>& linesLabels,
-  const short pivotRofId,
-  const short targetRofId,
+  const short targetRofId0,
+  const short targetRofId2,
+  bool safeWrites = false,
   const float tanLambdaCut = 0.025f,
   const float phiCut = 0.005f,
   const int maxTracklets = static_cast<int>(1e2))
@@ -121,16 +122,27 @@ void trackletSelectionKernelHost(
     int validTracklets{0};
     for (int iTracklet12{offset12}; iTracklet12 < offset12 + foundTracklets12[iCurrentLayerClusterIndex]; ++iTracklet12) {
       for (int iTracklet01{offset01}; iTracklet01 < offset01 + foundTracklets01[iCurrentLayerClusterIndex]; ++iTracklet01) {
-        const auto& tracklet01{tracklets01[iTracklet01]};
-        const auto& tracklet12{tracklets12[iTracklet12]};
-        if (tracklet01.rof[0] != targetRofId || tracklet12.rof[1] != targetRofId) {
+        if (usedTracklets[iTracklet01]) {
           continue;
         }
+
+        const auto& tracklet01{tracklets01[iTracklet01]};
+        const auto& tracklet12{tracklets12[iTracklet12]};
+
+        if (tracklet01.rof[0] != targetRofId0 || tracklet12.rof[1] != targetRofId2) {
+          continue;
+        }
+
         const float deltaTanLambda{o2::gpu::GPUCommonMath::Abs(tracklet01.tanLambda - tracklet12.tanLambda)};
         const float deltaPhi{o2::gpu::GPUCommonMath::Abs(math_utils::smallestAngleDifference(tracklet01.phi, tracklet12.phi))};
-        if (!usedTracklets[iTracklet01] && deltaTanLambda < tanLambdaCut && deltaPhi < phiCut && validTracklets != maxTracklets) {
-          usedClusters0[tracklet01.firstClusterIndex] = true;
-          usedClusters2[tracklet12.secondClusterIndex] = true;
+        if (deltaTanLambda < tanLambdaCut && deltaPhi < phiCut && validTracklets != maxTracklets) {
+          if (safeWrites) {
+            __atomic_store_n(&usedClusters0[tracklet01.firstClusterIndex], 1, __ATOMIC_RELAXED);
+            __atomic_store_n(&usedClusters2[tracklet12.secondClusterIndex], 1, __ATOMIC_RELAXED);
+          } else {
+            usedClusters0[tracklet01.firstClusterIndex] = 1;
+            usedClusters2[tracklet12.secondClusterIndex] = 1;
+          }
           usedTracklets[iTracklet01] = true;
           lines.emplace_back(tracklet01, clusters0.data(), clusters1.data());
           if (!trackletLabels.empty()) {
@@ -330,27 +342,37 @@ void VertexerTraits::computeTrackletMatching(const int iteration)
             continue;
           }
           mTimeFrame->getLines(pivotRofId).reserve(mTimeFrame->getNTrackletsCluster(pivotRofId, 0).size());
-          bounded_vector<uint8_t> usedTracklets(mTimeFrame->getFoundTracklets(pivotRofId, 0).size(), false, mMemoryPool.get());
+          bounded_vector<bool> usedTracklets(mTimeFrame->getFoundTracklets(pivotRofId, 0).size(), false, mMemoryPool.get());
           short startROF{std::max((short)0, static_cast<short>(pivotRofId - mVrtParams[iteration].deltaRof))};
           short endROF{std::min(static_cast<short>(mTimeFrame->getNrof()), static_cast<short>(pivotRofId + mVrtParams[iteration].deltaRof + 1))};
-          for (short targetRofId = startROF; targetRofId < endROF; ++targetRofId) {
-            trackletSelectionKernelHost(
-              mTimeFrame->getClustersOnLayer(targetRofId, 0),
-              mTimeFrame->getClustersOnLayer(pivotRofId, 1),
-              mTimeFrame->getUsedClustersROF(targetRofId, 0),
-              mTimeFrame->getUsedClustersROF(targetRofId, 2),
-              mTimeFrame->getFoundTracklets(pivotRofId, 0),
-              mTimeFrame->getFoundTracklets(pivotRofId, 1),
-              usedTracklets,
-              mTimeFrame->getNTrackletsCluster(pivotRofId, 0),
-              mTimeFrame->getNTrackletsCluster(pivotRofId, 1),
-              mTimeFrame->getLines(pivotRofId),
-              mTimeFrame->getLabelsFoundTracklets(pivotRofId, 0),
-              mTimeFrame->getLinesLabel(pivotRofId),
-              pivotRofId,
-              targetRofId,
-              mVrtParams[iteration].tanLambdaCut,
-              mVrtParams[iteration].phiCut);
+
+          // needed only if multi-threaded using deltaRof and only at the overlap edges of the ranges
+          bool safeWrite = mTaskArena->max_concurrency() > 1 && mVrtParams[iteration].deltaRof != 0 && ((Rofs.begin() - startROF < 0) || (endROF - Rofs.end() > 0));
+
+          for (short targetRofId0 = startROF; targetRofId0 < endROF; ++targetRofId0) {
+            for (short targetRofId2 = startROF; targetRofId2 < endROF; ++targetRofId2) {
+              if (std::abs(targetRofId0 - targetRofId2) > mVrtParams[iteration].deltaRof) { // do not allow over 3 ROFs
+                continue;
+              }
+              trackletSelectionKernelHost(
+                mTimeFrame->getClustersOnLayer(targetRofId0, 0),
+                mTimeFrame->getClustersOnLayer(pivotRofId, 1),
+                mTimeFrame->getUsedClustersROF(targetRofId0, 0),
+                mTimeFrame->getUsedClustersROF(targetRofId2, 2),
+                mTimeFrame->getFoundTracklets(pivotRofId, 0),
+                mTimeFrame->getFoundTracklets(pivotRofId, 1),
+                usedTracklets,
+                mTimeFrame->getNTrackletsCluster(pivotRofId, 0),
+                mTimeFrame->getNTrackletsCluster(pivotRofId, 1),
+                mTimeFrame->getLines(pivotRofId),
+                mTimeFrame->getLabelsFoundTracklets(pivotRofId, 0),
+                mTimeFrame->getLinesLabel(pivotRofId),
+                targetRofId0,
+                targetRofId2,
+                safeWrite,
+                mVrtParams[iteration].tanLambdaCut,
+                mVrtParams[iteration].phiCut);
+            }
           }
         }
       });
