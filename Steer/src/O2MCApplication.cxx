@@ -1394,13 +1394,13 @@ void addSpecialParticles()
   // 33.3 % sigma-pi+, sigma+pi-, sigma0pi0
   bratio[0] = 33.3;
   mode[0][0] = 3112; // Sigma-
-  mode[0][1] = 211; // negative pion
+  mode[0][1] = 211;  // negative pion
   bratio[1] = 33.3;
   mode[1][0] = 3222; // Sigma+
-  mode[1][1] = -211;  // positive pion
+  mode[1][1] = -211; // positive pion
   bratio[2] = 33.3;
-  mode[2][0] = 3212; // Sigma0
-  mode[2][1] = 111;  // neutral pion
+  mode[2][0] = 3212;                                       // Sigma0
+  mode[2][1] = 111;                                        // neutral pion
   TVirtualMC::GetMC()->SetDecayMode(102132, bratio, mode); // Lambda(1405)
   // Define the decay modes for the Anti-Lambda(1405)
   for (Int_t kz = 0; kz < 6; kz++) {
@@ -1412,13 +1412,13 @@ void addSpecialParticles()
   // 33.3 % sigma-pi-, sigma-pi+, sigma0pi0
   abratio[0] = 33.3;
   amode[0][0] = -3112; // AntiSigma-
-  amode[0][1] = -211; // positive pion
+  amode[0][1] = -211;  // positive pion
   abratio[1] = 33.3;
   amode[1][0] = -3222; // AntiSigma+
-  amode[1][1] = 211;  // negative pion
+  amode[1][1] = 211;   // negative pion
   abratio[2] = 33.3;
-  amode[2][0] = -3212; // Sigma0
-  amode[2][1] = 111; // negative pion
+  amode[2][0] = -3212;                                        // Sigma0
+  amode[2][1] = 111;                                          // negative pion
   TVirtualMC::GetMC()->SetDecayMode(-102132, abratio, amode); // Anti-Lambda(1405)
 
   // Lambda1520/Lambda1520bar
