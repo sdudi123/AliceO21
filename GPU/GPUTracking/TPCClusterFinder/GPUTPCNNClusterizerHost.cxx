@@ -19,6 +19,8 @@
 #include "GPUSettings.h"
 #include "ML/3rdparty/GPUORTFloat16.h"
 #include "GPUReconstruction.h"
+#include "GPUTPCGeometry.h"
+#include "DataFormatsTPC/Constants.h"
 
 #ifdef GPUCA_HAS_ONNX
 #include <onnxruntime_cxx_api.h>
@@ -87,8 +89,11 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerSizeInputRow = settings.nnClusterizerSizeInputRow;
   clustererNN.mNnClusterizerSizeInputPad = settings.nnClusterizerSizeInputPad;
   clustererNN.mNnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
+  clustererNN.mNnClusterizerChargeArraySize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1));
+  clustererNN.mNnClusterizerElementSize = clustererNN.mNnClusterizerChargeArraySize + (settings.nnClusterizerAddIndexData ? 3 : 0);
+  clustererNN.mBoundaryMapSize = (3*clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW)*(GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2*clustererNN.mNnClusterizerSizeInputPad);
+  clustererNN.mIndexLookupSize = 3*clustererNN.mNnClusterizerElementSize; // local row, pad, time coordinate from flat index
   clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
-  clustererNN.mNnClusterizerElementSize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1)) + (settings.nnClusterizerAddIndexData ? 3 : 0);
   clustererNN.mNnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
   clustererNN.mNnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
   clustererNN.mNnSigmoidTrafoClassThreshold = settings.nnSigmoidTrafoClassThreshold;
@@ -113,6 +118,41 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
       clustererNN.mNnClusterizerModelReg1NumOutputNodes = mModelReg1.getNumOutputNodes()[0][1];
       clustererNN.mNnClusterizerModelReg2NumOutputNodes = mModelReg2.getNumOutputNodes()[0][1];
     }
+  }
+  createBoundary(clustererNN);
+  createIndexLookup(clustererNN);
+}
+
+void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
+  // Call after init of the clustererNN elements
+  clustererNN.mBoundaryMapSizeRow = 3 * clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW;
+  clustererNN.mBoundaryMapSizePerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2 * clustererNN.mNnClusterizerSizeInputPad;
+  for(int r = 0; r < clustererNN.mBoundaryMapSizeRow; r++) {
+    for (int p = 0; p < clustererNN.mBoundaryMapSizePerRow; p++) {
+      int32_t i = r * clustererNN.mBoundaryMapSizePerRow + p;
+      clustererNN.mIsBoundary[i] = 1;
+      if (p >= clustererNN.mNnClusterizerSizeInputPad || r >= clustererNN.mNnClusterizerSizeInputRow) {
+        if ((r < (GPUTPCGeometry::EndIROC() + clustererNN.mNnClusterizerSizeInputRow)) ||
+            (r >= (GPUTPCGeometry::EndIROC() + 2*clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2*clustererNN.mNnClusterizerSizeInputRow))) {
+          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mNnClusterizerSizeInputPad) >= static_cast<int>(GPUTPCGeometry::NPads(r - clustererNN.mNnClusterizerSizeInputRow)));
+        }
+        if (clustererNN.mIsBoundary[i] == 1) {
+          break; // No need to check further pads in this row
+        }
+      }
+    }
+  }
+}
+
+void GPUTPCNNClusterizerHost::createIndexLookup(GPUTPCNNClusterizer& clustererNN) {
+  for(int32_t i = 0; i < clustererNN.mNnClusterizerChargeArraySize; i++){
+    int32_t r = CAMath::Floor(i / ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1))) - clustererNN.mNnClusterizerSizeInputRow;
+    int32_t rest_1 = i % ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1));
+    int32_t p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputPad;
+    int32_t t = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime;
+    clustererNN.mIndexLookup[3*i] = r;
+    clustererNN.mIndexLookup[3*i + 1] = p;
+    clustererNN.mIndexLookup[3*i + 2] = t;
   }
 }
 

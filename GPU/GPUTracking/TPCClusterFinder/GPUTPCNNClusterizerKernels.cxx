@@ -155,37 +155,26 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     }
   } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
     int32_t time = static_cast<int>(peak.time());
-    int32_t r = CAMath::Floor(transient_index / ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1))) - clustererNN.mNnClusterizerSizeInputRow;
-    bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
-    if (is_row_boundary) {
+    int32_t idxLookup = 3*transient_index;
+    int32_t r = clustererNN.mIndexLookup[idxLookup], p = clustererNN.mIndexLookup[idxLookup + 1], t = clustererNN.mIndexLookup[idxLookup + 2] + time;
+    int32_t current_row = row + r, current_pad = pad + p;
+    int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
+    int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, current_row);
+    int32_t isBoundaryIndex = (current_row + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePerRow + current_pad + clustererNN.mNnClusterizerSizeInputPad;
+
+    if (!clustererNN.mIsBoundary[isBoundaryIndex] && (t >= 0) && (t < TPC_MAX_FRAGMENT_LEN_GPU)) {
+      float central_charge = static_cast<float>(chargeMap[peak].unpack());
+      CfChargePos tmp_pos(current_row, current_pad + pad_offset, t);
+      if (dtype == 0) {
+        clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
+      } else if (dtype == 1) {
+        clustererNN.mInputData_32[glo_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
+      }
+    } else {
       if (dtype == 0) {
         clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue));
       } else {
         clustererNN.mInputData_32[glo_idx] = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
-      }
-    } else {
-      int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
-      int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, row + r);
-      int32_t rest_1 = transient_index % ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1));
-      int32_t p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputPad + pad_offset;
-      int32_t time_pos = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime + time;
-
-      bool is_boundary = GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow) && (time_pos < 0 || time_pos >= TPC_MAX_FRAGMENT_LEN_GPU);
-
-      if (!is_boundary) {
-        float central_charge = static_cast<float>(chargeMap[peak].unpack());
-        CfChargePos tmp_pos(row + r, pad + p, time_pos);
-        if (dtype == 0) {
-          clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
-        } else if (dtype == 1) {
-          clustererNN.mInputData_32[glo_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
-        }
-      } else {
-        if (dtype == 0) {
-          clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue));
-        } else {
-          clustererNN.mInputData_32[glo_idx] = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
-        }
       }
     }
   }
