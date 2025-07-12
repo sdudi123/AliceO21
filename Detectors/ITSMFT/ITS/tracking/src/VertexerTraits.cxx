@@ -10,10 +10,10 @@
 // or submit itself to any jurisdiction.
 ///
 
-#include <iostream>
 #include <memory>
-#include <string>
-#include <chrono>
+#include <ranges>
+#include <map>
+#include <algorithm>
 
 #include <oneapi/tbb/blocked_range.h>
 #include <oneapi/tbb/parallel_for.h>
@@ -22,6 +22,9 @@
 #include "ITStracking/BoundedAllocator.h"
 #include "ITStracking/ClusterLines.h"
 #include "ITStracking/Tracklet.h"
+#include "SimulationDataFormat/DigitizationContext.h"
+#include "Steer/MCKinematicsReader.h"
+#include "ITSMFTBase/DPLAlpideParam.h"
 
 #ifdef VTX_DEBUG
 #include "TTree.h"
@@ -214,13 +217,16 @@ void VertexerTraits::computeTracklets(const int iteration)
           mTimeFrame->getNTrackletsROF(pivotRofId, 1) = std::accumulate(mTimeFrame->getNTrackletsCluster(pivotRofId, 1).begin(), mTimeFrame->getNTrackletsCluster(pivotRofId, 1).end(), 0);
         }
       });
-  });
 
-  mTimeFrame->computeTrackletsPerROFScans();
-  mTimeFrame->getTracklets()[0].resize(mTimeFrame->getTotalTrackletsTF(0));
-  mTimeFrame->getTracklets()[1].resize(mTimeFrame->getTotalTrackletsTF(1));
+    mTimeFrame->computeTrackletsPerROFScans();
+    if (auto tot0 = mTimeFrame->getTotalTrackletsTF(0), tot1 = mTimeFrame->getTotalTrackletsTF(1);
+        tot0 == 0 || tot1 == 0) {
+      return;
+    } else {
+      mTimeFrame->getTracklets()[0].resize(tot0);
+      mTimeFrame->getTracklets()[1].resize(tot1);
+    }
 
-  mTaskArena->execute([&] {
     tbb::parallel_for(
       tbb::blocked_range<short>(0, (short)mTimeFrame->getNrof()),
       [&](const tbb::blocked_range<short>& Rofs) {
@@ -266,17 +272,19 @@ void VertexerTraits::computeTracklets(const int iteration)
   if (mTimeFrame->hasMCinformation()) {
     for (const auto& trk : mTimeFrame->getTracklets()[0]) {
       o2::MCCompLabel label;
-      int sortedId0{mTimeFrame->getSortedIndex(trk.rof[0], 0, trk.firstClusterIndex)};
-      int sortedId1{mTimeFrame->getSortedIndex(trk.rof[1], 1, trk.secondClusterIndex)};
-      for (const auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
-        for (const auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
-          if (lab0 == lab1 && lab0.isValid()) {
-            label = lab0;
+      if (!trk.isEmpty()) {
+        int sortedId0{mTimeFrame->getSortedIndex(trk.rof[0], 0, trk.firstClusterIndex)};
+        int sortedId1{mTimeFrame->getSortedIndex(trk.rof[1], 1, trk.secondClusterIndex)};
+        for (const auto& lab0 : mTimeFrame->getClusterLabels(0, mTimeFrame->getClusters()[0][sortedId0].clusterId)) {
+          for (const auto& lab1 : mTimeFrame->getClusterLabels(1, mTimeFrame->getClusters()[1][sortedId1].clusterId)) {
+            if (lab0 == lab1 && lab0.isValid()) {
+              label = lab0;
+              break;
+            }
+          }
+          if (label.isValid()) {
             break;
           }
-        }
-        if (label.isValid()) {
-          break;
         }
       }
       mTimeFrame->getTrackletsLabel(0).emplace_back(label);
@@ -482,7 +490,6 @@ void VertexerTraits::computeVertices(const int iteration)
     }
   }
   for (int rofId{0}; rofId < mTimeFrame->getNrof(); ++rofId) {
-    vertices.clear();
     std::sort(mTimeFrame->getTrackletClusters(rofId).begin(), mTimeFrame->getTrackletClusters(rofId).end(),
               [](ClusterLines& cluster1, ClusterLines& cluster2) { return cluster1.getSize() > cluster2.getSize(); }); // ensure clusters are ordered by contributors, so that we can cat after the first.
 #ifdef VTX_DEBUG
@@ -541,6 +548,8 @@ void VertexerTraits::computeVertices(const int iteration)
     if (vertices.empty() && !(iteration && (int)mTimeFrame->getPrimaryVertices(rofId).size() > mVrtParams[iteration].vertPerRofThreshold)) {
       mTimeFrame->getNoVertexROF()++;
     }
+    vertices.clear();
+    polls.clear();
   }
 #ifdef VTX_DEBUG
   TFile* dbg_file = TFile::Open("artefacts_tf.root", "update");
@@ -685,6 +694,59 @@ void VertexerTraits::computeVerticesInRof(int rofId,
     }
   }
   verticesInRof.push_back(foundVertices);
+}
+
+void VertexerTraits::addTruthSeedingVertices()
+{
+  LOGP(info, "Using truth seeds as vertices; will skip computations");
+  mTimeFrame->resetRofPV();
+  const auto dc = o2::steer::DigitizationContext::loadFromFile("collisioncontext.root");
+  const auto irs = dc->getEventRecords();
+  int64_t roFrameBiasInBC = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance().roFrameBiasInBC;
+  int64_t roFrameLengthInBC = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance().roFrameLengthInBC;
+  o2::steer::MCKinematicsReader mcReader(dc);
+  std::map<int, bounded_vector<Vertex>> vertices;
+  for (int iSrc{0}; iSrc < mcReader.getNSources(); ++iSrc) {
+    auto eveId2colId = dc->getCollisionIndicesForSource(iSrc);
+    for (int iEve{0}; iEve < mcReader.getNEvents(iSrc); ++iEve) {
+      const auto& ir = irs[eveId2colId[iEve]];
+      if (!ir.isDummy()) { // do we need this, is this for diffractive events?
+        const auto& eve = mcReader.getMCEventHeader(iSrc, iEve);
+        int rofId = (ir.toLong() - roFrameBiasInBC) / roFrameLengthInBC;
+        if (!vertices.contains(rofId)) {
+          vertices[rofId] = bounded_vector<Vertex>(mMemoryPool.get());
+        }
+        Vertex vert;
+        vert.setTimeStamp(rofId);
+        vert.setNContributors(std::ranges::count_if(mcReader.getTracks(iSrc, iEve), [](const auto& trk) {
+          return trk.isPrimary() && trk.GetPt() > 0.2 && std::abs(trk.GetEta()) < 1.3;
+        }));
+        vert.setXYZ((float)eve.GetX(), (float)eve.GetY(), (float)eve.GetZ());
+        vert.setChi2(1);
+        constexpr float cov = 50e-9;
+        vert.setCov(cov, cov, cov, cov, cov, cov);
+        vertices[rofId].push_back(vert);
+      }
+    }
+  }
+  size_t nVerts{0};
+  for (int iROF{0}; iROF < mTimeFrame->getNrof(); ++iROF) {
+    bounded_vector<Vertex> verts(mMemoryPool.get());
+    bounded_vector<std::pair<o2::MCCompLabel, float>> polls(mMemoryPool.get());
+    if (vertices.contains(iROF)) {
+      verts = vertices[iROF];
+      nVerts += verts.size();
+      for (size_t i{0}; i < verts.size(); ++i) {
+        o2::MCCompLabel lbl; // unset label for now
+        polls.emplace_back(lbl, 1.f);
+      }
+    } else {
+      mTimeFrame->getNoVertexROF()++;
+    }
+    mTimeFrame->addPrimaryVertices(verts, iROF, 0);
+    mTimeFrame->addPrimaryVerticesLabels(polls);
+  }
+  LOGP(info, "Found {}/{} ROFs with {} vertices -> <NV>={:.2f}", vertices.size(), mTimeFrame->getNrof(), nVerts, (float)nVerts / (float)vertices.size());
 }
 
 void VertexerTraits::setNThreads(int n, std::shared_ptr<tbb::task_arena>& arena)
