@@ -132,9 +132,10 @@ void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
       int32_t i = r * clustererNN.mBoundaryMapSizePerRow + p;
       clustererNN.mIsBoundary[i] = 1;
       if (p >= clustererNN.mNnClusterizerSizeInputPad || r >= clustererNN.mNnClusterizerSizeInputRow) {
-        if ((r < (GPUTPCGeometry::EndIROC() + clustererNN.mNnClusterizerSizeInputRow)) ||
-            (r >= (GPUTPCGeometry::EndIROC() + 2*clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2*clustererNN.mNnClusterizerSizeInputRow))) {
+        if (r < (GPUTPCGeometry::EndIROC() + clustererNN.mNnClusterizerSizeInputRow)) {
           clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mNnClusterizerSizeInputPad) >= static_cast<int>(GPUTPCGeometry::NPads(r - clustererNN.mNnClusterizerSizeInputRow)));
+        } else if (r >= (GPUTPCGeometry::EndIROC() + 2*clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2*clustererNN.mNnClusterizerSizeInputRow)) {
+          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mNnClusterizerSizeInputPad) >= static_cast<int>(GPUTPCGeometry::NPads(r - 2*clustererNN.mNnClusterizerSizeInputRow)));
         }
         if (clustererNN.mIsBoundary[i] == 1) {
           break; // No need to check further pads in this row

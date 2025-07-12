@@ -156,15 +156,14 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
     int32_t time = static_cast<int>(peak.time());
     int32_t idxLookup = 3*transient_index;
-    int32_t r = clustererNN.mIndexLookup[idxLookup], p = clustererNN.mIndexLookup[idxLookup + 1], t = clustererNN.mIndexLookup[idxLookup + 2] + time;
-    int32_t current_row = row + r, current_pad = pad + p;
+    int32_t r = clustererNN.mIndexLookup[idxLookup] + row, p = clustererNN.mIndexLookup[idxLookup + 1] + pad, t = clustererNN.mIndexLookup[idxLookup + 2] + time;
     int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
-    int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, current_row);
-    int32_t isBoundaryIndex = (current_row + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePerRow + current_pad + clustererNN.mNnClusterizerSizeInputPad;
+    int32_t isBoundaryIndex = (r + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePerRow + p + clustererNN.mNnClusterizerSizeInputPad;
 
     if (!clustererNN.mIsBoundary[isBoundaryIndex] && (t >= 0) && (t < TPC_MAX_FRAGMENT_LEN_GPU)) {
+      int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, r);
       float central_charge = static_cast<float>(chargeMap[peak].unpack());
-      CfChargePos tmp_pos(current_row, current_pad + pad_offset, t);
+      CfChargePos tmp_pos(r, p + pad_offset, t);
       if (dtype == 0) {
         clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
       } else if (dtype == 1) {
