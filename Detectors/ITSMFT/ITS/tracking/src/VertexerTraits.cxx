@@ -407,6 +407,9 @@ void VertexerTraits::computeTrackletMatching(const int iteration)
   ln_tre->Write();
   trackletFile->Close();
 #endif
+
+  // from here on we do not use tracklets from L1-2 anymore, so let's free them
+  deepVectorClear(mTimeFrame->getTracklets()[1]);
 }
 
 void VertexerTraits::computeVertices(const int iteration)
