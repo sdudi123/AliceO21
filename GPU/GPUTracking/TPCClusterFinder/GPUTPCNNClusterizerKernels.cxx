@@ -75,7 +75,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
         int32_t isBoundaryIndex = (row_pos + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePadsPerRow + pad_pos + clustererNN.mBoundaryPadding;
         if (!clustererNN.mIsBoundary[isBoundaryIndex] && (time_pos >= 0) && (time_pos < TPC_MAX_FRAGMENT_LEN_GPU)) {
           CfChargePos tmp_pos(row_pos, pad_pos, time_pos);
-          if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) { // Only if deconvolution flags are not set
+          if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) {                                                                    // Only if deconvolution flags are not set
             if (r == 0 && !clustererNN.mClusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
               clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
               clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
@@ -162,7 +162,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     }
   } else if ((int32_t)transient_index < clustererNN.mNnClusterizerChargeArraySize) {
     int32_t time = static_cast<int>(peak.time());
-    int32_t idxLookup = 3*transient_index;
+    int32_t idxLookup = 3 * transient_index;
     int32_t r = clustererNN.mIndexLookup[idxLookup] + row, p = clustererNN.mIndexLookup[idxLookup + 1] + pad, t = clustererNN.mIndexLookup[idxLookup + 2] + time;
     int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
     int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, r);
@@ -501,7 +501,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 GPUd() int32_t GPUTPCNNClusterizerKernels::padOffset(int32_t row_ref, int32_t row_current)
 {
-  if(row_current < 0 || row_current > o2::tpc::constants::MAXGLOBALPADROW) {
+  if (row_current < 0 || row_current > o2::tpc::constants::MAXGLOBALPADROW) {
     return 0; // Short-circuit for negative rows
   } else {
     return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
