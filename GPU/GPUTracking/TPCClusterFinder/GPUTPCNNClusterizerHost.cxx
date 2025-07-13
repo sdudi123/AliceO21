@@ -93,9 +93,9 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerElementSize = clustererNN.mNnClusterizerChargeArraySize + (settings.nnClusterizerAddIndexData ? 3 : 0);
   clustererNN.mBoundaryMapSizeRow = 3 * clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW;
   clustererNN.mBoundaryPadding = 11; // padding on each side to account for pad_offset. N=11 since then mIsBoundary = 24320 ~< (1.5 x 2^14 = 24576) && N must be bigger than (NPads[row(end_iroc + 1)] - NPads[row(end_iroc)])/2 (=6) for pad_offset to work
-  clustererNN.mBoundaryMapSizePadsPerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2*clustererNN.mBoundaryPadding;
-  clustererNN.mBoundaryMapSize = clustererNN.mBoundaryMapSizeRow*clustererNN.mBoundaryMapSizePadsPerRow;
-  clustererNN.mIndexLookupSize = 3*clustererNN.mNnClusterizerChargeArraySize; // local row, pad, time shift from flat index
+  clustererNN.mBoundaryMapSizePadsPerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2 * clustererNN.mBoundaryPadding;
+  clustererNN.mBoundaryMapSize = clustererNN.mBoundaryMapSizeRow * clustererNN.mBoundaryMapSizePadsPerRow;
+  clustererNN.mIndexLookupSize = 3 * clustererNN.mNnClusterizerChargeArraySize; // local row, pad, time shift from flat index
   clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
   clustererNN.mNnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
   clustererNN.mNnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
@@ -124,9 +124,10 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   }
 }
 
-void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
+void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN)
+{
   // Call after init of the clustererNN elements
-  for(int r = 0; r < clustererNN.mBoundaryMapSizeRow; r++) {
+  for (int r = 0; r < clustererNN.mBoundaryMapSizeRow; r++) {
     int8_t skipCheckInRow = 0;
     for (int p = 0; p < clustererNN.mBoundaryMapSizePadsPerRow; p++) {
       int32_t i = r * clustererNN.mBoundaryMapSizePadsPerRow + p;
@@ -134,8 +135,8 @@ void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
       if (!skipCheckInRow && (p >= clustererNN.mBoundaryPadding || r >= clustererNN.mNnClusterizerSizeInputRow)) {
         if (r < (GPUTPCGeometry::EndIROC() + clustererNN.mNnClusterizerSizeInputRow)) {
           clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mBoundaryPadding) >= static_cast<int>(GPUTPCGeometry::NPads(r - clustererNN.mNnClusterizerSizeInputRow)));
-        } else if (r >= (GPUTPCGeometry::EndIROC() + 2*clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2*clustererNN.mNnClusterizerSizeInputRow)) {
-          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mBoundaryPadding) >= static_cast<int>(GPUTPCGeometry::NPads(r - 2*clustererNN.mNnClusterizerSizeInputRow)));
+        } else if (r >= (GPUTPCGeometry::EndIROC() + 2 * clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2 * clustererNN.mNnClusterizerSizeInputRow)) {
+          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mBoundaryPadding) >= static_cast<int>(GPUTPCGeometry::NPads(r - 2 * clustererNN.mNnClusterizerSizeInputRow)));
         }
         skipCheckInRow = (clustererNN.mIsBoundary[i] == 1); // No need to check further pads in this row
       }
@@ -143,15 +144,16 @@ void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
   }
 }
 
-void GPUTPCNNClusterizerHost::createIndexLookup(GPUTPCNNClusterizer& clustererNN) {
-  for(int32_t i = 0; i < clustererNN.mNnClusterizerChargeArraySize; i++){
+void GPUTPCNNClusterizerHost::createIndexLookup(GPUTPCNNClusterizer& clustererNN)
+{
+  for (int32_t i = 0; i < clustererNN.mNnClusterizerChargeArraySize; i++) {
     int32_t r = CAMath::Floor(i / ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1))) - clustererNN.mNnClusterizerSizeInputRow;
     int32_t rest_1 = i % ((2 * clustererNN.mNnClusterizerSizeInputPad + 1) * (2 * clustererNN.mNnClusterizerSizeInputTime + 1));
     int32_t p = CAMath::Floor(rest_1 / (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputPad;
     int32_t t = (rest_1 % (2 * clustererNN.mNnClusterizerSizeInputTime + 1)) - clustererNN.mNnClusterizerSizeInputTime;
-    clustererNN.mIndexLookup[3*i] = r;
-    clustererNN.mIndexLookup[3*i + 1] = p;
-    clustererNN.mIndexLookup[3*i + 2] = t;
+    clustererNN.mIndexLookup[3 * i] = r;
+    clustererNN.mIndexLookup[3 * i + 1] = p;
+    clustererNN.mIndexLookup[3 * i + 2] = t;
   }
 }
 
