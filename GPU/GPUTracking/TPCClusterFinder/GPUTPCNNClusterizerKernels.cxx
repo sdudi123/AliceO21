@@ -61,25 +61,31 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   CfArray2D<PackedCharge> chargeMap(reinterpret_cast<PackedCharge*>(clusterer.mPchargeMap));
   CfArray2D<uint8_t> isPeakMap(clusterer.mPpeakMap);
   CfChargePos peak = clusterer.mPfilteredPeakPositions[CAMath::Min(glo_idx + batchStart, (uint32_t)(clusterer.mPmemory->counters.nClusters - 1))];
-  int32_t row = static_cast<int>(peak.row()), pad = static_cast<int>(peak.pad()), time = static_cast<int>(peak.time()); // Explicit casting to avoid conversion errors
+  int32_t row = static_cast<int32_t>(peak.row()), pad = static_cast<int32_t>(peak.pad()), time = static_cast<int32_t>(peak.time()); // Explicit casting to avoid conversion errors
   float central_charge = static_cast<float>(chargeMap[peak].unpack());
   int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
 
   for (int32_t r = -clustererNN.mNnClusterizerSizeInputRow; r <= clustererNN.mNnClusterizerSizeInputRow; r++) {
-    bool is_row_boundary = ((row + r) > (o2::tpc::constants::MAXGLOBALPADROW - 1)) || ((row + r) < 0);
-    int32_t pad_offset = is_row_boundary ? 0 : GPUTPCNNClusterizerKernels::padOffset(row, row + r);
-    for (int32_t p = -clustererNN.mNnClusterizerSizeInputPad + pad_offset; p <= clustererNN.mNnClusterizerSizeInputPad + pad_offset; p++) {
-      bool is_boundary = is_row_boundary || GPUTPCNNClusterizerKernels::isBoundary(row + r + row_offset, pad + p, clustererNN.mNnClusterizerSizeInputRow);
+    int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, row + r);
+    int32_t row_pos = row + r;
+    for (int32_t p = (-clustererNN.mNnClusterizerSizeInputPad + pad_offset); p <= (clustererNN.mNnClusterizerSizeInputPad + pad_offset); p++) {
+      int32_t pad_pos = pad + p;
       for (int32_t t = -clustererNN.mNnClusterizerSizeInputTime; t <= clustererNN.mNnClusterizerSizeInputTime; t++) {
         int32_t time_pos = time + t;
-        if (!is_boundary && (time_pos >= 0) && (time_pos < TPC_MAX_FRAGMENT_LEN_GPU)) {
-          CfChargePos tmp_pos(row + r, pad + p, time + t);
-          if (r == 0 && !clustererNN.mClusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
-            clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
-            clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
+        int32_t isBoundaryIndex = (row_pos + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePadsPerRow + pad_pos + clustererNN.mBoundaryPadding;
+        if (!clustererNN.mIsBoundary[isBoundaryIndex] && (time_pos >= 0) && (time_pos < TPC_MAX_FRAGMENT_LEN_GPU)) {
+          CfChargePos tmp_pos(row_pos, pad_pos, time_pos);
+          if (!clustererNN.mNnClusterizerSetDeconvolutionFlags) { // Only if deconvolution flags are not set
+            if (r == 0 && !clustererNN.mClusterFlags[2 * glo_idx] && CAMath::Abs(p) < 3 && CAMath::Abs(t) < 3 && p != 0 && t != 0) { // ordering is done for short circuit optimization
+              clustererNN.mClusterFlags[2 * glo_idx] += CfUtils::isPeak(isPeakMap[tmp_pos]);
+              clustererNN.mClusterFlags[2 * glo_idx + 1] = clustererNN.mClusterFlags[2 * glo_idx];
+            }
           }
           if (dtype == 0) {
             clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
+            // if(CAMath::Abs(static_cast<float>(clustererNN.mInputData_16[write_idx]) - static_cast<float>(clustererNN.mInputData_16[write_idx])) > 1e-6) {
+            //   printf("Warning: (Charge) Charge difference at idx %d, batchStart %d, maxClusters %d, sector %d, row %d (%d), pad %d (%d), time %d (%d): %f / %f\n", glo_idx, batchStart, clusterer.mPmemory->counters.nClusters - 1, sector, row_pos, r, pad_pos, p, time_pos, t, static_cast<float>(clustererNN.mInputData_16[write_idx]), static_cast<float>(clustererNN.mInputData_16[write_idx]));
+            // }
           } else if (dtype == 1) {
             clustererNN.mInputData_32[write_idx] = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge;
           }
@@ -507,16 +513,17 @@ GPUd() int32_t GPUTPCNNClusterizerKernels::rowOffset(int32_t row, int32_t offset
   return (row > 62 ? offset : 0);
 }
 
+// Legacy. Deprecated.
 GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int32_t row, int32_t pad, int32_t offset)
 {
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
-    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row)));
+    return ((pad < 0) || (pad >= static_cast<int>(GPUTPCGeometry::NPads(row))));
   } else if (row < (63 + offset)) { // to account for the gap between IROC and OROC. Charge will be set to the boundary fill value in order to signal boundaries to the neural network
     return true;
   } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + offset)) {
-    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row - offset)));
+    return ((pad < 0) || (pad >= static_cast<int>(GPUTPCGeometry::NPads(row - offset))));
   } else {
     return true;
   }
