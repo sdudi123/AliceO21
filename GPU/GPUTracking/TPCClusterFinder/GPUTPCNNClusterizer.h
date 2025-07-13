@@ -61,8 +61,9 @@ class GPUTPCNNClusterizer : public GPUProcessor
 
   // Boundary lookup table
   int32_t mBoundaryMapSizeRow = 0;
-  int32_t mBoundaryMapSizePerRow = 0;
+  int32_t mBoundaryMapSizePadsPerRow = 0;
   int32_t mBoundaryMapSize = 0;
+  int32_t mBoundaryPadding = 11; // Padding on each side of the boundary map to account for pad_offset
   int8_t* mIsBoundary = nullptr;
 
   // Index lookup table

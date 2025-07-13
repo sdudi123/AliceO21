@@ -121,9 +121,10 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
 template <>
 GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNNGPU>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint32_t batchStart)
 {
-  uint32_t glo_idx = get_global_id(0);
   auto& clusterer = processors.tpcClusterer[sector];
   auto& clustererNN = processors.tpcNNClusterer[sector];
+
+  uint32_t glo_idx = get_global_id(0);
   uint32_t base_idx = CAMath::Floor(glo_idx / clustererNN.mNnClusterizerElementSize);
   uint32_t transient_index = glo_idx - (base_idx * clustererNN.mNnClusterizerElementSize);
 
@@ -153,17 +154,22 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
       clustererNN.mInputData_32[top_idx - 2] = row / 152.f;
       clustererNN.mInputData_32[top_idx - 1] = static_cast<float>(pad) / GPUTPCGeometry::NPads(row);
     }
-  } else if ((int32_t)transient_index < (clustererNN.mNnClusterizerElementSize - 3)) {
+  } else if ((int32_t)transient_index < clustererNN.mNnClusterizerChargeArraySize) {
     int32_t time = static_cast<int>(peak.time());
     int32_t idxLookup = 3*transient_index;
     int32_t r = clustererNN.mIndexLookup[idxLookup] + row, p = clustererNN.mIndexLookup[idxLookup + 1] + pad, t = clustererNN.mIndexLookup[idxLookup + 2] + time;
     int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
-    int32_t isBoundaryIndex = (r + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePerRow + p + clustererNN.mNnClusterizerSizeInputPad;
+    int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, r);
+    p += pad_offset;
+    int32_t isBoundaryIndex = (r + row_offset + clustererNN.mNnClusterizerSizeInputRow) * clustererNN.mBoundaryMapSizePadsPerRow + p + clustererNN.mBoundaryPadding;
 
     if (!clustererNN.mIsBoundary[isBoundaryIndex] && (t >= 0) && (t < TPC_MAX_FRAGMENT_LEN_GPU)) {
-      int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, r);
       float central_charge = static_cast<float>(chargeMap[peak].unpack());
-      CfChargePos tmp_pos(r, p + pad_offset, t);
+      CfChargePos tmp_pos(r, p, t);
+      // if ((glo_idx % (clustererNN.mNnClusterizerElementSize*1000)) == (int)((clustererNN.mNnClusterizerChargeArraySize-1)/2.f)){
+      //   printf("glo_idx: %d, r: %d, p: %d, t: %d, tmp_pos: (%d, %d, %d), charge: %f, central_charge: %f\n",
+      //          glo_idx, clustererNN.mIndexLookup[idxLookup], clustererNN.mIndexLookup[idxLookup + 1], clustererNN.mIndexLookup[idxLookup + 2], tmp_pos.row(), tmp_pos.pad(), tmp_pos.time(), chargeMap[tmp_pos].unpack(), central_charge);
+      // }
       if (dtype == 0) {
         clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)(static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge);
       } else if (dtype == 1) {
@@ -489,24 +495,28 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 GPUd() int32_t GPUTPCNNClusterizerKernels::padOffset(int32_t row_ref, int32_t row_current)
 {
-  return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
+  if(row_current < 0 || row_current > o2::tpc::constants::MAXGLOBALPADROW) {
+    return 0; // Short-circuit for negative rows
+  } else {
+    return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
+  }
 }
 
-GPUd() int32_t GPUTPCNNClusterizerKernels::rowOffset(int32_t row, int32_t global_shift)
+GPUd() int32_t GPUTPCNNClusterizerKernels::rowOffset(int32_t row, int32_t offset)
 {
-  return (row > 62 ? global_shift : 0);
+  return (row > 62 ? offset : 0);
 }
 
-GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int32_t row, int32_t pad, int32_t global_shift)
+GPUd() bool GPUTPCNNClusterizerKernels::isBoundary(int32_t row, int32_t pad, int32_t offset)
 {
   if (pad < 0 || row < 0) { // Faster short-circuit
     return true;
   } else if (row < 63) {
     return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row)));
-  } else if (row < (63 + global_shift)) { // to account for the gap between IROC and OROC. Charge will be set to -1 in order to signal boundary to the neural network
+  } else if (row < (63 + offset)) { // to account for the gap between IROC and OROC. Charge will be set to the boundary fill value in order to signal boundaries to the neural network
     return true;
-  } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + global_shift)) {
-    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row - global_shift)));
+  } else if (row < (o2::tpc::constants::MAXGLOBALPADROW + offset)) {
+    return (pad >= static_cast<int>(GPUTPCGeometry::NPads(row - offset)));
   } else {
     return true;
   }

@@ -91,8 +91,11 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerSizeInputTime = settings.nnClusterizerSizeInputTime;
   clustererNN.mNnClusterizerChargeArraySize = ((2 * settings.nnClusterizerSizeInputRow + 1) * (2 * settings.nnClusterizerSizeInputPad + 1) * (2 * settings.nnClusterizerSizeInputTime + 1));
   clustererNN.mNnClusterizerElementSize = clustererNN.mNnClusterizerChargeArraySize + (settings.nnClusterizerAddIndexData ? 3 : 0);
-  clustererNN.mBoundaryMapSize = (3*clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW)*(GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2*clustererNN.mNnClusterizerSizeInputPad);
-  clustererNN.mIndexLookupSize = 3*clustererNN.mNnClusterizerElementSize; // local row, pad, time coordinate from flat index
+  clustererNN.mBoundaryMapSizeRow = 3 * clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW;
+  clustererNN.mBoundaryPadding = 11; // padding on each side to account for pad_offset. N=11 since then mIsBoundary = 24320 ~< (1.5 x 2^14 = 24576) && N must be bigger than (NPads[row(end_iroc + 1)] - NPads[row(end_iroc)])/2 (=6) for pad_offset to work
+  clustererNN.mBoundaryMapSizePadsPerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2*clustererNN.mBoundaryPadding;
+  clustererNN.mBoundaryMapSize = clustererNN.mBoundaryMapSizeRow*clustererNN.mBoundaryMapSizePadsPerRow;
+  clustererNN.mIndexLookupSize = 3*clustererNN.mNnClusterizerChargeArraySize; // local row, pad, time shift from flat index
   clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;
   clustererNN.mNnClusterizerBatchedMode = settings.nnClusterizerBatchedMode;
   clustererNN.mNnClusterizerBoundaryFillValue = settings.nnClusterizerBoundaryFillValue;
@@ -119,27 +122,22 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
       clustererNN.mNnClusterizerModelReg2NumOutputNodes = mModelReg2.getNumOutputNodes()[0][1];
     }
   }
-  createBoundary(clustererNN);
-  createIndexLookup(clustererNN);
 }
 
 void GPUTPCNNClusterizerHost::createBoundary(GPUTPCNNClusterizer& clustererNN) {
   // Call after init of the clustererNN elements
-  clustererNN.mBoundaryMapSizeRow = 3 * clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW;
-  clustererNN.mBoundaryMapSizePerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2 * clustererNN.mNnClusterizerSizeInputPad;
   for(int r = 0; r < clustererNN.mBoundaryMapSizeRow; r++) {
-    for (int p = 0; p < clustererNN.mBoundaryMapSizePerRow; p++) {
-      int32_t i = r * clustererNN.mBoundaryMapSizePerRow + p;
+    int8_t skipCheckInRow = 0;
+    for (int p = 0; p < clustererNN.mBoundaryMapSizePadsPerRow; p++) {
+      int32_t i = r * clustererNN.mBoundaryMapSizePadsPerRow + p;
       clustererNN.mIsBoundary[i] = 1;
-      if (p >= clustererNN.mNnClusterizerSizeInputPad || r >= clustererNN.mNnClusterizerSizeInputRow) {
+      if (!skipCheckInRow && (p >= clustererNN.mBoundaryPadding || r >= clustererNN.mNnClusterizerSizeInputRow)) {
         if (r < (GPUTPCGeometry::EndIROC() + clustererNN.mNnClusterizerSizeInputRow)) {
-          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mNnClusterizerSizeInputPad) >= static_cast<int>(GPUTPCGeometry::NPads(r - clustererNN.mNnClusterizerSizeInputRow)));
+          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mBoundaryPadding) >= static_cast<int>(GPUTPCGeometry::NPads(r - clustererNN.mNnClusterizerSizeInputRow)));
         } else if (r >= (GPUTPCGeometry::EndIROC() + 2*clustererNN.mNnClusterizerSizeInputRow) && r < (o2::tpc::constants::MAXGLOBALPADROW + 2*clustererNN.mNnClusterizerSizeInputRow)) {
-          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mNnClusterizerSizeInputPad) >= static_cast<int>(GPUTPCGeometry::NPads(r - 2*clustererNN.mNnClusterizerSizeInputRow)));
+          clustererNN.mIsBoundary[i] = (int32_t)((p - clustererNN.mBoundaryPadding) >= static_cast<int>(GPUTPCGeometry::NPads(r - 2*clustererNN.mNnClusterizerSizeInputRow)));
         }
-        if (clustererNN.mIsBoundary[i] == 1) {
-          break; // No need to check further pads in this row
-        }
+        skipCheckInRow = (clustererNN.mIsBoundary[i] == 1); // No need to check further pads in this row
       }
     }
   }
