@@ -93,7 +93,7 @@ void GPUTPCNNClusterizerHost::initClusterizer(const GPUSettingsProcessingNNclust
   clustererNN.mNnClusterizerElementSize = clustererNN.mNnClusterizerChargeArraySize + (settings.nnClusterizerAddIndexData ? 3 : 0);
   clustererNN.mBoundaryMapSizeRow = 3 * clustererNN.mNnClusterizerSizeInputRow + o2::tpc::constants::MAXGLOBALPADROW;
   clustererNN.mBoundaryPadding = 11; // padding on each side to account for pad_offset. N=11 since then mIsBoundary = 24320 ~< (1.5 x 2^14 = 24576) && N must be bigger than (NPads[row(end_iroc + 1)] - NPads[row(end_iroc)])/2 (=6) for pad_offset to work
-  clustererNN.mBoundaryMapSizePadsPerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW) + 2 * clustererNN.mBoundaryPadding;
+  clustererNN.mBoundaryMapSizePadsPerRow = GPUTPCGeometry::NPads(o2::tpc::constants::MAXGLOBALPADROW-1) + 2 * clustererNN.mBoundaryPadding;
   clustererNN.mBoundaryMapSize = clustererNN.mBoundaryMapSizeRow * clustererNN.mBoundaryMapSizePadsPerRow;
   clustererNN.mIndexLookupSize = 3 * clustererNN.mNnClusterizerChargeArraySize; // local row, pad, time shift from flat index
   clustererNN.mNnClusterizerAddIndexData = settings.nnClusterizerAddIndexData;

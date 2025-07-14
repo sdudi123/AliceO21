@@ -501,7 +501,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 GPUd() int32_t GPUTPCNNClusterizerKernels::padOffset(int32_t row_ref, int32_t row_current)
 {
-  if (row_current < 0 || row_current > o2::tpc::constants::MAXGLOBALPADROW) {
+  if (row_current < 0 || row_current >= o2::tpc::constants::MAXGLOBALPADROW) {
     return 0; // Short-circuit for negative rows
   } else {
     return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
