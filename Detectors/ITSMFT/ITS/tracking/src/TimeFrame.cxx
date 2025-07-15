@@ -362,7 +362,7 @@ void TimeFrame<nLayers>::initialise(const int iteration, const TrackingParameter
     if (iLayer < (int)mCells.size()) {
       deepVectorClear(mCells[iLayer]);
       deepVectorClear(mTrackletsLookupTable[iLayer]);
-      mTrackletsLookupTable[iLayer].resize(mClusters[iLayer + 1].size(), 0);
+      mTrackletsLookupTable[iLayer].resize(mClusters[iLayer + 1].size() + 1, 0);
       deepVectorClear(mCellLabels[iLayer]);
     }
 
@@ -653,8 +653,8 @@ void TimeFrame<nLayers>::wipe()
   deepVectorClear(mCellsLookupTable);
   deepVectorClear(mTotVertPerIteration);
   deepVectorClear(mPrimaryVertices);
-  deepVectorClear(mROFramesPV);
   deepVectorClear(mClusters);
+  deepVectorClear(mTrackletsLookupTable);
   deepVectorClear(mTrackingFrameInfo);
   deepVectorClear(mClusterExternalIndices);
   deepVectorClear(mROFramesClusters);
