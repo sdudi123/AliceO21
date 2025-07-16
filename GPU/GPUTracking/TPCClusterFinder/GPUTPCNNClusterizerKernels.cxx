@@ -137,8 +137,8 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   auto& clustererNN = processors.tpcNNClusterer[sector];
 
   // Optimized division using bit operations
-  uint32_t base_idx = glo_idx / clustererNN.mNnClusterizerElementSize;
-  uint32_t transient_index = glo_idx - (base_idx * clustererNN.mNnClusterizerElementSize);
+  uint32_t base_idx = glo_idx / clustererNN.mNnClusterizerRowTimeSizeFull;
+  uint32_t transient_index = glo_idx - (base_idx * clustererNN.mNnClusterizerRowTimeSizeFull);
 
   // Early exit for out-of-bounds threads
   if (base_idx + batchStart >= clusterer.mPmemory->counters.nClusters) {
@@ -156,9 +156,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   int32_t time = static_cast<int>(peak.time());
 
   // Handle index data with fewer branches
-  if (clustererNN.mNnClusterizerAddIndexData && (int32_t)transient_index >= clustererNN.mNnClusterizerChargeArraySize) {
-    uint32_t output_idx = base_idx * clustererNN.mNnClusterizerElementSize + transient_index;
-    int32_t data_idx = transient_index - clustererNN.mNnClusterizerChargeArraySize;
+  if (clustererNN.mNnClusterizerAddIndexData && (int32_t)transient_index >= clustererNN.mNnClusterizerRowTimeSize) {
+    int32_t data_idx = transient_index - clustererNN.mNnClusterizerRowTimeSize;
+    uint32_t write_idx = base_idx * clustererNN.mNnClusterizerElementSize + clustererNN.mNnClusterizerChargeArraySize + data_idx;
 
     float index_values[3] = {
       sector / 36.f,
@@ -167,9 +167,9 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     };
 
     if (dtype == 0) {
-      clustererNN.mInputData_16[output_idx] = (OrtDataType::Float16_t)index_values[data_idx];
+      clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)index_values[data_idx];
     } else {
-      clustererNN.mInputData_32[output_idx] = index_values[data_idx];
+      clustererNN.mInputData_32[write_idx] = index_values[data_idx];
     }
 
     // Handle deconvolution flags only once per cluster (last thread in element)
@@ -187,51 +187,57 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   }
 
   // Main data processing - optimize index calculations
-  if ((int32_t)transient_index < clustererNN.mNnClusterizerChargeArraySize) {
+  if ((int32_t)transient_index < clustererNN.mNnClusterizerRowTimeSize) {
     // Optimize 3D index calculation
-    int32_t r_local = (transient_index / clustererNN.mNnClusterizerPadTimeSize) - clustererNN.mNnClusterizerSizeInputRow;
-    int32_t pad_time_slice = (transient_index % clustererNN.mNnClusterizerPadTimeSize);
-    int32_t p_local = (pad_time_slice / clustererNN.mNnClusterizerFullPadSize) - clustererNN.mNnClusterizerSizeInputPad;
-    int32_t t_local = (pad_time_slice % clustererNN.mNnClusterizerFullPadSize) - clustererNN.mNnClusterizerSizeInputTime;
+    int32_t row_idx = transient_index / clustererNN.mNnClusterizerFullTimeSize;
+    int32_t r_local = row_idx - clustererNN.mNnClusterizerSizeInputRow;
+    int32_t time_idx = transient_index - row_idx*clustererNN.mNnClusterizerFullTimeSize;
+    int32_t t_local = time_idx - clustererNN.mNnClusterizerSizeInputTime;
+    int32_t write_idx = base_idx * clustererNN.mNnClusterizerElementSize + row_idx * clustererNN.mNnClusterizerPadTimeSize + time_idx;
 
     // Early boundary check for row
     int32_t target_row = row + r_local;
     int8_t is_row_boundary = (target_row < 0) || (target_row > (o2::tpc::constants::MAXGLOBALPADROW - 1));
 
-    if (is_row_boundary) {
-      // Use boundary fill value
-      float boundary_val = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
-      if (dtype == 0) {
-        clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)boundary_val;
-      } else {
-        clustererNN.mInputData_32[glo_idx] = boundary_val;
-      }
-      return;
-    }
-
     // Calculate offsets
     int32_t row_offset = GPUTPCNNClusterizerKernels::rowOffset(row, clustererNN.mNnClusterizerSizeInputRow);
     int32_t pad_offset = GPUTPCNNClusterizerKernels::padOffset(row, target_row);
-    int32_t target_pad = pad + p_local + pad_offset;
-    int32_t target_time = time + t_local;
+    for (int32_t p_local = -clustererNN.mNnClusterizerSizeInputPad + pad_offset; p_local <= clustererNN.mNnClusterizerSizeInputPad + pad_offset; p_local++) {
+      if (is_row_boundary) {
+        // Use boundary fill value
+        float boundary_val = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
+        if (dtype == 0) {
+          clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)boundary_val;
+        } else {
+          clustererNN.mInputData_32[write_idx] = boundary_val;
+        }
+        write_idx += clustererNN.mNnClusterizerFullTimeSize; // Move to next pad position
+        continue;
+      }
 
-    // Optimized boundary check
-    int8_t is_boundary = GPUTPCNNClusterizerKernels::isBoundary(target_row + row_offset, target_pad, clustererNN.mNnClusterizerSizeInputRow) || (target_time < 0) || (target_time >= TPC_MAX_FRAGMENT_LEN_GPU);
+      // Calculate target pad and time
+      int32_t target_pad = pad + p_local;
+      int32_t target_time = time + t_local;
 
-    float output_value;
-    if (is_boundary) {
-      output_value = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
-    } else {
-      // Coalesced memory access - create position and read charge
-      CfChargePos tmp_pos(target_row, target_pad, target_time);
-      output_value = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge; // Normalize by central charge
-    }
+      // Optimized boundary check
+      int8_t is_boundary = GPUTPCNNClusterizerKernels::isBoundary(target_row + row_offset, target_pad, clustererNN.mNnClusterizerSizeInputRow) || (target_time < 0) || (target_time >= TPC_MAX_FRAGMENT_LEN_GPU);
 
-    // Write output with reduced branching
-    if (dtype == 0) {
-      clustererNN.mInputData_16[glo_idx] = (OrtDataType::Float16_t)output_value;
-    } else {
-      clustererNN.mInputData_32[glo_idx] = output_value;
+      float output_value;
+      if (is_boundary) {
+        output_value = static_cast<float>(clustererNN.mNnClusterizerBoundaryFillValue);
+      } else {
+        // Coalesced memory access - create position and read charge
+        CfChargePos tmp_pos(target_row, target_pad, target_time);
+        output_value = static_cast<float>(chargeMap[tmp_pos].unpack()) / central_charge; // Normalize by central charge
+      }
+
+      // Write output with reduced branching
+      if (dtype == 0) {
+        clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)output_value;
+      } else {
+        clustererNN.mInputData_32[write_idx] = output_value;
+      }
+      write_idx += clustererNN.mNnClusterizerFullTimeSize; // Move to next pad position
     }
   }
 }

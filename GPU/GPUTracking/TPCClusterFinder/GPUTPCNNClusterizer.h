@@ -64,6 +64,8 @@ class GPUTPCNNClusterizer : public GPUProcessor
   uint32_t mNnClusterizerFullPadSize = 0;
   uint32_t mNnClusterizerFullTimeSize = 0;
   uint32_t mNnClusterizerPadTimeSize = 0;
+  uint32_t mNnClusterizerRowTimeSize = 0;
+  uint32_t mNnClusterizerRowTimeSizeFull = 0;
 
   // Boundary lookup table
   // int32_t mBoundaryMapSizeRow = 0;
@@ -89,7 +91,6 @@ class GPUTPCNNClusterizer : public GPUProcessor
 
   // FP16
   OrtDataType::Float16_t* mInputData_16 = nullptr;
-  OrtDataType::Float16_t* mInputData_16_Test = nullptr;
   OrtDataType::Float16_t* mModelProbabilities_16 = nullptr;
   OrtDataType::Float16_t* mOutputDataReg1_16 = nullptr;
   OrtDataType::Float16_t* mOutputDataReg2_16 = nullptr;
