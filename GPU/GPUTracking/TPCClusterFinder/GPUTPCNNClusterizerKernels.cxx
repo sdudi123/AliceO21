@@ -50,7 +50,6 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::run
   GPUTPCCFClusterizer::computeClustersImpl(get_num_groups(0), get_local_size(0), get_group_id(0), get_local_id(0), clusterer, clusterer.mPmemory->fragment, smem_new, chargeMap, clusterer.mPfilteredPeakPositions, clusterer.Param().rec, CPU_PTR(&labelAcc), clusterer.mPmemory->counters.nClusters, clusterer.mNMaxClusterPerRow, clusterer.mPclusterInRow, clusterOut, clusterer.mPclusterPosInRow);
 }
 
-
 template <>
 GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fillInputNNCPU>(int32_t nBlocks, int32_t nThreads, int32_t iBlock, int32_t iThread, GPUSharedMemory& smem, processorType& processors, uint8_t sector, int8_t dtype, int8_t withMC, uint32_t batchStart)
 {
@@ -163,8 +162,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     float index_values[3] = {
       sector / 36.f,
       row / 152.f,
-      static_cast<float>(pad) / GPUTPCGeometry::NPads(row)
-    };
+      static_cast<float>(pad) / GPUTPCGeometry::NPads(row)};
 
     if (dtype == 0) {
       clustererNN.mInputData_16[write_idx] = (OrtDataType::Float16_t)index_values[data_idx];
@@ -191,7 +189,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
     // Optimize 3D index calculation
     int32_t row_idx = transient_index / clustererNN.mNnClusterizerFullTimeSize;
     int32_t r_local = row_idx - clustererNN.mNnClusterizerSizeInputRow;
-    int32_t time_idx = transient_index - row_idx*clustererNN.mNnClusterizerFullTimeSize;
+    int32_t time_idx = transient_index - row_idx * clustererNN.mNnClusterizerFullTimeSize;
     int32_t t_local = time_idx - clustererNN.mNnClusterizerSizeInputTime;
     int32_t write_idx = base_idx * clustererNN.mNnClusterizerElementSize + row_idx * clustererNN.mNnClusterizerPadTimeSize + time_idx;
 
@@ -552,7 +550,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::pub
 // THe following arithmetic is done because the network is trained with a split between IROC and OROC boundary
 GPUd() int32_t GPUTPCNNClusterizerKernels::padOffset(int32_t row_ref, int32_t row_current)
 {
-  if(row_current < 0 || row_current >= o2::tpc::constants::MAXGLOBALPADROW) {
+  if (row_current < 0 || row_current >= o2::tpc::constants::MAXGLOBALPADROW) {
     return 0; // Short-circuit for negative rows
   } else {
     return (int)((GPUTPCGeometry::NPads(row_current) - GPUTPCGeometry::NPads(row_ref)) / 2);
