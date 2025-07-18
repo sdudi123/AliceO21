@@ -80,6 +80,7 @@ struct RecTrack {
     FakeTOF = 0x1 << 3,
     FakeITSTPC = 0x1 << 4,
     FakeITSTPCTRD = 0x1 << 5,
+    HASACSides = 0x1 << 6,
     FakeGLO = 0x1 << 7
   };
   o2::track::TrackParCov track{};
@@ -87,12 +88,15 @@ struct RecTrack {
   o2::dataformats::TimeStampWithError<float, float> ts{};
   o2::MCEventLabel pvLabel{};
   short pvID = -1;
+  uint8_t nClTPCShared = 0;
   uint8_t flags = 0;
   uint8_t nClITS = 0;
   uint8_t nClTPC = 0;
   uint8_t pattITS = 0;
   int8_t lowestPadRow = -1;
   int8_t padFromEdge = -1;
+  uint8_t rowMaxTPC = 0;
+  uint8_t rowCountTPC = 0;
 
   bool isFakeGLO() const { return flags & FakeGLO; }
   bool isFakeITS() const { return flags & FakeITS; }
@@ -100,8 +104,9 @@ struct RecTrack {
   bool isFakeTRD() const { return flags & FakeTRD; }
   bool isFakeTOF() const { return flags & FakeTOF; }
   bool isFakeITSTPC() const { return flags & FakeITSTPC; }
+  bool hasACSides() const { return flags & HASACSides; }
 
-  ClassDefNV(RecTrack, 2);
+  ClassDefNV(RecTrack, 3);
 };
 
 struct TrackPairInfo {
@@ -151,6 +156,13 @@ struct TrackFamily { // set of tracks related to the same MC label
   const RecTrack& getTrackWithTPC() const { return entTPC < 0 ? dummyRecTrack : recTracks[entTPC]; }
   const RecTrack& getTrackWithITSTPC() const { return entITSTPC < 0 ? dummyRecTrack : recTracks[entITSTPC]; }
   const RecTrack& getTrackWithITSFound() const { return entITSFound < 0 ? dummyRecTrack : recTracks[entITSFound]; }
+  const RecTrack& getLongestTPCTrack() const
+  {
+    int n = getLongestTPCTrackEntry();
+    return n < 0 ? dummyRecTrack : recTracks[n];
+  }
+  int getLongestTPCTrackEntry() const;
+  int getNTPCClones() const;
   static RecTrack dummyRecTrack; //
 
   ClassDefNV(TrackFamily, 1);

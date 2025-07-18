@@ -77,4 +77,28 @@ int MCTrackInfo::getHighestITSLayer() const
   return -1;
 }
 
+int TrackFamily::getLongestTPCTrackEntry() const
+{
+  int n = -1, ncl = 0;
+  int ntr = recTracks.size();
+  for (int i = 0; i < ntr; i++) {
+    if (recTracks[i].nClTPC > ncl) {
+      ncl = recTracks[i].nClTPC;
+      n = i;
+    }
+  }
+  return n;
+}
+
+int TrackFamily::getNTPCClones() const
+{
+  int n = 0;
+  for (auto& t : recTracks) {
+    if (t.nClTPC > 0) {
+      n++;
+    }
+  }
+  return n;
+}
+
 } // namespace o2::trackstudy
