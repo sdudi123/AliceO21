@@ -23,6 +23,7 @@
 #include "ITStracking/IOUtils.h"
 #include "MFTTracking/IOUtils.h"
 #include "DataFormatsGlobalTracking/RecoContainerCreateTracksVariadic.h"
+#include "DataFormatsMID/Track.h"
 #include "ReconstructionDataFormats/PrimaryVertex.h"
 #include "DetectorsBase/GRPGeomHelper.h"
 #include "DetectorsBase/Propagator.h"
@@ -120,7 +121,8 @@ double EveWorkflowHelper::bcDiffToTFTimeMUS(const o2::InteractionRecord& ir)
   auto bcd = ir.differenceInBC(startIR);
 
   if (uint64_t(bcd) > o2::constants::lhc::LHCMaxBunches * 256 && BCDiffErrCount < MAXBCDiffErrCount) {
-    LOGP(alarm, "ATTENTION: wrong bunches diff. {} for current IR {} wrt 1st TF orbit {}", bcd, ir.asString(), startIR.asString());
+    LOGP(alarm, "ATTENTION: wrong bunches diff. {} for current IR {} wrt 1st TF orbit {}", bcd, ir.asString(),
+         startIR.asString());
     BCDiffErrCount++;
   }
 
@@ -167,7 +169,8 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
     } else if constexpr (isMFTTrack<decltype(_tr)>()) { // Same for MFT
       t0 += 0.5f * this->mMFTROFrameLengthMUS;
       terr *= this->mMFTROFrameLengthMUS;
-    } else if constexpr (!(isMCHTrack<decltype(_tr)>() || isMIDTrack<decltype(_tr)>() || isGlobalFwdTrack<decltype(_tr)>())) {
+    } else if constexpr (!(isMCHTrack<decltype(_tr)>() || isMIDTrack<decltype(_tr)>() ||
+                           isGlobalFwdTrack<decltype(_tr)>())) {
       // for all other tracks the time is in \mus with gaussian error
       terr *= mPVParams->nSigmaTimeTrack; // gaussian errors must be scaled by requested n-sigma
     }
@@ -197,7 +200,8 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
       }
     }
   };
-  auto creator = [&conf, maskTrk, this, &correctTrackTime, &flagTime, &fixMFTMCHMIDLabel](auto& trk, GID gid, float time, float terr) {
+  auto creator = [&conf, maskTrk, this, &correctTrackTime, &flagTime, &fixMFTMCHMIDLabel](auto& trk, GID gid,
+                                                                                          float time, float terr) {
     fixMFTMCHMIDLabel(gid);
 
     const auto src = gid.getSource();
@@ -234,7 +238,8 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
     bool checkTPCDCA = conf.TPCOnlyMaxDCARZ[0] > 0.f || conf.TPCOnlyMaxDCARZ[1] > 0.f;
     const auto trackIndex = mRecoCont->getPrimaryVertexMatchedTracks(); // Global ID's for associated tracks
     const auto vtxRefs = mRecoCont->getPrimaryVertexMatchedTrackRefs(); // references from vertex to these track IDs
-    const auto totalPrimaryVertices = vtxRefs.size() - 1;               // The last entry is for unassigned tracks, ignore them
+    const auto totalPrimaryVertices =
+      vtxRefs.size() - 1; // The last entry is for unassigned tracks, ignore them
 
     for (std::size_t iv = 0; iv < totalPrimaryVertices; iv++) {
       const auto& pv = mRecoCont->getPrimaryVertex(iv);
@@ -260,14 +265,17 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
             const auto& tpcTr = mRecoCont->getTPCTrack(gid);
             o2::track::TrackPar trc{tpcTr};
             if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
-              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pv.getTimeStamp().getTimeStamp() + mTPCVDrift->getTimeOffset())) * mTPCVDrift->getVDrift();
+              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS -
+                          (pv.getTimeStamp().getTimeStamp() + mTPCVDrift->getTimeOffset())) *
+                         mTPCVDrift->getVDrift();
               if (tpcTr.hasCSideClustersOnly()) {
                 dz = -dz;
               }
               trc.setZ(trc.getZ() + dz);
             }
             std::array<float, 2> dca;
-            if (!prop->propagateToDCA(pvXYZ, trc, prop->getNominalBz(), 10., o2::base::PropagatorF::MatCorrType::USEMatCorrNONE, &dca) ||
+            if (!prop->propagateToDCA(pvXYZ, trc, prop->getNominalBz(), 10.,
+                                      o2::base::PropagatorF::MatCorrType::USEMatCorrNONE, &dca) ||
                 (conf.TPCOnlyMaxDCARZ[1] > 0. && std::abs(dca[1]) > conf.TPCOnlyMaxDCARZ[1]) ||
                 (conf.TPCOnlyMaxDCARZ[0] > 0. && std::abs(dca[0]) > conf.TPCOnlyMaxDCARZ[0])) {
               continue;
@@ -303,7 +311,8 @@ void EveWorkflowHelper::selectTowers()
   if (conf.PVMode) {
     const auto trackIndex = mRecoCont->getPrimaryVertexMatchedTracks(); // Global ID's for associated tracks
     const auto vtxRefs = mRecoCont->getPrimaryVertexMatchedTrackRefs(); // references from vertex to these track IDs
-    const auto totalPrimaryVertices = vtxRefs.size() - 1;               // The last entry is for unassigned tracks, ignore them
+    const auto totalPrimaryVertices =
+      vtxRefs.size() - 1; // The last entry is for unassigned tracks, ignore them
 
     for (std::size_t iv = 0; iv < totalPrimaryVertices; iv++) {
       const auto& vtref = vtxRefs[iv];
@@ -315,7 +324,8 @@ void EveWorkflowHelper::selectTowers()
         mPrimaryVertexTriggerGIDs[iv].emplace_back(GID{static_cast<unsigned int>(i), GID::HMP});
       }
 
-      const auto triggersPHOS = gsl::span(trackIndex.data() + vtref.getFirstEntryOfSource(GID::PHS), vtref.getEntriesOfSource(GID::PHS));
+      const auto triggersPHOS = gsl::span(trackIndex.data() + vtref.getFirstEntryOfSource(GID::PHS),
+                                          vtref.getEntriesOfSource(GID::PHS));
 
       for (const auto& tvid : triggersPHOS) {
         mTotalDataTypes[GID::PHS]++;
@@ -327,7 +337,8 @@ void EveWorkflowHelper::selectTowers()
         }
       }
 
-      const auto triggersEMCAL = gsl::span(trackIndex.data() + vtref.getFirstEntryOfSource(GID::EMC), vtref.getEntriesOfSource(GID::EMC));
+      const auto triggersEMCAL = gsl::span(trackIndex.data() + vtref.getFirstEntryOfSource(GID::EMC),
+                                           vtref.getEntriesOfSource(GID::EMC));
 
       for (const auto& tvid : triggersEMCAL) {
         mTotalDataTypes[GID::EMC]++;
@@ -420,7 +431,8 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
             tim = pvTime;
             const auto& tpcTr = mRecoCont->getTPCTrack(gid);
             if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
-              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pvTime + mTPCVDrift->getTimeOffset())) * mTPCVDrift->getVDrift();
+              float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pvTime + mTPCVDrift->getTimeOffset())) *
+                         mTPCVDrift->getVDrift();
               if (tpcTr.hasCSideClustersOnly()) {
                 dz = -dz;
               }
@@ -500,14 +512,24 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
   }
 }
 
-void EveWorkflowHelper::save(const std::string& jsonPath, const std::string& ext, int numberOfFiles)
+void EveWorkflowHelper::save(const std::string& jsonPath, const std::string& ext, int numberOfFiles,
+                             const std::string& receiverHostname, int receiverPort, bool useOnlyFiles,
+                             bool useOnlySockets)
 {
   mEvent.setEveVersion(o2_eve_version);
-  FileProducer producer(jsonPath, ext, numberOfFiles);
-  VisualisationEventSerializer::getInstance(ext)->toFile(mEvent, producer.newFileName());
+  FileProducer producer(jsonPath, ext);
+  producer.reduceNumberOfFiles(numberOfFiles);
+
+  VisualisationEventSerializer::getInstance(ext)->toFile(mEvent, Location({.fileName = producer.newFileName(),
+                                                                           .port = receiverPort,
+                                                                           .host = receiverHostname,
+                                                                           .toFile = !useOnlySockets,
+                                                                           .toSocket = !useOnlyFiles}));
 }
 
-std::vector<PNT> EveWorkflowHelper::getTrackPoints(const o2::track::TrackPar& trc, float minR, float maxR, float maxStep, float minZ, float maxZ)
+std::vector<PNT>
+  EveWorkflowHelper::getTrackPoints(const o2::track::TrackPar& trc, float minR, float maxR, float maxStep, float minZ,
+                                    float maxZ)
 {
   // adjust minR according to real track start from track starting point
   auto maxR2 = maxR * maxR;
@@ -556,7 +578,8 @@ std::vector<PNT> EveWorkflowHelper::getTrackPoints(const o2::track::TrackPar& tr
   return pnts;
 }
 
-void EveWorkflowHelper::addTrackToEvent(const o2::track::TrackPar& tr, GID gid, float trackTime, float dz, GID::Source source, float maxStep)
+void EveWorkflowHelper::addTrackToEvent(const o2::track::TrackPar& tr, GID gid, float trackTime, float dz,
+                                        GID::Source source, float maxStep)
 {
   if (source == GID::NSources) {
     source = (o2::dataformats::GlobalTrackID::Source)gid.getSource();
@@ -599,7 +622,8 @@ void EveWorkflowHelper::prepareITSClusters(const o2::itsmft::TopologyDictionary*
   }
 }
 
-void EveWorkflowHelper::prepareMFTClusters(const o2::itsmft::TopologyDictionary* dict) // do we also have something as ITS...dict?
+void EveWorkflowHelper::prepareMFTClusters(
+  const o2::itsmft::TopologyDictionary* dict) // do we also have something as ITS...dict?
 {
   const auto& MFTClusterROFRec = this->mRecoCont->getMFTClustersROFRecords();
   const auto& clusMFT = this->mRecoCont->getMFTClusters();
@@ -669,7 +693,8 @@ void EveWorkflowHelper::drawEMC(GID gid)
   const auto& conf = EveConfParam::Instance();
 
   for (const auto& cell : cellsForTrigger) {
-    if (!(cell.getType() == o2::emcal::ChannelType_t::HIGH_GAIN || cell.getType() == o2::emcal::ChannelType_t::LOW_GAIN)) {
+    if (!(cell.getType() == o2::emcal::ChannelType_t::HIGH_GAIN ||
+          cell.getType() == o2::emcal::ChannelType_t::LOW_GAIN)) {
       // Select FEE cells (excluding LEDMON or TRU cells)
       continue;
     }
@@ -832,8 +857,9 @@ void EveWorkflowHelper::drawMCHMID(GID gid, float trackTime)
 
 void EveWorkflowHelper::drawAODBarrel(EveWorkflowHelper::AODBarrelTrack const& track, float trackTime)
 {
-  const std::array<float, 5> arraypar = {track.y(), track.z(), track.snp(),
-                                         track.tgl(), track.signed1Pt()};
+  const std::array<float, 5> arraypar = {
+    track.y(), track.z(), track.snp(),
+    track.tgl(), track.signed1Pt()};
 
   const auto tr = o2::track::TrackPar(track.x(), track.alpha(), arraypar);
 
@@ -907,7 +933,9 @@ void EveWorkflowHelper::drawForwardTrack(GID gid, mch::TrackParam track, float s
   auto vTrack = mEvent.addTrack({.time = static_cast<float>(trackTime),
                                  .charge = 0,
                                  .PID = o2::track::PID::Muon,
-                                 .startXYZ = {(float)track.getNonBendingCoor(), (float)track.getBendingCoor(), (float)track.getZ()},
+                                 .startXYZ = {
+                                   (float)track.getNonBendingCoor(), (float)track.getBendingCoor(),
+                                   (float)track.getZ()},
                                  .phi = (float)0,
                                  .theta = (float)0,
                                  .eta = (float)0,
@@ -990,9 +1018,12 @@ void EveWorkflowHelper::drawTPCClusters(GID gid, float trackTimeTB)
     const auto& clTPC = trc.getCluster(mTPCTracksClusIdx, iCl, *mTPCClusterIdxStruct, sector, row);
 
     std::array<float, 3> xyz;
-    this->mTPCFastTransform->TransformIdeal(sector, row, clTPC.getPad(), clTPC.getTime(), xyz[0], xyz[1], xyz[2], trackTimeTB);    // in sector coordinate
-    o2::math_utils::rotateZ(xyz, o2::math_utils::sector2Angle(sector % o2::tpc::SECTORSPERSIDE));                                  // lab coordinate (global)
-    mEvent.addCluster(xyz.data());                                                                                                 // trackTimeTB / mMUS2TPCTimeBins
+    this->mTPCFastTransform->TransformIdeal(sector, row, clTPC.getPad(), clTPC.getTime(), xyz[0], xyz[1], xyz[2],
+                                            trackTimeTB); // in sector coordinate
+    o2::math_utils::rotateZ(xyz, o2::math_utils::sector2Angle(
+                                   sector % o2::tpc::SECTORSPERSIDE)); // lab coordinate (global)
+    mEvent.addCluster(
+      xyz.data()); // trackTimeTB / mMUS2TPCTimeBins
   }
 }
 
@@ -1018,7 +1049,8 @@ void EveWorkflowHelper::drawTPC(GID gid, float trackTime, float dz)
   }
 
   addTrackToEvent(tr, gid, trackTime, dz, GID::TPC);
-  float clTime0 = EveConfParam::Instance().PVMode ? trackTime * mMUS2TPCTimeBins : -2e9; // in PVMode use supplied real time converted to TB, otherwise pass dummy time to use tpcTrack.getTime0
+  float clTime0 = EveConfParam::Instance().PVMode ? trackTime * mMUS2TPCTimeBins
+                                                  : -2e9;                                // in PVMode use supplied real time converted to TB, otherwise pass dummy time to use tpcTrack.getTime0
   drawTPCClusters(gid, clTime0);                                                         // trackTime
 }
 
@@ -1074,7 +1106,9 @@ void EveWorkflowHelper::drawMID(GID gid, float trackTime)
   auto vTrack = mEvent.addTrack({.time = static_cast<float>(trackTime),
                                  .charge = (int)0,
                                  .PID = o2::track::PID::Muon,
-                                 .startXYZ = {(float)midTrack.getPositionX(), (float)midTrack.getPositionY(), (float)midTrack.getPositionZ()},
+                                 .startXYZ = {
+                                   (float)midTrack.getPositionX(), (float)midTrack.getPositionY(),
+                                   (float)midTrack.getPositionZ()},
                                  .phi = (float)0,
                                  .theta = (float)0,
                                  .eta = (float)0,
@@ -1149,9 +1183,12 @@ EveWorkflowHelper::EveWorkflowHelper()
   }
   o2::mch::TrackExtrap::setField();
   this->mMFTGeom = o2::mft::GeometryTGeo::Instance();
-  this->mMFTGeom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
+  this->mMFTGeom->fillMatrixCache(
+    o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::L2G));
   this->mITSGeom = o2::its::GeometryTGeo::Instance();
-  this->mITSGeom->fillMatrixCache(o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot, o2::math_utils::TransformType::L2G));
+  this->mITSGeom->fillMatrixCache(
+    o2::math_utils::bit2Mask(o2::math_utils::TransformType::T2L, o2::math_utils::TransformType::T2GRot,
+                             o2::math_utils::TransformType::L2G));
   this->mEMCALGeom = o2::emcal::Geometry::GetInstance("");
   this->mPHOSGeom = o2::phos::Geometry::GetInstance("");
   this->mTPCFastTransform = (o2::tpc::TPCFastTransformHelperO2::instance()->create(0));
@@ -1161,10 +1198,16 @@ EveWorkflowHelper::EveWorkflowHelper()
   mTPCBin2MUS = elParams.ZbinWidth;
   const auto grp = o2::base::GRPGeomHelper::instance().getGRPECS();
   const auto& alpParamsITS = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance();
-  mITSROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::ITS) ? alpParamsITS.roFrameLengthInBC * o2::constants::lhc::LHCBunchSpacingMUS : alpParamsITS.roFrameLengthTrig * 1.e-3;
+  mITSROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::ITS) ? alpParamsITS.roFrameLengthInBC *
+                                                                                    o2::constants::lhc::LHCBunchSpacingMUS
+                                                                                : alpParamsITS.roFrameLengthTrig *
+                                                                                    1.e-3;
 
   const auto& alpParamsMFT = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::MFT>::Instance();
-  mMFTROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::MFT) ? alpParamsMFT.roFrameLengthInBC * o2::constants::lhc::LHCBunchSpacingMUS : alpParamsMFT.roFrameLengthTrig * 1.e-3;
+  mMFTROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::MFT) ? alpParamsMFT.roFrameLengthInBC *
+                                                                                    o2::constants::lhc::LHCBunchSpacingMUS
+                                                                                : alpParamsMFT.roFrameLengthTrig *
+                                                                                    1.e-3;
 
   mPVParams = &o2::vertexing::PVertexerParams::Instance();
 
@@ -1177,7 +1220,8 @@ void EveWorkflowHelper::setTPCVDrift(const o2::tpc::VDriftCorrFact* v)
 {
   mTPCVDrift = v;
   if (v) {
-    o2::tpc::TPCFastTransformHelperO2::instance()->updateCalibration(*mTPCFastTransform.get(), 0, v->corrFact, v->refVDrift, v->getTimeOffset());
+    o2::tpc::TPCFastTransformHelperO2::instance()->updateCalibration(*mTPCFastTransform.get(), 0, v->corrFact,
+                                                                     v->refVDrift, v->getTimeOffset());
   }
 }
 
@@ -1198,11 +1242,14 @@ GID::Source EveWorkflowHelper::detectorMapToGIDSource(uint8_t dm)
       return GID::TPCTOF;
     case static_cast<uint8_t>(o2::aod::track::TPC) | static_cast<uint8_t>(o2::aod::track::TRD):
       return GID::TPCTRD;
-    case static_cast<uint8_t>(o2::aod::track::ITS) | static_cast<uint8_t>(o2::aod::track::TPC) | static_cast<uint8_t>(o2::aod::track::TRD):
+    case static_cast<uint8_t>(o2::aod::track::ITS) | static_cast<uint8_t>(o2::aod::track::TPC) |
+      static_cast<uint8_t>(o2::aod::track::TRD):
       return GID::ITSTPCTRD;
-    case static_cast<uint8_t>(o2::aod::track::ITS) | static_cast<uint8_t>(o2::aod::track::TPC) | static_cast<uint8_t>(o2::aod::track::TOF):
+    case static_cast<uint8_t>(o2::aod::track::ITS) | static_cast<uint8_t>(o2::aod::track::TPC) |
+      static_cast<uint8_t>(o2::aod::track::TOF):
       return GID::ITSTPCTOF;
-    case static_cast<uint8_t>(o2::aod::track::TPC) | static_cast<uint8_t>(o2::aod::track::TRD) | static_cast<uint8_t>(o2::aod::track::TOF):
+    case static_cast<uint8_t>(o2::aod::track::TPC) | static_cast<uint8_t>(o2::aod::track::TRD) |
+      static_cast<uint8_t>(o2::aod::track::TOF):
       return GID::TPCTRDTOF;
     default:
       return GID::ITSTPCTRDTOF;

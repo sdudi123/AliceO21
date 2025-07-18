@@ -60,12 +60,16 @@ class O2DPLDisplaySpec : public o2::framework::Task
                    std::shared_ptr<o2::emcal::CalibLoader> emcCalibLoader,
                    const std::string& jsonPath, const std::string& ext,
                    std::chrono::milliseconds timeInterval,
-                   bool eveHostNameMatch)
-    : mDisableWrite(disableWrite), mUseMC(useMC), mTrkMask(trkMask), mClMask(clMask), mDataRequest(dataRequest), mGGCCDBRequest(gr), mEMCALCalibLoader(emcCalibLoader), mJsonPath(jsonPath), mExt(ext), mTimeInterval(timeInterval), mEveHostNameMatch(eveHostNameMatch), mRunType(o2::parameters::GRPECS::NONE)
-
+                   bool eveHostNameMatch,
+                   const std::string& receiverHostname,
+                   int receiverPort,
+                   bool useOnlyFiles,
+                   bool useOnlySockets)
+    : mDisableWrite(disableWrite), mUseMC(useMC), mTrkMask(trkMask), mClMask(clMask), mDataRequest(dataRequest), mGGCCDBRequest(gr), mEMCALCalibLoader(emcCalibLoader), mJsonPath(jsonPath), mExt(ext), mTimeInterval(timeInterval), mEveHostNameMatch(eveHostNameMatch), mRunType(o2::parameters::GRPECS::NONE), mReceiverHostname(receiverHostname), mReceiverPort(receiverPort), mUseOnlyFiles(useOnlyFiles), mUseOnlySockets(useOnlySockets)
   {
     this->mTimeStamp = std::chrono::high_resolution_clock::now() - timeInterval; // first run meets condition
   }
+
   ~O2DPLDisplaySpec() override = default;
   void init(o2::framework::InitContext& ic) final;
   void run(o2::framework::ProcessingContext& pc) final;
@@ -94,6 +98,11 @@ class O2DPLDisplaySpec : public o2::framework::Task
   std::shared_ptr<o2::emcal::CalibLoader> mEMCALCalibLoader;
   std::unique_ptr<o2::emcal::CellRecalibrator> mEMCALCalibrator;
   o2::tpc::VDriftHelper mTPCVDriftHelper{};
+
+  std::string mReceiverHostname;
+  int mReceiverPort;
+  bool mUseOnlyFiles;
+  bool mUseOnlySockets;
 };
 
 } // namespace o2::event_visualisation
