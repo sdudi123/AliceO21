@@ -173,7 +173,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   int32_t time = static_cast<int>(peak.time());
 
   // Handle index data with fewer branches
-  if (clustererNN.mNnClusterizerAddIndexData && (int32_t)transient_index >= clustererNN.mNnClusterizerRowTimeSize) {
+  if (clustererNN.mNnClusterizerAddIndexData && transient_index >= clustererNN.mNnClusterizerRowTimeSize) {
     int32_t data_idx = transient_index - clustererNN.mNnClusterizerRowTimeSize;
     uint32_t write_idx = base_idx * clustererNN.mNnClusterizerElementSize + clustererNN.mNnClusterizerChargeArraySize + data_idx;
 
@@ -203,7 +203,7 @@ GPUdii() void GPUTPCNNClusterizerKernels::Thread<GPUTPCNNClusterizerKernels::fil
   }
 
   // Main data processing - optimize index calculations
-  if ((int32_t)transient_index < clustererNN.mNnClusterizerRowTimeSize) {
+  if (transient_index < clustererNN.mNnClusterizerRowTimeSize) {
     // Optimize 3D index calculation
     int32_t row_idx = transient_index / clustererNN.mNnClusterizerFullTimeSize;
     int32_t r_local = row_idx - clustererNN.mNnClusterizerSizeInputRow;
