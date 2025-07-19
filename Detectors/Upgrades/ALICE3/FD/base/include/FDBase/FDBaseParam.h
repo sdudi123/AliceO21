@@ -28,7 +28,7 @@ struct FDBaseParam : public o2::conf::ConfigurableParamHelper<FDBaseParam> {
 
   bool withMG = false; // modified geometry with 3 rings on A side
 
-  bool plateBehindA = true;
+  bool plateBehindA = false;
   bool fullContainer = false;
   float dzplate = 1.0f; // Aluminium plate width
 

@@ -19,11 +19,12 @@
 #include "DetectorsBase/Detector.h"
 #include "FDBase/GeometryTGeo.h"
 #include "FDBase/FDBaseParam.h"
-#include "ITSMFTSimulation/Hit.h"
+#include "DataFormatsFD/Hit.h"
 #include "Rtypes.h"
 #include "TGeoManager.h"
 #include "TLorentzVector.h"
 #include "TVector3.h"
+#include <cmath>
 
 class FairVolume;
 class TGeoVolume;
@@ -53,16 +54,15 @@ class Detector : public o2::base::DetImpl<Detector>
   void ConstructGeometry() override;
 
   /// This method is an example of how to add your own point of type Hit to the clones array
-  o2::itsmft::Hit* addHit(int trackID, int detID,
-                          const TVector3& startPos,
-                          const TVector3& endPos,
-                          const TVector3& startMom,
-                          double startE,
-                          double endTime, double eLoss,
-                          unsigned int startStatus,
-                          unsigned int endStatus);
+  o2::fd::Hit* addHit(int trackId, unsigned int detId,
+                      const math_utils::Point3D<float>& startPos,
+                      const math_utils::Point3D<float>& endPos,
+                      const math_utils::Vector3D<float>& startMom, double startE,
+                      double endTime, double eLoss, int particlePdg);
+  //   unsigned int startStatus,
+  //   unsigned int endStatus);
 
-  std::vector<o2::itsmft::Hit>* getHits(Int_t iColl)
+  std::vector<o2::fd::Hit>* getHits(Int_t iColl)
   {
     if (iColl == 0) {
       return mHits;
@@ -93,7 +93,7 @@ class Detector : public o2::base::DetImpl<Detector>
   Detector(const Detector&);
   Detector& operator=(const Detector&);
 
-  std::vector<o2::itsmft::Hit>* mHits = nullptr;
+  std::vector<o2::fd::Hit>* mHits = nullptr;
   GeometryTGeo* mGeometryTGeo = nullptr;
 
   TGeoVolumeAssembly* buildModuleA();

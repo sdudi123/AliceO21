@@ -12,7 +12,7 @@
 /// \file Detector.cxx
 /// \brief Implementation of the Detector class
 
-#include "ITSMFTSimulation/Hit.h"
+#include "DataFormatsFD/Hit.h"
 #include "FDSimulation/Detector.h"
 #include "FDBase/GeometryTGeo.h"
 #include "FDBase/FDBaseParam.h"
@@ -41,17 +41,18 @@
 #include <TGeoCone.h>
 #include <TGeoManager.h>
 #include "TRandom.h"
+#include <cmath>
 
 class FairModule;
 
 class TGeoMedium;
 
 using namespace o2::fd;
-using o2::itsmft::Hit;
+using o2::fd::Hit;
 
 Detector::Detector(bool active)
   : o2::base::DetImpl<Detector>("FD", true),
-    mHits(o2::utils::createSimVector<o2::itsmft::Hit>()),
+    mHits(o2::utils::createSimVector<o2::fd::Hit>()),
     mGeometryTGeo(nullptr),
     mTrackData()
 {
@@ -98,7 +99,7 @@ Detector::Detector(bool active)
 Detector::Detector(const Detector& rhs)
   : o2::base::DetImpl<Detector>(rhs),
     mTrackData(),
-    mHits(o2::utils::createSimVector<o2::itsmft::Hit>())
+    mHits(o2::utils::createSimVector<o2::fd::Hit>())
 {
 }
 
@@ -140,34 +141,12 @@ bool Detector::ProcessHits(FairVolume* vol)
 
   auto stack = (o2::data::Stack*)fMC->GetStack();
 
-  // int cellId = vol->getVolumeId();
-
   // Check track status to define when hit is started and when it is stopped
+  int particlePdg = fMC->TrackPid();
   bool startHit = false, stopHit = false;
-  unsigned char status = 0;
-  if (fMC->IsTrackEntering()) {
-    status |= Hit::kTrackEntering;
-  }
-  if (fMC->IsTrackInside()) {
-    status |= Hit::kTrackInside;
-  }
-  if (fMC->IsTrackExiting()) {
-    status |= Hit::kTrackExiting;
-  }
-  if (fMC->IsTrackOut()) {
-    status |= Hit::kTrackOut;
-  }
-  if (fMC->IsTrackStop()) {
-    status |= Hit::kTrackStopped;
-  }
-  if (fMC->IsTrackAlive()) {
-    status |= Hit::kTrackAlive;
-  }
-
-  // track is entering or created in the volume
-  if ((status & Hit::kTrackEntering) || (status & Hit::kTrackInside && !mTrackData.mHitStarted)) {
+  if ((fMC->IsTrackEntering()) || (fMC->IsTrackInside() && !mTrackData.mHitStarted)) {
     startHit = true;
-  } else if ((status & (Hit::kTrackExiting | Hit::kTrackOut | Hit::kTrackStopped))) {
+  } else if ((fMC->IsTrackExiting() || fMC->IsTrackOut() || fMC->IsTrackStop())) {
     stopHit = true;
   }
 
@@ -191,12 +170,15 @@ bool Detector::ProcessHits(FairVolume* vol)
     TLorentzVector positionStop;
     fMC->TrackPosition(positionStop);
     int trackId = stack->GetCurrentTrackNumber();
-    unsigned int chId = getChannelId(mTrackData.mPositionStart.Vect());
+    unsigned int detId = getChannelId(mTrackData.mPositionStart.Vect());
 
-    Hit* p = addHit(trackId, chId /*cellId*/, mTrackData.mPositionStart.Vect(), positionStop.Vect(),
-                    mTrackData.mMomentumStart.Vect(), mTrackData.mMomentumStart.E(),
-                    positionStop.T(), mTrackData.mEnergyLoss, mTrackData.mTrkStatusStart,
-                    status);
+    math_utils::Point3D<float> posStart(mTrackData.mPositionStart.X(), mTrackData.mPositionStart.Y(), mTrackData.mPositionStart.Z());
+    math_utils::Point3D<float> posStop(positionStop.X(), positionStop.Y(), positionStop.Z());
+    math_utils::Vector3D<float> momStart(mTrackData.mMomentumStart.Px(), mTrackData.mMomentumStart.Py(), mTrackData.mMomentumStart.Pz());
+
+    Hit* p = addHit(trackId, detId, posStart, posStop,
+                    momStart, mTrackData.mMomentumStart.E(),
+                    positionStop.T(), mTrackData.mEnergyLoss, particlePdg);
     stack->addHit(GetDetId());
   } else {
     return false; // do nothing more
@@ -204,18 +186,17 @@ bool Detector::ProcessHits(FairVolume* vol)
   return true;
 }
 
-o2::itsmft::Hit* Detector::addHit(int trackId, int cellId,
-                                  const TVector3& startPos,
-                                  const TVector3& endPos,
-                                  const TVector3& startMom,
-                                  double startE,
-                                  double endTime,
-                                  double eLoss,
-                                  unsigned int startStatus,
-                                  unsigned int endStatus)
+o2::fd::Hit* Detector::addHit(int trackId, unsigned int cellId,
+                              const math_utils::Point3D<float>& startPos,
+                              const math_utils::Point3D<float>& endPos,
+                              const math_utils::Vector3D<float>& startMom,
+                              double startE,
+                              double endTime,
+                              double eLoss,
+                              int particlePdg)
 {
   mHits->emplace_back(trackId, cellId, startPos,
-                      endPos, startMom, startE, endTime, eLoss, startStatus, endStatus);
+                      endPos, startMom, startE, endTime, eLoss, particlePdg);
   return &(mHits->back());
 }
 
@@ -250,7 +231,6 @@ void Detector::Reset()
 
 void Detector::createMaterials()
 {
-
   float density, as[11], zs[11], ws[11];
   double radLength, absLength, a_ad, z_ad;
   int id;

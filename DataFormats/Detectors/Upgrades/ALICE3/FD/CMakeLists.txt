@@ -9,5 +9,15 @@
 # granted to it by virtue of its status as an Intergovernmental Organization
 # or submit itself to any jurisdiction.
 
-message(STATUS "Building dataformats for upgrades")
-add_subdirectory(ALICE3)
+o2_add_library(DataFormatsFD
+  SOURCES src/Hit.cxx
+  PUBLIC_LINK_LIBRARIES O2::FDBase
+                        O2::SimulationDataFormat
+                        O2::CommonDataFormat
+                        Microsoft.GSL::GSL
+                        O2::DetectorsCommonDataFormats
+)
+
+o2_target_root_dictionary(DataFormatsFD
+  HEADERS include/DataFormatsFD/Hit.h
+)
