@@ -34,7 +34,6 @@
 #include "DetectorsBase/Propagator.h"
 #include "ITSBase/GeometryTGeo.h"
 #include "CommonDataFormat/IRFrame.h"
-#include "ITStracking/ROframe.h"
 #include "ITStracking/IOUtils.h"
 #include "DetectorsCommonDataFormats/DetectorNameConf.h"
 #include "CommonUtils/StringUtils.h"
@@ -65,6 +64,11 @@ void CookedTrackerDPL::init(InitContext& ic)
   o2::base::GRPGeomHelper::instance().setRequest(mGGCCDBRequest);
   auto nthreads = ic.options().get<int>("nthreads");
   mTracker.setNumberOfThreads(nthreads);
+  mTaskArena = std::make_shared<tbb::task_arena>(nthreads);
+  mMemoryPool = std::make_unique<BoundedMemoryResource>();
+  mVertexerPtr->setMemoryPool(mMemoryPool);
+  mVertexerPtr->setNThreads(nthreads, mTaskArena);
+  mVertexerTraitsPtr->setMemoryPool(mMemoryPool);
 }
 
 void CookedTrackerDPL::run(ProcessingContext& pc)
@@ -105,6 +109,7 @@ void CookedTrackerDPL::run(ProcessingContext& pc)
     mc2rofs = pc.inputs().get<gsl::span<itsmft::MC2ROFRecord>>("MC2ROframes");
   }
   TimeFrame mTimeFrame;
+  mTimeFrame.setMemoryPool(mMemoryPool);
 
   LOG(info) << "ITSCookedTracker pulled " << compClusters.size() << " clusters, in " << rofs.size() << " RO frames";
 
@@ -113,7 +118,6 @@ void CookedTrackerDPL::run(ProcessingContext& pc)
     mTracker.setMCTruthContainers(labels.get(), &trackLabels);
   }
 
-  o2::its::ROframe event(0, 7);
   mVertexerPtr->adoptTimeFrame(mTimeFrame);
 
   auto& vertROFvec = pc.outputs().make<std::vector<o2::itsmft::ROFRecord>>(Output{"ITS", "VERTICESROF", 0});
