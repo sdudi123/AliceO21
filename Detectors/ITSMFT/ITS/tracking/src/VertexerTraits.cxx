@@ -25,6 +25,7 @@
 #include "SimulationDataFormat/DigitizationContext.h"
 #include "Steer/MCKinematicsReader.h"
 #include "ITSMFTBase/DPLAlpideParam.h"
+#include "DetectorsRaw/HBFUtils.h"
 
 #ifdef VTX_DEBUG
 #include "TTree.h"
@@ -581,7 +582,7 @@ void VertexerTraits::addTruthSeedingVertices()
       const auto& ir = irs[eveId2colId[iEve]];
       if (!ir.isDummy()) { // do we need this, is this for diffractive events?
         const auto& eve = mcReader.getMCEventHeader(iSrc, iEve);
-        int rofId = (ir.toLong() - roFrameBiasInBC) / roFrameLengthInBC;
+        int rofId = ((ir - raw::HBFUtils::Instance().getFirstSampledTFIR()).toLong() - roFrameBiasInBC) / roFrameLengthInBC;
         if (!vertices.contains(rofId)) {
           vertices[rofId] = bounded_vector<Vertex>(mMemoryPool.get());
         }
