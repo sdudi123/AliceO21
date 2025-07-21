@@ -128,7 +128,7 @@ int main(int argc, char** argv)
       TClass* tcls = TClass::GetClass(typeid(vect));
       auto ti = tcls->GetTypeInfo();
       auto classname = "std::vector<int64_t>";
-      metadata["adjustableEOV"] = "true";  
+      metadata["adjustableEOV"] = "true";
       ret = api.storeAsTFile_impl(&(vect), *ti, ccdbPath, metadata, tmin, tmax);
       if (!api.isSnapshotMode() && metadata.find("adjustableEOV") != metadata.end() && metadata.find("default") == metadata.end()) {
         o2::ccdb::CcdbObjectInfo oi(ccdbPath, classname, filename, metadata, tmin, tmax);
