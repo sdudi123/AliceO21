@@ -26,6 +26,7 @@ namespace o2::event_visualisation
 struct LocationParams {
   std::string fileName;
   int port = -1;
+  int timeout = 100;
   std::string host = "localhost";
   bool toFile = true;
   bool toSocket = true;
@@ -38,6 +39,7 @@ class Location
   bool mToSocket;
   std::string mFileName;
   int mPort;
+  int mTimeout;
   std::string mHostName;
 
  public:
@@ -50,6 +52,7 @@ class Location
     this->mPort = params.port;
     this->mHostName = params.host;
     this->mClientSocket = -1;
+    this->mTimeout = params.timeout;
   }
   ~Location()
   {

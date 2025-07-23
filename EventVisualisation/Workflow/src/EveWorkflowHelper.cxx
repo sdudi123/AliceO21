@@ -164,9 +164,10 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
       t0 *= this->mTPCBin2MUS;
       terr *= this->mTPCBin2MUS;
     } else if constexpr (isITSTrack<decltype(_tr)>()) {
-      t0 += 0.5f * this->mITSROFrameLengthMUS;          // ITS time is supplied in \mus as beginning of ROF
-      terr *= this->mITSROFrameLengthMUS;               // error is supplied as a half-ROF duration, convert to \mus
-    } else if constexpr (isMFTTrack<decltype(_tr)>()) { // Same for MFT
+      t0 += 0.5f * this->mITSROFrameLengthMUS; // ITS time is supplied in \mus as beginning of ROF
+      terr *= this->mITSROFrameLengthMUS;      // error is supplied as a half-ROF duration, convert to \mus
+    } else if constexpr (isMFTTrack<decltype(_tr)>()) {
+      // Same for MFT
       t0 += 0.5f * this->mMFTROFrameLengthMUS;
       terr *= this->mMFTROFrameLengthMUS;
     } else if constexpr (!(isMCHTrack<decltype(_tr)>() || isMIDTrack<decltype(_tr)>() ||
@@ -264,7 +265,8 @@ void EveWorkflowHelper::selectTracks(const CalibObjectsConst* calib,
           if (gid.getSource() == o2::dataformats::GlobalTrackID::TPC && checkTPCDCA) {
             const auto& tpcTr = mRecoCont->getTPCTrack(gid);
             o2::track::TrackPar trc{tpcTr};
-            if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
+            if (!tpcTr.hasBothSidesClusters()) {
+              // need to correct track Z with this vertex time
               float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS -
                           (pv.getTimeStamp().getTimeStamp() + mTPCVDrift->getTimeOffset())) *
                          mTPCVDrift->getVDrift();
@@ -427,10 +429,12 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
           break;
         case GID::TPC: {
           float dz = 0.f;
-          if (conf.PVMode) { // for TPC the nominal time (center of the bracket) is stored but in the PVMode we correct it by the PV time
+          if (conf.PVMode) {
+            // for TPC the nominal time (center of the bracket) is stored but in the PVMode we correct it by the PV time
             tim = pvTime;
             const auto& tpcTr = mRecoCont->getTPCTrack(gid);
-            if (!tpcTr.hasBothSidesClusters()) { // need to correct track Z with this vertex time
+            if (!tpcTr.hasBothSidesClusters()) {
+              // need to correct track Z with this vertex time
               float dz = (tpcTr.getTime0() * mTPCTimeBins2MUS - (pvTime + mTPCVDrift->getTimeOffset())) *
                          mTPCVDrift->getVDrift();
               if (tpcTr.hasCSideClustersOnly()) {
@@ -513,7 +517,7 @@ void EveWorkflowHelper::draw(std::size_t primaryVertexIdx, bool sortTracks)
 }
 
 void EveWorkflowHelper::save(const std::string& jsonPath, const std::string& ext, int numberOfFiles,
-                             const std::string& receiverHostname, int receiverPort, bool useOnlyFiles,
+                             const std::string& receiverHostname, int receiverPort, int receiverTimeout, bool useOnlyFiles,
                              bool useOnlySockets)
 {
   mEvent.setEveVersion(o2_eve_version);
@@ -522,6 +526,7 @@ void EveWorkflowHelper::save(const std::string& jsonPath, const std::string& ext
 
   VisualisationEventSerializer::getInstance(ext)->toFile(mEvent, Location({.fileName = producer.newFileName(),
                                                                            .port = receiverPort,
+                                                                           .timeout = receiverTimeout,
                                                                            .host = receiverHostname,
                                                                            .toFile = !useOnlySockets,
                                                                            .toSocket = !useOnlyFiles}));
@@ -550,7 +555,8 @@ std::vector<PNT>
   auto tp = trc;
   float dxmin = std::abs(xMin - tp.getX()), dxmax = std::abs(xMax - tp.getX());
 
-  if (dxmin > dxmax) { // start from closest end
+  if (dxmin > dxmax) {
+    // start from closest end
     std::swap(xMin, xMax);
     dx = -dx;
   }
@@ -763,7 +769,7 @@ void EveWorkflowHelper::drawTPCTRD(GID gid, float trackTime, GID::Source source)
   const auto& tpcTrdTrack = mRecoCont->getTPCTRDTrack<o2::trd::TrackTRD>(gid);
   addTrackToEvent(tpcTrdTrack, gid, trackTime, 0., source);
   drawTPCClusters(tpcTrdTrack.getRefGlobalTrackId(), trackTime * mMUS2TPCTimeBins);
-  drawTRDClusters(tpcTrdTrack);                       // tracktime
+  drawTRDClusters(tpcTrdTrack); // tracktime
 }
 
 void EveWorkflowHelper::drawITSTPCTRD(GID gid, float trackTime, GID::Source source)
@@ -799,7 +805,7 @@ void EveWorkflowHelper::drawTPCTOF(GID gid, float trackTime)
   const auto& match = mRecoCont->getTPCTOFMatch(gid.getIndex());
   addTrackToEvent(trTPCTOF, gid, trackTime, 0);
   drawTPCClusters(match.getTrackRef(), trackTime * mMUS2TPCTimeBins);
-  drawTOFClusters(gid);                 // trackTime
+  drawTOFClusters(gid); // trackTime
 }
 
 void EveWorkflowHelper::drawMFTMCH(GID gid, float trackTime)
@@ -978,7 +984,8 @@ void EveWorkflowHelper::drawTOFClusters(GID gid)
 
 void EveWorkflowHelper::drawITSClusters(GID gid) // float trackTime
 {
-  if (gid.getSource() == GID::ITS) { // this is for for full standalone tracks
+  if (gid.getSource() == GID::ITS) {
+    // this is for for full standalone tracks
     const auto& trc = mRecoCont->getITSTrack(gid);
     auto refs = mRecoCont->getITSTracksClusterRefs();
     int ncl = trc.getNumberOfClusters();
@@ -989,7 +996,8 @@ void EveWorkflowHelper::drawITSClusters(GID gid) // float trackTime
       float xyz[] = {glo.X(), glo.Y(), glo.Z()};
       drawPoint(xyz); // trackTime;
     }
-  } else if (gid.getSource() == GID::ITSAB) { // this is for ITS tracklets from ITS-TPC afterburner
+  } else if (gid.getSource() == GID::ITSAB) {
+    // this is for ITS tracklets from ITS-TPC afterburner
     const auto& trc = mRecoCont->getITSABRef(gid);
     const auto& refs = mRecoCont->getITSABClusterRefs();
     int ncl = trc.getNClusters();
@@ -1049,9 +1057,10 @@ void EveWorkflowHelper::drawTPC(GID gid, float trackTime, float dz)
   }
 
   addTrackToEvent(tr, gid, trackTime, dz, GID::TPC);
-  float clTime0 = EveConfParam::Instance().PVMode ? trackTime * mMUS2TPCTimeBins
-                                                  : -2e9;                                // in PVMode use supplied real time converted to TB, otherwise pass dummy time to use tpcTrack.getTime0
-  drawTPCClusters(gid, clTime0);                                                         // trackTime
+  float clTime0 = EveConfParam::Instance().PVMode
+                    ? trackTime * mMUS2TPCTimeBins
+                    : -2e9;      // in PVMode use supplied real time converted to TB, otherwise pass dummy time to use tpcTrack.getTime0
+  drawTPCClusters(gid, clTime0); // trackTime
 }
 
 void EveWorkflowHelper::drawITS(GID gid, float trackTime)
@@ -1198,16 +1207,18 @@ EveWorkflowHelper::EveWorkflowHelper()
   mTPCBin2MUS = elParams.ZbinWidth;
   const auto grp = o2::base::GRPGeomHelper::instance().getGRPECS();
   const auto& alpParamsITS = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::ITS>::Instance();
-  mITSROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::ITS) ? alpParamsITS.roFrameLengthInBC *
-                                                                                    o2::constants::lhc::LHCBunchSpacingMUS
-                                                                                : alpParamsITS.roFrameLengthTrig *
-                                                                                    1.e-3;
+  mITSROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::ITS)
+                           ? alpParamsITS.roFrameLengthInBC *
+                               o2::constants::lhc::LHCBunchSpacingMUS
+                           : alpParamsITS.roFrameLengthTrig *
+                               1.e-3;
 
   const auto& alpParamsMFT = o2::itsmft::DPLAlpideParam<o2::detectors::DetID::MFT>::Instance();
-  mMFTROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::MFT) ? alpParamsMFT.roFrameLengthInBC *
-                                                                                    o2::constants::lhc::LHCBunchSpacingMUS
-                                                                                : alpParamsMFT.roFrameLengthTrig *
-                                                                                    1.e-3;
+  mMFTROFrameLengthMUS = grp->isDetContinuousReadOut(o2::detectors::DetID::MFT)
+                           ? alpParamsMFT.roFrameLengthInBC *
+                               o2::constants::lhc::LHCBunchSpacingMUS
+                           : alpParamsMFT.roFrameLengthTrig *
+                               1.e-3;
 
   mPVParams = &o2::vertexing::PVertexerParams::Instance();
 
