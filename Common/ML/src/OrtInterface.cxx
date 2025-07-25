@@ -68,8 +68,10 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
     mEnableProfiling = (optionsMap.contains("enable-profiling") ? std::stoi(optionsMap["enable-profiling"]) : 0);
     mEnableOptimizations = (optionsMap.contains("enable-optimizations") ? std::stoi(optionsMap["enable-optimizations"]) : 0);
     mEnvName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
+    mDeterministicMode = (optionsMap.contains("deterministic-compute") ? std::stoi(optionsMap["deterministic-compute"]) : 0);
 
-    if (mDeviceType == "CPU") {
+      if (mDeviceType == "CPU")
+    {
       (mPImplOrt->sessionOptions).SetIntraOpNumThreads(mIntraOpNumThreads);
       (mPImplOrt->sessionOptions).SetInterOpNumThreads(mInterOpNumThreads);
       if (mIntraOpNumThreads > 1 || mInterOpNumThreads > 1) {
@@ -97,6 +99,10 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
       }
     } else {
       (mPImplOrt->sessionOptions).DisableProfiling();
+    }
+
+    if (mDeterministicMode > 0) {
+      (mPImplOrt->sessionOptions).AddConfigEntry("session_options.use_deterministic_compute", "1");
     }
 
     (mPImplOrt->sessionOptions).SetGraphOptimizationLevel(GraphOptimizationLevel(mEnableOptimizations));
