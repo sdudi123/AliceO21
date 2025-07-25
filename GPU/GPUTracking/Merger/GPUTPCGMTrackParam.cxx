@@ -53,7 +53,7 @@
 using namespace o2::gpu;
 using namespace o2::tpc;
 
-GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_t iTrk, GPUTPCGMMergedTrackHit* GPUrestrict() clusters, int32_t& GPUrestrict() N, int32_t& GPUrestrict() NTolerated, float& GPUrestrict() Alpha, int32_t attempt, float maxSinPhi, gputpcgmmergertypes::GPUTPCOuterParam* GPUrestrict() outerParam, int8_t leg)
+GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_t iTrk, GPUTPCGMMergedTrackHit* GPUrestrict() clusters, int32_t& GPUrestrict() N, int32_t& GPUrestrict() NTolerated, float& GPUrestrict() Alpha, int32_t attempt, float maxSinPhi, GPUTPCGMMergedTrack& GPUrestrict() track)
 {
   static constexpr float kDeg2Rad = M_PI / 180.f;
   CADEBUG(static constexpr float kSectAngle = 2 * M_PI / 18.f);
@@ -66,7 +66,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
   prop.SetMaterialTPC();
   prop.SetPolynomialField(&param.polynomialField);
   prop.SetMaxSinPhi(maxSinPhi);
-  if ((clusters[0].sector < 18) == (clusters[N - 1].sector < 18)) {
+  if (!track.CCE() && !track.Looper()) {
     ShiftZ2(clusters, merger, N);
   }
   if (param.rec.tpc.mergerInterpolateErrors) {
@@ -88,9 +88,9 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
     float sumInvSqrtCharge = 0.f;
     int32_t nAvgCharge = 0;
 
-    if (iWay && param.rec.tpc.nWaysOuter && outerParam) {
+    if (iWay && param.rec.tpc.nWaysOuter) {
       if (iWay == nWays - 1) {
-        StoreOuter(outerParam, prop, 0);
+        StoreOuter(&track.OuterParam(), prop, 0);
       }
     }
 
@@ -109,7 +109,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
 
     N = 0;
     lastUpdateX = -1;
-    const bool inFlyDirection = (leg & 1);
+    const bool inFlyDirection = (track.Leg() & 1);
     const int32_t wayDirection = (iWay & 1) ? -1 : 1;
 
     bool noFollowCircle = false, noFollowCircle2 = false;
@@ -173,7 +173,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
       } else if (allowModification && lastRow != 255 && CAMath::Abs(cluster.row - lastRow) > 1) {
         if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.par, dodEdx)) {
           bool dodEdx = param.dodEdxEnabled && param.rec.tpc.adddEdxSubThresholdClusters && iWay == nWays - 1 && CAMath::Abs(cluster.row - lastRow) == 2;
-          dodEdx = AttachClustersPropagate(merger, cluster.sector, lastRow, cluster.row, iTrk, leg == 0, prop, inFlyDirection, GPUCA_MAX_SIN_PHI, dodEdx);
+          dodEdx = AttachClustersPropagate(merger, cluster.sector, lastRow, cluster.row, iTrk, track.Leg() == 0, prop, inFlyDirection, GPUCA_MAX_SIN_PHI, dodEdx);
           if (dodEdx) {
             dEdx.fillSubThreshold(lastRow - wayDirection);
             if GPUCA_RTC_CONSTEXPR (GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMask) != GPUCA_GET_CONSTEXPR(param.rec.tpc, dEdxClusterRejectionFlagMaskAlt)) {
@@ -244,7 +244,7 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
 
       float uncorrectedY = -1e6f;
       if (allowModification) {
-        uncorrectedY = AttachClusters(merger, cluster.sector, cluster.row, iTrk, leg == 0, prop);
+        uncorrectedY = AttachClusters(merger, cluster.sector, cluster.row, iTrk, track.Leg() == 0, prop);
       }
 
       const int32_t err2 = mNDF > 0 && CAMath::Abs(prop.GetSinPhi0()) >= maxSinForUpdate;
@@ -361,14 +361,14 @@ GPUd() bool GPUTPCGMTrackParam::Fit(GPUTPCGMMerger* GPUrestrict() merger, int32_
         break; // bad chi2 for the whole track, stop the fit
       }
     }
-    if (((nWays - iWay) & 1) && (iWay != nWays - 1) && (clusters[0].sector < 18) == (clusters[maxN - 1].sector < 18)) {
+    if (((nWays - iWay) & 1) && (iWay != nWays - 1) && !track.CCE() && !track.Looper()) {
       ShiftZ2(clusters, merger, maxN);
     }
   }
   ConstrainSinPhi();
 
   GPUCA_DEBUG_STREAMER_CHECK(if (o2::utils::DebugStreamer::checkStream(o2::utils::StreamFlags::streamUpdateTrack, iTrk)) {
-    o2::utils::DebugStreamer::instance()->getStreamer("debug_accept_track", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("debug_accept_track").data() << "iTrk=" << iTrk << "outerParam=" << *outerParam << "track=" << this << "ihitStart=" << ihitStart << "\n";
+    o2::utils::DebugStreamer::instance()->getStreamer("debug_accept_track", "UPDATE") << o2::utils::DebugStreamer::instance()->getUniqueTreeName("debug_accept_track").data() << "iTrk=" << iTrk << "outerParam=" << track.OuterParam() << "track=" << this << "ihitStart=" << ihitStart << "\n";
   })
 
   if (!(N + NTolerated >= GPUCA_TRACKLET_SELECTOR_MIN_HITS_B5(mP[4] * param.qptB5Scaler) && 2 * NTolerated <= CAMath::Max(10, N) && CheckNumericalQuality(covYYUpd))) {
@@ -862,30 +862,31 @@ GPUd() void GPUTPCGMTrackParam::ShiftZ(const GPUTPCGMMerger* GPUrestrict() merge
   if (!merger->Param().par.continuousTracking) {
     return;
   }
-  const float r1 = CAMath::Max(0.0001f, CAMath::Abs(mP[4] * merger->Param().polynomialField.GetNominalBz()));
-
-  const float dist2 = mX * mX + mP[0] * mP[0];
-  const float dist1r2 = dist2 * r1 * r1;
   float deltaZ = 0.f;
   bool beamlineReached = false;
-  if (dist1r2 < 4) {
-    const float alpha = CAMath::ACos(1 - 0.5f * dist1r2); // Angle of a circle, such that |(cosa, sina) - (1,0)| == dist
-    const float beta = CAMath::ATan2(mP[0], mX);
-    const int32_t comp = mP[2] > CAMath::Sin(beta);
-    const float sinab = CAMath::Sin((comp ? 0.5f : -0.5f) * alpha + beta); // Angle of circle through origin and track position, to be compared to Snp
-    const float res = CAMath::Abs(sinab - mP[2]);
+  const float r1 = CAMath::Max(0.0001f, CAMath::Abs(mP[4] * merger->Param().polynomialField.GetNominalBz()));
+  if (r1 < 0.01501) { // 100 MeV @ 0.5T ~ 0.66m cutof
+    const float dist2 = mX * mX + mP[0] * mP[0];
+    const float dist1r2 = dist2 * r1 * r1;
+    if (dist1r2 < 4) {
+      const float alpha = CAMath::ACos(1 - 0.5f * dist1r2); // Angle of a circle, such that |(cosa, sina) - (1,0)| == dist
+      const float beta = CAMath::ATan2(mP[0], mX);
+      const int32_t comp = mP[2] > CAMath::Sin(beta);
+      const float sinab = CAMath::Sin((comp ? 0.5f : -0.5f) * alpha + beta); // Angle of circle through origin and track position, to be compared to Snp
+      const float res = CAMath::Abs(sinab - mP[2]);
 
-    if (res < 0.2) {
-      const float r = 1.f / r1;
-      const float dS = alpha * r;
-      float z0 = dS * mP[3];
-      if (CAMath::Abs(z0) > GPUTPCGeometry::TPCLength()) {
-        z0 = z0 > 0 ? GPUTPCGeometry::TPCLength() : -GPUTPCGeometry::TPCLength();
+      if (res < 0.2) {
+        const float r = 1.f / r1;
+        const float dS = alpha * r;
+        float z0 = dS * mP[3];
+        if (CAMath::Abs(z0) > GPUTPCGeometry::TPCLength()) {
+          z0 = z0 > 0 ? GPUTPCGeometry::TPCLength() : -GPUTPCGeometry::TPCLength();
+        }
+        deltaZ = mP[1] - z0;
+        beamlineReached = true;
+
+        // printf("X %9.3f Y %9.3f QPt %9.3f R %9.3f --> Alpha %9.3f Snp %9.3f Snab %9.3f Res %9.3f dS %9.3f z0 %9.3f\n", mX, mP[0], mP[4], r, alpha / 3.1415 * 180, mP[2], sinab, res, dS, z0);
       }
-      deltaZ = mP[1] - z0;
-      beamlineReached = true;
-
-      // printf("X %9.3f Y %9.3f QPt %9.3f R %9.3f --> Alpha %9.3f Snp %9.3f Snab %9.3f Res %9.3f dS %9.3f z0 %9.3f\n", mX, mP[0], mP[4], r, alpha / 3.1415 * 180, mP[2], sinab, res, dS, z0);
     }
   }
 
@@ -979,7 +980,7 @@ GPUd() void GPUTPCGMTrackParam::RefitTrack(GPUTPCGMMergedTrack& GPUrestrict() tr
   GPUTPCGMTrackParam t = track.Param();
   float Alpha = track.Alpha();
   CADEBUG(int32_t nTrackHitsOld = nTrackHits; float ptOld = t.QPt());
-  bool ok = t.Fit(merger, iTrk, merger->Clusters() + track.FirstClusterRef(), nTrackHits, NTolerated, Alpha, attempt, GPUCA_MAX_SIN_PHI, &track.OuterParam(), track.Leg());
+  bool ok = t.Fit(merger, iTrk, merger->Clusters() + track.FirstClusterRef(), nTrackHits, NTolerated, Alpha, attempt, GPUCA_MAX_SIN_PHI, track);
   CADEBUG(printf("Finished Fit Track %d\n", iTrk));
   CADEBUG(printf("OUTPUT hits %d -> %d+%d = %d, QPt %f -> %f, SP %f, ok %d chi2 %f chi2ndf %f\n", nTrackHitsOld, nTrackHits, NTolerated, nTrackHits + NTolerated, ptOld, t.QPt(), t.SinPhi(), (int32_t)ok, t.Chi2(), t.Chi2() / CAMath::Max(1, nTrackHits)));
 
@@ -993,7 +994,7 @@ GPUd() void GPUTPCGMTrackParam::RefitTrack(GPUTPCGMMergedTrack& GPUrestrict() tr
       NTolerated = 0; // Clusters not fit but tollerated for track length cut
       t = track.Param();
       Alpha = track.Alpha();
-      ok = t.Fit(merger, iTrk, merger->Clusters() + track.FirstClusterRef(), nTrackHits, NTolerated, Alpha, 1, GPUCA_MAX_SIN_PHI, &track.OuterParam(), track.Leg());
+      ok = t.Fit(merger, iTrk, merger->Clusters() + track.FirstClusterRef(), nTrackHits, NTolerated, Alpha, 1, GPUCA_MAX_SIN_PHI, track);
     } else {
       uint32_t nRefit = CAMath::AtomicAdd(&merger->Memory()->nRetryRefit, 1u);
       merger->RetryRefitIds()[nRefit] = iTrk;

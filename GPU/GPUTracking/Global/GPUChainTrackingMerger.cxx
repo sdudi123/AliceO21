@@ -196,11 +196,11 @@ int32_t GPUChainTracking::RunTPCTrackingMerger(bool synchronizeOutput)
   }
   runKernel<GPUMemClean16>({{numBlocks, -ThreadCount(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.SharedCount(), maxId * sizeof(*MergerShadowAll.SharedCount()));
   runKernel<GPUMemClean16>({{numBlocks, -ThreadCount(), 0, deviceType, RecoStep::TPCMerging}}, MergerShadowAll.ClusterAttachment(), maxId * sizeof(*MergerShadowAll.ClusterAttachment()));
-  runKernel<GPUTPCGMMergerPrepareClusters, 0>(GetGridAuto(0, deviceType));
+  runKernel<GPUTPCGMMergerPrepareForFit, 0>(GetGridAuto(0, deviceType));
   CondWaitEvent(waitForTransfer, &mEvents->single);
   runKernel<GPUTPCGMMergerSortTracksQPt>(GetGridAuto(0, deviceType));
-  runKernel<GPUTPCGMMergerPrepareClusters, 1>(GetGridAuto(0, deviceType));
-  runKernel<GPUTPCGMMergerPrepareClusters, 2>(GetGridAuto(0, deviceType));
+  runKernel<GPUTPCGMMergerPrepareForFit, 1>(GetGridAuto(0, deviceType));
+  runKernel<GPUTPCGMMergerPrepareForFit, 2>(GetGridAuto(0, deviceType));
 
   DoDebugAndDump(RecoStep::TPCMerging, GPUChainTrackingDebugFlags::TPCMergingPrepareFit, doGPU, Merger, &GPUTPCGMMerger::DumpFitPrepare, *mDebugFile);
 
