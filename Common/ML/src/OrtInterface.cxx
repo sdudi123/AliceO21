@@ -70,8 +70,7 @@ void OrtModel::initOptions(std::unordered_map<std::string, std::string> optionsM
     mEnvName = (optionsMap.contains("onnx-environment-name") ? optionsMap["onnx-environment-name"] : "onnx_model_inference");
     mDeterministicMode = (optionsMap.contains("deterministic-compute") ? std::stoi(optionsMap["deterministic-compute"]) : 0);
 
-      if (mDeviceType == "CPU")
-    {
+    if (mDeviceType == "CPU") {
       (mPImplOrt->sessionOptions).SetIntraOpNumThreads(mIntraOpNumThreads);
       (mPImplOrt->sessionOptions).SetInterOpNumThreads(mInterOpNumThreads);
       if (mIntraOpNumThreads > 1 || mInterOpNumThreads > 1) {
