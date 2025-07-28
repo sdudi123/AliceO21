@@ -664,7 +664,7 @@ int32_t GPUChainTracking::RunTPCClusterizer(bool synchronizeOutput)
     int32_t maxThreads = mRec->getNKernelHostThreads(true);
     // bool recreateMemoryAllocator = false;
     mRec->runParallelOuterLoop(doGPU, numLanes, [&](uint32_t lane) {
-      nnApplications[lane].init(nn_settings);
+      nnApplications[lane].init(nn_settings, GetProcessingSettings().deterministicGPUReconstruction);
       if (nnApplications[lane].mModelsUsed[0]) {
         SetONNXGPUStream(*(nnApplications[lane].mModelClass).getSessionOptions(), lane, &deviceId);
         (nnApplications[lane].mModelClass).setDeviceId(deviceId);
